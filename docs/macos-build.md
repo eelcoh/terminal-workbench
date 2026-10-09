@@ -93,7 +93,10 @@ just spike
 ```
 
 The first build downloads the pinned Ghostling, Ghostty VT and Raylib sources and
-builds them natively. No installed Ghostty app, Distrobox, X11 or Linux library
+builds them natively. All GitHub dependency fetches use SSH, including Raylib;
+the Mac needs a working GitHub SSH key (`ssh -T git@github.com`). Existing
+Ghostling dependency checkouts are migrated to the SSH origin automatically.
+No installed Ghostty app, Distrobox, X11 or Linux library
 packages are required for the Mac build. CMake links the Mac system frameworks.
 The first run starts Main and Scratch with two shells each. Later runs reuse your
 Mac's saved organization and live sessions. Close detaches; Stop terminates the

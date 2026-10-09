@@ -5,11 +5,14 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
 REVISION = "63842bf8e5e481160f81d348da9ff6fd27986798"
+GHOSTLING_REPOSITORY = "git@github.com:ghostty-org/ghostling.git"
 source = ROOT / ".local/deps/ghostling"
 destination = ROOT / ".local/ghostling-viewer"
 if not source.exists():
     source.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "clone", "https://github.com/ghostty-org/ghostling.git", str(source)], check=True)
+    subprocess.run(["git", "clone", GHOSTLING_REPOSITORY, str(source)], check=True)
+# Migrate dependency checkouts created by earlier HTTPS-based builds too.
+subprocess.run(["git", "-C", str(source), "remote", "set-url", "origin", GHOSTLING_REPOSITORY], check=True)
 subprocess.run(["git", "-C", str(source), "cat-file", "-e", REVISION], check=True)
 destination.mkdir(parents=True, exist_ok=True)
 def write_if_changed(path, data):
@@ -19,10 +22,20 @@ def write_if_changed(path, data):
 def upstream(path):
     return subprocess.check_output(["git", "-C", str(source), "show", f"{REVISION}:{path}"])
 
-for path in ["CMakeLists.txt", "bin2header.cmake", "LICENSE", "fonts/OFL.txt", "fonts/JetBrainsMono-Regular.ttf"]:
+for path in [ "bin2header.cmake", "LICENSE", "fonts/OFL.txt", "fonts/JetBrainsMono-Regular.ttf"]:
     target = destination / path
     target.parent.mkdir(parents=True, exist_ok=True)
     write_if_changed(target, upstream(path))
+
+# Adapt only our generated CMake file; the pinned upstream tree stays unchanged.
+cmake = upstream("CMakeLists.txt").decode()
+archive = "    DOWNLOAD_EXTRACT_TIMESTAMP OFF\n    URL https://github.com/raysan5/raylib/archive/refs/tags/${RAYLIB_VERSION}.tar.gz"
+assert cmake.count(archive) == 1, "pinned Raylib fetch declaration changed"
+cmake = cmake.replace(archive, "    GIT_REPOSITORY git@github.com:raysan5/raylib.git\n    GIT_TAG ${RAYLIB_VERSION}\n    GIT_SHALLOW TRUE")
+ghostty_repository = "GIT_REPOSITORY https://github.com/ghostty-org/ghostty.git"
+assert cmake.count(ghostty_repository) == 1, "pinned Ghostty fetch declaration changed"
+cmake = cmake.replace(ghostty_repository, "GIT_REPOSITORY git@github.com:ghostty-org/ghostty.git")
+write_if_changed(destination / "CMakeLists.txt", cmake.encode())
 
 text = upstream("main.c").decode()
 start = text.index("// Spawn the user's default shell")

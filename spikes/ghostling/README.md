@@ -12,7 +12,9 @@ Pinned dependencies:
 
 `scripts/prepare-ghostling.py` reads that exact upstream tree and generates the
 adapted source beneath `.local/`. It preserves the upstream license and font
-notice and leaves the dependency checkout unchanged. `session_bridge.h` is our
+notice and leaves the pinned dependency source files unchanged. GitHub fetches
+use SSH for Ghostling, Ghostty VT and Raylib; preparation also migrates an
+existing Ghostling checkout origin to SSH. `session_bridge.h` is our
 transport adapter. No Herdr code or keybindings are copied.
 
 Build with `just spike-build`. On Linux, the build needs CMake, Ninja, a C/C++

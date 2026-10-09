@@ -14,6 +14,8 @@ Herdr repository is reference material, not the governing project.
 - Do not copy upstream code without checking its license and preserving required
   notices and attribution. Choose the project's license with the owner before
   publishing or distributing code.
+- Use SSH for GitHub Git operations and dependency fetches. Do not use GitHub
+  HTTPS clones or archive downloads. Keep this preference in build scripts too.
 - Add dependencies only for a concrete implementation need.
 - Use `just check` for Rust validation and report platform checks separately.
 - On this workstation, run builds and install build dependencies inside the
