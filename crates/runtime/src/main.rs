@@ -1,0 +1,58 @@
+#[cfg(unix)]
+fn main() {
+    let mut args = std::env::args_os().skip(1);
+    let Some(socket) = args.next() else {
+        eprintln!("usage: workbench-session SOCKET [SHELL]");
+        std::process::exit(2);
+    };
+    if socket == "inspect" {
+        let Some(path) = args.next() else {
+            eprintln!("usage: workbench-session inspect SOCKET");
+            std::process::exit(2);
+        };
+        if args.next().is_some() {
+            std::process::exit(2);
+        }
+        match terminal_workbench_runtime::session::inspect(path.into()) {
+            Ok(snapshot) => print!("{snapshot}"),
+            Err(error) => {
+                eprintln!("inspect: {error}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
+    if socket == "stop" {
+        let Some(path) = args.next() else {
+            eprintln!("usage: workbench-session stop SOCKET");
+            std::process::exit(2);
+        };
+        if args.next().is_some() {
+            std::process::exit(2);
+        }
+        if let Err(error) = terminal_workbench_runtime::session::stop(path.into()) {
+            eprintln!("stop: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    let shell = args.next().unwrap_or_else(|| {
+        std::env::var_os("SHELL")
+            .filter(|path| std::path::Path::new(path).is_file())
+            .unwrap_or_else(|| "/bin/sh".into())
+    });
+    if args.next().is_some() {
+        eprintln!("usage: workbench-session SOCKET [SHELL]");
+        std::process::exit(2);
+    }
+    if let Err(error) = terminal_workbench_runtime::session::serve(socket.into(), shell) {
+        eprintln!("session: {error}");
+        std::process::exit(1);
+    }
+}
+
+#[cfg(not(unix))]
+fn main() {
+    eprintln!("the terminal integration spike currently targets macOS and Linux");
+    std::process::exit(1);
+}

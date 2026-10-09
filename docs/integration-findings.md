@@ -1,0 +1,129 @@
+# First integration findings
+
+## Source investigation
+
+Herdr was inspected at local revision
+`7bccfd8a73372269b8a2fdc72be3c44efd3dd8d0`.
+
+Its public API has pane reads, text/key input, organization, and agent metadata.
+`pane.read` returns formatted terminal state and a revision, rather than an
+ordered raw PTY output stream. `pane.resize` takes direction and amount for pane
+layout, rather than exact terminal columns/rows. The inspected subscriptions
+report organization, matches, and status rather than raw byte delivery.
+The client surface transport is a different integration path. Using Herdr as a
+graphical backend would therefore require an adapter or protocol additions.
+
+No Herdr implementation has been copied. The first spike uses an independent
+PTY runtime to establish process ownership and renderer attachment.
+
+The [current Ghostty embedder header](https://github.com/ghostty-org/ghostty/blob/main/include/ghostty.h)
+explicitly describes the full internal API as Mac-oriented and directs external
+embedders to the public VT library. The [official Ghostling example](https://github.com/ghostty-org/ghostling)
+demonstrates a cross-platform viewer using that public library and Raylib. Our
+adaptation pins its revision; it does not depend on a moving upstream branch.
+
+## Implemented
+
+- One Rust-owned PTY per session process, exposed through a private Unix socket.
+- A Ghostty VT terminal and Raylib window, attaching without owning the shell.
+- Ordered output/resize replay, with terminal query responses suppressed during
+  historical replay.
+- Bounded queues and a bounded history journal, with explicit attachment
+  rejection instead of replaying a truncated stream.
+- A launcher that starts/reuses saved sessions, initially Main and Scratch.
+- Persistent workspace/terminal creation and renaming with stable session IDs.
+- Runtime-owned foreground executable identification, optional subscriptions, and
+  agent labels/filtering, with unavailable metadata isolated from terminal transport.
+- A searchable terminal overview across workspaces, direct jumps, connection
+  labels, and live unseen-output marks.
+- A sidebar, two resizable terminal panes, independent focus/selection, and
+  unseen-output indicators for unfocused sessions.
+- Visible Close, Copy, and Paste controls; VT-backed text/word/line selection,
+  highlighted ranges, and plain-text copy with soft-wrap unwrapping.
+- Clipboard shortcuts, bracketed paste encoding, and return to live output on input.
+
+## Verification
+
+Linux validation runs inside the Fedora `build-machine` Distrobox. The graphical
+test uses its own Xvfb display and Mesa software rendering, leaving the user's
+desktop untouched. This establishes X11 behavior; native Wayland and physical
+GPU behavior have not been established.
+
+`just check` covers Rust formatting, Clippy, codec tests, and real PTY smoke tests.
+`just spike-gui-test` covers the renderer window, shell typing, Ctrl-C, Escape,
+resize, a real `vi` edit/save, alternate-screen output, graceful window close,
+and reconnection with the same shell PID and retained shell variables. It also
+checks real clipboard transfer, forward/reverse/word selection, wrapped Unicode
+copy, Unicode and bracketed multiline paste, mouse-app routing with Shift
+selection, scrollback copying, and return to live input.
+
+`just workspace-gui-test` verifies four distinct shell PIDs, workspace switching,
+focused input and clipboard ownership, per-pane selection, divider resizing of
+independent PTYs, hidden-session output, a real `vi` edit/save, reattachment of all
+four PIDs and shell variables, and shell exit without closing a sibling pane.
+
+`just management-gui-test` checks GUI create/rename, the same process and shell
+variables after renaming, Cancel/Escape isolation, empty-name rejection, desktop
+clipboard paste into a name field, third-terminal navigation, saved names and
+same-PID reopen. It also checks confirmed stop, foreground-job termination,
+surviving shell identities, empty states, and no resurrection of removed sessions.
+Overview checks cover name filtering, Escape/no-match input isolation, click and
+keyboard jumps across workspaces and to a third terminal, output while open, wheel
+scrolling and keyboard navigation at minimum window size. `just check` also validates catalog migration, unique identities,
+capacity, invalid-action isolation, and preservation of unsupported metadata.
+
+## Decision
+
+The runtime/viewer boundary is feasible, and the public Ghostty VT library is a
+viable parser/state foundation for this experiment. This does not yet establish
+Ghostling/Raylib as the final application toolkit. Its frame-based input,
+limited glyph loading, and lack of complete desktop text-input behavior
+leave substantial work before it can be a daily terminal.
+
+The pinned public library includes terminal snapshot APIs worth investigating
+for the next runtime step. Server-owned terminal state would replace the bounded
+byte journal and permit terminal query handling while no viewer is attached.
+
+macOS build/input/clipboard validation, IME, font fallback/shaping, edge-drag
+selection autoscroll, and final UI toolkit selection remain open. Linux clipboard
+and wheel scrollback checks pass; native Wayland clipboard behavior is unverified. The workspace sidebar is a
+Linux layout prototype with a cross-workspace terminal overview, saved organization
+and a management CLI, not a final
+workspace service. Live CLI hook compatibility, smoothly scrolling panes,
+navigation shortcuts and installable app packaging remain unimplemented.
+
+Confirmed close now removes terminals/workspaces while preserving surviving pane
+resources by identity. The runtime's private control socket supports stopping while
+attached; the helper records and recovers interrupted close intent before startup.
+Empty workspaces/catalogs remain usable. Old running binaries without the endpoint
+are rejected before any stop; macOS process-group behavior remains unverified.
+
+Foreground identification now samples the PTY group leader in the runtime and
+publishes labels through an optional metadata connection, including while detached.
+Linux native-process fixtures and GUI labels/Agents filtering are tested; current
+real CLI releases and the macOS adapter remain unverified. Executable/launcher
+recognition is a heuristic with wrapper/background limitations. Identity alone adds no agent
+working/waiting claims. Optional hook observers provide lifecycle status and
+a Needs input filter; runtime and GUI fixtures validate transitions, detach,
+clearing and legacy subscriptions. Real interactive agent releases and Mac hooks
+remain unverified. See [hook integration](agent-attention.md).
+
+
+The overview now defaults to a spatial workspace view with cached live terminal
+previews. An isolated Linux test uses fifteen independent shells to verify
+never-opened screen updates, unchanged PTY geometry on open/overview resize,
+two-axis navigation, filtering, small-window operation, and surviving shell PIDs.
+The compact list remains available. The spatial prototype now supports saved terminal moves and reordering. Mac validation is pending.
+
+
+Spatial Overview now has reversible 180 ms zoom transitions, with pending navigation
+committed after closing and a reduced-motion launch option. A queued-input regression
+found by fast GUI typing was fixed with bounded lookahead; the first character is
+retained even when its press/release occurs within one frame. Pure contract tests
+and isolated GUI tests cover both motion modes. Mac validation remains pending.
+
+`just move-gui-test` checks drag-to-move into empty/populated workspaces, reordering,
+filtered full-workspace rejection, cancellation, saved placement after reopening
+and live shell/socket/geometry continuity. Catalog tests reject invalid moves
+before saving, prove moves launch/stop no sessions, and verify live pane reuse.
+Native macOS drag validation remains pending.
