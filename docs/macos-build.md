@@ -186,3 +186,9 @@ the first window's sessions. Close the first window, then run `just spike` from
 macOS Terminal to test reconnection. Closing the window detaches its sessions;
 using `exit` or Stop ends a session. Busy sessions display "Open in another window"
 and remain usable in the window that owns them.
+
+Overview trackpad scrolling now uses fractional movement and short easing, with
+horizontal swipes to pan a workspace's terminals. Test gentle movements, longer
+swipes, reversal, and scrolling at both ends with a populated overview. Reduced
+motion keeps fractional movement but removes easing. Native acceptance remains
+pending; Linux validates the callback and populated GUI paths.

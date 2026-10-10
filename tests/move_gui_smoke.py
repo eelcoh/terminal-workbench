@@ -95,7 +95,7 @@ def main():
                 drag(170,560,10,310); assert (state/'workspaces.json').read_bytes()==saved
                 # Wheel while holding reveals a populated destination; insert before Two.
                 drag(170,560,170,560,False)
-                cmd('mousemove','--window',window,350,560); time.sleep(.08); cmd('click',5); time.sleep(.12)
+                cmd('mousemove','--window',window,350,560); time.sleep(.08); cmd('click','--repeat','8','--delay','40',5); time.sleep(.25)
                 cmd('mousemove','--window',window,80,560); time.sleep(.1); cmd('mouseup',1)
                 wait_until(lambda: ids(2)==['one','two','three']); assert ids(1)==[]
                 assert geometry()==before; alive()
@@ -108,15 +108,15 @@ def main():
                 wait_until(lambda: ids(1)==['one']); assert ids(2)==['two','three']
                 # A filtered-out populated row appends at its actual catalog count.
                 cmd('type','--window',window,'--delay',30,'--','One'); time.sleep(.15)
-                drag(170,300,500,560,False); cmd('click',5); time.sleep(.15)
+                drag(170,300,500,560,False); cmd('click','--repeat','8','--delay','40',5); time.sleep(.25)
                 cmd('mouseup',1); wait_until(lambda: ids(2)==['two','three','one'])
                 assert ids(1)==[] and geometry()==before; alive()
                 key('ctrl+a'); key('BackSpace'); time.sleep(.1)
                 # Filtered positions use catalog indices, and all rows become targets.
                 cmd('type','--window',window,'--delay',30,'--','One'); time.sleep(.15)
                 drag(170,300,500,560,False); time.sleep(.1)
-                cmd('click',5); time.sleep(.1) # Source + Empty -> Empty + Other
-                cmd('click',5); time.sleep(.1) # Other + Full
+                cmd('click','--repeat','8','--delay','40',5); time.sleep(.1) # Source + Empty -> Empty + Other
+                cmd('click','--repeat','8','--delay','40',5); time.sleep(.1) # Other + Full
                 cmd('mousemove','--window',window,500,560); time.sleep(.1); cmd('mouseup',1); time.sleep(.2)
                 assert ids(2)==['two','three','one'] and len(ids(3))==8
                 key('ctrl+a'); key('BackSpace'); time.sleep(.1)

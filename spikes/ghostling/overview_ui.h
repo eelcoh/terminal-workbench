@@ -13,7 +13,17 @@ static int overview_visible_rows(WorkspaceClient *client)
     int count = ((int)overview_bounds(client).height - 156) / 42;
     return count > 0 ? count : 1;
 }
-static Rectangle overview_row(WorkspaceClient *client, int index)
+static Rectangle overview_content(WorkspaceClient *client)
+{
+    Rectangle bounds = overview_bounds(client);
+    return (Rectangle){bounds.x+16,bounds.y+116,bounds.width-32,fmaxf(1,bounds.height-156)};
+}
+static void overview_clip(WorkspaceClient *client, Rectangle area)
+{
+    Rectangle clip = GetCollisionRec(overview_content(client),area);
+    BeginScissorMode((int)clip.x,(int)clip.y,(int)fmaxf(0,clip.width),(int)fmaxf(0,clip.height));
+}
+static Rectangle overview_row(WorkspaceClient *client, float index)
 {
     Rectangle bounds = overview_bounds(client);
     return (Rectangle){bounds.x + 16, bounds.y + 116 + index * 42, bounds.width - 32, 38};
@@ -93,6 +103,9 @@ static void overview_open(WorkspaceClient *client)
     client->overview_epoch++;
     client->overview_query[0] = '\0';
     client->overview_selected = client->overview_first = 0;
+    client->overview_scroll = (OverviewScroll){0};
+    for (int w=0;w<client->count;w++)
+        client->overview_horizontal[w] = (OverviewScroll){.position=client->overview_columns[w],.target=client->overview_columns[w],.command=client->overview_columns[w]};
     client->overview_all = false;
     client->divider_dragging = false;
     for (int w = 0; w < client->count; w++)
@@ -106,6 +119,7 @@ static void overview_open(WorkspaceClient *client)
         if (items[i].workspace == client->active && items[i].pane == client->workspaces[client->active].focused)
             client->overview_selected = i;
     overview_reveal(client, items, count);
+    overview_scroll_update(client,items,count,true);
 }
 
 static bool overview_requested(void)
@@ -208,26 +222,20 @@ static bool overview_input(WorkspaceClient *client)
         client->overview_list = !client->overview_list;
         overview_animation_target(&client->overview_animation, 1, GetTime(), 0);
         client->overview_first = 0;
+        client->overview_scroll = (OverviewScroll){0};
     }
     int count = overview_items(client, items), rows = overview_visible_rows(client);
-    if (changed) client->overview_selected = client->overview_first = 0;
+    if (changed) { client->overview_selected = client->overview_first = 0; client->overview_scroll = (OverviewScroll){0}; }
     if (client->overview_list) client->overview_selected += direction;
     if (client->overview_selected < 0) client->overview_selected = 0;
     if (client->overview_selected >= count) client->overview_selected = count > 0 ? count - 1 : 0;
     if (!client->overview_list) overview_spatial_move(client, items, count, horizontal, direction);
     if (changed || direction || horizontal) overview_reveal(client, items, count);
+    overview_scroll_update(client,items,count,changed);
     Rectangle bounds = overview_bounds(client);
     Vector2 pointer = GetMousePosition();
-    if (CheckCollisionPointRec(pointer, bounds)) {
-        float wheel = GetMouseWheelMove();
-        if (wheel && !client->overview_list && (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))) {
-            for (int i = 0; i < count; i++) if (!overview_column(items, i)) {
-                int group = overview_group(client, items, i);
-                Rectangle strip = {bounds.x, bounds.y + 116 + (group - client->overview_first) * overview_group_height(client), bounds.width, overview_group_height(client)};
-                if (CheckCollisionPointRec(pointer, strip)) client->overview_columns[items[i].workspace] += wheel > 0 ? -1 : 1;
-            }
-        } else if (wheel) client->overview_first += wheel > 0 ? (client->overview_list ? -3 : -1) : (client->overview_list ? 3 : 1);
-    }
+    overview_scroll_input(client,items,count);
+    overview_scroll_update(client,items,count,false);
     if (client->overview_list) {
         int limit = count - rows;
         if (limit < 0) limit = 0;
@@ -241,10 +249,10 @@ static bool overview_input(WorkspaceClient *client)
     else if (click && !client->overview_list) {
         for (int i = 0; i < count; i++) {
             int group = overview_group(client, items, i);
-            if (group < client->overview_first || group >= client->overview_first + overview_groups_visible(client)) continue;
+            if (!CheckCollisionPointRec(pointer,overview_content(client))) continue;
             if (!overview_column(items, i)) {
-                if (CheckCollisionPointRec(pointer, overview_pan_button(client, group, false))) client->overview_columns[items[i].workspace]--;
-                if (CheckCollisionPointRec(pointer, overview_pan_button(client, group, true))) client->overview_columns[items[i].workspace]++;
+                if (CheckCollisionPointRec(pointer, overview_pan_button(client, group, false))) overview_scroll_step(&client->overview_horizontal[items[i].workspace],&client->overview_columns[items[i].workspace],-1);
+                if (CheckCollisionPointRec(pointer, overview_pan_button(client, group, true))) overview_scroll_step(&client->overview_horizontal[items[i].workspace],&client->overview_columns[items[i].workspace],1);
             }
             if (overview_card_visible(client, items, i) && CheckCollisionPointRec(pointer, overview_card(client, items, i))) {
                 overview_drag_arm(client, items[i]); return false;
@@ -253,8 +261,8 @@ static bool overview_input(WorkspaceClient *client)
         overview_spatial_clamp(client, items, count);
     }
     else if (click)
-        for (int i = client->overview_first; i < count && i < client->overview_first + rows; i++)
-            if (CheckCollisionPointRec(pointer, overview_row(client, i - client->overview_first))) {
+        for (int i = (int)client->overview_scroll.position; i < count && i < client->overview_scroll.position + rows + 1; i++)
+            if (CheckCollisionPointRec(pointer,overview_content(client)) && CheckCollisionPointRec(pointer, overview_row(client, i - client->overview_scroll.position))) {
                 overview_jump(client, items[i]); return true;
             }
     return false;
@@ -266,7 +274,7 @@ static void overview_draw(WorkspaceClient *client)
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 160});
     ui_panel(bounds, ui.surface, true);
     DrawTextEx(client->font, client->overview_list ? "Terminal overview" : "Workspace overview", (Vector2){bounds.x + 24, bounds.y + 20}, 16, 0, ui.text);
-    DrawTextEx(client->font, client->overview_list ? "All workspaces / click a terminal to jump" : "Live previews / click to enter / scroll workspaces / Shift+scroll terminals", (Vector2){bounds.x + 24, bounds.y + 47}, 12, 0, ui.muted);
+    DrawTextEx(client->font, client->overview_list ? "All workspaces / click a terminal to jump" : "Live previews / click to enter / scroll workspaces / swipe sideways or Shift+scroll terminals", (Vector2){bounds.x + 24, bounds.y + 47}, 12, 0, ui.muted);
     draw_header_button(client->font, overview_theme_button(client), "Theme", true);
     draw_header_button(client->font, overview_view_button(client), client->overview_list ? "Spatial" : "List", true);
     draw_header_button(client->font, overview_waiting_button(client), client->overview_waiting ? "All states" : "Needs input", true);
@@ -285,22 +293,26 @@ static void overview_draw(WorkspaceClient *client)
     OverviewItem items[WORKBENCH_MAX_WORKSPACES * WORKBENCH_PANES];
     int count = overview_items(client, items), rows = overview_visible_rows(client);
     if (!client->overview_list) overview_spatial_draw(client, items, count);
-    else for (int i = client->overview_first; i < count && i < client->overview_first + rows; i++) {
+    else for (int i = (int)client->overview_scroll.position; i < count && i < client->overview_scroll.position + rows + 1; i++) {
         WorkbenchWorkspace *workspace = &client->workspaces[items[i].workspace];
         WorkbenchPane *pane = workspace->panes[items[i].pane];
-        Rectangle row = overview_row(client, i - client->overview_first);
+        Rectangle row = overview_row(client, i - client->overview_scroll.position);
         bool selected = i == client->overview_selected;
+        overview_clip(client,overview_content(client));
         DrawRectangleRec(row, selected ? ui.selected : ui.raised);
-        BeginScissorMode((int)row.x + 8, (int)row.y, (int)row.width - 164, (int)row.height);
+        EndScissorMode();
+        overview_clip(client,(Rectangle){row.x+8,row.y,row.width-164,row.height});
         DrawTextEx(client->font, pane->name, (Vector2){row.x + 10, row.y + 5}, 14, 0, ui.text);
         char detail[128];
         const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
         snprintf(detail, sizeof(detail), "%s%s%s", workspace->name, agent[0] ? " / " : "", agent);
         DrawTextEx(client->font, detail, (Vector2){row.x + 10, row.y + 23}, 12, 0, ui.muted);
         EndScissorMode();
+        overview_clip(client,overview_content(client));
         if (pane->unread) DrawCircle((int)(row.x + row.width - 146), (int)(row.y + 19), 3, ui.waiting);
         DrawTextEx(client->font, pane->closed ? (pane->transport.attached_elsewhere ? "Open elsewhere" : "Disconnected") : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected",
             (Vector2){row.x + row.width - 130, row.y + 12}, 12, 0, agent[0] ? remote_attention_color(pane->transport.attention) : ui.muted);
+        EndScissorMode();
     }
     if (!client->overview_list) overview_drag_draw(client, items, count);
     if (!count && (client->overview_list || !client->overview_group_count)) DrawTextEx(client->font, client->overview_waiting ? "No agents need input" : client->overview_agents ? "No identified agents" : client->overview_query[0] ? "No matching terminals" : "No terminals yet",

@@ -9,6 +9,7 @@
 
 #include "overview_animation.h"
 #include "pane_navigation.h"
+#include "overview_scroll.h"
 
 #define WORKBENCH_MAX_WORKSPACES 8
 #define WORKBENCH_PANES 8
@@ -85,6 +86,7 @@ typedef struct {
     int overview_selected, overview_first;
     char overview_query[64];
     int overview_columns[WORKBENCH_MAX_WORKSPACES];
+    OverviewScroll overview_scroll, overview_horizontal[WORKBENCH_MAX_WORKSPACES];
     uint64_t overview_epoch;
     OverviewAnimation overview_animation;
     bool overview_animation_enabled, overview_closing, overview_exit_has_card;

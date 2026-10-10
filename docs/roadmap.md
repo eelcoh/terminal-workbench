@@ -44,7 +44,8 @@ is now separate from workspace themes and terminal overrides, with stable chrome
 by default and optional follow-workspace colors. Working-view navigation now adds
 numbered focus/visibility positions, header-scoped wheel/trackpad navigation and
 continuous pane scrolling through intermediate terminals, with immediate input
-and reduced motion. Mac recovery, tap-to-click, new workspace/terminal creation
+and reduced motion. Overview scrolling now preserves fractional trackpad deltas
+with bounded speed, short easing and separate horizontal gestures. Mac recovery, tap-to-click, new workspace/terminal creation
 and continuous pane navigation have been confirmed by the owner. Full native
 input and UX acceptance remain open. See
 [appearance support](appearance.md). This starts milestones 2 and 3; it does not

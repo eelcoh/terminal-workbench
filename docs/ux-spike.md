@@ -184,3 +184,22 @@ smoothness. The owner confirmed that continuous pane navigation works on Mac,
 including an eight-to-one jump with alternating dark/light terminal themes.
 Full native input/UX acceptance, physical Linux/Wayland review, frame-time
 distributions and the final toolkit decision remain open.
+
+### Overview scrolling
+
+Overview scrolling now retains fractional two-axis wheel/trackpad deltas instead
+of turning any nonzero delta into one workspace or three list rows. A unit of
+GLFW wheel input moves 40 presentation pixels; large per-frame bursts are capped
+at 120 pixels. Short, time-based easing follows this target with immediate
+reversal and clamped boundaries. The OS-provided momentum is consumed as input;
+Workbench adds no extra fling. Reduced motion uses the same fractional targets
+without easing. Horizontal swipes and Shift+vertical scroll move the workspace
+under the pointer; ordinary vertical gestures scroll workspace rows or the list.
+
+Partial cards/list rows are clipped to the overview content area. Drawing,
+hit-testing, drag destinations and live-preview visibility use the same position;
+previews keep their existing cached refresh and never resize the PTY. Native
+Mac trackpad speed/feel still needs owner acceptance. Linux checks cover the
+native callback's accumulation/reset, pure fractional scrolling/reversal/bounds,
+normal and reduced-motion overview navigation, and drag scrolling. The populated
+GUI fixture can run with eight workspaces and eight terminals per workspace.

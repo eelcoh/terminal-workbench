@@ -16,13 +16,13 @@ static void overview_drag_notice(WorkspaceClient *client, const char *message)
 static Rectangle overview_drag_strip(WorkspaceClient *client, int group)
 {
     Rectangle bounds = overview_bounds(client);
-    return (Rectangle){bounds.x + 16, bounds.y + 116 + (group - client->overview_first) * overview_group_height(client),
+    return (Rectangle){bounds.x + 16, bounds.y + 116 + (group - client->overview_scroll.position) * overview_group_height(client),
         bounds.width - 32, overview_group_height(client) - 12};
 }
 static int overview_drag_target(WorkspaceClient *client, Vector2 pointer)
 {
-    for (int g = client->overview_first; g < client->overview_group_count && g < client->overview_first + overview_groups_visible(client); g++)
-        if (CheckCollisionPointRec(pointer, overview_drag_strip(client, g))) return g;
+    for (int g = 0; g < client->overview_group_count; g++)
+        if (CheckCollisionPointRec(pointer,overview_content(client)) && CheckCollisionPointRec(pointer, overview_drag_strip(client, g))) return g;
     return -1;
 }
 static int overview_drag_position(WorkspaceClient *client, OverviewItem *items, int count, int workspace, float x, float *marker)
@@ -89,24 +89,20 @@ static bool overview_drag_input(WorkspaceClient *client)
     int count = overview_items(client, items);
     if (client->overview_dragging && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
         Rectangle bounds = overview_bounds(client);
-        float wheel = GetMouseWheelMove();
         int group = overview_drag_target(client, pointer);
-        bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-        if (wheel && CheckCollisionPointRec(pointer, bounds)) {
-            if (shift && group >= 0) client->overview_columns[client->overview_groups[group]] += wheel > 0 ? -1 : 1;
-            else client->overview_first += wheel > 0 ? -1 : 1;
-        }
+        overview_scroll_input(client,items,count);
         if (GetTime() >= client->overview_drag_scroll && pointer.x >= bounds.x && pointer.x <= bounds.x + bounds.width) {
             float top = bounds.y + 116, bottom = bounds.y + bounds.height - 28;
-            if (pointer.y >= top - 18 && pointer.y < top + 20) client->overview_first--;
-            else if (pointer.y > bottom - 20 && pointer.y <= bottom + 18) client->overview_first++;
+            if (pointer.y >= top - 18 && pointer.y < top + 20) overview_scroll_step(&client->overview_scroll,&client->overview_first,-1);
+            else if (pointer.y > bottom - 20 && pointer.y <= bottom + 18) overview_scroll_step(&client->overview_scroll,&client->overview_first,1);
             else if (group >= 0) {
-                if (pointer.x < bounds.x + 40) client->overview_columns[client->overview_groups[group]]--;
-                else if (pointer.x > bounds.x + bounds.width - 40) client->overview_columns[client->overview_groups[group]]++;
+                if (pointer.x < bounds.x + 40) overview_scroll_step(&client->overview_horizontal[client->overview_groups[group]],&client->overview_columns[client->overview_groups[group]],-1);
+                else if (pointer.x > bounds.x + bounds.width - 40) overview_scroll_step(&client->overview_horizontal[client->overview_groups[group]],&client->overview_columns[client->overview_groups[group]],1);
             }
             client->overview_drag_scroll = GetTime() + .35;
         }
         overview_spatial_clamp(client, items, count);
+        overview_scroll_update(client,items,count,false);
     }
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) return false;
     bool dragging = client->overview_dragging;

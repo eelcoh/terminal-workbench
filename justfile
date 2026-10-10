@@ -85,3 +85,7 @@ runtime-core-scale: runtime-build
 # Real snapshot restoration and legacy negotiation fallback.
 snapshot-gui-test: spike-build
     python3 tests/snapshot_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Maximum populated catalog through overview scrolling and navigation.
+overview-scale-gui-test: spike-build
+    WORKBENCH_TEST_OVERVIEW_WORKSPACES=8 WORKBENCH_TEST_OVERVIEW_PANES=8 python3 tests/expose_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

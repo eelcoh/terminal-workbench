@@ -17,7 +17,7 @@ from session_smoke import attach, send, wait_until
 
 ROOT = Path(__file__).resolve().parent.parent
 
-def red_pixels(path, box):
+def red_pixels(path, box, centroid=False):
     # Decode Raylib's PNG screenshots with stdlib only; no imaging dependency.
     data = path.read_bytes()
     assert data[:8] == b'\x89PNG\r\n\x1a\n'
@@ -31,7 +31,7 @@ def red_pixels(path, box):
         if kind == b'IDAT': compressed.extend(body)
         offset += length + 12
     raw = zlib.decompress(compressed)
-    channels, offset, count = (4 if color == 6 else 3), 0, 0
+    channels, offset, count, weighted_y = (4 if color == 6 else 3), 0, 0, 0
     prior = bytearray(width * channels)
     for y in range(height):
         filter_kind = raw[offset]; offset += 1
@@ -54,16 +54,19 @@ def red_pixels(path, box):
         if box[1] <= y < box[3]:
             for x in range(box[0], box[2]):
                 r, g, b = row[x * channels:x * channels + 3]
-                count += r > 100 and r > 1.7 * g and r > 1.7 * b
+                red = r > 100 and r > 1.7 * g and r > 1.7 * b
+                count += red; weighted_y += red*y
         prior = row
-    return count
+    return weighted_y/count if centroid and count else count
 
 def main():
     runtime, viewer_binary = [str(Path(arg).resolve()) for arg in sys.argv[1:3]]
+    workspaces=int(os.environ.get('WORKBENCH_TEST_OVERVIEW_WORKSPACES','3')); panes=int(os.environ.get('WORKBENCH_TEST_OVERVIEW_PANES','5'))
+    assert 3<=workspaces<=8 and 5<=panes<=8
     with tempfile.TemporaryDirectory(prefix='wb-expose-') as directory:
         root = Path(directory); state = root / 'sessions'; state.mkdir()
         metadata = {'version': 1, 'workspaces': [{'id': f'w{w}', 'name': f'Workspace {w}',
-            'terminals': [{'id': f'w{w}p{p}', 'name': f'Terminal {p}'} for p in range(5)]} for w in range(3)]}
+            'terminals': [{'id': f'w{w}p{p}', 'name': f'Terminal {p}'} for p in range(panes)]} for w in range(workspaces)]}
         (state / 'workspaces.json').write_text(json.dumps(metadata))
         processes = []
         environment = dict(os.environ, SHELL='/bin/sh', LIBGL_ALWAYS_SOFTWARE='1',
@@ -73,8 +76,8 @@ def main():
             try:
                 subprocess.run(['python3', str(ROOT / 'scripts/workspace_catalog.py'), '--state-dir', str(state), '--runtime', runtime, '--cwd', str(root)], env=environment, stdout=log, stderr=log, check=True, timeout=20)
                 pids = {}
-                for w in range(3):
-                    for p in range(5):
+                for w in range(workspaces):
+                    for p in range(panes):
                         identity = f'w{w}p{p}'
                         connection, _, _ = attach(state / f'{identity}.sock')
                         send(connection, 16, f"keep={identity}; echo $$ > {identity}.pid; printf '\\033[32mWORKSPACE {w} TERMINAL {p}\\033[0m\\n'\n".encode())
@@ -142,6 +145,18 @@ def main():
                 assert geometry() == before, 'opening overview changed PTY geometry'
                 log.flush()
                 assert (root / 'test.log').read_text().count('Texture loaded successfully (384x240') == 8, 'offscreen previews allocated or live updates reallocated'
+                # One notch moves only 40 pixels, preserving a partial workspace
+                # rather than snapping to the next row. Trackpad fractions use the
+                # same path; callback and pure tests exercise sub-notch values.
+                command('mousemove','--window',window,180,290); command('click',5); time.sleep(.25)
+                partial=capture('overview-scroll-partial.png')
+                scroll_box=(44,300,305,700)
+                displacement=red_pixels(live,scroll_box,True)-red_pixels(partial,scroll_box,True)
+                assert 35<displacement<45, ('overview jumped instead of scrolling fractionally',displacement)
+                command('click',4); time.sleep(.25)
+                reversed_view=capture('overview-scroll-reversed.png')
+                assert abs(red_pixels(live,scroll_box,True)-red_pixels(reversed_view,scroll_box,True))<2
+                assert geometry()==before, 'overview scrolling resized a terminal'
                 reduced = os.environ.get('WORKBENCH_REDUCED_MOTION') == '1'
                 assert ('Texture loaded successfully (1240x760' in (root / 'test.log').read_text()) != reduced
                 if not reduced:
@@ -166,10 +181,10 @@ def main():
                 verify('w2p2', 'filtered-jump')
                 key('ctrl+shift+o'); text('Workspace 0')
                 command('mousemove', '--window', window, 180, 290)
-                command('keydown', 'Shift_L'); command('click', 5); command('keyup', 'Shift_L'); time.sleep(.2)
+                command('keydown', 'Shift_L'); command('click', '--repeat', '8', '--delay', '40', 5); command('keyup', 'Shift_L'); time.sleep(.2)
                 click(170, 300); verify('w0p1', 'shift-scroll')
                 key('ctrl+shift+o')
-                command('mousemove', '--window', window, 180, 290); command('click', 5); time.sleep(.2)
+                command('mousemove', '--window', window, 180, 290); command('click', '--repeat', '8', '--delay', '40', 5); time.sleep(.3)
                 click(170, 300); verify('w1p0', 'vertical-scroll')
                 key('ctrl+shift+o'); before = geometry()
                 command('windowsize', window, 800, 300); time.sleep(.3)
