@@ -1,4 +1,5 @@
 #include "theme_catalog.h"
+#include "appearance_state.h"
 /* Experimental client layout. Runtime processes remain independently owned.
  * Terminal setup/rendering builds on the MIT-licensed Ghostling example;
  * see LICENSE.ghostling for its copyright and permission notice. */
@@ -26,6 +27,7 @@ typedef struct {
     GhosttyRenderStateRowCells cells;
     GhosttyKittyGraphicsPlacementIterator images;
     EffectsContext effects;
+    Theme theme;
     RenderTexture2D canvas, preview;
     uint64_t preview_revision, preview_epoch;
     uint16_t preview_cols, preview_rows;
@@ -58,7 +60,11 @@ typedef struct {
     char theme_query[64];
     Theme theme_catalog[THEME_CATALOG_COUNT];
     int theme_catalog_ignored[THEME_CATALOG_COUNT];
-    Theme theme_before, theme_custom;
+    Theme theme_custom, theme_imported;
+    bool theme_has_import, appearance_dirty;
+    AppearanceState appearance, appearance_before;
+    int theme_scope;
+    char appearance_active[41];
     char theme_path[1024], theme_error[256];
     int dialog_kind, management_fd;
     pid_t management_pid;
@@ -84,6 +90,7 @@ typedef struct {
 
 static void pane_bind(WorkbenchPane *pane)
 {
+    active_terminal_theme = &pane->theme;
     active_remote = &pane->transport;
     active_selection = &pane->selection;
     client_surface = pane->bounds;
@@ -93,6 +100,7 @@ static void pane_bind(WorkbenchPane *pane)
 static void pane_unbind(void)
 {
     client_surface_active = false;
+    active_terminal_theme = NULL;
     active_remote = &single_remote;
     active_selection = &single_selection;
 }
@@ -123,7 +131,8 @@ static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
     pane_bind(pane);
     GhosttyResult result = ghostty_terminal_new(NULL, &pane->terminal, 80, 24);
     if (result != GHOSTTY_SUCCESS || !selection_ui_init()) return false;
-    ui_apply_terminal(pane->terminal);
+    pane->theme=client->appearance.defaults;
+    ui_apply_terminal(pane->terminal,&pane->theme);
     size_t history = 1000;
     ghostty_terminal_set(pane->terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_LINES, &history);
     ghostty_terminal_resize(pane->terminal, 80, 24, client->cell_width, client->cell_height);
@@ -131,7 +140,7 @@ static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
     if (pane->fd < 0) return false;
     pane->effects = (EffectsContext){ .pty_fd = pane->fd,
         .cell_width = client->cell_width, .cell_height = client->cell_height,
-        .cols = 80, .rows = 24 };
+        .cols = 80, .rows = 24, .theme=&pane->theme };
     ghostty_terminal_set(pane->terminal, GHOSTTY_TERMINAL_OPT_USERDATA, &pane->effects);
     ghostty_terminal_set(pane->terminal, GHOSTTY_TERMINAL_OPT_WRITE_PTY, (const void *)effect_write_pty);
     ghostty_terminal_set(pane->terminal, GHOSTTY_TERMINAL_OPT_SIZE, (const void *)effect_size);
@@ -335,6 +344,7 @@ static int workspace_main(const char *catalog)
 
     while (!WindowShouldClose()) {
         overview_motion_tick(client);
+        theme_sync(client);
         if (!client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
         bool theme_frame=client->theme_open;
         if (!client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
@@ -387,6 +397,7 @@ static int workspace_main(const char *catalog)
         }
         bool divider_consumed = client->divider_dragging;
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) client->divider_dragging = false;
+        theme_sync(client);
         bool layout_deferred = client->theme_open || (client->overview_open && !client->overview_list);
         if (!layout_deferred && !workspace_layout(client)) { exit_code = 1; break; }
         /* All sessions parse output. Only normal visible panes or visible
@@ -447,6 +458,7 @@ static int workspace_main(const char *catalog)
         }
         workspace = &client->workspaces[client->active];
         if (((overview_jumped && !client->overview_closing) || (layout_deferred && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
+        theme_sync(client);
         if (client->overview_open && !client->overview_list) overview_previews_refresh(client);
         BeginDrawing();
         ClearBackground(ui.background);

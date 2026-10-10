@@ -145,3 +145,13 @@ was corrected. Full Mac terminal/input/clipboard/gesture acceptance and this
 new appearance slice remain unverified. Software-rendered idle CPU is high;
 physical GPU and frame-time measurements remain open. No final toolkit decision
 has been made.
+
+
+Appearance preferences now live in a separate versioned client file. Application,
+default terminal, workspace and terminal palettes resolve independently; stable
+chrome is the default, and optional follow mode follows the active workspace rather
+than its focused terminal override. VT defaults, selection colors and color-scheme
+query replies use each pane's effective palette. Only appearance/organization events
+apply terminal palettes; ordinary frames do not scan preferences or reload files.
+Pure state checks cover inheritance, stable-ID moves and transactional parsing.
+Native macOS review of these controls remains pending.

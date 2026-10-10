@@ -91,10 +91,13 @@ reviewing the Workbench hooks in `/hooks`. The launchers add settings for that
 invocation; they do not edit global agent configuration. Existing shells need a
 new terminal for the updated runtime and PATH. See [hook details](docs/agent-attention.md).
 
-Use **Appearance** in the sidebar or **Theme** in the overview for live dark/light
-previews. Browse sample cards, search palettes and filter dark/light; the offline
-gallery includes Dracula and all four Catppuccin variants. Apply saves the palette; Cancel restores it without restarting shells.
-Import Ghostty color fields with `WORKBENCH_THEME=/path/to/theme just spike`.
+Use **Appearance** in the sidebar or **Theme** in the overview to browse palettes.
+Choose **Application**, **Workspace**, **Terminal**, or **Defaults**. Terminal overrides
+inherit from workspace colors when cleared; workspace colors inherit from Defaults.
+Chrome stays stable by default; **Follow active workspace** enables matching chrome.
+Apply saves all pending changes; Cancel restores the whole dialog. The offline
+gallery includes Dracula and all four Catppuccin variants. Import Ghostty color
+fields with `WORKBENCH_THEME=/path/to/theme just spike` to set terminal defaults.
 See [appearance support and limits](docs/appearance.md).
 
 Click **Close** in the top-right header to detach all shells, then run the

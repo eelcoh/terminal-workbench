@@ -1,6 +1,8 @@
 /* Presentation tokens shared by terminal chrome, overview and dialogs. */
 #include "theme_core.h"
 static Theme current_theme;
+static const Theme *active_terminal_theme;
+static const Theme *terminal_style(void) { return active_terminal_theme ? active_terminal_theme : &current_theme; }
 typedef struct { Color background, surface, raised, hover, border, text, muted, accent, selected, danger, waiting, ready; } UiStyle;
 static UiStyle ui;
 static Color ui_color(ThemeRgb rgb) { return (Color){rgb.r,rgb.g,rgb.b,255}; }
@@ -34,13 +36,13 @@ static void ui_panel(Rectangle bounds, Color fill, bool elevated)
     DrawRectangleRounded(bounds,.06f,10,fill);
     DrawRectangleRoundedLinesEx(bounds,.06f,10,1,ui.border);
 }
-static void ui_apply_terminal(GhosttyTerminal terminal)
+static void ui_apply_terminal(GhosttyTerminal terminal, const Theme *theme)
 {
-    GhosttyColorRgb foreground = {current_theme.foreground.r,current_theme.foreground.g,current_theme.foreground.b};
-    GhosttyColorRgb background = {current_theme.background.r,current_theme.background.g,current_theme.background.b};
-    GhosttyColorRgb cursor = {current_theme.cursor.r,current_theme.cursor.g,current_theme.cursor.b};
+    GhosttyColorRgb foreground = {theme->foreground.r,theme->foreground.g,theme->foreground.b};
+    GhosttyColorRgb background = {theme->background.r,theme->background.g,theme->background.b};
+    GhosttyColorRgb cursor = {theme->cursor.r,theme->cursor.g,theme->cursor.b};
     GhosttyColorRgb palette[256];
-    for (int i=0; i<256; i++) palette[i]=(GhosttyColorRgb){current_theme.palette[i].r,current_theme.palette[i].g,current_theme.palette[i].b};
+    for (int i=0; i<256; i++) palette[i]=(GhosttyColorRgb){theme->palette[i].r,theme->palette[i].g,theme->palette[i].b};
     ghostty_terminal_set(terminal,GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND,&foreground);
     ghostty_terminal_set(terminal,GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND,&background);
     ghostty_terminal_set(terminal,GHOSTTY_TERMINAL_OPT_COLOR_CURSOR,&cursor);

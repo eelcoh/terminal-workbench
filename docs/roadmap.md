@@ -39,7 +39,9 @@ behavior remain unverified. The current renderer is an experiment; it is not the
 
 The first UX slice now includes shared UI colors, rounded controls and live
 a searchable offline palette gallery with Night/Dawn, Dracula, Catppuccin and
-custom-color previews, Apply/Cancel and saved preferences. See
+custom-color previews, Apply/Cancel and saved preferences. Application appearance
+is now separate from workspace themes and terminal overrides, with stable chrome
+by default and optional follow-workspace colors. See
 [appearance support](appearance.md). This starts milestones 2 and 3; it does not
 complete the UX gate or choose the toolkit. UX exploration
 and a small theme-loading proof can accompany platform validation. The UX spike

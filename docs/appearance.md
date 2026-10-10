@@ -4,15 +4,42 @@ The workspace client now has shared surface, text, focus and status colors, roun
 controls, and a live appearance picker. These are the first runnable UX slice;
 owner review and native platform validation are still required.
 
-Open **Appearance** at the bottom of the workspace sidebar, or **Theme** in the
-overview. Browse terminal sample cards, type to search names, and choose **All**, **Dark**
-or **Light**. Click a card or use the arrow keys to preview it. Scroll the grid
-in smaller windows. Backspace edits the search; Ctrl+A (Command+A on Mac) or the
-search clear button clears it. A search with no matches keeps the picker open
-and disables Apply. Your running terminals, previews and chrome change together. **Apply** / Enter
-saves the colors; **Cancel** / Escape restores the exact colors from before opening.
-Theme changes do not restart shells or change PTY geometry. Output continues while
-the picker owns input. Save failures keep the picker open so you can retry or cancel.
+Open **Appearance** at the bottom of the sidebar, or **Theme** in the overview.
+The picker has four targets:
+
+| Target | What changes |
+| --- | --- |
+| Application | Sidebar, dialogs, overview surfaces and other chrome |
+| Workspace | Terminal colors for the active workspace |
+| Terminal | An override for the focused terminal, such as a remote shell |
+| Defaults | Fallback terminal colors for workspaces without a theme |
+
+Terminal colors resolve in this order: terminal override → workspace palette →
+default terminal palette. The application palette is separate. Stable chrome
+is the default: **Follow active workspace** starts unchecked. Checking it makes
+application colors follow the
+workspace palette, including its inherited default. A terminal override never
+changes chrome in this mode. Choosing an Application palette returns to stable
+chrome. This gives you project/machine colors while keeping the overview coherent.
+
+Browse sample cards, type to search names, and filter **All**, **Dark** or **Light**.
+Click a card or use arrows to preview. Scroll smaller grids. Backspace edits the
+search; Ctrl+A (Command+A on Mac) or the clear button clears it. With no matches,
+Apply is disabled. **Use defaults** removes a workspace override;
+**Use workspace** removes a terminal override.
+
+Switching targets keeps your pending changes. **Apply** / Enter saves the entire
+appearance dialog; **Cancel** / Escape restores all palettes, inheritance and
+follow mode from before opening. Save failures keep the preview open for retry or
+cancel. Output continues while the picker owns input. Palette changes do not
+restart shells, change PTY sizes, clear selection or send typed input to terminals.
+Every overview thumbnail retains that terminal's own colors.
+
+Themes follow stable IDs through renaming and reordering. Moving a terminal with
+an override keeps its colors; moving an inheriting terminal adopts the destination
+workspace palette. Newly created terminals inherit their workspace. Closed entities'
+preferences are pruned when organization is reconciled. Themes do not change shared
+runtime/session metadata or detect remote hosts automatically.
 
 The offline gallery includes:
 
@@ -35,10 +62,12 @@ Import a local theme when launching:
 WORKBENCH_THEME=/absolute/path/to/theme just spike
 ```
 
-An imported palette appears as **Custom colors**, unless its supported colors
-exactly match a bundled palette. Saved colors are matched to the gallery when
-reopening. This environment variable takes
-precedence over saved appearance on every launch. Unset it to use the saved colors.
+`WORKBENCH_THEME` overrides default terminal colors on each launch; explicit
+workspace/terminal palettes retain priority, and application appearance stays
+independent. A non-bundled imported palette is available as **Imported colors**
+for any picker target. A target's existing custom palette appears as **Custom
+colors**. Unset the environment variable to use saved defaults. Saved colors are
+matched to bundled palettes when reopening.
 The loader accepts this subset of Ghostty configuration syntax:
 
 | Field | Supported value |
@@ -57,26 +86,39 @@ intact. This is color-field compatibility, not a complete Ghostty configuration 
 Named colors, inline comments, includes, cursor text color, fonts, opacity and system
 light/dark following are outside this first slice.
 
-Apply writes `appearance.conf` in the launcher state directory (currently
-`.local/sessions`) using a temporary file and atomic replacement. Workspace/session
-organization remains separate. The saved file contains resolved colors, including
-all 256 palette entries; an import remains available in the current picker until
-restart. The bundled palettes are embedded at build time; only an explicitly imported
-file or saved preferences require appearance file reads at startup. The
-single-terminal renderer diagnostic has no appearance picker.
+Apply atomically replaces `appearance.state` in the launcher state directory
+(currently `.local/sessions`). It has a versioned client preference format and
+stores resolved RGB values for application/default/workspace/terminal palettes,
+including all 256 palette entries, plus follow mode. A malformed file is rejected
+before attaching; it is not overwritten. This is separate from `workspaces.json`.
+
+When `appearance.state` does not exist, an older `appearance.conf` is loaded as
+both application and default terminal colors, preserving the previous look.
+The next Apply writes the new format and leaves the old file intact. Once the new
+file exists it takes priority. The imported Ghostty format itself stays unchanged.
+
+Bundled palettes are embedded at build time. Only saved preferences and an explicit
+import require appearance reads at startup. Colors apply when appearance or
+organization changes; switching a workspace in follow mode updates chrome without
+reapplying every terminal palette. The single-terminal diagnostic has no picker.
 
 ## Evidence and remaining work
 
 `just theme-gui-test` exercises one and fifteen real terminals under Xvfb: live
 light/dark preview, cancellation, persistence/reopen, failed saves, imported fields,
-malformed-import isolation, unchanged process/socket identities and PTY geometry,
+malformed-import and malformed-state isolation, legacy preference migration,
+real per-pane light/dark color-scheme replies, unchanged process/socket identities
+and PTY geometry,
 and prevention of modal text reaching a shell. It also checks gallery search,
 dark/light filters, no-match behavior, Dracula/Latte apply/reopen, narrow-window
-navigation, and the same PTY geometry while the picker window is resized. It saves screenshots under
+navigation, mixed-color overview previews, stable/follow chrome, scoped
+Apply/Cancel, inheritance reset, moved override/inherited terminals, and the same
+PTY geometry while the picker window is resized. It saves screenshots under
 `.local/test-results/ux-*` and samples idle overview CPU.
 
 A larger theme catalog, font/typography controls, application color overrides,
 system appearance and accessibility semantics remain open. The loader has synthetic
-format/error checks and parses all five bundled official Ghostty files;
+format/error checks, scoped roundtrip/corruption/limit tests, and parses all five
+bundled official Ghostty files;
 compatibility beyond the documented color subset is not claimed. Native macOS and physical Linux desktop review must establish
 visual quality and interaction feel before the UX milestone can be called complete.

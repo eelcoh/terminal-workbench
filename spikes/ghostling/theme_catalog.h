@@ -4,7 +4,7 @@
 #define THEME_CATALOG_COUNT (2+(int)(sizeof(theme_bundled_names)/sizeof(theme_bundled_names[0])))
 static const char *theme_catalog_name(int index)
 {
-    return index==0 ? "Workbench Night" : index==1 ? "Workbench Dawn" : index<THEME_CATALOG_COUNT ? theme_bundled_names[index-2] : "Custom colors";
+    return index==0 ? "Workbench Night" : index==1 ? "Workbench Dawn" : index<THEME_CATALOG_COUNT ? theme_bundled_names[index-2] : index==THEME_CATALOG_COUNT ? "Custom colors" : "Imported colors";
 }
 static bool theme_catalog_load(Theme *themes, int *ignored, char *error, size_t capacity)
 {

@@ -105,10 +105,10 @@ replace_once('            // How many codepoints make up the grapheme? 0 = empty
                             && column <= selection.end_x;
             column++;
             // How many codepoints make up the grapheme? 0 = empty cell.""")
-replace_once('                x += cell_width;\n                continue;', '                if (selected)\n                    DrawRectangle(x, y, cell_width, cell_height, ui_color(current_theme.selection_background));\n                x += cell_width;\n                continue;')
+replace_once('                x += cell_width;\n                continue;', '                if (selected)\n                    DrawRectangle(x, y, cell_width, cell_height, ui_color(terminal_style()->selection_background));\n                x += cell_width;\n                continue;')
 replace_once('            Color ray_fg = { fg.r, fg.g, fg.b, 255 };', """            if (selected) {
-                fg = (GhosttyColorRgb){current_theme.selection_foreground.r, current_theme.selection_foreground.g, current_theme.selection_foreground.b};
-                bg_rgb = (GhosttyColorRgb){current_theme.selection_background.r, current_theme.selection_background.g, current_theme.selection_background.b};
+                fg = (GhosttyColorRgb){terminal_style()->selection_foreground.r, terminal_style()->selection_foreground.g, terminal_style()->selection_foreground.b};
+                bg_rgb = (GhosttyColorRgb){terminal_style()->selection_background.r, terminal_style()->selection_background.g, terminal_style()->selection_background.b};
                 has_bg = true;
             }
             Color ray_fg = { fg.r, fg.g, fg.b, 255 };""")
@@ -122,12 +122,13 @@ replace_once('        ghostty_key_event_set_unshifted_codepoint(event, ucp);', "
             pty_write(pty_fd, char_utf8, (size_t)char_utf8_len);
             char_utf8_len = 0;
         }""")
-replace_once('    (void)out_scheme;\n    return false;', '    *out_scheme = theme_light(&current_theme) ? GHOSTTY_COLOR_SCHEME_LIGHT : GHOSTTY_COLOR_SCHEME_DARK;\n    return true;')
+replace_once('    uint16_t rows;\n} EffectsContext;', '    uint16_t rows;\n    const Theme *theme;\n} EffectsContext;')
+replace_once('    (void)out_scheme;\n    return false;', '    const EffectsContext *context = userdata;\n    const Theme *theme = context && context->theme ? context->theme : &current_theme;\n    *out_scheme = theme_light(theme) ? GHOSTTY_COLOR_SCHEME_LIGHT : GHOSTTY_COLOR_SCHEME_DARK;\n    return true;')
 replace_once('int main(void)', 'static int single_terminal_main(void)')
 text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
 write_if_changed(destination / "main.c", text.encode())
 write_if_changed(destination / "session_bridge.h", (ROOT / "spikes/ghostling/session_bridge.h").read_bytes())
-for name in ["window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h"]:
+for name in ["window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h"]:
     write_if_changed(destination / name, (ROOT / "spikes/ghostling" / name).read_bytes())
 for collection in ["catppuccin", "dracula"]:
     target = destination / "theme-licenses" / collection / "LICENSE"

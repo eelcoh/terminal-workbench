@@ -115,3 +115,26 @@ filtering, dark/light apply/reopen and narrow-window scrolling are covered by th
 one/fifteen-terminal GUI check. Local screenshots add `gallery-*` artifacts.
 The source files pass through the same reader as imported Ghostty color files.
 This extends the runnable slice; native visual review and the toolkit gate stay open.
+
+
+Scoped appearance now separates application colors, workspace themes, terminal
+overrides and default terminal colors. Stable chrome is the default; follow-active-
+workspace mode offers matching chrome. A terminal override carries through moves,
+while an inheriting terminal adopts its destination's workspace colors. Mixed-color
+overview previews and a single Apply/Cancel transaction exercise both directions
+for owner review. Existing global preferences migrate without modifying session
+metadata; malformed scoped preferences remain untouched.
+
+
+Scoped appearance validation passed on Linux/Xvfb with one and fifteen live
+terminals. It covers mixed previews, stable/follow chrome, whole-dialog Cancel,
+inheritance reset, scope persistence/reopen, moved explicit and inheriting terminals,
+real light/dark color-scheme query responses, legacy migration and malformed-state
+preservation. The terminal/workspace/management/move and animated/reduced-motion
+overview GUI regressions also pass. Mac review remains open.
+
+The scoped run's two-second idle overview samples were 209.5% / 228.0% CPU for
+one terminal (Dawn / Night chrome), and 239.5% / 240.5% for fifteen: relative
+increases of 14.3% / 5.5%. These software-rendered samples have the same short-run
+variance and high absolute idle use described above; they do not establish native
+frame smoothness. No final toolkit or UX acceptance decision is implied.

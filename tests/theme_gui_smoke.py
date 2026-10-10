@@ -79,7 +79,7 @@ def main():
                         sockets[identity] = (state/f'{identity}.sock').stat().st_ino
                         connection.close()
                 read_fd, write_fd = os.pipe()
-                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
+                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
                 processes.append(xvfb); os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
                 env['DISPLAY'] = ':' + os.read(read_fd,32).decode().strip(); os.close(read_fd)
@@ -120,6 +120,18 @@ def main():
                     import shutil
                     target=artifacts/f'ux-{pane_count}-{name}.png'; shutil.copyfile(newest,target)
                     return target
+                def preferences():
+                    sections={}; current=None
+                    for line in (state/'appearance.state').read_text().splitlines():
+                        if line.startswith('@'): current=line[1:]; sections[current]={}
+                        elif current and '=' in line:
+                            k,v=line.split('=',1); sections[current][k.strip()]=v.strip()
+                    return sections
+                def choose(scope, name, apply=True):
+                    click(84,720)
+                    click([250,350,466,570][scope],156)
+                    cmd('type','--window',window,'--delay',20,'--',name)
+                    if apply: key('Return')
                 def cpu_sample():
                     begin=time.monotonic()
                     def ticks(): return sum(map(int,Path(f'/proc/{viewer.pid}/stat').read_text().split(') ',1)[1].split()[11:13]))
@@ -127,18 +139,18 @@ def main():
                     return round(100*(ticks()-baseline)/os.sysconf('SC_CLK_TCK')/(time.monotonic()-begin),1)
                 before=geometry()
                 click(84,720); capture('appearance-night')
-                click(615,244); light=capture('appearance-dawn')
+                click(615,280); light=capture('appearance-dawn')
                 # Background swatch lives inside the appearance dialog in both themes.
                 assert pixel(light,200,180)[0]>200
                 assert geometry()==before; alive()
                 cmd('type','--window',window,'--delay',20,'--','modal-text-must-not-reach-shell')
                 capture('gallery-no-match'); key('Return')
-                assert not (state/'appearance.conf').exists()
-                key('ctrl+a'); click(615,244)
-                (state/'appearance.conf').mkdir()
+                assert not (state/'appearance.state').exists()
+                key('ctrl+a'); click(615,280)
+                (state/'appearance.state').mkdir()
                 key('Return'); time.sleep(.1)
-                assert (state/'appearance.conf').is_dir(), 'failed save replaced metadata'
-                capture('save-error'); (state/'appearance.conf').rmdir()
+                assert (state/'appearance.state').is_dir(), 'failed save replaced metadata'
+                capture('save-error'); (state/'appearance.state').rmdir()
                 key('Escape'); time.sleep(.1)
                 # Cancellation returns to the exact previous terminal/UI palette.
                 click(84,720)
@@ -146,8 +158,9 @@ def main():
                 key('Escape')
                 key('ctrl+shift+o'); time.sleep(.25); before=geometry()
                 click(292,74); key('Right'); key('Return'); time.sleep(.15)
-                saved=wait_until(lambda:(state/'appearance.conf').exists() and (state/'appearance.conf').read_text())
-                assert 'background = #f4f1eb' in saved
+                saved=wait_until(lambda:(state/'appearance.state').exists() and (state/'appearance.state').read_text())
+                assert preferences()['application']['background']=='#f4f1eb'
+                assert preferences()['default']['background']=='#15191f'
                 assert geometry()==before; alive()
                 capture('overview-dawn')
                 day_cpu=cpu_sample()
@@ -158,21 +171,21 @@ def main():
                 capture('working-night'); key('ctrl+u') # Raylib's F12 debug key also reaches a normal terminal.
                 click(1196,16); assert viewer.wait(timeout=5)==0; alive()
                 viewer,window=start()
-                assert 'background = #15191f' in (state/'appearance.conf').read_text()
+                assert preferences()['application']['background']=='#15191f'
                 verify('w0p0','after-reopen')
                 click(1196,16); assert viewer.wait(timeout=5)==0
                 # Gallery filtering and selection use real bundled Ghostty colors.
                 viewer,window=start(); before=geometry(); click(84,720)
-                click(380,156); capture('gallery-light'); assert geometry()==before; alive()
-                click(308,156); capture('gallery-dark')
+                click(380,192); capture('gallery-light'); assert geometry()==before; alive()
+                click(308,192); capture('gallery-dark')
                 cmd('type','--window',window,'--delay',20,'--','Dracula')
                 capture('gallery-dracula'); key('Return')
-                assert 'background = #282a36' in (state/'appearance.conf').read_text()
+                assert preferences()['application']['background']=='#282a36'
                 assert geometry()==before; alive()
-                click(84,720); click(380,156)
+                click(84,720); click(380,192)
                 cmd('type','--window',window,'--delay',20,'--','Latte')
                 capture('gallery-latte'); key('Return')
-                assert 'background = #eff1f5' in (state/'appearance.conf').read_text()
+                assert preferences()['application']['background']=='#eff1f5'
                 assert geometry()==before; alive()
                 click(84,720); cmd('windowsize',window,720,480); time.sleep(.15)
                 key('Down'); key('Down'); key('Down'); capture('gallery-narrow')
@@ -181,18 +194,103 @@ def main():
                 assert geometry()==before; alive()
                 click(1196,16); assert viewer.wait(timeout=5)==0
                 viewer,window=start()
-                assert 'background = #eff1f5' in (state/'appearance.conf').read_text()
+                assert preferences()['application']['background']=='#eff1f5'
                 verify('w0p0','after-gallery-reopen'); click(1196,16); assert viewer.wait(timeout=5)==0
+                # Independent application, workspace and terminal palettes.
+                viewer,window=start(); before=geometry()
+                choose(0,'Workbench Night'); choose(1,'Dracula'); choose(2,'Latte')
+                # A real terminal query must describe the pane, independently of chrome.
+                (root/'color-query.py').write_text("import os,sys,termios,tty,select,time\nfrom pathlib import Path\nold=termios.tcgetattr(0)\ntry:\n tty.setraw(0)\n os.write(1,b'\\x1b[?996n')\n data=b''; deadline=time.monotonic()+3\n while time.monotonic()<deadline:\n  if select.select([0],[],[],.1)[0]:\n   data+=os.read(0,1024)\n   if data.endswith(b'n'): break\n Path(sys.argv[1]).write_bytes(data)\nfinally: termios.tcsetattr(0,termios.TCSANOW,old)\n")
+                def query(name, expected):
+                    cmd('type','--window',window,'--delay',10,'--',f'python3 color-query.py {name}'); key('Return')
+                    response=wait_until(lambda: (root/name).exists() and (root/name).read_bytes())
+                    assert response==expected, response
+                query('scheme-light',b'\x1b[?997;2n')
+                if pane_count>1:
+                    click(900,200); query('scheme-dark',b'\x1b[?997;1n'); click(300,200)
+                assert preferences()['application']['background']=='#15191f'
+                assert preferences()['workspace\tw0']['background']=='#282a36'
+                assert preferences()['terminal\tw0p0']['background']=='#eff1f5'
+                # Clearing an override previews inheritance, and Cancel restores it.
+                click(84,720); click(466,156); click(280,667)
+                assert 20<pixel(capture('inherit-preview'),300,730)[0]<40
+                key('Escape')
+                assert preferences()['terminal\tw0p0']['background']=='#eff1f5'
+                # Cancelling edits across scopes restores the whole dialog transaction.
+                choose(1,'Workbench Dawn',apply=False)
+                click(466,156); cmd('type','--window',window,'--delay',20,'--','Mocha')
+                key('Escape')
+                assert preferences()['workspace\tw0']['background']=='#282a36'
+                key('ctrl+shift+o'); time.sleep(.25)
+                mixed=capture('mixed-stable')
+                assert pixel(mixed,50,300)[0]>200, 'terminal override not shown in overview'
+                if pane_count>1: assert pixel(mixed,343,300)[0]<80, 'workspace theme not shown in sibling'
+                assert pixel(mixed,28,160)[0]<60, 'chrome followed a terminal override'
+                assert geometry()==before; alive()
+                key('Escape'); time.sleep(.25)
+                if pane_count>1:
+                    click(80,148); choose(1,'Mocha'); click(80,104)
+                    before=geometry() # Entering a never-opened workspace legitimately lays out its PTYs.
+                # Following uses the workspace palette even with a different terminal override.
+                click(84,720); click(920,156); key('Return')
+                assert 'follow\t1\n' in (state/'appearance.state').read_text()
+                key('ctrl+shift+o'); time.sleep(.25)
+                assert 45<pixel(capture('mixed-follow'),28,160)[0]<55
+                key('Escape'); time.sleep(.25)
+                if pane_count>1:
+                    click(80,148); key('ctrl+shift+o'); time.sleep(.25)
+                    assert 35<pixel(capture('follow-second'),28,160)[0]<43
+                    key('Escape'); time.sleep(.25); click(80,104)
+                assert geometry()==before; alive()
+                verify('w0p0','after-scoped-themes')
+                click(1196,16); assert viewer.wait(timeout=5)==0
+                if pane_count>1:
+                    # Reorganization changes inherited colors while explicit colors follow IDs.
+                    def catalog_move(identity,destination,position):
+                        subprocess.run(['python3',env['WORKBENCH_CATALOG_SCRIPT'],'--state-dir',str(state),'--runtime',runtime,'--cwd',str(root),'--command','terminal.move','--id',identity,'--to',destination,'--position',str(position)],env=env,stdout=log,stderr=log,check=True,timeout=10)
+                    catalog_move('w0p0','w1',0); catalog_move('w0p1','w1',1)
+                    viewer,window=start(); key('ctrl+shift+o'); time.sleep(.25)
+                    moved=capture('mixed-moved')
+                    assert pixel(moved,50,580)[0]>200, 'explicit palette lost after moving'
+                    assert pixel(moved,343,580)[0]<50, 'moved inherited terminal did not use destination palette'
+                    key('Escape'); time.sleep(.25); click(80,148)
+                    verify('w0p0','after-theme-move'); alive()
+                    click(1196,16); assert viewer.wait(timeout=5)==0
+                    catalog_move('w0p0','w0',0); catalog_move('w0p1','w0',1)
+                viewer,window=start(); verify('w0p0','after-scoped-reopen')
+                assert preferences()['terminal\tw0p0']['background']=='#eff1f5'
+                click(1196,16); assert viewer.wait(timeout=5)==0
                 # User-supplied Ghostty colors use the same loader and remain a selectable preview.
                 imported=root/'imported.theme'; imported.write_text('background=#202060\nforeground=#eeeeee\npalette=2=#00cc66\nfont-family=Ignored\n')
                 env['WORKBENCH_THEME']=str(imported)
                 viewer,window=start(); click(84,720)
+                cmd('type','--window',window,'--delay',20,'--','Imported')
                 capture('imported-theme'); key('Escape')
                 verify('w0p0','after-import'); click(1196,16); assert viewer.wait(timeout=5)==0; alive()
+                # Old global preferences migrate without rewriting their source file.
+                env.pop('WORKBENCH_THEME'); scoped=(state/'appearance.state').read_bytes()
+                (state/'appearance.state').unlink()
+                legacy=state/'appearance.conf'; legacy.write_text('background=#f4f1eb\nforeground=#303841\n')
+                viewer,window=start(); click(84,720)
+                assert pixel(capture('legacy-migration'),200,180)[0]>200
+                assert not (state/'appearance.state').exists()
+                key('Return')
+                assert preferences()['application']['background']=='#f4f1eb'
+                assert preferences()['default']['background']=='#f4f1eb'
+                assert legacy.read_text()=='background=#f4f1eb\nforeground=#303841\n'
+                click(1196,16); assert viewer.wait(timeout=5)==0; alive()
+                (state/'appearance.state').write_bytes(scoped)
+                # A malformed scoped file also fails before attaching and stays untouched.
+                bad=b'workbench-appearance-v1\nfollow\t2\n'
+                (state/'appearance.state').write_bytes(bad)
+                failed=subprocess.run([binary],env=env,cwd=root,stdout=log,stderr=log,timeout=5)
+                assert failed.returncode==1 and (state/'appearance.state').read_bytes()==bad; alive()
+                (state/'appearance.state').write_bytes(scoped)
+                env['WORKBENCH_THEME']=str(imported)
                 imported.write_text('background=not-a-color\n')
                 failed=subprocess.run([binary],env=env,cwd=root,stdout=log,stderr=log,timeout=5)
                 assert failed.returncode==1; alive()
-                print(f'PASS ({pane_count} panes): dark/light live preview, cancel, save failure, persistence, imported colors, malformed-theme preservation, unchanged PIDs/socket/geometry and modal input isolation; gallery search/filters, Dracula/Latte apply/reopen, no-match and narrow-window continuity; idle overview CPU Dawn={day_cpu}% Night={night_cpu}% (Xvfb/llvmpipe)')
+                print(f'PASS ({pane_count} panes): dark/light live preview, cancel, save failure, persistence, imported colors, malformed-theme preservation, unchanged PIDs/socket/geometry and modal input isolation; gallery search/filters, scoped stable/follow chrome, inheritance/reset/cancel, mixed previews and identity moves; idle overview CPU Dawn={day_cpu}% Night={night_cpu}% (Xvfb/llvmpipe)')
             finally:
                 if sys.exc_info()[0] and viewer is not None and viewer.poll() is None:
                     capture('failure')

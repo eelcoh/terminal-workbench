@@ -68,6 +68,7 @@ static bool management_poll(WorkspaceClient *client)
         if (workspace->focused >= workspace->first + 2) workspace->first = workspace->focused - 1;
         client->dialog_open = false;
         if (client->dialog_kind == DIALOG_TERMINAL_MOVE) overview_move_saved(client);
+        client->appearance_dirty=true;
         clipboard_notice("Saved");
     } else {
         const char *message = strstr(client->management_reply, "ERROR\t");
