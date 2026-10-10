@@ -18,8 +18,8 @@ existing Ghostling checkout origin to SSH. `session_bridge.h` is our
 transport adapter. No Herdr code or keybindings are copied.
 
 Build with `just spike-build`. On Linux, the build needs CMake, Ninja, a C/C++
-compiler, Zig 0.16.x, and Raylib's X11/OpenGL development dependencies. On macOS,
-use Xcode Command Line Tools, CMake, Ninja, and Zig 0.16.x. macOS is unverified.
+compiler, Zig 0.16.0, and Raylib's X11/OpenGL development dependencies. On macOS,
+use Xcode Command Line Tools, CMake, Ninja, and Zig 0.16.0. macOS is unverified.
 
 Start the foreground session server in one terminal:
 

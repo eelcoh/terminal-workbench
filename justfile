@@ -16,14 +16,11 @@ check:
     python3 tests/agent_smoke.py target/debug/workbench-session
     python3 tests/attention_smoke.py target/debug/workbench-session
     python3 tests/overview_animation_test.py
+    python3 tests/build_env_test.py
 
-# Terminal renderer experiment; requires CMake, Ninja and Zig 0.16.x.
+# Finds Zig 0.16.0 locally/on PATH, or uses an explicit ZIG executable.
 spike-build:
-    python3 scripts/prepare-agent-launchers.py
-    python3 scripts/prepare-ghostling.py
-    cmake -S .local/ghostling-viewer -B .local/build/viewer -G Ninja -DCMAKE_BUILD_TYPE=Release
-    cmake --build .local/build/viewer --parallel 2
-    cargo build --locked --bin workbench-session
+    python3 scripts/build-spike.py
 
 spike-run socket:
     WORKBENCH_SOCKET="{{socket}}" .local/build/viewer/ghostling

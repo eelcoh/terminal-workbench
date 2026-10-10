@@ -78,12 +78,12 @@ Continue only if the checksum reports `OK`:
 
 ```sh
 tar -xf "$wb_zig_archive" -C .local/tools
-export PATH="$PWD/.local/tools/$wb_zig_name:$PATH"
-zig version
+".local/tools/$wb_zig_name/zig" version
 ```
 
-Keep this Zig directory in PATH for later builds too. On Apple Silicon, use a
-native terminal/toolchain consistently; do not mix Rosetta and native build caches.
+The build wrapper discovers this repo-local Zig automatically; no PATH export is
+needed for later builds. On Apple Silicon, use a native terminal/toolchain
+consistently; do not mix Rosetta and native build caches.
 
 ## Build and run
 
@@ -91,6 +91,14 @@ native terminal/toolchain consistently; do not mix Rosetta and native build cach
 just spike-build
 just spike
 ```
+
+`just spike-build` and `just spike` use `scripts/build-spike.py`. It finds Zig 0.16.0
+in the native `.local/tools/zig-ARCH-macos-0.16.0` directory, `.local/tools/zig`, or
+PATH. For another installation, use `ZIG=/absolute/path/to/zig just spike`.
+An explicit ZIG override must be valid; it never silently selects another compiler.
+The wrapper sets PATH and ZIG for build subprocesses and passes the selected path
+to CMake, replacing any old cached Zig location. Your shell environment is unchanged.
+You can also build directly with `python3 scripts/build-spike.py`.
 
 The first build downloads the pinned Ghostling, Ghostty VT and Raylib sources and
 builds them natively. All GitHub dependency fetches use SSH, including Raylib;

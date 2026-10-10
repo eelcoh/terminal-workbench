@@ -120,8 +120,11 @@ docs/integration-findings.md  Source investigation, results, and open decisions
 ## Development
 
 Use a stable Rust toolchain and `just`. Renderer builds also need CMake, Ninja,
-a C/C++ compiler, Zig 0.16.x, and platform graphics development dependencies.
+a C/C++ compiler, Zig 0.16.0, and platform graphics development dependencies.
 On this workstation those tools live in the `build-machine` Distrobox.
+`just spike-build` automatically discovers Zig 0.16.0 in `.local/tools` or PATH.
+Use `ZIG=/absolute/path/to/zig just spike` to select another installation; the
+wrapper sets the build environment without changing your shell settings.
 
 From the project directory:
 
