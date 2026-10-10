@@ -207,9 +207,15 @@ def main():
                 key(window, "Escape")
                 type_line(window, ":wq")
                 assert wait_until(lambda: (root / "editor.txt").exists() and (root / "editor.txt").read_text()) == "workbench editor smoke\n"
-                # Escape must reach a terminal application, rather than close the app.
+                # Saving the file precedes vi's exit and restoration of the shell.
+                wait_until(lambda: b"live-output" in subprocess.check_output(
+                    [server_binary, "read", str(socket_path)], timeout=5))
+                # Escape reaches the terminal; abort its pending Readline Meta
+                # prefix before typing a new command (otherwise Esc+p searches history).
                 key(window, "Escape")
                 assert viewer.poll() is None
+                key(window, "ctrl+c")
+                time.sleep(0.1)
                 type_line(window, "printf '\\033[?1049h\\033[2JFULL_SCREEN\\n'; sleep 0.3; printf 'while_detached\\n'")
                 # Close through the visible in-app control, without a window manager.
                 command("mousemove", "--window", window, "1036", "16").check_returncode()

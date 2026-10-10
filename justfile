@@ -14,6 +14,7 @@ check: runtime-build
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
+    python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
     python3 tests/catalog_test.py
     python3 tests/socket_path_test.py target/debug/workbench-session
     python3 tests/move_test.py
@@ -37,6 +38,7 @@ spike-test: runtime-build
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
+    python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
 
 launch-gui-test: spike-build
     python3 tests/launch_diagnostics_test.py .local/build/viewer/ghostling
@@ -79,3 +81,7 @@ navigation-gui-test: spike-build
 # Runtime VT parsing cardinality, detached, fixed geometry (Linux diagnostic only).
 runtime-core-scale: runtime-build
     python3 tests/runtime_core_scale.py target/debug/workbench-session
+
+# Real snapshot restoration and legacy negotiation fallback.
+snapshot-gui-test: spike-build
+    python3 tests/snapshot_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

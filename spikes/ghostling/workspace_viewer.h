@@ -118,6 +118,7 @@ static void pane_unbind(void)
 static void pane_free(WorkbenchPane *pane)
 {
     pane_bind(pane);
+    free(pane->transport.snapshot);
     if (pane->fd >= 0) close(pane->fd);
     if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
     if (pane->canvas.id) UnloadRenderTexture(pane->canvas);
@@ -435,7 +436,7 @@ static int workspace_main(const char *catalog)
                 pane_bind(pane);
                 if (!pane->closed) {
                     uint64_t before = pane->transport.output_revision;
-                    if (pty_read(pane->fd, pane->terminal) != PTY_READ_OK) pane->closed = true;
+                    if (pty_read(pane->fd, &pane->terminal, &pane->effects) != PTY_READ_OK) pane->closed = true;
                     pane->effects.cols = pane->transport.cols;
                     pane->effects.rows = pane->transport.rows;
                     if (!focused && pane->transport.output_revision != before) pane->unread = true;

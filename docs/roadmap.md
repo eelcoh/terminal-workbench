@@ -12,7 +12,7 @@ reference for simplicity. Both qualities are part of the target.
 The Linux integration prototype has established:
 
 - Independent runtime-owned shell lifetime, detach and same-process reattachment
-  within the bounded replay journal.
+  through negotiated snapshots for new runtimes, with legacy replay fallback.
 - Workspace/terminal creation, naming, stopping and saved organization.
 - Terminal input, selection, clipboard, scrollback and independent resizing.
 - Searchable spatial/list overviews, live previews, zoom transitions and saved
@@ -55,8 +55,10 @@ Runtime hardening and platform/input validation are requirements before daily-us
 readiness. Packaging follows these foundations.
 
 Runtime hardening has started with runtime-owned VT state, bounded terminal-state
-exports and detached query handling. The current viewer still uses the 16 MiB
-replay journal; snapshot-based reattachment and a session service remain next.
+exports, detached query handling and negotiated snapshot-based reattachment. New
+runtimes/windows reconnect beyond the legacy 16 MiB journal limit; old running
+sessions retain replay fallback. A session service and explicit lifecycle/recovery
+policy remain next.
 See [the hardening slice and measurements](runtime-hardening.md).
 
 ## UX spike: a product-quality gate

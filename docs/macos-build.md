@@ -173,3 +173,9 @@ and SSH preference as `just spike`. `just check` now prepares that library befor
 Rust validation. New terminal-state/query behavior needs a newly created terminal;
 rebuilding preserves older running session processes. See
 [the runtime slice and native validation status](runtime-hardening.md).
+
+Snapshot-based reattachment is now implemented for newly created runtimes. After
+building, create a fresh terminal, leave output/application state in it, close the
+window and run `just spike` again. The same process should resume with its text
+and terminal modes. Older live runtimes use replay fallback. Linux Xvfb checks
+cover this path and long-output recovery; native Mac acceptance remains pending.

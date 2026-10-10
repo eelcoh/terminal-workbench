@@ -117,13 +117,14 @@ pasting returns to live output. Hold Shift to select inside mouse-enabled apps.
 
 The spike uses Linux X11/XWayland. Automated checks use an isolated Xvfb display.
 Full macOS interaction acceptance and native Wayland remain unverified. This is an integration experiment
-with bounded replay and incomplete desktop input support, not a daily terminal.
+with bounded scrollback and incomplete desktop input support, not a daily terminal.
 See [the spike's usage and limits](spikes/ghostling/README.md).
 
 New runtimes retain VT state and answer terminal queries while detached. The
 `read` and `snapshot` CLI commands inspect this state without opening a viewer;
-see [runtime hardening](docs/runtime-hardening.md). Snapshot-based window
-reattachment remains the next step; the current viewer still has its replay limit.
+see [runtime hardening](docs/runtime-hardening.md). New windows reconnect through
+terminal snapshots, so new runtimes keep accepting attachments beyond 16 MiB of
+output. Older live runtimes use replay fallback and retain their existing limit.
 
 ## Layout
 

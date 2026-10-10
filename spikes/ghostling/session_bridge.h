@@ -6,7 +6,11 @@
 
 /* Each pane owns transport state. Binding is confined to the UI thread. */
 typedef struct {
-    bool replaying, failed;
+    bool replaying, failed, snapshot_attempt, snapshot_seen, snapshot_done;
+    char session_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    uint8_t *snapshot;
+    size_t snapshot_size, snapshot_used;
+    double attach_started;
     uint16_t cols, rows, wanted_cols, wanted_rows;
     uint32_t cell_width, cell_height;
     uint8_t send_buffer[1024 * 1024], receive_buffer[65541];
@@ -18,6 +22,7 @@ typedef struct {
     char agent_control[sizeof(((struct sockaddr_un *)0)->sun_path)];
     size_t agent_used;
 } RemoteSession;
+static bool remote_restore_terminal(GhosttyTerminal *terminal, const uint8_t *bytes, size_t length, void *effects);
 static RemoteSession single_remote = { .replaying = true };
 static RemoteSession *active_remote = &single_remote;
 #define remote_replaying (active_remote->replaying)
@@ -36,6 +41,7 @@ static RemoteSession *active_remote = &single_remote;
 static void remote_fail(int fd, const char *reason)
 {
     fprintf(stderr, "session connection: %s\n", reason);
+    free(active_remote->snapshot); active_remote->snapshot = NULL;
     remote_failed = true;
     shutdown(fd, SHUT_RDWR);
 }
@@ -169,11 +175,28 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
         fprintf(stderr, "set WORKBENCH_SOCKET to the running session's socket\n");
         return -1;
     }
+    signal(SIGPIPE, SIG_IGN);
+    memcpy(active_remote->session_path, path, strlen(path) + 1);
     memcpy(address.sun_path, path, strlen(path) + 1);
+    char *extension = strrchr(address.sun_path, '.');
+    if (extension && !strcmp(extension, ".sock")) {
+        strcpy(extension, ".ctl");
+        active_remote->snapshot_attempt = true;
+    }
+    active_remote->attach_started = GetTime();
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) { perror("socket"); return -1; }
     if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        fprintf(stderr, "Could not attach to session socket %s: %s\n", path, strerror(errno)); close(fd); return -1;
+        if (!active_remote->snapshot_attempt) {
+            fprintf(stderr, "Could not attach to session socket %s: %s\n", path, strerror(errno)); close(fd); return -1;
+        }
+        active_remote->snapshot_attempt = false;
+        strcpy(address.sun_path, path);
+        if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) { close(fd); return -1; }
+    }
+    if (active_remote->snapshot_attempt) {
+        const char hello[] = "ATS1\nf64f4aca2c29b554d111b36c3d946a9bddd159ff";
+        if (send(fd, hello, sizeof(hello)-1, 0) != sizeof(hello)-1) { close(fd); return -1; }
     }
     int flags = fcntl(fd, F_GETFL);
     if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
@@ -209,11 +232,33 @@ static void pty_write(int fd, const char *bytes, size_t length)
 
 typedef enum { PTY_READ_OK, PTY_READ_EOF, PTY_READ_ERROR } PtyReadResult;
 
-static PtyReadResult pty_read(int fd, GhosttyTerminal terminal)
+/* Older control servers close unknown methods. Reconnect only before any
+ * snapshot response; malformed/partial snapshots never silently fall back. */
+static bool remote_legacy_fallback(int fd)
+{
+    struct sockaddr_un address = { .sun_family = AF_UNIX };
+    strcpy(address.sun_path, active_remote->session_path);
+    int replacement = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (replacement < 0) return false;
+    bool ok = connect(replacement, (struct sockaddr *)&address, sizeof(address)) == 0
+        && dup2(replacement, fd) >= 0;
+    close(replacement);
+    if (!ok) return false;
+    int flags = fcntl(fd, F_GETFL);
+    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) return false;
+    active_remote->snapshot_attempt = false;
+    active_remote->receive_length = 0;
+    fprintf(stderr, "session attachment: legacy replay fallback\n");
+    return true;
+}
+static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
 {
     remote_agent_read();
     remote_flush(fd);
     if (remote_failed) return PTY_READ_ERROR;
+    if (remote_replaying && GetTime() - active_remote->attach_started > 10.0) {
+        remote_fail(fd, "attachment timed out"); return PTY_READ_ERROR;
+    }
     /* Bound work per frame, including when a large replay is arriving. */
     for (int batch = 0; batch < 64; batch++) {
         if (receive_used >= 5) {
@@ -227,13 +272,35 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal terminal)
             if (receive_used >= length + 5) {
                 uint8_t kind = receive_queue[0];
                 const uint8_t *payload = receive_queue + 5;
-                if (kind == 1) {
-                    ghostty_terminal_vt_write(terminal, payload, length);
+                RemoteSession *remote = active_remote;
+                if (remote->snapshot_attempt) remote->snapshot_seen = true;
+                if (kind == 7 && length == 4 && remote->snapshot_attempt && !remote->snapshot && !remote->snapshot_done) {
+                    remote->snapshot_size = ((size_t)payload[0]<<24) | ((size_t)payload[1]<<16) | ((size_t)payload[2]<<8) | payload[3];
+                    if (!remote->snapshot_size || remote->snapshot_size > 64*1024*1024) {
+                        remote_fail(fd, "invalid snapshot size"); return PTY_READ_ERROR;
+                    }
+                    remote->snapshot = malloc(remote->snapshot_size);
+                    if (!remote->snapshot) { remote_fail(fd, "snapshot allocation failed"); return PTY_READ_ERROR; }
+                } else if (kind == 8 && length && remote->snapshot && length <= remote->snapshot_size-remote->snapshot_used) {
+                    memcpy(remote->snapshot+remote->snapshot_used,payload,length);
+                    remote->snapshot_used += length;
+                } else if (kind == 9 && !length && remote->snapshot && remote->snapshot_used == remote->snapshot_size) {
+                    if (!remote_restore_terminal(terminal,remote->snapshot,remote->snapshot_size,effects)) {
+                        remote_fail(fd, "invalid terminal snapshot"); return PTY_READ_ERROR;
+                    }
+                    free(remote->snapshot); remote->snapshot = NULL; remote->snapshot_done = true;
+                    ghostty_terminal_get(*terminal,GHOSTTY_TERMINAL_DATA_COLS,&remote->cols);
+                    ghostty_terminal_get(*terminal,GHOSTTY_TERMINAL_DATA_ROWS,&remote->rows);
+                    remote->output_revision++;
+                } else if (remote->snapshot_attempt && !remote->snapshot_done && kind != 4) {
+                    remote_fail(fd, "incomplete snapshot attachment"); return PTY_READ_ERROR;
+                } else if (kind == 1) {
+                    ghostty_terminal_vt_write(*terminal, payload, length);
                     if (!remote_replaying) active_remote->output_revision++;
                 } else if (kind == 2 && length == 4) {
                     remote_cols = ((uint16_t)payload[0] << 8) | payload[1];
                     remote_rows = ((uint16_t)payload[2] << 8) | payload[3];
-                    ghostty_terminal_resize(terminal, remote_cols, remote_rows,
+                    ghostty_terminal_resize(*terminal, remote_cols, remote_rows,
                                             remote_cell_width, remote_cell_height);
                 } else if (kind == 3 && length == 0) {
                     remote_replaying = false;
@@ -252,10 +319,16 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal terminal)
         ssize_t n = recv(fd, receive_queue + receive_used,
                          sizeof(receive_queue) - receive_used, 0);
         if (n > 0) { receive_used += (size_t)n; continue; }
-        if (n == 0) return PTY_READ_EOF;
+        if (n == 0) {
+            if (active_remote->snapshot_attempt && !active_remote->snapshot_seen && !receive_used
+                && remote_legacy_fallback(fd)) continue;
+            remote_fail(fd, "session stream closed"); return PTY_READ_EOF;
+        }
         if (errno == EINTR) continue;
         if (errno == EAGAIN || errno == EWOULDBLOCK) return PTY_READ_OK;
-        return PTY_READ_ERROR;
+        if (errno == ECONNRESET && active_remote->snapshot_attempt && !active_remote->snapshot_seen
+            && !receive_used && remote_legacy_fallback(fd)) continue;
+        remote_fail(fd, "session read failed"); return PTY_READ_ERROR;
     }
     return PTY_READ_OK;
 }

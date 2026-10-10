@@ -90,5 +90,38 @@ The VT is owned by the session event loop and reads output while detached.
 The runtime answers queries only without an attached viewer; legacy attached
 viewers keep their existing reply ownership. Reads do not claim viewer attachment
 or resize the PTY. Older control servers discard these unknown methods; the CLI
-reports endpoint unavailability without replacing their sessions. Snapshot-based
-viewer attachment is not implemented yet. See [runtime hardening](runtime-hardening.md).
+reports endpoint unavailability without replacing their sessions. New viewers negotiate snapshot attachment as described below. See [runtime hardening](runtime-hardening.md).
+
+
+## Snapshot attachment (ATS1)
+
+On the control socket, send exactly `ATS1\n` followed by the 40 ASCII bytes of
+VT revision `f64f4aca2c29b554d111b36c3d946a9bddd159ff`. This method switches the
+same stream to a persistent single-viewer terminal connection. Incompatible
+revisions, occupied sessions and export errors return kind 4 and close without
+claiming attachment or restarting the runtime. Old servers close unknown methods;
+a viewer may then reconnect through the legacy session socket.
+
+The initial server sequence is:
+
+| Kind | Payload |
+| --- | --- |
+| 7 | Four-byte big-endian complete snapshot length, nonzero and at most 64 MiB |
+| 8 | Snapshot bytes, in nonempty chunks of at most 65,536 bytes |
+| 9 | Empty snapshot finish marker |
+| 3 | Empty READY; live input and resize may begin |
+
+Snapshot capture and client registration occur on the same runtime event loop.
+Live kind 1/2 frames queued after capture follow READY on the writer thread.
+The client validates the exact declared length, complete Ghostty snapshot and
+pinned continuation limit before binding its local effects and colors. Snapshot
+geometry comes from the restored VT; desired window geometry is requested only
+after READY. The viewer owns live query replies just as it does with legacy
+attachment; restoration itself does not feed historical escape bytes or emit
+query replies. Input kinds 16/17 retain their existing meaning and bounds.
+
+Legacy attachment and its 16 MiB journal remain available and unchanged. Journal
+overflow rejects only legacy attachments; ATS1 can still capture current state.
+The current complete-snapshot implementation finishes all history before READY;
+incremental history decoding is future work. Snapshot bytes are experimental and
+are negotiated by exact VT revision, without a cross-version format promise.

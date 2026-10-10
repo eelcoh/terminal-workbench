@@ -70,8 +70,13 @@ identities, and session startup. It preserves `spike.sock` as Main's first shell
 when migrating the old fixed catalog. The shared organization is stored in
 `.local/sessions/workspaces.json`; a versioned TSV projection feeds the C viewer.
 New runtimes now retain their own VT state and support detached queries plus
-text/binary state reads. Viewer attachment still uses the bounded byte journal.
-A final runtime still needs snapshot-based attachment and a session service.
+text/binary state reads.
+New viewers negotiate a pinned snapshot attachment on the control endpoint.
+Capture and registration share the runtime event loop; the writer sends the
+snapshot and ready boundary before queued live output. The client decodes into
+a new VT and rebinds appearance/effects before feeding live bytes. Legacy
+connections keep ordered replay and its 16 MiB limit. A final runtime still needs
+a session service and lifecycle/recovery policy.
 See [the first runtime hardening slice](runtime-hardening.md).
 
 Each viewer pane owns its transport queues, VT instance, encoders, selection,

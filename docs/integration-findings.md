@@ -28,8 +28,8 @@ adaptation pins its revision; it does not depend on a moving upstream branch.
 - A Ghostty VT terminal and Raylib window, attaching without owning the shell.
 - Ordered output/resize replay, with terminal query responses suppressed during
   historical replay.
-- Bounded queues and a bounded history journal, with explicit attachment
-  rejection instead of replaying a truncated stream.
+- Bounded queues, runtime scrollback and negotiated snapshot attachment beyond
+  the legacy journal cap; replay fallback rejects a truncated journal.
 - A launcher that starts/reuses saved sessions, initially Main and Scratch.
 - Persistent workspace/terminal creation and renaming with stable session IDs.
 - Runtime-owned foreground executable identification, optional subscriptions, and
@@ -81,8 +81,9 @@ limited glyph loading, and lack of complete desktop text-input behavior
 leave substantial work before it can be a daily terminal.
 
 The pinned library now supplies runtime-owned terminal state, detached query
-handling and binary snapshot export. The viewer still attaches through the byte
-journal; negotiated snapshot attachment is the next runtime step. See
+handling, binary snapshot export and negotiated snapshot attachment with ordered
+live continuation. New viewers/runtimes reconnect beyond the legacy journal cap;
+older running sessions keep replay fallback. See
 [runtime hardening evidence and limits](runtime-hardening.md).
 
 macOS build/input/clipboard validation, IME, font fallback/shaping, edge-drag

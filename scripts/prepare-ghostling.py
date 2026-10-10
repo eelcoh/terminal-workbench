@@ -58,7 +58,7 @@ def replace_once(old, new):
 replace_once('InitWindow(800, 600, "ghostling");', 'InitWindow(960, 640, "Terminal Workbench — terminal spike");\n    SetExitKey(KEY_NULL);')
 replace_once('ioctl(pty_fd, TIOCSWINSZ, &new_ws);', '(void)new_ws;\n                remote_resize(pty_fd, term_cols, term_rows);')
 replace_once('bool child_reaped = false;', 'bool child_reaped = true; // The server owns process reaping.')
-replace_once('PtyReadResult pty_rc = pty_read(pty_fd, terminal);', """PtyReadResult pty_rc = pty_read(pty_fd, terminal);
+replace_once('PtyReadResult pty_rc = pty_read(pty_fd, terminal);', """PtyReadResult pty_rc = pty_read(pty_fd, &terminal, &effects_ctx);
             if (remote_cols && remote_rows) {
                 effects_ctx.cols = remote_cols;
                 effects_ctx.rows = remote_rows;
@@ -102,7 +102,7 @@ replace_once('        EndDrawing();', '        draw_window_controls(mono_font, s
 
 
 replace_once('    // Aim for about 1000 lines of scrollback.', '    if (!selection_ui_init()) { exit_code = 1; goto cleanup; }\n\n    // Aim for about 1000 lines of scrollback.')
-replace_once('    if (terminal)       ghostty_terminal_free(terminal);', '    selection_ui_free(terminal);\n    if (terminal)       ghostty_terminal_free(terminal);')
+replace_once('    if (terminal)       ghostty_terminal_free(terminal);', '    free(single_remote.snapshot);\n    selection_ui_free(terminal);\n    if (terminal)       ghostty_terminal_free(terminal);')
 # A tap can deliver both edges in one frame; emit both to mouse-aware terminals.
 replace_once('        if (IsMouseButtonPressed(rl_btn)) {', '        bool release_first = IsMouseButtonPressed(rl_btn)\n            && IsMouseButtonReleased(rl_btn) && IsMouseButtonDown(rl_btn);\n        for (int edge = 0; edge < 2; edge++) {\n        if (edge == (release_first ? 1 : 0) && IsMouseButtonPressed(rl_btn)) {')
 replace_once('} else if (IsMouseButtonReleased(rl_btn)) {', '} else if (edge == (release_first ? 0 : 1) && IsMouseButtonReleased(rl_btn)) {')
@@ -136,11 +136,11 @@ replace_once('        ghostty_key_event_set_unshifted_codepoint(event, ucp);', "
         }""")
 replace_once('    uint16_t rows;\n} EffectsContext;', '    uint16_t rows;\n    const Theme *theme;\n} EffectsContext;')
 replace_once('    (void)out_scheme;\n    return false;', '    const EffectsContext *context = userdata;\n    const Theme *theme = context && context->theme ? context->theme : &current_theme;\n    *out_scheme = theme_light(theme) ? GHOSTTY_COLOR_SCHEME_LIGHT : GHOSTTY_COLOR_SCHEME_DARK;\n    return true;')
-replace_once('int main(void)', 'static int single_terminal_main(void)')
+replace_once('int main(void)', '#include "snapshot_restore.h"\n\nstatic int single_terminal_main(void)')
 text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
 write_if_changed(destination / "main.c", text.encode())
 write_if_changed(destination / "session_bridge.h", (ROOT / "spikes/ghostling/session_bridge.h").read_bytes())
-for name in ["window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "navigation_ui.h"]:
+for name in ["snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "navigation_ui.h"]:
     write_if_changed(destination / name, (ROOT / "spikes/ghostling" / name).read_bytes())
 for collection in ["catppuccin", "dracula"]:
     target = destination / "theme-licenses" / collection / "LICENSE"

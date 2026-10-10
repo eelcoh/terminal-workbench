@@ -21,12 +21,20 @@ const READY: u8 = 3;
 const ERROR: u8 = 4;
 const INPUT: u8 = 16;
 const REQUEST_RESIZE: u8 = 17;
+const VT_REVISION: &[u8; 40] = b"f64f4aca2c29b554d111b36c3d946a9bddd159ff";
+
+fn snapshot_frames(bytes: &[u8]) -> Vec<Frame> {
+    let mut frames = vec![frame(7, &(bytes.len() as u32).to_be_bytes())];
+    frames.extend(bytes.chunks(MAX_PAYLOAD).map(|chunk| frame(8, chunk)));
+    frames.push(frame(9, &[]));
+    frames
+}
 
 type Frame = Arc<[u8]>;
 type Failure = Box<dyn std::error::Error + Send + Sync>;
 
 enum Event {
-    Attach(u64, UnixStream),
+    Attach(u64, UnixStream, bool),
     Detach(u64),
     Input(u64, Vec<u8>),
     Resize(u64, u16, u16),
@@ -86,6 +94,8 @@ fn start_client(
     events: SyncSender<Event>,
 ) -> io::Result<SyncSender<Frame>> {
     stream.set_write_timeout(Some(Duration::from_secs(2)))?;
+    // Control handshakes have a deadline; an attached viewer can stay idle.
+    stream.set_read_timeout(None)?;
     let mut reader = stream.try_clone()?;
     let mut writer = stream;
     let (frames_tx, frames_rx) = mpsc::sync_channel::<Frame>(256);
@@ -255,6 +265,20 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                 b"INFO\n" => Event::Inspect(stream),
                 b"TEXT\n" => Event::TerminalRead(stream, false),
                 b"SNAP\n" => Event::TerminalRead(stream, true),
+                b"ATS1\n" => {
+                    let mut revision = [0; 40];
+                    if stream.read_exact(&mut revision).is_err() {
+                        continue;
+                    }
+                    if &revision != VT_REVISION {
+                        let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                        let _ = stream
+                            .write_all(&frame(ERROR, b"incompatible terminal snapshot revision"));
+                        continue;
+                    }
+                    // Control and legacy listeners have independent ID counters.
+                    Event::Attach((id as u64) | (1 << 63), stream, true)
+                }
                 b"WATCH" => Event::Watch(id as u64, stream, false),
                 b"WAT2\n" => Event::Watch(id as u64, stream, true),
                 b"STATE" => {
@@ -308,7 +332,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
             match connection {
                 Ok(stream) => {
                     if accept_events
-                        .send(Event::Attach(index as u64, stream))
+                        .send(Event::Attach(index as u64, stream, false))
                         .is_err()
                     {
                         break;
@@ -333,8 +357,8 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
     let result = (|| -> Result<(), Failure> {
         for event in events_rx {
             let packet = match event {
-                Event::Attach(id, mut stream) => {
-                    if client.is_some() || !replay_available {
+                Event::Attach(id, mut stream, snapshot) => {
+                    if client.is_some() || (!snapshot && !replay_available) {
                         stream.set_write_timeout(Some(Duration::from_secs(2)))?;
                         let reason = if client.is_some() {
                             "a window is already attached"
@@ -344,10 +368,25 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                         let _ = stream.write_all(&frame(ERROR, reason.as_bytes()));
                         continue;
                     }
-                    client = Some((
-                        id,
-                        start_client(id, stream, history.clone(), events_tx.clone())?,
-                    ));
+                    // Capture and register on the same event thread: queued live
+                    // output follows exactly this snapshot, without gaps or duplication.
+                    let initial = if snapshot {
+                        match terminal.export(true) {
+                            Ok(bytes) => snapshot_frames(&bytes),
+                            Err(error) => {
+                                let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                                let _ =
+                                    stream.write_all(&frame(ERROR, error.to_string().as_bytes()));
+                                continue;
+                            }
+                        }
+                    } else {
+                        history.clone()
+                    };
+                    match start_client(id, stream, initial, events_tx.clone()) {
+                        Ok(frames) => client = Some((id, frames)),
+                        Err(error) => eprintln!("client {id} attachment failed: {error}"),
+                    }
                     continue;
                 }
                 Event::Detach(id) => {
@@ -479,7 +518,9 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                     // Never replay a truncated escape stream as a coherent screen.
                     replay_available = false;
                     history.clear();
-                    eprintln!("replay capacity reached; new attachments disabled for this spike");
+                    eprintln!(
+                        "legacy replay capacity reached; snapshot attachments remain available"
+                    );
                 }
             }
             if let Some((_, frames)) = &client {

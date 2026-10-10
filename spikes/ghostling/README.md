@@ -48,21 +48,23 @@ The socket and build directories live in the shared project directory.
 - One attached viewer per session. Each terminal runs in a separate runtime
   process; initially there are four sessions across Main and Scratch.
   A second viewer of the same session receives a rejection.
-- A 16 MiB in-memory output/resize journal. Reconnection is disabled after the
-  cap; live output continues. A final runtime needs authoritative terminal state
-  and bounded state snapshots, not an indefinitely growing output replay.
+- Runtime-owned state has bounded scrollback. New runtimes/viewers reconnect
+  through snapshots even after 16 MiB of output. Legacy replay fallback keeps
+  its 16 MiB attachment limit for older running sessions. Create a fresh terminal
+  after rebuilding to exercise snapshot attachment.
 - No disk recovery after server exit. Closing a window preserves a process;
   restarting the server does not.
-- Query replies are suppressed during replay. While detached, queries have no
-  viewer to answer them; programs that need these replies may stall. Server-owned
-  VT state is needed before detached agent execution is production-ready.
+- The runtime answers cursor/size/device/version queries while detached. Attached
+  viewers answer live queries; snapshot decoding emits no historical replies.
+  Detached appearance/pixel metrics and graphics restoration remain incomplete.
 - Raylib's input and font rendering limitations apply. IME,
   font fallback/shaping, and full Kitty keyboard behavior are not validated.
   This spike does not choose Raylib as the final UI toolkit.
 - The workspace UI is a layout experiment, capped at eight workspaces and eight
   terminals per workspace. Saved moves/reordering and optional hook-driven agent
-  status are implemented. Smooth horizontal scrolling, configurable navigation
-  shortcuts, visual-layout persistence, theming and packaging remain planned.
+  status, continuous horizontal navigation and scoped theming are implemented.
+  Configurable navigation shortcuts, visual-layout persistence and packaging
+  remain planned.
   See [the roadmap](../../docs/roadmap.md) and [UX spike](../../docs/ux-spike.md).
 
 ## Selection and clipboard
