@@ -207,3 +207,8 @@ GUI fixture can run with eight workspaces and eight terminals per workspace.
 Empty workspace rows keep the overview's background rather than drawing a separate
 filled or bordered container. Their label and drop hint remain visible; an active
 drag still supplies its insertion/drop feedback.
+
+For terminals owned by another window, Move here lives in the terminal header
+alongside Stop and Rename. Its explanation uses an opaque footer; neither the
+action nor its text floats over the retained terminal screen. Drawing and hit
+testing share the same button rectangle, including during pane navigation.

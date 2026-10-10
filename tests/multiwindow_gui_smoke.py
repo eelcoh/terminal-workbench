@@ -4,6 +4,7 @@ from pathlib import Path
 import json
 import os
 import select
+import shutil
 import socket
 import threading
 import subprocess
@@ -43,7 +44,7 @@ def main():
                 bootstrap=['python3',env['WORKBENCH_CATALOG_SCRIPT'],'--state-dir',str(state),'--runtime',runtime,'--cwd',str(root)]
                 subprocess.run(bootstrap,env=env,check=True,stdout=log,stderr=log,timeout=15)
                 read_fd,write_fd=os.pipe()
-                xvfb=subprocess.Popen(['Xvfb','-displayfd',str(write_fd),'-screen','0','1440x1000x24','-nolisten','tcp'],pass_fds=(write_fd,),stdout=log,stderr=log)
+                xvfb=subprocess.Popen(['Xvfb','-displayfd',str(write_fd),'-screen','0','1440x1000x24','-noreset','-nolisten','tcp'],pass_fds=(write_fd,),stdout=log,stderr=log)
                 processes.append(xvfb);os.close(write_fd)
                 assert select.select([read_fd],[],[],5)[0]
                 env['DISPLAY']=':'+os.read(read_fd,32).decode().strip();os.close(read_fd)
@@ -74,12 +75,15 @@ def main():
                 line(a,'keep=original; printf "%s" "$$" > original.pid')
                 pid=read('original.pid');inode=(state/'one.sock').stat().st_ino
                 second,b=launch(dict(env,WORKBENCH_CATALOG_SCRIPT=str(wrapper)))
-                click(b,250,155);time.sleep(.5)
+                key(b,'F12');time.sleep(.15)
+                artifacts=ROOT/'.local/test-results';artifacts.mkdir(exist_ok=True)
+                shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1],artifacts/'move-here-header.png')
+                click(b,535,58);time.sleep(.5)
                 line(b,'printf "%s:%s" "$$" "$keep" > transferred')
                 assert read('transferred')==pid+':original'
                 # Transfer just one pane: its sibling remains usable in window A.
                 click(a,900,250);line(a,'echo $$ > sibling.pid');sibling=read('sibling.pid')
-                click(a,250,155);time.sleep(.5)
+                click(a,535,58);time.sleep(.5)
                 line(a,'printf "%s:%s" "$$" "$keep" > returned')
                 assert read('returned')==pid+':original'
                 # GUI creation claims new terminals for the creating window even
@@ -91,7 +95,7 @@ def main():
                 click(a,84,238);line(a,'echo $$ > concurrent.pid')
                 assert read('concurrent.pid')!=new_pid
                 # Clicking the new row in A proves it appeared without relaunch.
-                click(a,84,194);click(a,250,155);time.sleep(.5)
+                click(a,84,194);click(a,1050,58);time.sleep(.5)
                 line(a,'printf "%s:%s" "$$" "$keep" > synchronized')
                 assert read('synchronized')==new_pid+':new'
                 # Saving an untouched rename dialog uses the refreshed name.
@@ -108,7 +112,7 @@ def main():
                 line(b,'keep=extra; echo $$ > extra.pid');extra_pid=read('extra.pid')
                 line(a,'printf "%s:%s" "$$" "$keep" > focus-retained')
                 assert read('focus-retained')==new_pid+':new'
-                click(a,780,155);time.sleep(.5)
+                click(a,1050,58);time.sleep(.5)
                 line(a,'printf "%s:%s" "$$" "$keep" > extra-synchronized')
                 assert read('extra-synchronized')==extra_pid+':extra'
                 subprocess.run(bootstrap+['--command','terminal.move','--id',extra,'--to','main'],env=env,check=True,stdout=log,stderr=log,timeout=10);time.sleep(.65)
@@ -122,7 +126,7 @@ def main():
                 click(a,84,106);click(a,300,250)
                 line(a,'printf "%s:%s" "$$" "$keep" > survived-close')
                 assert read('survived-close')==pid+':original'
-                click(b,84,106);click(b,250,155);time.sleep(.5)
+                click(b,84,106);click(b,535,58);time.sleep(.5)
                 line(b,'printf "%s:%s" "$$" "$keep" > close-sync')
                 assert read('close-sync')==pid+':original'
                 assert (state/'one.sock').stat().st_ino==inode
@@ -161,12 +165,12 @@ def main():
                 older_catalog=root/'old.tsv'
                 older_catalog.write_text(f'workbench-catalog-v3\nW\told\tEarlier runtime\nT\told\tone\tOne\t{alias}\n')
                 older,c=launch(dict(env,WORKBENCH_WORKSPACES=str(older_catalog)))
-                click(c,250,155);time.sleep(.6)
+                click(c,1050,58);time.sleep(.6)
                 log.flush();assert 'Earlier runtime: retrying ordinary attachment' in (root/'test.log').read_text()
                 line(b,'printf "%s:%s" "$$" "$keep" > old-owner-preserved')
                 assert read('old-owner-preserved')==pid+':original'
                 focus(b);close_window(b,env);assert second.wait(timeout=5)==0;time.sleep(.3)
-                click(c,250,155);time.sleep(.6)
+                click(c,1050,58);time.sleep(.6)
                 line(c,'printf "%s:%s" "$$" "$keep" > old-reconnect')
                 assert read('old-reconnect')==pid+':original'
                 focus(c);close_window(c,env);assert older.wait(timeout=5)==0

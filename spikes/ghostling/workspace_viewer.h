@@ -324,26 +324,32 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     render_terminal(pane->render, pane->rows, pane->cells, client->font,
                     client->cell_width, client->cell_height, 16, 4,
                     &scrollbar, pane->terminal, pane->images);
-    if (pane->closed && pane->transport.attached_elsewhere) {
-        BeginScissorMode(8, 38, (int)bounds.width-16, (int)bounds.height-38);
-        DrawTextEx(client->font,"Open in another window",(Vector2){10,48},14,0,ui.text);
-        DrawTextEx(client->font,pane->transport.takeover_unsupported
-            ? "Earlier runtime: close the owning window, then Move here."
-            : "Move the live terminal here to continue.",(Vector2){10,72},12,0,ui.muted);
+    if (pane->closed) {
+        /* Retain the frozen terminal screen, but keep connection feedback out
+         * of its text. The opaque footer belongs to client chrome. */
+        Rectangle footer={0,fmaxf(32,bounds.height-34),bounds.width,34};
+        DrawRectangleRec(footer,ui.surface);
+        BeginScissorMode(8,(int)footer.y,(int)bounds.width-16,34);
+        const char *hint=pane->transport.attached_elsewhere
+            ? (pane->transport.takeover_unsupported
+                ? "Earlier runtime: close the owning window, then Move here."
+                : "Move here to continue in the live terminal.")
+            : "Connection closed. Move here to try reconnecting.";
+        DrawTextEx(client->font,hint,(Vector2){10,footer.y+10},12,0,ui.muted);
         EndScissorMode();
     }
-    if (pane->closed)
-        draw_header_button(client->font,(Rectangle){10,100,104,28},"Move here",true);
     DrawRectangle(0, 0, (int)bounds.width, 32, ui.surface);
     char label[128];
     const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
     snprintf(label, sizeof(label), "%s%s%s%s%s%s", pane->name, agent[0] ? " / " : "", agent,
              agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
              pane->closed ? (pane->transport.attached_elsewhere ? "  /  open in another window" : "  /  connection closed") : pane->transport.replaying ? "  /  connecting" : "");
-    BeginScissorMode(8, 0, (int)bounds.width - 150, 32);
+    BeginScissorMode(8, 0, (int)bounds.width - (pane->closed ? 242 : 150), 32);
     DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, ui.text);
     EndScissorMode();
-    if (pane->unread) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
+    if (pane->unread && !pane->closed) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
+    if (pane->closed)
+        draw_header_button(client->font,terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height}),"Move here",true);
     if (client->managed) {
         draw_header_button(client->font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
         draw_header_button(client->font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);

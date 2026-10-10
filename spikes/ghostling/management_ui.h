@@ -186,9 +186,14 @@ static Rectangle terminal_stop(WorkbenchPane *pane)
 {
     return (Rectangle){pane->bounds.x + pane->bounds.width - 132, pane->bounds.y + 6, 54, 20};
 }
+/* One rectangle contract for window hit testing and canvas-local drawing. */
+static Rectangle terminal_move_here_bounds(Rectangle bounds)
+{
+    return (Rectangle){bounds.x+bounds.width-224,bounds.y+6,86,20};
+}
 static Rectangle terminal_move_here(WorkbenchPane *pane)
 {
-    return (Rectangle){pane->bounds.x+10,pane->bounds.y+100,104,28};
+    return terminal_move_here_bounds(pane->bounds);
 }
 static Rectangle workspace_stop(void) { return (Rectangle){150, 51, 26, 22}; }
 
