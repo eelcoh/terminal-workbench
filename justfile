@@ -18,6 +18,8 @@ check:
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
     python3 tests/build_env_test.py
+    python3 tests/recovery_test.py target/debug/workbench-session
+    python3 tests/launch_diagnostics_test.py
 
 # Finds Zig 0.16.0 locally/on PATH, or uses an explicit ZIG executable.
 spike-build:
@@ -29,6 +31,9 @@ spike-run socket:
 spike-test:
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
+
+launch-gui-test: spike-build
+    python3 tests/launch_diagnostics_test.py .local/build/viewer/ghostling
 
 spike-gui-test: spike-build
     python3 tests/gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
@@ -53,3 +58,7 @@ theme-gui-test: spike-build
 # Start/reuse the workspace sessions and attach a desktop window.
 spike: spike-build
     python3 scripts/run-spike.py
+
+# Explicitly recover dead session endpoints after a reboot or runtime crash.
+recover-sessions:
+    python3 scripts/workspace_catalog.py --state-dir .local/sessions --runtime target/debug/workbench-session --cwd . --command session.recover

@@ -173,7 +173,7 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) { perror("socket"); return -1; }
     if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("connect"); close(fd); return -1;
+        fprintf(stderr, "Could not attach to session socket %s: %s\n", path, strerror(errno)); close(fd); return -1;
     }
     int flags = fcntl(fd, F_GETFL);
     if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {

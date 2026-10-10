@@ -3,10 +3,13 @@
 from contextlib import contextmanager
 from pathlib import Path
 import argparse
+import errno
 import fcntl
 import json
 import os
 import subprocess
+import socket
+import stat
 import tempfile
 import time
 import uuid
@@ -103,6 +106,48 @@ def snapshot(directory, data):
             lines.append("\t".join(["T", workspace["id"], terminal["id"], terminal["name"], str(socket_path(directory, terminal))]))
     return "\n".join(lines) + "\n"
 
+def endpoint_alive(path):
+    """Probe without sending input. Only absence/refusal establishes a dead endpoint."""
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(1)
+        try:
+            connection.connect(str(path))
+            return True
+        except OSError as error:
+            if error.errno in (errno.ENOENT, errno.ECONNREFUSED):
+                return False
+            raise ValueError(f"Could not check session endpoint {path}: {error}") from error
+
+
+def recover_sessions(directory, data):
+    """Explicit recovery, under the catalog lock; never remove a listening endpoint."""
+    stale = []
+    for workspace in data["workspaces"]:
+        for terminal in workspace["terminals"]:
+            path = socket_path(directory, terminal)
+            paths = [path.with_suffix(".ctl"), path]
+            if any(endpoint_alive(endpoint) for endpoint in paths):
+                continue
+            for endpoint in paths:
+                try:
+                    metadata = endpoint.lstat()
+                except FileNotFoundError:
+                    continue
+                if not stat.S_ISSOCK(metadata.st_mode) or metadata.st_uid != os.getuid():
+                    raise ValueError(f"Refusing to recover a non-socket or unowned endpoint: {endpoint}")
+                stale.append((endpoint, metadata.st_dev, metadata.st_ino))
+    # Validate the whole plan before removing anything, then recheck each endpoint.
+    for path, device, inode in stale:
+        metadata = path.lstat()
+        if (metadata.st_dev, metadata.st_ino) != (device, inode) or endpoint_alive(path):
+            raise ValueError(f"Session endpoint changed during recovery: {path}; retry")
+    for path, device, inode in stale:
+        metadata = path.lstat()
+        if (metadata.st_dev, metadata.st_ino) != (device, inode) or endpoint_alive(path):
+            raise ValueError(f"Session endpoint changed during recovery: {path}; retry")
+        path.unlink()
+
+
 def ensure_sessions(directory, data, runtime, cwd):
     started = []
     try:
@@ -110,6 +155,8 @@ def ensure_sessions(directory, data, runtime, cwd):
             for terminal in workspace["terminals"]:
                 path = socket_path(directory, terminal)
                 if path.exists():
+                    if not (endpoint_alive(path.with_suffix(".ctl")) or endpoint_alive(path)):
+                        raise ValueError(f"Session {terminal['id']} has a socket but no listening server ({path}). Run just recover-sessions, then just spike")
                     continue
                 log_path = directory / f"{terminal['id']}.log"
                 with log_path.open("ab") as log:
@@ -234,6 +281,9 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
     with locked(directory):
         data = load(directory)
         # Recover interrupted close before any startup, never resurrect its shells.
+        if method == "session.recover":
+            recover_sessions(directory, data)
+            method = "initialize"
         finish_close(directory, runtime, data)
         if method in {"terminal.close", "workspace.close"}:
             close_sessions(directory, runtime, data, method, identity)

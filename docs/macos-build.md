@@ -142,3 +142,22 @@ reduced motion (`WORKBENCH_REDUCED_MOTION=1 just spike`).
 If a build or launch fails, keep the command and its error output. Runtime logs
 live under `.local/sessions`. Build/runtime caches and logs stay ignored by Git.
 See [the platform acceptance checks](first-spike.md) and [roadmap](roadmap.md).
+
+## Startup diagnostics
+
+Every viewer launch appends stdout, stderr, a timestamp and the exit code to
+`.local/sessions/viewer.log`, while also showing its output in the terminal.
+Shell runtime logs remain separate (`.local/sessions/TERMINAL-ID.log`); they
+need not change when attaching to an existing session. If `just spike` exits
+with code 1, inspect the viewer log first. Raylib's “Window closed successfully”
+message reports cleanup and can appear after a startup or attachment failure.
+Do not delete saved sockets to diagnose this: the log identifies a failed
+attachment's socket path, and existing sessions are preserved.
+
+If startup reports a socket with no listening server (for example after a reboot),
+run `just recover-sessions`, then `just spike`. Recovery probes both the terminal
+and control sockets and preserves any session with a listening endpoint. It only
+removes owned, dead socket files; other files and symlinks are rejected. Dead
+sessions start fresh shells with their saved names and IDs. Their previous shell
+process and in-memory output cannot be restored. Workspace organization and
+appearance preferences are retained. Normal startup never deletes socket files.

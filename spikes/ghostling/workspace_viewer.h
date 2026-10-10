@@ -310,7 +310,7 @@ static int workspace_main(const char *catalog)
 {
     WorkspaceClient *client = calloc(1, sizeof(*client));
     if (!client) return 1;
-    if (!workspace_catalog(client, catalog)) { free(client); return 1; }
+    if (!workspace_catalog(client, catalog)) { fprintf(stderr, "Could not load workspace catalog: %s\n", catalog); free(client); return 1; }
     client->catalog_path = catalog;
     client->managed = getenv("WORKBENCH_CATALOG_SCRIPT") != NULL;
     client->management_fd = -1;
@@ -323,6 +323,7 @@ static int workspace_main(const char *catalog)
     if (!theme_initialize(client)) { free(client); return 1; }
     SetConfigFlags(FLAG_WINDOW_HIGHDPI);
     InitWindow(1240, 760, "Terminal Workbench — workspace spike");
+    if (!IsWindowReady()) { fprintf(stderr, "Workbench window initialization failed\n"); free(client); return 1; }
     SetExitKey(KEY_NULL);
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetWindowMinSize(800, 300);
@@ -340,7 +341,11 @@ static int workspace_main(const char *catalog)
     ghostty_sys_set(GHOSTTY_SYS_OPT_DECODE_PNG, (const void *)decode_png);
     for (int w = 0; w < client->count; w++)
         for (int p = 0; p < client->workspaces[w].count; p++)
-            if (!pane_init(client, client->workspaces[w].panes[p])) { exit_code = 1; goto cleanup; }
+            if (!pane_init(client, client->workspaces[w].panes[p])) {
+                fprintf(stderr, "Could not initialize terminal %s (socket: %s)\n",
+                    client->workspaces[w].panes[p]->id, client->workspaces[w].panes[p]->socket_path);
+                exit_code = 1; goto cleanup;
+            }
 
     while (!WindowShouldClose()) {
         overview_motion_tick(client);
