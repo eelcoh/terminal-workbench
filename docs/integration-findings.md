@@ -155,3 +155,29 @@ query replies use each pane's effective palette. Only appearance/organization ev
 apply terminal palettes; ordinary frames do not scan preferences or reload files.
 Pure state checks cover inheritance, stable-ID moves and transactional parsing.
 Native macOS review of these controls remains pending.
+
+### macOS trackpad taps
+
+The owner confirmed startup on the Mac after session recovery, but reported pane
+focus requiring a physical click despite system tap-to-click being enabled.
+Raylib 5.5's GLFW input only compared final button states; a press and release
+within one poll disappeared. The prototype now uses a marked local Raylib
+adaptation that latches both edges until the next poll, retaining actual held
+state. Selection gestures and terminal mouse encoding process both edges in order.
+The build fetches the pinned Raylib rather than accepting an unpatched system
+library. The adaptation retains Raylib's zlib license and copyright notices.
+Native trackpad acceptance on the Mac remains pending.
+
+The local adaptation is implemented by `scripts/patch-raylib-input.py`, applied
+at CMake configure time to `rcore.c` and `platforms/rcore_desktop_glfw.c` from
+Raylib tag `5.5`. Keep it until the chosen backend provides per-poll mouse
+press/release events that survive a complete click in one poll. Before removing
+it, pass the actual callback/query test and the paused-viewer tap regressions.
+
+Validation: the callback/query test fails at the short-tap assertion against
+unmodified Raylib 5.5 and passes against the adapted source. The real viewer
+test queues both button edges while paused, then confirms focus and subsequent
+input in each workspace/pane. A mouse-aware terminal receives press and release
+reports for the same-poll tap. `just check`, `workspace-gui-test`, `spike-gui-test`,
+`management-gui-test`, `expose-gui-test` (animated and reduced motion), and
+`move-gui-test` pass on Linux with isolated Xvfb displays.

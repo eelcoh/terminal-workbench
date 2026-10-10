@@ -39,6 +39,7 @@ spike-gui-test: spike-build
     python3 tests/gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
 
 workspace-gui-test: spike-build
+    python3 tests/mouse_edges_test.py .local/build/viewer/_deps/raylib-src
     python3 tests/workspace_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
 
 management-gui-test: spike-build

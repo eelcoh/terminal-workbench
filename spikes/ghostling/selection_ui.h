@@ -92,47 +92,53 @@ static bool handle_selection(GhosttyTerminal terminal, int cell_width,
     if (ghostty_terminal_grid_ref(terminal, point, &ref) != GHOSTTY_SUCCESS)
         return false;
 
-    GhosttySelectionGestureEvent event = NULL;
-    bool press = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    bool release = selection_ui.dragging && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
-    if (press) {
-        selection_ui.dragging = true;
-        event = selection_ui.press;
-        ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, NULL);
-        uint64_t time_ns = (uint64_t)(GetTime() * 1000000000.0);
-        uint64_t interval_ns = 500000000;
-        double repeat_distance = 4;
-        selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_TIME_NS, &time_ns);
-        selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_INTERVAL_NS, &interval_ns);
-        selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_DISTANCE, &repeat_distance);
-    } else if (release) {
-        event = selection_ui.release;
-    } else if (selection_ui.dragging && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        event = selection_ui.drag;
-        GhosttySelectionGestureGeometry geometry = {
-            .columns = columns, .cell_width = (uint32_t)cell_width,
-            .padding_left = (uint32_t)pad,
-            .screen_height = (uint32_t)(GetScreenHeight() - WORKBENCH_HEADER_HEIGHT),
-        };
-        selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY, &geometry);
-    }
-    if (event) {
-        GhosttySurfacePosition position = { .x = pointer.x,
-                                            .y = pointer.y - WORKBENCH_HEADER_HEIGHT };
-        if (!release)
-            selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_POSITION, &position);
-        if (selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF, &ref)) {
-            GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
-            GhosttyResult result = ghostty_selection_gesture_event(selection_ui.gesture,
-                                        terminal, event, &selection);
-            if (result == GHOSTTY_SUCCESS)
-                ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &selection);
-            else if (result != GHOSTTY_NO_VALUE)
-                fprintf(stderr, "selection gesture failed (%d)\n", result);
+    bool consumed = false;
+    /* Process a short tap in order, without leaving a selection drag active. */
+    bool release_first = IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+        && IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    for (int edge = 0; edge < 2; edge++) {
+        GhosttySelectionGestureEvent event = NULL;
+        bool press = edge == (release_first ? 1 : 0) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        bool release = edge == (release_first ? 0 : 1) && selection_ui.dragging && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+        if (press) {
+            selection_ui.dragging = true;
+            event = selection_ui.press;
+            ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, NULL);
+            uint64_t time_ns = (uint64_t)(GetTime() * 1000000000.0);
+            uint64_t interval_ns = 500000000;
+            double repeat_distance = 4;
+            selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_TIME_NS, &time_ns);
+            selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_INTERVAL_NS, &interval_ns);
+            selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_DISTANCE, &repeat_distance);
+        } else if (release) {
+            event = selection_ui.release;
+        } else if (edge == 0 && !release_first && selection_ui.dragging && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            event = selection_ui.drag;
+            GhosttySelectionGestureGeometry geometry = {
+                .columns = columns, .cell_width = (uint32_t)cell_width,
+                .padding_left = (uint32_t)pad,
+                .screen_height = (uint32_t)(GetScreenHeight() - WORKBENCH_HEADER_HEIGHT),
+            };
+            selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY, &geometry);
         }
+        if (event) {
+            GhosttySurfacePosition position = { .x = pointer.x,
+                                                .y = pointer.y - WORKBENCH_HEADER_HEIGHT };
+            if (!release)
+                selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_POSITION, &position);
+            if (selection_option(event, GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF, &ref)) {
+                GhosttySelection selection = GHOSTTY_INIT_SIZED(GhosttySelection);
+                GhosttyResult result = ghostty_selection_gesture_event(selection_ui.gesture,
+                                            terminal, event, &selection);
+                if (result == GHOSTTY_SUCCESS)
+                    ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, &selection);
+                else if (result != GHOSTTY_NO_VALUE)
+                    fprintf(stderr, "selection gesture failed (%d)\n", result);
+            }
+        }
+        consumed |= selection_ui.dragging || release || (tracking && shift);
+        if (release) selection_ui.dragging = false;
     }
-    bool consumed = selection_ui.dragging || release || (tracking && shift);
-    if (release) selection_ui.dragging = false;
     return consumed;
 }
 

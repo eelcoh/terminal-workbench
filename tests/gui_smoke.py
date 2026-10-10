@@ -4,6 +4,7 @@ from pathlib import Path
 import ctypes
 import ctypes.util
 import os
+import re
 import select
 import signal
 import shutil
@@ -144,6 +145,13 @@ def main():
                 wait_until(lambda: (root / "mouse-ready").exists())
                 time.sleep(0.15)
                 mouse_click(400, 200)
+                # Both edges must reach a mouse-aware terminal even within one poll.
+                os.kill(viewer.pid, signal.SIGSTOP)
+                try:
+                    command("mousedown", "1", "mouseup", "1").check_returncode()
+                finally:
+                    os.kill(viewer.pid, signal.SIGCONT)
+                time.sleep(0.15)
                 command("keydown", "--window", window, "Shift_L").check_returncode()
                 time.sleep(0.06)
                 select_text(0, 8)
@@ -153,7 +161,9 @@ def main():
                 assert clipboard_text() == "mouseword", repr(clipboard_text())
                 key(window, "q")
                 mouse_bytes = wait_until(lambda: (root / "mouse-bytes").exists() and (root / "mouse-bytes").read_bytes())
-                assert mouse_bytes.count(b"\x1b[<") == 2 and mouse_bytes.endswith(b"q"), repr(mouse_bytes)
+                assert mouse_bytes.count(b"\x1b[<") == 4 and mouse_bytes.endswith(b"q"), repr(mouse_bytes)
+                reports = re.findall(rb"\x1b\[<([0-9;]+)([Mm])", mouse_bytes)
+                assert [edge for _, edge in reports] == [b"M", b"m", b"M", b"m"], reports
                 own_clipboard("printf '%s' 'café' > pasted.txt")
                 key(window, "ctrl+shift+v")
                 key(window, "Return")

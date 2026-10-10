@@ -3,6 +3,7 @@
 from pathlib import Path
 import os
 import select
+import signal
 import shutil
 import subprocess
 import sys
@@ -83,6 +84,22 @@ def main():
                     click(pane_x, 100)
                     type_line(f"keep=pane{index}; printf '%s:%s' \"$$\" \"$keep\" > pid-{index}; stty size > size-{index}")
                     assert read(f"pid-{index}").endswith(f":pane{index}")
+                # Queue both edges while the viewer is stopped: no frame can
+                # observe an intermediate held state. This models trackpad taps.
+                def tap(x, y):
+                    command("mousemove", "--window", window, x, y)
+                    time.sleep(0.08)
+                    os.kill(viewer.pid, signal.SIGSTOP)
+                    try:
+                        command("mousedown", 1, "mouseup", 1)
+                    finally:
+                        os.kill(viewer.pid, signal.SIGCONT)
+                    time.sleep(0.15)
+                for index, (workspace_y, pane_x) in enumerate([(106, 300), (106, 800), (150, 300), (150, 800)]):
+                    tap(60, workspace_y)
+                    tap(pane_x, 100)
+                    type_line(f"printf '%s' \"$keep\" > tapped-{index}")
+                    assert read(f"tapped-{index}") == f"pane{index}"
                 identities = [read(f"pid-{i}") for i in range(4)]
                 assert len({value.split(':')[0] for value in identities}) == 4
                 assert read("size-0") == read("size-1"), [read("size-0"), read("size-1")]
@@ -166,7 +183,7 @@ def main():
                 shutil.copyfile(screenshot, artifacts / "workspaces.png")
                 close_window(window, environment)
                 assert viewer.wait(timeout=5) == 0
-                print("PASS: four independent shells, workspace switching, focused input/clipboard, per-pane selection, divider resize, hidden output, vi, same-PID reconnect, isolated shell exit")
+                print("PASS: same-poll taps switch workspaces/panes and release selection, four independent shells, workspace switching, focused input/clipboard, per-pane selection, divider resize, hidden output, vi, same-PID reconnect, isolated shell exit")
             finally:
                 if sys.exc_info()[0] and "viewer" in locals() and viewer.poll() is None:
                     key("F12")

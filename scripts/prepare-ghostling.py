@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare an attributed, pinned experimental viewer without editing upstream."""
+"""Prepare a pinned Ghostling adaptation and marked Raylib input fix locally."""
 from pathlib import Path
 import subprocess
 
@@ -36,6 +36,14 @@ cmake = cmake.replace(archive, "    GIT_REPOSITORY git@github.com:raysan5/raylib
 ghostty_repository = "GIT_REPOSITORY https://github.com/ghostty-org/ghostty.git"
 assert cmake.count(ghostty_repository) == 1, "pinned Ghostty fetch declaration changed"
 cmake = cmake.replace(ghostty_repository, "GIT_REPOSITORY git@github.com:ghostty-org/ghostty.git")
+cmake = cmake.replace("# Use a system-installed raylib if available, otherwise fetch from GitHub.",
+    "# Fetch pinned Raylib with the marked Workbench mouse-edge adaptation.")
+# Pin/fetch Raylib so the mouse-edge adaptation also applies on machines with a
+# system Raylib. The GLFW backend is used by this spike on Linux and macOS.
+start_raylib = cmake.index("find_package(raylib")
+end_raylib = cmake.index("# --- libghostty", start_raylib)
+cmake = cmake[:start_raylib] + 'find_package(Python3 COMPONENTS Interpreter REQUIRED)\nFetchContent_Declare(raylib\n  GIT_REPOSITORY git@github.com:raysan5/raylib.git\n  GIT_TAG ${RAYLIB_VERSION}\n  GIT_SHALLOW TRUE\n)\nFetchContent_MakeAvailable(raylib)\nexecute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/patch-raylib-input.py" "${raylib_SOURCE_DIR}"\n  COMMAND_ERROR_IS_FATAL ANY)\n\n' + cmake[end_raylib:]
+write_if_changed(destination / "patch-raylib-input.py", (ROOT / "scripts/patch-raylib-input.py").read_bytes())
 write_if_changed(destination / "CMakeLists.txt", cmake.encode())
 
 text = upstream("main.c").decode()
@@ -95,6 +103,10 @@ replace_once('        EndDrawing();', '        draw_window_controls(mono_font, s
 
 replace_once('    // Aim for about 1000 lines of scrollback.', '    if (!selection_ui_init()) { exit_code = 1; goto cleanup; }\n\n    // Aim for about 1000 lines of scrollback.')
 replace_once('    if (terminal)       ghostty_terminal_free(terminal);', '    selection_ui_free(terminal);\n    if (terminal)       ghostty_terminal_free(terminal);')
+# A tap can deliver both edges in one frame; emit both to mouse-aware terminals.
+replace_once('        if (IsMouseButtonPressed(rl_btn)) {', '        bool release_first = IsMouseButtonPressed(rl_btn)\n            && IsMouseButtonReleased(rl_btn) && IsMouseButtonDown(rl_btn);\n        for (int edge = 0; edge < 2; edge++) {\n        if (edge == (release_first ? 1 : 0) && IsMouseButtonPressed(rl_btn)) {')
+replace_once('} else if (IsMouseButtonReleased(rl_btn)) {', '} else if (edge == (release_first ? 0 : 1) && IsMouseButtonReleased(rl_btn)) {')
+replace_once('    // Mouse motion — send a motion event', '    } /* Both button edges are delivered before motion. */\n\n    // Mouse motion — send a motion event')
 # Query selection once per row; the cell loop only compares cached bounds.
 replace_once('        int x = pad;', """        GhosttyRenderStateRowSelection selection = GHOSTTY_INIT_SIZED(GhosttyRenderStateRowSelection);
         bool selected_row = ghostty_render_state_row_get(row_iter,
