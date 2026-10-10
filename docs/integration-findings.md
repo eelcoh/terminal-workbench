@@ -200,3 +200,21 @@ directory. It verifies workspace and terminal creation, attachment to their new
 sockets, unchanged existing socket inodes/PIDs/shell state and saved preferences.
 It also covers ID collisions, retained legacy IDs, and rejection before mutation
 when the path cannot fit even the shorter filename.
+
+### Working-view navigation
+
+Pane navigation remains client presentation state. No runtime/catalog fields,
+identity rules or persistence formats change. A pure focus/window policy clamps
+selection and keeps the target within a two-pane viewport. A pure wheel gate
+handles fractional input, reversal and bounded momentum. Input is scoped to the
+existing navigation header; terminal wheels and keyboard events retain their
+normal ownership.
+
+The working-view compositor captures existing pixels before target layout changes,
+then slides the cached source and target canvases. Rapid retargets capture the
+current composition using a spare texture, avoiding framebuffer feedback. Capture
+is event-only; steady rendering does not allocate snapshot textures or draw a
+staging pass. Animation never invokes terminal resize. Target layout can resize
+a pane when its normal slot size changes, including an asymmetric divider.
+Pointer interactions settle motion before using target geometry. Dialogs, themes,
+overview entry/exit, catalog reload, workspace switches and resize also settle it.

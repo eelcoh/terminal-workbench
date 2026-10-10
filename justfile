@@ -64,3 +64,9 @@ spike: spike-build
 # Explicitly recover dead session endpoints after a reboot or runtime crash.
 recover-sessions:
     python3 scripts/workspace_catalog.py --state-dir .local/sessions --runtime target/debug/workbench-session --cwd . --command session.recover
+
+# Working-view navigation, populated cardinality and reduced motion.
+navigation-gui-test: spike-build
+    python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
+    python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
+    WORKBENCH_REDUCED_MOTION=1 python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15

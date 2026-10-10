@@ -68,7 +68,7 @@ static bool management_poll(WorkspaceClient *client)
         if (workspace->focused >= workspace->first + 2) workspace->first = workspace->focused - 1;
         client->dialog_open = false;
         if (client->dialog_kind == DIALOG_TERMINAL_MOVE) overview_move_saved(client);
-        client->appearance_dirty=true;
+        client->appearance_dirty=true; client->navigation_reset=true;
         clipboard_notice("Saved");
     } else {
         const char *message = strstr(client->management_reply, "ERROR\t");
@@ -160,6 +160,8 @@ static Rectangle terminal_navigation(int next)
 {
     return (Rectangle){194 + next * 64, 4, 58, 24};
 }
+static Rectangle terminal_navigation_strip(void) { return (Rectangle){194,0,274,32}; }
+static Rectangle terminal_position(int index) { return (Rectangle){356+index*14,4,14,24}; }
 static Rectangle terminal_rename(WorkbenchPane *pane)
 {
     return (Rectangle){pane->bounds.x + pane->bounds.width - 72, pane->bounds.y + 6, 64, 20};
@@ -187,8 +189,26 @@ static void management_controls(WorkspaceClient *client)
     draw_header_button(client->font, terminal_navigation(0), "Prev", workspace->focused > 0);
     draw_header_button(client->font, terminal_navigation(1), "Next", workspace->focused + 1 < workspace->count);
     char count[48];
-    snprintf(count, sizeof(count), "%d / %d terminals", workspace->count ? workspace->focused + 1 : 0, workspace->count);
+    snprintf(count, sizeof(count), "%d/%d", workspace->count ? workspace->focused + 1 : 0, workspace->count);
     DrawTextEx(client->font, count, (Vector2){326, 9}, 12, 0, ui.muted);
+    for (int p=0;p<workspace->count;p++) {
+        Rectangle position=terminal_position(p);
+        bool selected=p==workspace->focused, visible=p>=workspace->first && p<workspace->first+2;
+        bool hover=CheckCollisionPointRec(GetMousePosition(),position);
+        DrawRectangleRounded((Rectangle){position.x+1,position.y+3,position.width-2,18},.4f,6,
+            selected ? ui.selected : hover ? ui.hover : visible ? ui.raised : ui.surface);
+        char number[4]; snprintf(number,sizeof(number),"%d",p+1);
+        DrawTextEx(client->font,number,(Vector2){position.x+4,position.y+7},11,0,selected ? ui.accent : visible ? ui.text : ui.muted);
+        if (selected) DrawRectangleRounded((Rectangle){position.x+3,28,8,2},.5f,6,ui.accent);
+    }
+    Vector2 pointer=GetMousePosition();
+    if (!client->dialog_open && !client->theme_open && !client->overview_open && CheckCollisionPointRec(pointer,terminal_navigation_strip())) {
+        const char *hint="Scroll here to move between terminals";
+        for (int p=0;p<workspace->count;p++) if (CheckCollisionPointRec(pointer,terminal_position(p))) hint=workspace->panes[p]->name;
+        Vector2 size=MeasureTextEx(client->font,hint,12,0);
+        DrawRectangleRounded((Rectangle){194,36,size.x+16,24},.25f,6,ui.raised);
+        DrawTextEx(client->font,hint,(Vector2){202,42},12,0,ui.muted);
+    }
 }
 
 static void management_click(WorkspaceClient *client, Vector2 pointer)
@@ -214,8 +234,9 @@ static void management_click(WorkspaceClient *client, Vector2 pointer)
     }
     if (CheckCollisionPointRec(pointer, terminal_navigation(0)) && workspace->focused > 0) workspace->focused--;
     if (CheckCollisionPointRec(pointer, terminal_navigation(1)) && workspace->focused + 1 < workspace->count) workspace->focused++;
-    if (workspace->focused < workspace->first) workspace->first = workspace->focused;
-    if (workspace->focused >= workspace->first + 2) workspace->first = workspace->focused - 1;
+    for (int p=0;p<workspace->count;p++)
+        if (CheckCollisionPointRec(pointer,terminal_position(p))) workspace->focused=p;
+    pane_navigation_focus(workspace->count,workspace->focused,&workspace->focused,&workspace->first);
 }
 
 static Rectangle dialog_bounds(void)

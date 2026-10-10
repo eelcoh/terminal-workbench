@@ -50,7 +50,12 @@ terminal; they are activity indicators, not agent status.
 Use **New workspace**, **Rename workspace**, and **New terminal** at the bottom
 of the sidebar. Each terminal title has a **Rename** button. New workspaces start
 with one shell. **Prev/Next** in the header focuses terminals and reveals those
-outside the two visible columns. Names are saved; renaming preserves the process.
+outside the two visible columns. Click a numbered position to jump directly, or
+scroll over the header's navigation strip to move between terminals. Horizontal
+trackpad scrolling and vertical mouse-wheel scrolling work there; scrolling inside
+terminals keeps its terminal behavior. Pane changes slide for 180ms, with immediate
+focus and typing. `WORKBENCH_REDUCED_MOTION=1 just spike` skips motion.
+Names are saved; renaming preserves the process.
 
 Each terminal has **Stop**; the **x** beside WORKSPACES stops the selected workspace.
 The confirmation names the target and shows the number of affected shells.
@@ -142,6 +147,7 @@ From the project directory:
 distrobox enter build-machine -- just check
 distrobox enter build-machine -- just spike-gui-test
 distrobox enter build-machine -- just workspace-gui-test
+distrobox enter build-machine -- just navigation-gui-test
 distrobox enter build-machine -- just management-gui-test
 distrobox enter build-machine -- just theme-gui-test
 ```

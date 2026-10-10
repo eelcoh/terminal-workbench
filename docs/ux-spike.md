@@ -138,3 +138,36 @@ one terminal (Dawn / Night chrome), and 239.5% / 240.5% for fifteen: relative
 increases of 14.3% / 5.5%. These software-rendered samples have the same short-run
 variance and high absolute idle use described above; they do not establish native
 frame smoothness. No final toolkit or UX acceptance decision is implied.
+
+## Working-view navigation slice
+
+The header now combines Prev/Next, a compact focused-position count and clickable
+numbered positions. The focused position uses an accent mark; the two visible
+positions use stronger surfaces/text than offscreen positions. Hover shows terminal
+names or the scrolling affordance. The working area stays the same size.
+
+Header-only trackpad/mouse-wheel navigation accumulates fractional deltas and
+bounds momentum; terminal scrolling keeps its existing routing. Revealing panes
+uses a 180ms directional slide. The compositor retains two live target canvases
+and up to two reusable working-area snapshot textures; it captures only on a
+change, including the currently displayed composition when retargeted. Idle frames
+use the normal canvas path. Offscreen terminals keep parsing without new rendering.
+Target layout and focus commit normally; presentation motion never resizes PTYs.
+Reduced motion, window resize, modals and terminal pointer interaction settle it.
+
+Linux/Xvfb checks use populated one- and fifteen-terminal fixtures at 1240×760.
+They cover position selection, rapid retargeting, immediate typing, header-only
+vertical/horizontal wheel input, terminal scroll preservation, transition-time
+pointer routing, boundaries, asymmetric dividers, narrow/empty workspaces, overview handoff and retained
+PID/socket identity. Once terminals have visited their normal layout, sampled PTY
+geometry remains unchanged throughout navigation. Pixel checks cover start, an
+intermediate slide and completion. Screenshots under `.local/test-results/` use
+`nav-15-animated-{start,moving,settled,wide,narrow}.png`; reduced motion has a
+separate prefix.
+
+The final sequential two-second idle samples were 226.5% CPU with one terminal
+and 224.5% with fifteen (-0.9%); fifteen in reduced motion sampled 223.0%. These
+llvmpipe samples remain noisy and consume roughly two CPU cores. They demonstrate
+no reliable performance improvement, and do not establish physical-GPU frame
+smoothness. Native Mac trackpad/visual acceptance, physical Linux/Wayland review,
+frame-time distributions and the final toolkit decision remain open.

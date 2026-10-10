@@ -37,11 +37,15 @@ behavior remain unverified. The current renderer is an experiment; it is not the
 | 7 | Real agent validation | Live Codex/Claude lifecycle transitions and hook trust/setup flows; explicit Unknown for unsupported agents or unavailable signals. |
 | 8 | Installable releases | macOS app bundle and Linux installation, configuration outside the repository, lifecycle/update policy and platform smoke checks. Finalize the product name before distribution; the project uses MIT. |
 
-The first UX slice now includes shared UI colors, rounded controls and live
+The first UX slice now includes shared UI colors, rounded controls and
 a searchable offline palette gallery with Night/Dawn, Dracula, Catppuccin and
 custom-color previews, Apply/Cancel and saved preferences. Application appearance
 is now separate from workspace themes and terminal overrides, with stable chrome
-by default and optional follow-workspace colors. See
+by default and optional follow-workspace colors. Working-view navigation now adds
+numbered focus/visibility positions, header-scoped wheel/trackpad navigation and
+interruptible pane slides, with immediate terminal input and reduced motion. Mac
+recovery, tap-to-click and new workspace/terminal creation have been confirmed by
+the owner; native review of this navigation slice remains open. See
 [appearance support](appearance.md). This starts milestones 2 and 3; it does not
 complete the UX gate or choose the toolkit. UX exploration
 and a small theme-loading proof can accompany platform validation. The UX spike
@@ -91,8 +95,9 @@ Planned scope:
 
 Compatibility should be documented by supported fields and tested with real
 Ghostty theme files. Full Ghostty configuration compatibility, wallpaper-derived
-palettes, desktop-wide theme synchronization and per-workspace themes are later
-options, not prerequisites for the initial theme milestone.
+palettes and desktop-wide theme synchronization are later options, not
+prerequisites for the initial theme milestone. Workspace themes and terminal
+overrides are already part of the prototype.
 
 ## Release gates
 

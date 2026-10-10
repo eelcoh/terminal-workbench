@@ -105,7 +105,11 @@ dialog supports Enter to save, Escape/Cancel, select-all, Backspace, and desktop
 clipboard paste (Ctrl+V on Linux; Command+V on macOS, unverified). Names are
 single-line UTF-8 strings of at most 63 bytes. New workspaces start with one shell.
 Renaming preserves the session and running process. Prev/Next focuses terminals
-and reveals those outside the two visible columns. Scroll the workspace list if
+and reveals those outside the two visible columns. Click a numbered position to
+jump, or scroll over the top navigation strip. Pane slides retain immediate focus
+and typing; reduced motion skips them. Terminal-content scrolling is unchanged.
+`just navigation-gui-test` validates this with one/fifteen populated terminals.
+Scroll the workspace list if
 the window is too short to show every row.
 
 Click a pane/title to focus it and drag the divider to resize two visible panes.

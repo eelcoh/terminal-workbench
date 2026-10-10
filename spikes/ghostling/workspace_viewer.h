@@ -8,6 +8,7 @@
 #undef GetMousePosition
 
 #include "overview_animation.h"
+#include "pane_navigation.h"
 
 #define WORKBENCH_MAX_WORKSPACES 8
 #define WORKBENCH_PANES 8
@@ -71,6 +72,13 @@ typedef struct {
     char edit_name[64], dialog_error[256], management_reply[512];
     size_t management_length;
     int sidebar_first;
+    bool navigation_valid, navigation_reset;
+    char navigation_workspace[41];
+    int navigation_first, navigation_focused, navigation_width, navigation_height;
+    float navigation_distance;
+    OverviewAnimation navigation_animation;
+    PaneNavigationWheel navigation_wheel;
+    RenderTexture2D navigation_snapshot, navigation_spare;
     bool overview_open, overview_all, overview_agents, overview_waiting, overview_list;
     int overview_selected, overview_first;
     char overview_query[64];
@@ -164,6 +172,8 @@ static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
 
 #include "catalog_view.h"
 static void overview_move_saved(WorkspaceClient *client);
+static void navigation_finish(WorkspaceClient *client);
+static bool navigation_moving(WorkspaceClient *client);
 #include "management_ui.h"
 #include <ctype.h>
 static Rectangle workspace_pane_bounds(WorkspaceClient *client, int count, int first, int pane)
@@ -297,14 +307,11 @@ static void pane_draw(WorkspaceClient *client, WorkbenchPane *pane, int index, b
     }
     EndTextureMode();
     pane_unbind();
-    DrawTextureRec(pane->canvas.texture,
-        (Rectangle){0, 0, pane->bounds.width, -pane->bounds.height},
-        (Vector2){pane->bounds.x, pane->bounds.y}, WHITE);
-    DrawRectangleLinesEx(pane->bounds, 1,
-        focused ? ui.accent : ui.border);
+    (void)focused; /* Focus borders are drawn by the navigation compositor. */
 }
 
 #include "terminal_preview.h"
+#include "navigation_ui.h"
 
 static int workspace_main(const char *catalog)
 {
@@ -349,6 +356,7 @@ static int workspace_main(const char *catalog)
 
     while (!WindowShouldClose()) {
         overview_motion_tick(client);
+        if (client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
         theme_sync(client);
         if (!client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
         bool theme_frame=client->theme_open;
@@ -379,6 +387,16 @@ static int workspace_main(const char *catalog)
         WorkbenchWorkspace *workspace = &client->workspaces[client->active];
         WorkbenchPane *old_focus = workspace->panes[workspace->focused];
         bool gesture_active = old_focus && (old_focus->selection.dragging || old_focus->scrollbar_dragging);
+        bool navigation_hover = CheckCollisionPointRec(pointer, terminal_navigation_strip());
+        if (!modal_frame && !gesture_active && !client->divider_dragging && !client->management_busy && navigation_hover) {
+            Vector2 wheel=GetMouseWheelMoveV();
+            float delta=wheel.x!=0 ? -wheel.x : -wheel.y;
+            int step=pane_navigation_wheel(&client->navigation_wheel,delta,GetTime());
+            if (step) pane_navigation_focus(workspace->count,workspace->focused+step,&workspace->focused,&workspace->first);
+        } else client->navigation_wheel=(PaneNavigationWheel){0};
+        if (navigation_moving(client) && CheckCollisionPointRec(pointer,navigation_area())
+            && (pressed || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
+                || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) || GetMouseWheelMoveV().x || GetMouseWheelMoveV().y)) navigation_finish(client);
         if (pressed && !gesture_active && !modal_frame) {
             int visible_rows = (GetScreenHeight() - 268) / 44;
             if (visible_rows < 1) visible_rows = 1;
@@ -403,6 +421,7 @@ static int workspace_main(const char *catalog)
         bool divider_consumed = client->divider_dragging;
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) client->divider_dragging = false;
         theme_sync(client);
+        navigation_prepare(client);
         bool layout_deferred = client->theme_open || (client->overview_open && !client->overview_list);
         if (!layout_deferred && !workspace_layout(client)) { exit_code = 1; break; }
         /* All sessions parse output. Only normal visible panes or visible
@@ -464,12 +483,15 @@ static int workspace_main(const char *catalog)
         workspace = &client->workspaces[client->active];
         if (((overview_jumped && !client->overview_closing) || (layout_deferred && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
         theme_sync(client);
+        if (overview_jumped) { navigation_finish(client); client->navigation_valid=false; }
         if (client->overview_open && !client->overview_list) overview_previews_refresh(client);
         BeginDrawing();
         ClearBackground(ui.background);
-        if (!client->overview_open || client->overview_list)
-        for (int p = workspace->first; p < workspace->count && p < workspace->first + 2; p++)
-            pane_draw(client, workspace->panes[p], p, p == workspace->focused);
+        if (!client->overview_open || client->overview_list) {
+            for (int p = workspace->first; p < workspace->count && p < workspace->first + 2; p++)
+                pane_draw(client, workspace->panes[p], p, p == workspace->focused);
+            navigation_present(client,workspace,workspace->first);
+        }
         if (!workspace->count) DrawTextEx(client->font, "Create a terminal to start working", (Vector2){224, 110}, 16, 0, ui.muted);
         workspace_chrome(client);
         if (client->dialog_open) dialog_draw(client);
@@ -489,6 +511,8 @@ cleanup:
         for (int p = 0; p < client->workspaces[w].count; p++) pane_free(client->workspaces[w].panes[p]);
     flush_deferred_textures();
     if (client->overview_stage.id) UnloadRenderTexture(client->overview_stage);
+    if (client->navigation_snapshot.id) UnloadRenderTexture(client->navigation_snapshot);
+    if (client->navigation_spare.id) UnloadRenderTexture(client->navigation_spare);
     UnloadFont(client->font);
     CloseWindow();
     free(client);
