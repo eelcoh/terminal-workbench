@@ -69,7 +69,10 @@ identities. A Python management module owns saved workspace and terminal names,
 identities, and session startup. It preserves `spike.sock` as Main's first shell
 when migrating the old fixed catalog. The shared organization is stored in
 `.local/sessions/workspaces.json`; a versioned TSV projection feeds the C viewer.
-A final runtime still needs a session service and server-owned VT state.
+New runtimes now retain their own VT state and support detached queries plus
+text/binary state reads. Viewer attachment still uses the bounded byte journal.
+A final runtime still needs snapshot-based attachment and a session service.
+See [the first runtime hardening slice](runtime-hardening.md).
 
 Each viewer pane owns its transport queues, VT instance, encoders, selection,
 render snapshot, and canvas. A UI-thread binding adapts the pinned example's

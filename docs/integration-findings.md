@@ -80,9 +80,10 @@ Ghostling/Raylib as the final application toolkit. Its frame-based input,
 limited glyph loading, and lack of complete desktop text-input behavior
 leave substantial work before it can be a daily terminal.
 
-The pinned public library includes terminal snapshot APIs worth investigating
-for the next runtime step. Server-owned terminal state would replace the bounded
-byte journal and permit terminal query handling while no viewer is attached.
+The pinned library now supplies runtime-owned terminal state, detached query
+handling and binary snapshot export. The viewer still attaches through the byte
+journal; negotiated snapshot attachment is the next runtime step. See
+[runtime hardening evidence and limits](runtime-hardening.md).
 
 macOS build/input/clipboard validation, IME, font fallback/shaping, edge-drag
 selection autoscroll, and final UI toolkit selection remain open. Linux clipboard

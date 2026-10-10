@@ -5,6 +5,32 @@ fn main() {
         eprintln!("usage: workbench-session SOCKET [SHELL]");
         std::process::exit(2);
     };
+    if socket == "read" || socket == "snapshot" {
+        let binary = socket == "snapshot";
+        let Some(path) = args.next() else {
+            eprintln!("usage: workbench-session read SOCKET | snapshot SOCKET FILE");
+            std::process::exit(2);
+        };
+        let file = if binary { args.next() } else { None };
+        if (binary && file.is_none()) || args.next().is_some() {
+            eprintln!("usage: workbench-session read SOCKET | snapshot SOCKET FILE");
+            std::process::exit(2);
+        }
+        let result = terminal_workbench_runtime::session::read_terminal(path.into(), binary)
+            .and_then(|bytes| {
+                if let Some(file) = file {
+                    std::fs::write(file, bytes)?;
+                } else {
+                    std::io::Write::write_all(&mut std::io::stdout().lock(), &bytes)?;
+                }
+                Ok(())
+            });
+        if let Err(error) = result {
+            eprintln!("terminal state: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     if socket == "inspect" {
         let Some(path) = args.next() else {
             eprintln!("usage: workbench-session inspect SOCKET");

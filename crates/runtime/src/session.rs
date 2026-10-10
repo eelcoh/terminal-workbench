@@ -35,6 +35,7 @@ enum Event {
     Stop(UnixStream),
     AgentTick,
     Inspect(UnixStream),
+    TerminalRead(UnixStream, bool),
     Watch(u64, UnixStream, bool),
     Signal(UnixStream, [u8; 30]),
     Unwatch(u64),
@@ -197,6 +198,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
     let control = UnixListener::bind(&control_path)?;
     let control_file = SocketFile(control_path.clone());
     fs::set_permissions(&control_path, fs::Permissions::from_mode(0o600))?;
+    let mut terminal = crate::terminal::Terminal::new()?;
     let pair = native_pty_system().openpty(PtySize {
         rows: 24,
         cols: 80,
@@ -251,6 +253,8 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
             let event = match &command {
                 b"STOP\n" => Event::Stop(stream),
                 b"INFO\n" => Event::Inspect(stream),
+                b"TEXT\n" => Event::TerminalRead(stream, false),
+                b"SNAP\n" => Event::TerminalRead(stream, true),
                 b"WATCH" => Event::Watch(id as u64, stream, false),
                 b"WAT2\n" => Event::Watch(id as u64, stream, true),
                 b"STATE" => {
@@ -365,6 +369,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                     if !client.as_ref().is_some_and(|(current, _)| *current == id) {
                         continue;
                     }
+                    terminal.resize(cols, rows)?;
                     pair.master.resize(PtySize {
                         rows,
                         cols,
@@ -373,7 +378,20 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                     })?;
                     size_frame(cols, rows)
                 }
-                Event::Output(bytes) => frame(OUTPUT, &bytes),
+                Event::Output(bytes) => {
+                    // Legacy attached viewers still own their query replies. A
+                    // detached session answers from the same state it snapshots.
+                    match terminal.feed(&bytes, client.is_none()) {
+                        Ok(replies) if !replies.is_empty() => {
+                            if input_tx.try_send(replies).is_err() {
+                                eprintln!("detached terminal reply queue unavailable");
+                            }
+                        }
+                        Ok(_) => {}
+                        Err(error) => eprintln!("terminal reply limit: {error}"),
+                    }
+                    frame(OUTPUT, &bytes)
+                }
                 Event::AgentTick => {
                     let group = pair.master.process_group_leader();
                     let next = crate::agent::identify(crate::platform::identity(group));
@@ -411,6 +429,16 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                     }
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let _ = stream.write_all(if accepted { b"OK\n" } else { b"ERROR\n" });
+                    continue;
+                }
+                Event::TerminalRead(mut stream, binary) => {
+                    let (status, bytes) = match terminal.export(binary) {
+                        Ok(bytes) => (1, bytes),
+                        Err(error) => (0, error.to_string().into_bytes()),
+                    };
+                    let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                    let packet = frame(status, &bytes);
+                    let _ = stream.write_all(&packet);
                     continue;
                 }
                 Event::Inspect(mut stream) => {
@@ -477,6 +505,28 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
         reply.write_all(if result.is_ok() { b"OK\n" } else { b"ERROR\n" })?;
     }
     result
+}
+
+/// Read runtime-owned terminal text or a pinned Ghostty binary snapshot without attaching a viewer.
+pub fn read_terminal(socket: PathBuf, binary: bool) -> Result<Vec<u8>, Failure> {
+    let mut stream = UnixStream::connect(socket.with_extension("ctl"))?;
+    stream.set_read_timeout(Some(Duration::from_secs(3)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+    stream.write_all(if binary { b"SNAP\n" } else { b"TEXT\n" })?;
+    let mut header = [0; 5];
+    stream.read_exact(&mut header).map_err(|error| {
+        io::Error::new(error.kind(), format!("terminal state endpoint unavailable; this session may predate runtime-owned terminal state ({error})"))
+    })?;
+    let length = u32::from_be_bytes([header[1], header[2], header[3], header[4]]) as usize;
+    if length > 64 * 1024 * 1024 || header[0] > 1 {
+        return Err("invalid terminal state response".into());
+    }
+    let mut bytes = vec![0; length];
+    stream.read_exact(&mut bytes)?;
+    if header[0] == 0 {
+        return Err(String::from_utf8_lossy(&bytes).into_owned().into());
+    }
+    Ok(bytes)
 }
 
 /// Read current runtime identification without attaching a terminal viewer.

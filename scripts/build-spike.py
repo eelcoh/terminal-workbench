@@ -58,16 +58,24 @@ def build_environment(root, environment):
 
 
 def main():
+    runtime_only=sys.argv[1:]==["--runtime-only"]
+    if sys.argv[1:] and not runtime_only:
+        print("usage: build-spike.py [--runtime-only]",file=sys.stderr); return 2
     try:
         binary, environment = build_environment(ROOT, os.environ)
         print(f"Building with Zig {ZIG_VERSION}: {binary}", flush=True)
         source, build = ROOT / ".local/ghostling-viewer", ROOT / ".local/build/viewer"
+        if runtime_only:
+            subprocess.run([sys.executable,str(ROOT / "scripts/prepare-runtime-vt.py")],cwd=ROOT,env=environment,check=True)
+            subprocess.run(["cargo","build","--locked","--bin","workbench-session"],cwd=ROOT,env=environment,check=True)
+            return 0
         commands = [
             [sys.executable, str(ROOT / "scripts/prepare-agent-launchers.py")],
             [sys.executable, str(ROOT / "scripts/prepare-ghostling.py")],
             ["cmake", "-S", str(source), "-B", str(build), "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release",
              f"-DGHOSTLING_ZIG_EXECUTABLE:FILEPATH={binary}", f"-DZIG_EXECUTABLE:FILEPATH={binary}"],
             ["cmake", "--build", str(build), "--parallel", "2"],
+            [sys.executable,str(ROOT / "scripts/prepare-runtime-vt.py")],
             ["cargo", "build", "--locked", "--bin", "workbench-session"],
         ]
         for command in commands:

@@ -180,5 +180,7 @@ The final sequential two-second idle samples were 216.0% CPU with one terminal
 and 213.9% with fifteen (-1.0%); fifteen in reduced motion sampled 224.3%. These
 llvmpipe samples remain noisy and consume roughly two CPU cores. They demonstrate
 no reliable performance improvement, and do not establish physical-GPU frame
-smoothness. Native Mac trackpad/visual acceptance, physical Linux/Wayland review,
-frame-time distributions and the final toolkit decision remain open.
+smoothness. The owner confirmed that continuous pane navigation works on Mac,
+including an eight-to-one jump with alternating dark/light terminal themes.
+Full native input/UX acceptance, physical Linux/Wayland review, frame-time
+distributions and the final toolkit decision remain open.

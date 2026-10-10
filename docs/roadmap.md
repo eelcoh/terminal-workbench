@@ -44,15 +44,20 @@ is now separate from workspace themes and terminal overrides, with stable chrome
 by default and optional follow-workspace colors. Working-view navigation now adds
 numbered focus/visibility positions, header-scoped wheel/trackpad navigation and
 continuous pane scrolling through intermediate terminals, with immediate input
-and reduced motion. Mac
-recovery, tap-to-click and new workspace/terminal creation have been confirmed by
-the owner; native review of this navigation slice remains open. See
+and reduced motion. Mac recovery, tap-to-click, new workspace/terminal creation
+and continuous pane navigation have been confirmed by the owner. Full native
+input and UX acceptance remain open. See
 [appearance support](appearance.md). This starts milestones 2 and 3; it does not
 complete the UX gate or choose the toolkit. UX exploration
 and a small theme-loading proof can accompany platform validation. The UX spike
 must inform toolkit selection; production theming follows the chosen integration.
 Runtime hardening and platform/input validation are requirements before daily-use
 readiness. Packaging follows these foundations.
+
+Runtime hardening has started with runtime-owned VT state, bounded terminal-state
+exports and detached query handling. The current viewer still uses the 16 MiB
+replay journal; snapshot-based reattachment and a session service remain next.
+See [the hardening slice and measurements](runtime-hardening.md).
 
 ## UX spike: a product-quality gate
 

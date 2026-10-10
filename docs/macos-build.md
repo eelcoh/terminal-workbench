@@ -164,3 +164,12 @@ removes owned, dead socket files; other files and symlinks are rejected. Dead
 sessions start fresh shells with their saved names and IDs. Their previous shell
 process and in-memory output cannot be restored. Workspace organization and
 appearance preferences are retained. Normal startup never deletes socket files.
+
+## Runtime terminal-state build
+
+`just runtime-build` prepares the pinned libghostty-vt and Rust runtime without
+building Raylib or requiring a graphical desktop. It uses the same Zig discovery
+and SSH preference as `just spike`. `just check` now prepares that library before
+Rust validation. New terminal-state/query behavior needs a newly created terminal;
+rebuilding preserves older running session processes. See
+[the runtime slice and native validation status](runtime-hardening.md).

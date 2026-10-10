@@ -4,12 +4,16 @@ default:
 fmt:
     cargo fmt --all
 
-check:
+runtime-build:
+    python3 scripts/build-spike.py --runtime-only
+
+check: runtime-build
     cargo fmt --all -- --check
     cargo clippy --workspace --all-targets -- -D warnings
     cargo test --workspace
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
+    python3 tests/terminal_core_smoke.py target/debug/workbench-session
     python3 tests/catalog_test.py
     python3 tests/socket_path_test.py target/debug/workbench-session
     python3 tests/move_test.py
@@ -29,9 +33,10 @@ spike-build:
 spike-run socket:
     WORKBENCH_SOCKET="{{socket}}" .local/build/viewer/ghostling
 
-spike-test:
+spike-test: runtime-build
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
+    python3 tests/terminal_core_smoke.py target/debug/workbench-session
 
 launch-gui-test: spike-build
     python3 tests/launch_diagnostics_test.py .local/build/viewer/ghostling
@@ -70,3 +75,7 @@ navigation-gui-test: spike-build
     python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
     python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
     WORKBENCH_REDUCED_MOTION=1 python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
+
+# Runtime VT parsing cardinality, detached, fixed geometry (Linux diagnostic only).
+runtime-core-scale: runtime-build
+    python3 tests/runtime_core_scale.py target/debug/workbench-session

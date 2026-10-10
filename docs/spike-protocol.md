@@ -76,3 +76,19 @@ status and token. Response is OK\n or ERROR\n. These private same-user reports
 are observer hints, not authenticated process identity or a permission boundary.
 INFO adds optional status and status_source fields; existing identity fields keep
 their meanings. No terminal content, prompts, or tool input enter the report.
+
+## Runtime terminal state
+
+New control endpoints accept `TEXT\n` and `SNAP\n` (exactly five bytes). Each
+returns one frame: a status byte (1 success, 0 failure), a big-endian u32 byte
+length and the payload, then closes. TEXT returns plain active-screen/history
+bytes; SNAP returns the pinned Ghostty binary snapshot. These named methods use
+a separate 64 MiB response limit; the original terminal stream keeps its 65,536
+byte frame limit. No existing command or frame changes meaning.
+
+The VT is owned by the session event loop and reads output while detached.
+The runtime answers queries only without an attached viewer; legacy attached
+viewers keep their existing reply ownership. Reads do not claim viewer attachment
+or resize the PTY. Older control servers discard these unknown methods; the CLI
+reports endpoint unavailability without replacing their sessions. Snapshot-based
+viewer attachment is not implemented yet. See [runtime hardening](runtime-hardening.md).

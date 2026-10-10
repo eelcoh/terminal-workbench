@@ -11,3 +11,5 @@ mod attention;
 mod platform;
 #[cfg(unix)]
 pub mod session;
+#[cfg(unix)]
+mod terminal;

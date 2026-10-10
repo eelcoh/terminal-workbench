@@ -120,6 +120,11 @@ Full macOS interaction acceptance and native Wayland remain unverified. This is 
 with bounded replay and incomplete desktop input support, not a daily terminal.
 See [the spike's usage and limits](spikes/ghostling/README.md).
 
+New runtimes retain VT state and answer terminal queries while detached. The
+`read` and `snapshot` CLI commands inspect this state without opening a viewer;
+see [runtime hardening](docs/runtime-hardening.md). Snapshot-based window
+reattachment remains the next step; the current viewer still has its replay limit.
+
 ## Layout
 
 ```text
@@ -135,8 +140,10 @@ docs/integration-findings.md  Source investigation, results, and open decisions
 
 ## Development
 
-Use a stable Rust toolchain and `just`. Renderer builds also need CMake, Ninja,
-a C/C++ compiler, Zig 0.16.0, and platform graphics development dependencies.
+Use a stable Rust toolchain, `just`, Python, Git, a C compiler and Zig 0.16.0.
+`just runtime-build` builds the runtime without graphics dependencies; `just check`
+prepares its pinned VT library before validation. Renderer builds additionally
+need CMake, Ninja, a C++ compiler and platform graphics development dependencies.
 On this workstation those tools live in the `build-machine` Distrobox.
 `just spike-build` automatically discovers Zig 0.16.0 in `.local/tools` or PATH.
 Use `ZIG=/absolute/path/to/zig just spike` to select another installation; the

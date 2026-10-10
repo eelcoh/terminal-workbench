@@ -137,7 +137,7 @@ def main():
                 connection, _, _ = attach(path)
                 send(connection, 16, b"printf '\\nWB_CAP_PID:%s\\n' \"$$\"\n")
                 pid = int(expect(connection, rb"\r?\nWB_CAP_PID:(\d+)\r?\n").group(1))
-                send(connection, 16, b"head -c 17825792 /dev/zero; printf done > cap.done\n")
+                send(connection, 16, b"head -c 17825792 /dev/zero; printf '\\nWB_CAP_STATE\\n'; printf done > cap.done\n")
                 connection.close()
                 connection = None
                 wait_until(lambda: (root / "cap.done").exists(), timeout=10)
@@ -147,10 +147,14 @@ def main():
                 connection.connect(str(path))
                 kind, payload = read_frame(connection)
                 assert kind == 4 and b"16 MiB" in payload
+                wait_until(lambda: b"WB_CAP_STATE" in subprocess.check_output([str(binary), "read", str(path)], timeout=5))
+                exported = root / "cap.snapshot"
+                subprocess.run([str(binary), "snapshot", str(path), str(exported)], check=True, timeout=5)
+                assert exported.read_bytes().startswith(b"GHOSTSNP")
                 os.kill(pid, signal.SIGHUP)
                 assert server.wait(timeout=5) == 0
                 assert not path.exists()
-                print("PASS: replay capacity rejects reconnection while preserving the live shell")
+                print("PASS: legacy replay cap preserves live shell and runtime text/binary snapshots beyond 16 MiB")
             finally:
                 if connection:
                     connection.close()
