@@ -145,7 +145,7 @@ are not an authentication boundary.
 
 Older runtimes close unknown ATM1 requests. Before any response, the viewer retries
 ordinary ATS1 without revoking its owner. If occupied, it explains that the owning
-window must be closed first; clicking Move here afterward reconnects to the same
+window must be closed first; clicking Reconnect afterward reconnects to the same
 shell. Partial snapshots and incompatible revisions never trigger this fallback.
 Missing older snapshot methods may still use ordinary legacy replay attachment.
 Rebuilding does not replace an already-running runtime.

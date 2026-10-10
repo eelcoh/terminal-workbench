@@ -149,10 +149,12 @@ static bool pane_move_here(WorkspaceClient *client, WorkbenchPane *pane)
     if (pane->fd >= 0) close(pane->fd);
     if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
     free(pane->transport.snapshot);
+    bool earlier_runtime=pane->transport.takeover_unsupported;
     memset(&pane->transport,0,sizeof(pane->transport));
     pane->transport.agent_fd=-1;
     pane->transport.replaying=true;
-    pane->transport.takeover=true;
+    pane->transport.takeover=!earlier_runtime;
+    pane->transport.takeover_unsupported=earlier_runtime;
     ghostty_selection_gesture_reset(pane->selection.gesture,pane->terminal);
     pane->selection.dragging=false;
     pane->scrollbar_dragging=false;
@@ -332,7 +334,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
         BeginScissorMode(8,(int)footer.y,(int)bounds.width-16,34);
         const char *hint=pane->transport.attached_elsewhere
             ? (pane->transport.takeover_unsupported
-                ? "Earlier runtime: close the owning window, then Move here."
+                ? "Earlier runtime: close the owning window, then Reconnect."
                 : "Move here to continue in the live terminal.")
             : "Connection closed. Move here to try reconnecting.";
         DrawTextEx(client->font,hint,(Vector2){10,footer.y+10},12,0,ui.muted);
@@ -349,7 +351,8 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     EndScissorMode();
     if (pane->unread && !pane->closed) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
     if (pane->closed)
-        draw_header_button(client->font,terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height}),"Move here",true);
+        draw_header_button(client->font,terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height}),
+            pane->transport.takeover_unsupported ? "Reconnect" : "Move here",true);
     if (client->managed) {
         draw_header_button(client->font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
         draw_header_button(client->font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);

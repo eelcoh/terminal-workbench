@@ -192,7 +192,10 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
         }
         active_remote->snapshot_attempt = false;
         strcpy(address.sun_path, path);
-        if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) { close(fd); return -1; }
+        if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+            fprintf(stderr,"Could not attach to session socket %s: %s\n",path,strerror(errno));
+            close(fd); return -1;
+        }
     }
     if (active_remote->snapshot_attempt) {
         char hello[] = "ATS1\nf64f4aca2c29b554d111b36c3d946a9bddd159ff";
@@ -345,7 +348,9 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
                     remote->attached_elsewhere = length == sizeof(busy)-1 && !memcmp(payload,busy,length);
                     fprintf(stderr, "session rejected attachment: %.*s\n", (int)length, payload);
                     if (remote->attached_elsewhere)
-                        fprintf(stderr, "This terminal is open in another window. Use Move here to transfer the live terminal to this window.\n");
+                        fprintf(stderr, "%s\n", remote->takeover_unsupported
+                            ? "Earlier runtime cannot transfer ownership. Its current window remains attached; close that window, then Reconnect here."
+                            : "This terminal is open in another window. Use Move here to transfer the live terminal to this window.");
                     remote_fail(fd,"attachment rejected");
                     return PTY_READ_ERROR;
                 } else {

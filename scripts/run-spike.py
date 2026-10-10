@@ -10,20 +10,41 @@ from workspace_catalog import manage
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def launch_viewer(viewer, root, sessions, environment):
-    """Keep viewer diagnostics separate from persistent shell logs, and tee them."""
+def inside_workbench(environment):
+    return bool(environment.get("WORKBENCH_SESSION_SOCKET")) or environment.get("TERM_PROGRAM") == "terminal-workbench"
+
+
+def launch_viewer(viewer, root, sessions, environment, *, detach=False):
+    """Log viewer diagnostics; nested launches release their invoking terminal."""
     log_path = sessions / "viewer.log"
     print(f"Viewer log: {log_path}", flush=True)
     with log_path.open("ab", buffering=0) as log:
         log.write(f"\n--- Viewer launch {datetime.now(timezone.utc).isoformat()} ---\n{viewer}\n".encode())
         try:
             process = subprocess.Popen([str(viewer)], cwd=root, env=environment,
-                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                                       stdin=subprocess.DEVNULL if detach else None,
+                                       stdout=log if detach else subprocess.PIPE,
+                                       stderr=subprocess.STDOUT, start_new_session=detach,
+                                       close_fds=True)
         except OSError as error:
             message = f"Could not launch viewer: {error}\n"
             log.write(message.encode())
             print(message, file=sys.stderr, end="")
             return 1
+        log.write(f"Viewer pid: {process.pid}; independent: {detach}\n".encode())
+        if detach:
+            # A launcher started in a retained terminal must not become its
+            # foreground job for the lifetime of the new window, or stream GUI
+            # diagnostics back into that terminal's PTY.
+            try:
+                result = process.wait(timeout=0.25)
+            except subprocess.TimeoutExpired:
+                print(f"Viewer started independently (pid {process.pid}). Diagnostics: {log_path}", flush=True)
+                return 0
+            log.write(f"Viewer exit code: {result}\n".encode())
+            if result:
+                print(f"Viewer failed (exit {result}); inspect {log_path}. Existing sessions and sockets are preserved.", file=sys.stderr)
+            return result if result >= 0 else 1
         with process.stdout:
             for line in iter(process.stdout.readline, b""):
                 log.write(line)
@@ -55,7 +76,7 @@ def main():
         WORKBENCH_STATE_DIR=str(sessions), WORKBENCH_RUNTIME=str(runtime), WORKBENCH_PROJECT=str(ROOT))
     environment.pop("WORKBENCH_SOCKET", None)
     try:
-        return launch_viewer(viewer, ROOT, sessions, environment)
+        return launch_viewer(viewer, ROOT, sessions, environment, detach=inside_workbench(os.environ))
     except OSError as error:
         print(f"Viewer startup/logging failed: {error}", file=sys.stderr)
         return 1

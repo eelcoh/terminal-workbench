@@ -6,6 +6,8 @@ import os
 import select
 import shutil
 import socket
+import signal
+import shlex
 import threading
 import subprocess
 import sys
@@ -24,6 +26,7 @@ def main():
             {'id':'scratch','name':'Scratch','terminals':[]}]}
         (state/'workspaces.json').write_text(json.dumps(data))
         processes=[]
+        nested_pid=None
         # Deterministically insert another creator's workspace after B's save
         # but before B receives its management result. A observes both first.
         wrapper=root/'catalog-wrapper.py'
@@ -175,7 +178,41 @@ def main():
                 assert read('old-reconnect')==pid+':original'
                 focus(c);close_window(c,env);assert older.wait(timeout=5)==0
                 listener.close()
+                # Launch the second real window from the same retained shell
+                # being transferred, matching the user's nested just-spike flow.
+                loader=root/'nested-launch.py'
+                loader.write_text("import importlib.util,os,subprocess,sys\nfrom pathlib import Path\n"
+                    + "sys.path.insert(0,"+repr(str(ROOT/'scripts'))+")\n"
+                    + "spec=importlib.util.spec_from_file_location('launcher',"+repr(str(ROOT/'scripts/run-spike.py'))+")\n"
+                    + "launcher=importlib.util.module_from_spec(spec);spec.loader.exec_module(launcher)\n"
+                    + "environment=dict(os.environ);environment.update("+repr({k:env[k] for k in ('DISPLAY','LIBGL_ALWAYS_SOFTWARE','WORKBENCH_WORKSPACES','WORKBENCH_CATALOG_SCRIPT','WORKBENCH_STATE_DIR','WORKBENCH_RUNTIME','WORKBENCH_PROJECT')})+")\n"
+                    + "spawn=subprocess.Popen\ndef record(*args,**kwargs):\n"
+                    + "    child=spawn(*args,**kwargs);Path('nested-viewer.pid').write_text(str(child.pid));return child\n"
+                    + "launcher.subprocess.Popen=record\n"
+                    + "raise SystemExit(launcher.launch_viewer(Path("+repr(viewer)+"),Path("+repr(str(root))+"),Path("+repr(str(state))+"),environment,detach=launcher.inside_workbench(environment)))\n")
+                parent,d=launch()
+                line(d,'python3 '+shlex.quote(str(loader))+'; printf "%s:%s" "$$" "$keep" > nested-return')
+                assert read('nested-return')==pid+':original'
+                nested_pid=int(read('nested-viewer.pid'))
+                def nested_window():
+                    result=subprocess.run(['xdotool','search','--onlyvisible','--pid',str(nested_pid)],env=env,capture_output=True,text=True,timeout=5)
+                    return result.stdout.strip().splitlines()[-1] if result.returncode==0 else None
+                e=wait_until(nested_window,timeout=10);time.sleep(.5)
+                # The parent shell is already usable while the child GUI lives.
+                line(d,'printf "%s:%s" "$$" "$keep" > parent-usable')
+                assert read('parent-usable')==pid+':original'
+                click(e,535,58);time.sleep(.5)
+                line(e,'printf "%s:%s" "$$" "$keep" > nested-transferred')
+                assert read('nested-transferred')==pid+':original'
+                click(d,535,58);time.sleep(.5)
+                line(d,'printf "%s:%s" "$$" "$keep" > nested-returned')
+                assert read('nested-returned')==pid+':original'
+                focus(e);close_window(e,env);wait_until(lambda:not nested_window(),timeout=5)
+                focus(d);close_window(d,env);assert parent.wait(timeout=5)==0
             finally:
+                if nested_pid:
+                    try:os.kill(nested_pid,signal.SIGTERM)
+                    except ProcessLookupError:pass
                 for process in reversed(processes):
                     if process.poll() is None:
                         process.terminate()
@@ -184,5 +221,5 @@ def main():
                 for endpoint in state.glob('*.sock'):
                     subprocess.run([runtime,'stop',str(endpoint)],capture_output=True,timeout=15)
                 if sys.exc_info()[0]:log.flush();print((root/'test.log').read_text(),file=sys.stderr)
-    print('PASS: two-window bidirectional transfer, same PID/state/socket, sibling ownership, shared create/rename/move/close, creator ownership under overlapping saves, independent focus, live survivors and safe earlier-runtime reconnect')
+    print('PASS: two-window bidirectional transfer, same PID/state/socket, sibling ownership, shared create/rename/move/close, creator ownership under overlapping saves, independent focus, live survivors and safe earlier-runtime reconnect, nested real-window launch and continued parent-shell input')
 if __name__=='__main__':main()

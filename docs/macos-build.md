@@ -148,8 +148,11 @@ See [the platform acceptance checks](first-spike.md) and [roadmap](roadmap.md).
 
 ## Startup diagnostics
 
-Every viewer launch appends stdout, stderr, a timestamp and the exit code to
-`.local/sessions/viewer.log`, while also showing its output in the terminal.
+Every viewer launch appends stdout, stderr, a timestamp and process identity to
+`.local/sessions/viewer.log`. Launches from an external terminal also show the
+output there and record the exit code. Launches from inside Workbench start the
+viewer independently, returning the invoking shell promptly. Its later output
+stays in the log; immediate startup failures still report their exit status.
 Shell runtime logs remain separate (`.local/sessions/TERMINAL-ID.log`); they
 need not change when attaching to an existing session. If `just spike` exits
 with code 1, inspect the viewer log first. Raylib's “Window closed successfully”
@@ -180,12 +183,18 @@ window and run `just spike` again. The same process should resume with its text
 and terminal modes. Older live runtimes use replay fallback. Linux Xvfb checks
 cover this path and long-output recovery; native Mac acceptance remains pending.
 
-Only one viewer can attach to a session at a time. Running `git pull && just spike`
-inside an already open Workbench launches a second viewer; it cannot take over
-the first window's sessions. Close the first window, then run `just spike` from
-macOS Terminal to test reconnection. Closing the window detaches its sessions;
-using `exit` or Stop ends a session. Busy sessions display "Open in another window"
-and remain usable in the window that owns them.
+Only one window owns a terminal at a time. Running `git pull && just spike`
+inside Workbench starts an independent second window and returns the invoking
+shell prompt. Busy terminals display "Open in another window"; newly created
+runtimes support explicit Move here. Older runtimes cannot transfer ownership:
+a rejected transfer preserves the current owner, and the action becomes
+Reconnect. Close its owning window first, then reconnect from the other one.
+Closing a window detaches its sessions; `exit` or Stop ends a session.
+
+With a launcher from before this fix, a second window may still be a foreground
+job in the terminal that launched it. Closing that second window releases the
+launcher and returns the original shell prompt. Existing live runtimes remain
+unchanged by rebuilding.
 
 Overview trackpad scrolling now uses fractional movement and short easing, with
 horizontal swipes to pan a workspace's terminals. Test gentle movements, longer
@@ -204,4 +213,4 @@ remain local to each window. Closing a workspace should remove it from both.
 
 Direct transfer requires a runtime launched by this build. Existing terminals
 keep their earlier runtime: the UI will ask you to close their owning window
-before clicking Move here again. This reconnects without restarting the shell.
+before clicking Reconnect. This reconnects without restarting the shell.

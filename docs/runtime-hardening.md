@@ -72,7 +72,8 @@ The transfer restores the current runtime snapshot and then accepts live input.
 
 Earlier runtimes do not support ownership transfer. A failed transfer tries an
 ordinary attachment, preserving the current owner. If it is still attached, the
-UI asks you to close the owning window and click Move here again. New terminals
+UI labels the action Reconnect and asks you to close the owning window first.
+New terminals
 created after building use the new runtime and support direct transfer. Existing
 shells are never killed or automatically upgraded to enable this feature.
 
@@ -85,6 +86,10 @@ updates and restart-after-reboot policy remain follow-up work.
 movement and workspace closure, independent focus, creator ownership under overlapping saves, transfers
 in both directions and surviving shell PID/state/socket identity. Runtime tests
 also verify rejection before revocation and stale-owner input/resize isolation.
+Launching a second window from a Workbench terminal starts it independently,
+without keeping the launcher in that shell's foreground or teeing viewer logs
+into its PTY. The two-window test also launches a real viewer from the terminal
+being transferred and verifies continued shell input before and after handoff.
 Native macOS acceptance remains pending.
 
 ## Build and inspect
