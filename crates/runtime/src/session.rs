@@ -34,7 +34,7 @@ type Frame = Arc<[u8]>;
 type Failure = Box<dyn std::error::Error + Send + Sync>;
 
 enum Event {
-    Attach(u64, UnixStream, bool),
+    Attach(u64, UnixStream, bool, bool),
     Detach(u64),
     Input(u64, Vec<u8>),
     Resize(u64, u16, u16),
@@ -265,7 +265,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                 b"INFO\n" => Event::Inspect(stream),
                 b"TEXT\n" => Event::TerminalRead(stream, false),
                 b"SNAP\n" => Event::TerminalRead(stream, true),
-                b"ATS1\n" => {
+                b"ATS1\n" | b"ATM1\n" => {
                     let mut revision = [0; 40];
                     if stream.read_exact(&mut revision).is_err() {
                         continue;
@@ -277,7 +277,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                         continue;
                     }
                     // Control and legacy listeners have independent ID counters.
-                    Event::Attach((id as u64) | (1 << 63), stream, true)
+                    Event::Attach((id as u64) | (1 << 63), stream, true, command == *b"ATM1\n")
                 }
                 b"WATCH" => Event::Watch(id as u64, stream, false),
                 b"WAT2\n" => Event::Watch(id as u64, stream, true),
@@ -332,7 +332,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
             match connection {
                 Ok(stream) => {
                     if accept_events
-                        .send(Event::Attach(index as u64, stream, false))
+                        .send(Event::Attach(index as u64, stream, false, false))
                         .is_err()
                     {
                         break;
@@ -357,8 +357,8 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
     let result = (|| -> Result<(), Failure> {
         for event in events_rx {
             let packet = match event {
-                Event::Attach(id, mut stream, snapshot) => {
-                    if client.is_some() || (!snapshot && !replay_available) {
+                Event::Attach(id, mut stream, snapshot, takeover) => {
+                    if (client.is_some() && !takeover) || (!snapshot && !replay_available) {
                         stream.set_write_timeout(Some(Duration::from_secs(2)))?;
                         let reason = if client.is_some() {
                             "a window is already attached"
@@ -384,7 +384,15 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                         history.clone()
                     };
                     match start_client(id, stream, initial, events_tx.clone()) {
-                        Ok(frames) => client = Some((id, frames)),
+                        Ok(frames) => {
+                            // Only a validated, successfully snapshotted attachment
+                            // can revoke the old owner. Its queued input/resize and
+                            // late detach events no longer match the current ID.
+                            if let Some((_, previous)) = client.take() {
+                                let _ = previous.try_send(frame(10, &[]));
+                            }
+                            client = Some((id, frames));
+                        }
                         Err(error) => eprintln!("client {id} attachment failed: {error}"),
                     }
                     continue;

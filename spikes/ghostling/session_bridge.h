@@ -6,7 +6,7 @@
 
 /* Each pane owns transport state. Binding is confined to the UI thread. */
 typedef struct {
-    bool replaying, failed, snapshot_attempt, snapshot_seen, snapshot_done, attached_elsewhere;
+    bool takeover, takeover_unsupported, replaying, failed, snapshot_attempt, snapshot_seen, snapshot_done, attached_elsewhere;
     char session_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
     uint8_t *snapshot;
     size_t snapshot_size, snapshot_used;
@@ -187,7 +187,7 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) { perror("socket"); return -1; }
     if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        if (!active_remote->snapshot_attempt) {
+        if (active_remote->takeover || !active_remote->snapshot_attempt) {
             fprintf(stderr, "Could not attach to session socket %s: %s\n", path, strerror(errno)); close(fd); return -1;
         }
         active_remote->snapshot_attempt = false;
@@ -195,7 +195,8 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
         if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) { close(fd); return -1; }
     }
     if (active_remote->snapshot_attempt) {
-        const char hello[] = "ATS1\nf64f4aca2c29b554d111b36c3d946a9bddd159ff";
+        char hello[] = "ATS1\nf64f4aca2c29b554d111b36c3d946a9bddd159ff";
+        if (active_remote->takeover) hello[2] = 'M';
         if (send(fd, hello, sizeof(hello)-1, 0) != sizeof(hello)-1) { close(fd); return -1; }
     }
     int flags = fcntl(fd, F_GETFL);
@@ -251,6 +252,36 @@ static bool remote_legacy_fallback(int fd)
     fprintf(stderr, "session attachment: legacy replay fallback\n");
     return true;
 }
+/* Pre-transfer runtimes may still own live shells. Retry their ordinary
+ * snapshot attachment without taking ownership: rejection preserves the old
+ * window; closing it first permits reconnect without restarting the shell. */
+static bool remote_takeover_fallback(int fd)
+{
+    RemoteSession *remote=active_remote;
+    if (!remote->takeover) return false;
+    struct sockaddr_un address={.sun_family=AF_UNIX};
+    strcpy(address.sun_path,remote->session_path);
+    char *extension=strrchr(address.sun_path,'.');
+    if (!extension || strcmp(extension,".sock")) return false;
+    strcpy(extension,".ctl");
+    int replacement=socket(AF_UNIX,SOCK_STREAM,0);
+    if (replacement<0) return false;
+    const char hello[]="ATS1\nf64f4aca2c29b554d111b36c3d946a9bddd159ff";
+    bool ok=connect(replacement,(struct sockaddr *)&address,sizeof(address))==0
+        && send(replacement,hello,sizeof(hello)-1,0)==sizeof(hello)-1
+        && dup2(replacement,fd)>=0;
+    close(replacement);
+    if (!ok) return false;
+    int flags=fcntl(fd,F_GETFL);
+    if (flags<0 || fcntl(fd,F_SETFL,flags|O_NONBLOCK)<0) return false;
+    remote->takeover=false;
+    remote->takeover_unsupported=true;
+    remote->receive_length=0;
+    remote->attach_started=GetTime();
+    fprintf(stderr,"Earlier runtime: retrying ordinary attachment without revoking its owner.\n");
+    return true;
+}
+
 static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
 {
     remote_agent_read();
@@ -305,12 +336,16 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
                 } else if (kind == 3 && length == 0) {
                     remote_replaying = false;
                     remote_resize(fd, desired_cols, desired_rows);
+                } else if (kind == 10 && !length) {
+                    remote->attached_elsewhere = true;
+                    remote_fail(fd,"terminal moved to another window");
+                    return PTY_READ_ERROR;
                 } else if (kind == 4) {
                     static const char busy[] = "a window is already attached";
                     remote->attached_elsewhere = length == sizeof(busy)-1 && !memcmp(payload,busy,length);
                     fprintf(stderr, "session rejected attachment: %.*s\n", (int)length, payload);
                     if (remote->attached_elsewhere)
-                        fprintf(stderr, "This terminal is open in another window. Close that window, then reopen Workbench to reconnect here.\n");
+                        fprintf(stderr, "This terminal is open in another window. Use Move here to transfer the live terminal to this window.\n");
                     remote_fail(fd,"attachment rejected");
                     return PTY_READ_ERROR;
                 } else {
@@ -326,13 +361,13 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
         if (n > 0) { receive_used += (size_t)n; continue; }
         if (n == 0) {
             if (active_remote->snapshot_attempt && !active_remote->snapshot_seen && !receive_used
-                && remote_legacy_fallback(fd)) continue;
+                && (remote_takeover_fallback(fd) || remote_legacy_fallback(fd))) continue;
             remote_fail(fd, "session stream closed"); return PTY_READ_EOF;
         }
         if (errno == EINTR) continue;
         if (errno == EAGAIN || errno == EWOULDBLOCK) return PTY_READ_OK;
         if (errno == ECONNRESET && active_remote->snapshot_attempt && !active_remote->snapshot_seen
-            && !receive_used && remote_legacy_fallback(fd)) continue;
+            && !receive_used && (remote_takeover_fallback(fd) || remote_legacy_fallback(fd))) continue;
         remote_fail(fd, "session read failed"); return PTY_READ_ERROR;
     }
     return PTY_READ_OK;

@@ -139,9 +139,9 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
             if (!pane) { valid = false; break; }
             next->panes[next->count++] = pane;
             if (!fresh && strcmp(pane->socket_path, terminal->path)) { valid = false; break; }
-            strcpy(pane->id, terminal->id); strcpy(pane->name, terminal->name);
-            strcpy(pane->socket_path, terminal->path);
             if (fresh) {
+                strcpy(pane->id, terminal->id); strcpy(pane->name, terminal->name);
+                strcpy(pane->socket_path, terminal->path);
                 pane->fd = pane->transport.agent_fd = -1; pane->transport.replaying = true;
                 if (initialize && !pane_init(client, pane)) { valid = false; break; }
             }
@@ -152,7 +152,9 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
             for (int p = 0; p < next->count; p++) retained_focus |= !strcmp(next->panes[p]->id, focused_id);
             if (!retained_focus) next->focused = old->focused < next->count ? old->focused : next->count - 1;
         }
-        if (next->focused > 1) next->first = next->focused - 1;
+        next->first=old ? old->first : 0;
+        if (next->first>next->focused) next->first=next->focused;
+        if (next->focused>=next->first+2) next->first=next->focused-1;
     }
     /* Free only resources not retained in the chosen state. Heap addresses never
      * change, including userdata referenced by terminal effects callbacks. */
@@ -167,6 +169,9 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
             if (!retained) pane_free(pane);
         }
     if (!valid) return false;
+    for (int w=0;w<snapshot->count;w++)
+        for (int p=0;p<snapshot->workspaces[w].count;p++)
+            strcpy(updated[w].panes[p]->name,snapshot->workspaces[w].terminals[p].name);
     memcpy(client->workspaces, updated, sizeof(updated));
     client->count = snapshot->count;
     if (client->active >= client->count) client->active = client->count > 0 ? client->count - 1 : 0;

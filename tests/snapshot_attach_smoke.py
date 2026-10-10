@@ -5,9 +5,9 @@ import os, socket, subprocess, sys, tempfile, time
 from session_smoke import attach, send, expect, read_frame, wait_until
 REVISION=b'f64f4aca2c29b554d111b36c3d946a9bddd159ff'
 
-def snapshot_attach(path, revision=REVISION):
+def snapshot_attach(path, revision=REVISION, takeover=False):
     stream=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM); stream.settimeout(5)
-    stream.connect(str(path.with_suffix('.ctl'))); stream.sendall(b'ATS1\n'+revision)
+    stream.connect(str(path.with_suffix('.ctl'))); stream.sendall((b'ATM1\n' if takeover else b'ATS1\n')+revision)
     return stream
 
 def collect(stream):
@@ -22,6 +22,14 @@ def collect(stream):
     assert len(snapshot)==size and snapshot.startswith(b'GHOSTSNP')
     assert read_frame(stream)==(3,b'')
     return snapshot
+
+def revoked(stream):
+    while True:
+        kind,payload=read_frame(stream)
+        if kind==10:
+            assert not payload
+            return
+        assert kind in (1,2),(kind,payload)
 
 def main():
     binary=str(Path(sys.argv[1]).resolve())
@@ -50,6 +58,32 @@ def main():
                 stream=snapshot_attach(path); second=collect(stream)
                 assert second.count(f'LIVE_BOUNDARY:{pid}:saved'.encode()) == 1
                 os.kill(pid,0)
+                # A malformed takeover must never revoke the current owner.
+                wrong=snapshot_attach(path,b'0'*40,takeover=True)
+                assert read_frame(wrong)[0]==4;wrong.close()
+                send(stream,16,b"printf 'OWNER_STILL_LIVE\\n'\n")
+                expect(stream,rb'OWNER_STILL_LIVE\r?\n')
+                replacement=snapshot_attach(path,takeover=True)
+                restored=collect(replacement)
+                assert b'LIVE_BOUNDARY' in restored
+                revoked(stream)
+                # Old socket input/resize and its eventual Detach cannot control
+                # the replacement. Even a successful write is ignored by ID.
+                try:
+                    send(stream,16,b"touch stale-owner-input\n")
+                    send(stream,17,bytes([0,10,0,10]))
+                except OSError:pass
+                stream.close();stream=replacement;time.sleep(.2)
+                send(stream,17,bytes([0,90,0,30]))
+                while read_frame(stream)!=(2,bytes([0,90,0,30])):pass
+                send(stream,16,b"printf 'TRANSFER:%s:%s\\n' \"$$\" \"$keep\"\n")
+                match=expect(stream,rb'TRANSFER:(\d+):saved\r?\n');assert int(match[1])==pid
+                assert not (root/'stale-owner-input').exists()
+                returned=snapshot_attach(path,takeover=True);collect(returned)
+                revoked(stream)
+                stream.close();stream=returned;time.sleep(.2)
+                send(stream,16,b"printf 'RETURN:%s:%s\\n' \"$$\" \"$keep\"\n")
+                match=expect(stream,rb'RETURN:(\d+):saved\r?\n');assert int(match[1])==pid
                 stream.close();stream=None
                 subprocess.run([binary,'stop',str(path)],check=True,timeout=12);assert process.wait(timeout=5)==0
             finally:
@@ -59,5 +93,5 @@ def main():
                     if process.poll() is None:process.terminate()
                     process.wait(timeout=5)
                 if sys.exc_info()[0]:log.flush();print((root/'runtime.log').read_text(),file=sys.stderr)
-    print('PASS: pinned negotiation, busy/legacy isolation, snapshot attachment beyond 16 MiB, both screens, live boundary and same PID/state reconnect')
+    print('PASS: pinned negotiation, busy/legacy isolation, snapshot attachment beyond 16 MiB, both screens, live boundary, bidirectional ownership transfer, stale-owner isolation and same PID/state reconnect')
 if __name__=='__main__':main()

@@ -157,8 +157,6 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         }
         if (!matches) {
             Rectangle empty = {bounds.x + 16, y + 26, bounds.width - 32, overview_group_height(client) - 38};
-            DrawRectangleRec(empty, ui.background);
-            DrawRectangleLinesEx(empty, 1, ui.border);
             DrawTextEx(client->font, workspace->count ? "Drop into this workspace" : "Empty workspace / drop a terminal here",
                 (Vector2){empty.x + 16, empty.y + 16}, 13, 0, ui.muted);
         }

@@ -10,6 +10,7 @@
 #include "overview_animation.h"
 #include "pane_navigation.h"
 #include "overview_scroll.h"
+#include <sys/stat.h>
 
 #define WORKBENCH_MAX_WORKSPACES 8
 #define WORKBENCH_PANES 8
@@ -58,7 +59,10 @@ typedef struct {
     int cell_width, cell_height;
     Font font;
     const char *catalog_path;
-    bool managed, dialog_open, dialog_all, management_busy;
+    struct stat catalog_stamp;
+    double catalog_checked;
+    bool managed, dialog_open, dialog_all, management_busy, refreshing;
+    char claim_new[41];
     bool theme_open, theme_has_custom;
     int theme_selected, theme_ignored, theme_filter, theme_first;
     char theme_query[64];
@@ -139,6 +143,27 @@ static void pane_free(WorkbenchPane *pane)
     free(pane);
 }
 
+static bool pane_move_here(WorkspaceClient *client, WorkbenchPane *pane)
+{
+    pane_bind(pane);
+    if (pane->fd >= 0) close(pane->fd);
+    if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
+    free(pane->transport.snapshot);
+    memset(&pane->transport,0,sizeof(pane->transport));
+    pane->transport.agent_fd=-1;
+    pane->transport.replaying=true;
+    pane->transport.takeover=true;
+    ghostty_selection_gesture_reset(pane->selection.gesture,pane->terminal);
+    pane->selection.dragging=false;
+    pane->scrollbar_dragging=false;
+    pane->focused=false;
+    pane->fd=remote_connect(pane->socket_path,80,24,client->cell_width,client->cell_height);
+    pane->effects.pty_fd=pane->fd;
+    pane->closed=pane->fd<0;
+    pane_unbind();
+    return !pane->closed;
+}
+
 static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
 {
     pane_bind(pane);
@@ -149,8 +174,10 @@ static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
     size_t history = 1000;
     ghostty_terminal_set(pane->terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_LINES, &history);
     ghostty_terminal_resize(pane->terminal, 80, 24, client->cell_width, client->cell_height);
+    pane->transport.takeover=client->claim_new[0] && !strcmp(client->claim_new,pane->id);
     pane->fd = remote_connect(pane->socket_path, 80, 24, client->cell_width, client->cell_height);
-    if (pane->fd < 0) return false;
+    if (pane->fd < 0 && !client->refreshing) return false;
+    pane->closed=pane->fd<0;
     pane->effects = (EffectsContext){ .pty_fd = pane->fd,
         .cell_width = client->cell_width, .cell_height = client->cell_height,
         .cols = 80, .rows = 24, .theme=&pane->theme };
@@ -300,9 +327,13 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     if (pane->closed && pane->transport.attached_elsewhere) {
         BeginScissorMode(8, 38, (int)bounds.width-16, (int)bounds.height-38);
         DrawTextEx(client->font,"Open in another window",(Vector2){10,48},14,0,ui.text);
-        DrawTextEx(client->font,"Close that window, then reopen Workbench.",(Vector2){10,72},12,0,ui.muted);
+        DrawTextEx(client->font,pane->transport.takeover_unsupported
+            ? "Earlier runtime: close the owning window, then Move here."
+            : "Move the live terminal here to continue.",(Vector2){10,72},12,0,ui.muted);
         EndScissorMode();
     }
+    if (pane->closed)
+        draw_header_button(client->font,(Rectangle){10,100,104,28},"Move here",true);
     DrawRectangle(0, 0, (int)bounds.width, 32, ui.surface);
     char label[128];
     const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
@@ -324,12 +355,71 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
 #include "terminal_preview.h"
 #include "navigation_ui.h"
 
+/* One metadata check per window, four times/second; no pane-scaled I/O.
+ * The atomic catalog projection is the shared organization authority for the
+ * spike. Focus, viewport and animation remain local to this window. */
+static void workspace_refresh(WorkspaceClient *client)
+{
+    double now=GetTime();
+    if (now-client->catalog_checked<.25) return;
+    client->catalog_checked=now;
+    if (client->management_busy || client->dialog_open || client->theme_open
+        || client->overview_drag_armed || client->overview_closing || client->divider_dragging
+        || navigation_moving(client) || overview_animation_busy(&client->overview_animation,now)) return;
+    for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++)
+        if (client->workspaces[w].panes[p]->selection.dragging
+            || client->workspaces[w].panes[p]->scrollbar_dragging) return;
+    struct stat stamp;
+    if (stat(client->catalog_path,&stamp)<0) return;
+    if (stamp.st_dev==client->catalog_stamp.st_dev && stamp.st_ino==client->catalog_stamp.st_ino
+        && stamp.st_size==client->catalog_stamp.st_size) return;
+    char workspace_ids[WORKBENCH_MAX_WORKSPACES][41], selected_id[41]={0};
+    int previous_count=client->count, columns[WORKBENCH_MAX_WORKSPACES];
+    OverviewScroll horizontal[WORKBENCH_MAX_WORKSPACES];
+    for (int w=0;w<previous_count;w++) {
+        strcpy(workspace_ids[w],client->workspaces[w].id);
+        columns[w]=client->overview_columns[w];
+        horizontal[w]=client->overview_horizontal[w];
+    }
+    OverviewItem items[WORKBENCH_MAX_WORKSPACES*WORKBENCH_PANES];
+    if (client->overview_open) {
+        int count=overview_items(client,items), index=client->overview_selected;
+        if (index>=0 && index<count)
+            strcpy(selected_id,client->workspaces[items[index].workspace].panes[items[index].pane]->id);
+    }
+    navigation_finish(client);
+    client->refreshing=true;
+    bool reloaded=workspace_reload(client);
+    client->refreshing=false;
+    if (!reloaded) return;
+    client->catalog_stamp=stamp;
+    client->navigation_reset=true;
+    client->appearance_dirty=true;
+    memset(client->overview_columns,0,sizeof(client->overview_columns));
+    memset(client->overview_horizontal,0,sizeof(client->overview_horizontal));
+    for (int w=0;w<client->count;w++) for (int old=0;old<previous_count;old++)
+        if (!strcmp(client->workspaces[w].id,workspace_ids[old])) {
+            client->overview_columns[w]=columns[old];
+            client->overview_horizontal[w]=horizontal[old];
+        }
+    if (client->overview_open) {
+        int count=overview_items(client,items);
+        for (int i=0;i<count;i++)
+            if (!strcmp(client->workspaces[items[i].workspace].panes[items[i].pane]->id,selected_id))
+                client->overview_selected=i;
+        if (client->overview_selected>=count) client->overview_selected=count ? count-1 : 0;
+        overview_scroll_update(client,items,count,false);
+    }
+}
+
 static int workspace_main(const char *catalog)
 {
     WorkspaceClient *client = calloc(1, sizeof(*client));
     if (!client) return 1;
-    if (!workspace_catalog(client, catalog)) { fprintf(stderr, "Could not load workspace catalog: %s\n", catalog); free(client); return 1; }
     client->catalog_path = catalog;
+    /* Observe before loading so a concurrent replacement is checked again. */
+    (void)stat(catalog,&client->catalog_stamp);
+    if (!workspace_catalog(client, catalog)) { fprintf(stderr, "Could not load workspace catalog: %s\n", catalog); free(client); return 1; }
     client->managed = getenv("WORKBENCH_CATALOG_SCRIPT") != NULL;
     client->management_fd = -1;
     client->management_pid = -1;
@@ -366,6 +456,7 @@ static int workspace_main(const char *catalog)
             }
 
     while (!WindowShouldClose()) {
+        workspace_refresh(client);
         overview_motion_tick(client);
         if (client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
         theme_sync(client);
@@ -417,7 +508,7 @@ static int workspace_main(const char *catalog)
             workspace = &client->workspaces[client->active];
             for (int p = workspace->first; p < workspace->count && p < workspace->first + 2; p++)
                 if (CheckCollisionPointRec(pointer, workspace->panes[p]->bounds)) workspace->focused = p;
-            management_click(client, pointer);
+            if (management_click(client, pointer)) modal_frame=true;
             if (client->dialog_open) modal_frame = true;
         }
         Rectangle divider = {workspace->count ? workspace->panes[workspace->first]->bounds.x + workspace->panes[workspace->first]->bounds.width : 0,

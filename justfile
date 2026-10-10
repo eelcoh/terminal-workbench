@@ -89,3 +89,7 @@ snapshot-gui-test: spike-build
 # Maximum populated catalog through overview scrolling and navigation.
 overview-scale-gui-test: spike-build
     WORKBENCH_TEST_OVERVIEW_WORKSPACES=8 WORKBENCH_TEST_OVERVIEW_PANES=8 python3 tests/expose_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Shared catalog projection and runtime ownership transfer across two windows.
+multiwindow-gui-test: spike-build
+    python3 tests/multiwindow_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

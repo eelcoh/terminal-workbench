@@ -335,7 +335,13 @@ def main():
     parser.add_argument("--position", type=int, default=-1)
     args = parser.parse_args()
     try:
-        manage(args.state_dir, args.runtime.resolve(), args.cwd.resolve(), args.command, args.id, args.name, args.to, args.position)
+        data = manage(args.state_dir, args.runtime.resolve(), args.cwd.resolve(), args.command, args.id, args.name, args.to, args.position)
+        # Return the identity from this operation's locked result, never infer
+        # it from a later projection that another window may have changed.
+        if args.command in {"workspace.create", "terminal.create"}:
+            workspace = data["workspaces"][-1] if args.command == "workspace.create" else next(
+                item for item in data["workspaces"] if item["id"] == args.id)
+            print("CREATED\t" + workspace["terminals"][-1]["id"] + "\t" + workspace["id"], flush=True)
         print("OK", flush=True)
         return 0
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:

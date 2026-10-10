@@ -125,3 +125,27 @@ overflow rejects only legacy attachments; ATS1 can still capture current state.
 The current complete-snapshot implementation finishes all history before READY;
 incremental history decoding is future work. Snapshot bytes are experimental and
 are negotiated by exact VT revision, without a cross-version format promise.
+
+## Explicit ownership transfer (ATM1)
+
+`ATM1\n` followed by the same 40-byte VT revision explicitly requests ownership
+of a live terminal. Ordinary ATS1 attachments still reject an occupied terminal.
+After validating the revision and capturing a snapshot, the runtime registers
+the replacement connection and queues an empty kind 10 frame to the previous
+owner. Its writer drains bounded queued output, sends the revocation and closes.
+Only the new connection ID may write or resize; delayed input, resize and detach
+from the previous connection are ignored. Snapshot failures leave the old owner
+in place. The shell, terminal state and socket identity are preserved.
+
+A viewer receiving kind 10 shows “Open in another window” and offers “Move here”
+in its terminal view. Claiming ownership is an explicit click, never an automatic
+retry or consequence of navigating. Snapshots retain the limitations described
+above, including unavailable retained graphics. These private same-user methods
+are not an authentication boundary.
+
+Older runtimes close unknown ATM1 requests. Before any response, the viewer retries
+ordinary ATS1 without revoking its owner. If occupied, it explains that the owning
+window must be closed first; clicking Move here afterward reconnects to the same
+shell. Partial snapshots and incompatible revisions never trigger this fallback.
+Missing older snapshot methods may still use ordinary legacy replay attachment.
+Rebuilding does not replace an already-running runtime.

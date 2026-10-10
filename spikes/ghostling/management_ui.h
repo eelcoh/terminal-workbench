@@ -52,18 +52,33 @@ static bool management_poll(WorkspaceClient *client)
     client->management_busy = false;
     client->management_pid = -1;
     if (result > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-        if (!workspace_reload(client)) {
+        struct stat stamp;
+        bool observed=stat(client->catalog_path,&stamp)==0;
+        char created_terminal[41]={0}, created_workspace[41]={0};
+        const char *created=strstr(client->management_reply,"CREATED\t");
+        if (created && sscanf(created,"CREATED\t%40[^\t]\t%40[^\r\n]",created_terminal,created_workspace)==2)
+            strcpy(client->claim_new,created_terminal);
+        bool reloaded=workspace_reload(client);
+        client->claim_new[0]=0;
+        if (!reloaded) {
             fprintf(stderr, "catalog updated, but viewer could not attach new terminals\n");
             return false;
         }
+        if (observed) client->catalog_stamp=stamp;
         if (client->dialog_kind == DIALOG_WORKSPACE_CREATE) {
-            client->active = client->count - 1;
+            client->active = client->count ? client->count - 1 : 0;
+            for (int w=0;w<client->count;w++)
+                if (!strcmp(client->workspaces[w].id,created_workspace)) client->active=w;
             int visible_rows = (GetScreenHeight() - 268) / 44;
             if (visible_rows < 1) visible_rows = 1;
             if (client->active >= client->sidebar_first + visible_rows) client->sidebar_first = client->active - visible_rows + 1;
         }
         WorkbenchWorkspace *workspace = &client->workspaces[client->active];
-        if (client->dialog_kind == DIALOG_TERMINAL_CREATE) workspace->focused = workspace->count - 1;
+        if (client->dialog_kind == DIALOG_TERMINAL_CREATE) {
+            workspace->focused=workspace->count ? workspace->count-1 : 0;
+            for (int p=0;p<workspace->count;p++)
+                if (!strcmp(workspace->panes[p]->id,created_terminal)) workspace->focused=p;
+        }
         if (workspace->focused < workspace->first) workspace->first = workspace->focused;
         if (workspace->focused >= workspace->first + 2) workspace->first = workspace->focused - 1;
         client->dialog_open = false;
@@ -171,6 +186,10 @@ static Rectangle terminal_stop(WorkbenchPane *pane)
 {
     return (Rectangle){pane->bounds.x + pane->bounds.width - 132, pane->bounds.y + 6, 54, 20};
 }
+static Rectangle terminal_move_here(WorkbenchPane *pane)
+{
+    return (Rectangle){pane->bounds.x+10,pane->bounds.y+100,104,28};
+}
 static Rectangle workspace_stop(void) { return (Rectangle){150, 51, 26, 22}; }
 
 static void management_controls(WorkspaceClient *client)
@@ -211,10 +230,19 @@ static void management_controls(WorkspaceClient *client)
     }
 }
 
-static void management_click(WorkspaceClient *client, Vector2 pointer)
+static bool management_click(WorkspaceClient *client, Vector2 pointer)
 {
-    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return;
+    if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return false;
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
+    for (int p=workspace->first;p<workspace->count && p<workspace->first+2;p++) {
+        WorkbenchPane *pane=workspace->panes[p];
+        if (pane->closed && CheckCollisionPointRec(pointer,terminal_move_here(pane))) {
+            workspace->focused=p;
+            if (!pane_move_here(client,pane)) clipboard_notice("Could not connect; reopen to recover the session");
+            client->navigation_reset=true;
+            return true;
+        }
+    }
     if (client->managed) {
         if (CheckCollisionPointRec(pointer, management_button(0)) && client->count < WORKBENCH_MAX_WORKSPACES)
             dialog_open(client, DIALOG_WORKSPACE_CREATE);
@@ -237,6 +265,7 @@ static void management_click(WorkspaceClient *client, Vector2 pointer)
     for (int p=0;p<workspace->count;p++)
         if (CheckCollisionPointRec(pointer,terminal_position(p))) workspace->focused=p;
     pane_navigation_focus(workspace->count,workspace->focused,&workspace->focused,&workspace->first);
+    return false;
 }
 
 static Rectangle dialog_bounds(void)

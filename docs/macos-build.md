@@ -192,3 +192,16 @@ horizontal swipes to pan a workspace's terminals. Test gentle movements, longer
 swipes, reversal, and scrolling at both ends with a populated overview. Reduced
 motion keeps fractional movement but removes easing. Native acceptance remains
 pending; Linux validates the callback and populated GUI paths.
+
+### Shared windows and terminal transfer
+
+Open two instances against the same state directory. Create or rename a workspace
+in one and check that the other updates without relaunching. New terminals should
+stay with their creating window. In the other window, enter that terminal from
+the overview and click **Move here**. Check that shell variables and running jobs
+survive, then move it back. Selection and focus in unrelated workspaces should
+remain local to each window. Closing a workspace should remove it from both.
+
+Direct transfer requires a runtime launched by this build. Existing terminals
+keep their earlier runtime: the UI will ask you to close their owning window
+before clicking Move here again. This reconnects without restarting the shell.

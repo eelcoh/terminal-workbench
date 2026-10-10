@@ -66,5 +66,17 @@ int main(void) {
     assert(workspace_reload(&client));
     assert(workspace_catalog(&client,path));
     assert(initializations==0 && frees==0);
+    /* Failed projections must not partially rename retained panes. */
+    strcpy(s.workspaces[1].terminals[0].name,"Partial rename");
+    strcpy(s.workspaces[1].terminals[1].path,"/tmp/changed.sock");
+    assert(!catalog_apply(&client,&s,true));
+    assert(!strcmp(two.name,"Two") && one.fd==77);
+    assert(client.workspaces[1].panes[0]==&two && client.active==0);
+    /* A metadata-only rename preserves the window's local viewport. */
+    strcpy(s.workspaces[1].terminals[1].path,one.socket_path);
+    client.workspaces[1].focused=2; client.workspaces[1].first=2;
+    assert(catalog_apply(&client,&s,true));
+    assert(client.workspaces[1].first==2 && client.workspaces[1].focused==2);
+    assert(initializations==0 && frees==0);
     return 0;
 }

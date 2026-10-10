@@ -203,3 +203,7 @@ Mac trackpad speed/feel still needs owner acceptance. Linux checks cover the
 native callback's accumulation/reset, pure fractional scrolling/reversal/bounds,
 normal and reduced-motion overview navigation, and drag scrolling. The populated
 GUI fixture can run with eight workspaces and eight terminals per workspace.
+
+Empty workspace rows keep the overview's background rather than drawing a separate
+filled or bordered container. Their label and drop hint remain visible; an active
+drag still supplies its insertion/drop feedback.

@@ -58,8 +58,9 @@ readiness. Packaging follows these foundations.
 Runtime hardening has started with runtime-owned VT state, bounded terminal-state
 exports, detached query handling and negotiated snapshot-based reattachment. New
 runtimes/windows reconnect beyond the legacy 16 MiB journal limit; old running
-sessions retain replay fallback. A session service and explicit lifecycle/recovery
-policy remain next.
+sessions retain replay fallback. Shared catalog changes now refresh across windows,
+with explicit live-terminal ownership transfer and independent window focus. A
+session service and explicit lifecycle/recovery policy remain next.
 See [the hardening slice and measurements](runtime-hardening.md).
 
 ## UX spike: a product-quality gate

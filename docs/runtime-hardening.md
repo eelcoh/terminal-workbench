@@ -51,6 +51,42 @@ upgraded automatically; create a new terminal after rebuilding to try snapshots.
 The client allows ten seconds for initial attachment; socket writes have a
 two-second deadline and queued live output remains bounded to 256 frames.
 
+## Shared organization and window ownership
+
+All windows launched against the same state directory share its workspace and
+terminal catalog. The existing management CLI serializes writes under a file
+lock and atomically replaces the catalog projection. Each window checks that
+projection four times per second and applies changes by stable identity, retaining
+live connections, terminal state, focused terminal, workspace selection and
+overview scroll/selection.
+Focus falls back to a surviving neighbor if its terminal or workspace is removed.
+Refresh waits for editing, selection, drag and transition gestures to finish.
+
+New terminals belong to the window creating them, even if another window sees
+the catalog first or another creation commits before the creator refreshes. The
+management result identifies exactly the created terminal and workspace. Other windows show “Open in another window”. Enter a terminal
+from the overview and click “Move here” in its terminal view to transfer ownership
+without restarting its shell. The old window receives a revocation and offers the
+same action. Each terminal has one owner; moving one does not move its siblings.
+The transfer restores the current runtime snapshot and then accepts live input.
+
+Earlier runtimes do not support ownership transfer. A failed transfer tries an
+ordinary attachment, preserving the current owner. If it is still attached, the
+UI asks you to close the owning window and click Move here again. New terminals
+created after building use the new runtime and support direct transfer. Existing
+shells are never killed or automatically upgraded to enable this feature.
+
+This is shared organization and ownership support for the spike, using the
+existing catalog authority. It is not yet a unified session-service daemon.
+Named session selection, persisted window layouts, cross-window appearance
+updates and restart-after-reboot policy remain follow-up work.
+
+`just multiwindow-gui-test` verifies real two-window creation, renaming, terminal
+movement and workspace closure, independent focus, creator ownership under overlapping saves, transfers
+in both directions and surviving shell PID/state/socket identity. Runtime tests
+also verify rejection before revocation and stale-owner input/resize isolation.
+Native macOS acceptance remains pending.
+
 ## Build and inspect
 
 `just runtime-build` prepares the pinned VT library and Rust executable without
