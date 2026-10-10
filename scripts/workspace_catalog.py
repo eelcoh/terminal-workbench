@@ -95,7 +95,7 @@ def load(directory):
 def socket_path(directory, terminal):
     path = directory / f"{terminal['id']}.sock"
     if len(os.fsencode(path)) >= 104 or any(ch in str(path) for ch in "\t\r\n"):
-        raise ValueError("Session directory is too long or contains unsupported characters")
+        raise ValueError(f"Session socket path exceeds 103 bytes or contains a tab/newline: {path}. Use a shorter checkout path")
     return path
 
 def snapshot(directory, data):
@@ -201,6 +201,17 @@ def move_terminal(data, identity, destination, position=-1):
     validate(data)
 
 
+def new_terminal_identity(data):
+    """Keep new socket names short without changing persisted terminal IDs."""
+    used = {entity["id"] for workspace in data["workspaces"]
+            for entity in [workspace, *workspace["terminals"]]}
+    for _ in range(32):
+        identity = uuid.uuid4().hex[:16]
+        if identity not in used:
+            return identity
+    raise ValueError("Could not allocate a unique terminal identity; retry")
+
+
 def mutate(data, method, identity, title, destination='', position=-1):
     if method == 'terminal.move':
         move_terminal(data, identity, destination, position)
@@ -211,7 +222,7 @@ def mutate(data, method, identity, title, destination='', position=-1):
         if len(workspaces) >= MAX_WORKSPACES:
             raise ValueError("This spike supports eight workspaces")
         workspaces.append({"id": uuid.uuid4().hex, "name": title,
-            "terminals": [{"id": uuid.uuid4().hex, "name": "Shell 1"}]})
+            "terminals": [{"id": new_terminal_identity(data), "name": "Shell 1"}]})
     elif method in {"workspace.rename", "terminal.create"}:
         workspace = next((item for item in workspaces if item["id"] == identity), None)
         if workspace is None:
@@ -221,7 +232,7 @@ def mutate(data, method, identity, title, destination='', position=-1):
         else:
             if len(workspace["terminals"]) >= MAX_TERMINALS:
                 raise ValueError("This spike supports eight terminals per workspace")
-            workspace["terminals"].append({"id": uuid.uuid4().hex, "name": title})
+            workspace["terminals"].append({"id": new_terminal_identity(data), "name": title})
     elif method == "terminal.rename":
         terminal = next((item for workspace in workspaces for item in workspace["terminals"] if item["id"] == identity), None)
         if terminal is None:

@@ -47,6 +47,9 @@ cd terminal-workbench
 A short checkout path matters because session Unix sockets currently live inside
 `.local/sessions`, and macOS Unix socket paths have a small fixed limit. The
 repository does not contain Linux sessions, user settings or downloaded dependencies.
+New terminal socket filenames use 16-character IDs, so the absolute session directory
+must fit 81 UTF-8 bytes (plus `/`, the ID, and `.sock` within 103 bytes). Existing
+terminal IDs and socket paths are preserved; older 32-character IDs need more room.
 
 ## Install the pinned Zig compiler locally
 

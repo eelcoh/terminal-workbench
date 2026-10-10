@@ -11,6 +11,7 @@ check:
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
     python3 tests/catalog_test.py
+    python3 tests/socket_path_test.py target/debug/workbench-session
     python3 tests/move_test.py
     python3 tests/close_smoke.py target/debug/workbench-session
     python3 tests/agent_smoke.py target/debug/workbench-session

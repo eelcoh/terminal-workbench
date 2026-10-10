@@ -166,7 +166,7 @@ adaptation that latches both edges until the next poll, retaining actual held
 state. Selection gestures and terminal mouse encoding process both edges in order.
 The build fetches the pinned Raylib rather than accepting an unpatched system
 library. The adaptation retains Raylib's zlib license and copyright notices.
-Native trackpad acceptance on the Mac remains pending.
+The owner subsequently confirmed tap-to-click works on macOS.
 
 The local adaptation is implemented by `scripts/patch-raylib-input.py`, applied
 at CMake configure time to `rcore.c` and `platforms/rcore_desktop_glfw.c` from
@@ -181,3 +181,22 @@ input in each workspace/pane. A mouse-aware terminal receives press and release
 reports for the same-poll tap. `just check`, `workspace-gui-test`, `spike-gui-test`,
 `management-gui-test`, `expose-gui-test` (animated and reduced motion), and
 `move-gui-test` pass on Linux with isolated Xvfb displays.
+
+### macOS creation and socket paths
+
+The owner confirmed tap-to-click, then found new workspace/terminal creation
+failing on the session path check. The reported Mac session directory is 71
+bytes. Seeded short IDs fit, but the original 32-character generated terminal
+IDs produced 109-byte socket paths, beyond the shared macOS-compatible 103-byte
+maximum. New terminals now receive 16-character IDs, checked against all saved
+entity IDs before use, giving 93-byte socket paths in that checkout. Existing
+IDs, runtime endpoints, theme bindings and catalog schema remain unchanged.
+Longer checkout paths still require a shorter location; startup diagnostics now
+include the offending socket path and the limit. Native creation retesting is
+pending.
+
+The socket-path regression uses real runtimes in a 71-byte absolute session
+directory. It verifies workspace and terminal creation, attachment to their new
+sockets, unchanged existing socket inodes/PIDs/shell state and saved preferences.
+It also covers ID collisions, retained legacy IDs, and rejection before mutation
+when the path cannot fit even the shorter filename.
