@@ -179,3 +179,10 @@ building, create a fresh terminal, leave output/application state in it, close t
 window and run `just spike` again. The same process should resume with its text
 and terminal modes. Older live runtimes use replay fallback. Linux Xvfb checks
 cover this path and long-output recovery; native Mac acceptance remains pending.
+
+Only one viewer can attach to a session at a time. Running `git pull && just spike`
+inside an already open Workbench launches a second viewer; it cannot take over
+the first window's sessions. Close the first window, then run `just spike` from
+macOS Terminal to test reconnection. Closing the window detaches its sessions;
+using `exit` or Stop ends a session. Busy sessions display "Open in another window"
+and remain usable in the window that owns them.

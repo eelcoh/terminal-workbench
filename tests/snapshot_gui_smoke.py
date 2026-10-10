@@ -83,6 +83,11 @@ while True:
                 command('mousemove','--window',window,'400','100');command('click','1');time.sleep(.1)
                 key(window,'c');assert b'LIVE_AFTER_RESTORE' in copy_row(window,36)
                 command('mousemove','--window',window,'400','100');command('click','1');time.sleep(.1)
+                other,other_window=launch(path)
+                log.flush();assert 'This terminal is open in another window.' in (root/'gui.log').read_text()
+                close_window(other_window,environment);assert other.wait(timeout=5)==0
+                command('windowfocus',window).check_returncode()
+                # Rejection of the second viewer must leave the first connection usable.
                 key(window,'q');wait_until(lambda:(root/'reply').exists())
                 reply=(root/'reply').read_bytes();assert reply.startswith(b'\x1b[1;') and reply.endswith(b'R'),reply
                 time.sleep(.3);assert not (root/'extra').exists(),'duplicate historical/live query reply'
@@ -99,5 +104,5 @@ while True:
                         try:process.wait(timeout=5)
                         except subprocess.TimeoutExpired:process.kill();process.wait(timeout=5)
                 if sys.exc_info()[0]:log.flush();print((root/'gui.log').read_text(),file=sys.stderr)
-    print('PASS: real viewer legacy fallback, >16 MiB snapshot restore, clipboard, incomplete parser continuation, query ownership, alternate/primary return and same-PID reconnect')
+    print('PASS: real viewer legacy fallback, >16 MiB snapshot restore, clipboard, incomplete parser continuation, query ownership, second-window rejection without displacing the first, alternate/primary return and same-PID reconnect')
 if __name__=='__main__':main()

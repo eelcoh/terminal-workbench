@@ -47,7 +47,9 @@ The socket and build directories live in the shared project directory.
 
 - One attached viewer per session. Each terminal runs in a separate runtime
   process; initially there are four sessions across Main and Scratch.
-  A second viewer of the same session receives a rejection.
+  A second viewer of the same session shows "Open in another window". To test
+  reconnection, close the first window and launch `just spike` from another
+  terminal application; running it inside Workbench opens a competing viewer.
 - Runtime-owned state has bounded scrollback. New runtimes/viewers reconnect
   through snapshots even after 16 MiB of output. Legacy replay fallback keeps
   its 16 MiB attachment limit for older running sessions. Create a fresh terminal

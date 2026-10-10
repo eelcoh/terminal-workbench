@@ -63,7 +63,7 @@ replace_once('PtyReadResult pty_rc = pty_read(pty_fd, terminal);', """PtyReadRes
                 effects_ctx.cols = remote_cols;
                 effects_ctx.rows = remote_rows;
             }""")
-replace_once('"[process exited]"', '"[session connection closed]"')
+replace_once('"[process exited]"', 'active_remote->attached_elsewhere ? "[open in another window]" : "[session connection closed]"')
 # Reserve the header in grid, mouse, image, cursor and scrollbar geometry.
 replace_once('SetWindowState(FLAG_WINDOW_RESIZABLE);', 'SetWindowState(FLAG_WINDOW_RESIZABLE);\n    SetWindowMinSize(420, 96);')
 replace_once('while (!WindowShouldClose()) {', 'while (!WindowShouldClose() && !window_close_requested()) {')

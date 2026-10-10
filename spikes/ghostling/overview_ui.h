@@ -299,7 +299,7 @@ static void overview_draw(WorkspaceClient *client)
         DrawTextEx(client->font, detail, (Vector2){row.x + 10, row.y + 23}, 12, 0, ui.muted);
         EndScissorMode();
         if (pane->unread) DrawCircle((int)(row.x + row.width - 146), (int)(row.y + 19), 3, ui.waiting);
-        DrawTextEx(client->font, pane->closed ? "Disconnected" : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected",
+        DrawTextEx(client->font, pane->closed ? (pane->transport.attached_elsewhere ? "Open elsewhere" : "Disconnected") : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected",
             (Vector2){row.x + row.width - 130, row.y + 12}, 12, 0, agent[0] ? remote_attention_color(pane->transport.attention) : ui.muted);
     }
     if (!client->overview_list) overview_drag_draw(client, items, count);

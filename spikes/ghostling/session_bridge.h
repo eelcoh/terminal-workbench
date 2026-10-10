@@ -6,7 +6,7 @@
 
 /* Each pane owns transport state. Binding is confined to the UI thread. */
 typedef struct {
-    bool replaying, failed, snapshot_attempt, snapshot_seen, snapshot_done;
+    bool replaying, failed, snapshot_attempt, snapshot_seen, snapshot_done, attached_elsewhere;
     char session_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
     uint8_t *snapshot;
     size_t snapshot_size, snapshot_used;
@@ -306,7 +306,12 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
                     remote_replaying = false;
                     remote_resize(fd, desired_cols, desired_rows);
                 } else if (kind == 4) {
+                    static const char busy[] = "a window is already attached";
+                    remote->attached_elsewhere = length == sizeof(busy)-1 && !memcmp(payload,busy,length);
                     fprintf(stderr, "session rejected attachment: %.*s\n", (int)length, payload);
+                    if (remote->attached_elsewhere)
+                        fprintf(stderr, "This terminal is open in another window. Close that window, then reopen Workbench to reconnect here.\n");
+                    remote_fail(fd,"attachment rejected");
                     return PTY_READ_ERROR;
                 } else {
                     remote_fail(fd, "invalid output frame"); return PTY_READ_ERROR;

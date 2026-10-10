@@ -295,12 +295,18 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     render_terminal(pane->render, pane->rows, pane->cells, client->font,
                     client->cell_width, client->cell_height, 16, 4,
                     &scrollbar, pane->terminal, pane->images);
+    if (pane->closed && pane->transport.attached_elsewhere) {
+        BeginScissorMode(8, 38, (int)bounds.width-16, (int)bounds.height-38);
+        DrawTextEx(client->font,"Open in another window",(Vector2){10,48},14,0,ui.text);
+        DrawTextEx(client->font,"Close that window, then reopen Workbench.",(Vector2){10,72},12,0,ui.muted);
+        EndScissorMode();
+    }
     DrawRectangle(0, 0, (int)bounds.width, 32, ui.surface);
     char label[128];
     const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
     snprintf(label, sizeof(label), "%s%s%s%s%s%s", pane->name, agent[0] ? " / " : "", agent,
              agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
-             pane->closed ? "  /  connection closed" : pane->transport.replaying ? "  /  connecting" : "");
+             pane->closed ? (pane->transport.attached_elsewhere ? "  /  open in another window" : "  /  connection closed") : pane->transport.replaying ? "  /  connecting" : "");
     BeginScissorMode(8, 0, (int)bounds.width - 150, 32);
     DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, ui.text);
     EndScissorMode();

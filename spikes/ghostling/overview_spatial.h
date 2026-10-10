@@ -141,7 +141,7 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         EndScissorMode();
         if (pane->unread) DrawCircle((int)(card.x + card.width - 12), (int)(card.y + 12), 3, ui.waiting);
         const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
-        const char *status = pane->closed ? "Disconnected" : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected";
+        const char *status = pane->closed ? (pane->transport.attached_elsewhere ? "Open elsewhere" : "Disconnected") : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected";
         char detail[100];
         snprintf(detail, sizeof(detail), "%s%s%s", agent, agent[0] ? " / " : "", status);
         BeginScissorMode((int)card.x + 8, (int)(card.y + card.height - 23), (int)card.width - 16, 23);
