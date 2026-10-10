@@ -4,6 +4,19 @@
 #include <stdbool.h>
 #include <math.h>
 typedef struct { float accumulated; double last, next; int direction; } PaneNavigationWheel;
+/* Long jumps replace the complete viewport; adjacent moves retain their shared
+ * pane. Duration grows with skipped positions, capped to keep input responsive. */
+typedef struct { float distance; double duration; } PaneNavigationMotion;
+static PaneNavigationMotion pane_navigation_motion(int from, int to, float stride, float viewport)
+{
+    int steps = to > from ? to - from : from - to;
+    if (!steps) return (PaneNavigationMotion){0, 0};
+    int direction = to > from ? 1 : -1;
+    if (steps == 1) return (PaneNavigationMotion){direction * stride, .27};
+    int extra = steps - 2;
+    if (extra > 4) extra = 4;
+    return (PaneNavigationMotion){direction * viewport, .42 + extra * .04};
+}
 static void pane_navigation_focus(int count, int requested, int *focused, int *first)
 {
     if (count <= 0) { *focused = *first = 0; return; }

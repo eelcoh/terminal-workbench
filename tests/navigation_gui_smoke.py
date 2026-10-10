@@ -54,7 +54,8 @@ def main():
                     return result.stdout.strip().splitlines()[-1] if result.returncode==0 else None
                 window=wait_until(find,timeout=10); cmd('windowfocus',window); time.sleep(.4)
                 def click(x,y,pause=.2):
-                    cmd('mousemove','--window',window,x,y); cmd('mousedown',1,'mouseup',1); time.sleep(pause)
+                    # Separate synthetic clicks by multiple frames; focus is still checked during motion.
+                    cmd('mousemove','--window',window,x,y); cmd('mousedown',1,'mouseup',1); time.sleep(max(.06,pause))
                 def key(name):
                     cmd('keydown','--window',window,name); time.sleep(.025); cmd('keyup','--window',window,name); time.sleep(.025)
                 def verify(p,name):
@@ -82,14 +83,22 @@ def main():
                 baseline=geometry(); alive(); capture('positions')
                 if active>2:
                     # Confirm actual pixel movement, not just a completed focus change.
-                    click(363,16,.25); start_image=capture('start')
+                    click(363,16,.65); start_image=capture('start')
                     click(377,16,.04); click(286,16,.06); middle=capture('moving')
                     time.sleep(.2); end_image=capture('settled')
                     if env.get('WORKBENCH_REDUCED_MOTION')!='1':
                         assert pixel(middle,220,700)==pixel(start_image,220,700), 'outgoing terminal vanished before the slide'
                         assert pixel(middle,1220,700)==pixel(end_image,1220,700) and pixel(middle,1220,700)!=pixel(start_image,1220,700), 'slide had not advanced before completion'
                     assert pixel(end_image,220,700)!=pixel(start_image,220,700), 'working-view pixels did not move'
-                    # Retarget repeatedly before the previous 180ms move finishes.
+                    # A long backwards jump travels the complete viewport more slowly.
+                    click(363+7*14,16,.65); jump_start=capture('jump-start')
+                    click(363,16,.12); jump_middle=capture('jump-moving')
+                    time.sleep(.65); jump_end=capture('jump-settled')
+                    if env.get('WORKBENCH_REDUCED_MOTION')!='1':
+                        assert pixel(jump_middle,1220,700)==pixel(jump_start,1220,700), 'long jump completed like an adjacent move'
+                        assert pixel(jump_middle,220,700)!=pixel(jump_start,220,700), 'long jump did not reveal the destination'
+                    assert pixel(jump_end,1220,700)!=pixel(jump_start,1220,700), 'long jump did not complete'
+                    # Retarget repeatedly before the previous move finishes.
                     click(363,16,.04); click(286,16,.04); click(286,16,.04); click(222,16,.04); click(222,16,.04)
                     verify(0,'retarget-input')
                     for _ in range(8): assert geometry()==baseline; time.sleep(.025)

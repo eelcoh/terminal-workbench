@@ -80,10 +80,11 @@ static void navigation_prepare(WorkspaceClient *client)
         || client->divider_dragging || client->navigation_reset;
     if (!same || blocked || !client->overview_animation_enabled) navigation_finish(client);
     else if (workspace->first!=client->navigation_first) {
-        int direction=workspace->first>client->navigation_first ? 1 : -1;
         if (navigation_capture(client,workspace)) {
-            client->navigation_distance=direction*(workspace->panes[client->navigation_first]->bounds.width+WORKBENCH_GAP);
-            client->navigation_animation=(OverviewAnimation){.from=0,.target=1,.started=GetTime(),.duration=.18};
+            PaneNavigationMotion motion=pane_navigation_motion(client->navigation_first,workspace->first,
+                workspace->panes[client->navigation_first]->bounds.width+WORKBENCH_GAP,area.width);
+            client->navigation_distance=motion.distance;
+            client->navigation_animation=(OverviewAnimation){.from=0,.target=1,.started=GetTime(),.duration=motion.duration};
         } else navigation_finish(client);
     }
     client->navigation_valid=true; client->navigation_reset=false;

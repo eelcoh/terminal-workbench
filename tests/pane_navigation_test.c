@@ -2,6 +2,13 @@
 #include "pane_navigation.h"
 int main(void)
 {
+    PaneNavigationMotion adjacent=pane_navigation_motion(4,3,523,1036);
+    PaneNavigationMotion jump=pane_navigation_motion(4,0,523,1036);
+    assert(adjacent.distance == -523 && adjacent.duration == .27);
+    assert(jump.distance == -1036 && jump.duration > adjacent.duration);
+    assert(pane_navigation_motion(0,4,523,1036).distance == 1036);
+    assert(pane_navigation_motion(0,7,523,1036).duration <= .58 + .00001);
+    assert(pane_navigation_motion(2,2,523,1036).duration == 0);
     int focused=0,first=0;
     pane_navigation_focus(8,7,&focused,&first); assert(focused==7 && first==6);
     pane_navigation_focus(8,6,&focused,&first); assert(focused==6 && first==6);
