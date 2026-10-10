@@ -53,8 +53,8 @@ with one shell. **Prev/Next** in the header focuses terminals and reveals those
 outside the two visible columns. Click a numbered position to jump directly, or
 scroll over the header's navigation strip to move between terminals. Horizontal
 trackpad scrolling and vertical mouse-wheel scrolling work there; scrolling inside
-terminals keeps its terminal behavior. Adjacent pane changes slide for 270ms; longer jumps slide the full working area
-for 420–580ms depending on distance, with immediate
+terminals keeps its terminal behavior. Adjacent pane changes scroll for 270ms; longer jumps scroll through every
+intermediate pane, taking up to 1.25s depending on distance, with immediate
 focus and typing. `WORKBENCH_REDUCED_MOTION=1 just spike` skips motion.
 Names are saved; renaming preserves the process.
 

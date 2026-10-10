@@ -43,7 +43,8 @@ custom-color previews, Apply/Cancel and saved preferences. Application appearanc
 is now separate from workspace themes and terminal overrides, with stable chrome
 by default and optional follow-workspace colors. Working-view navigation now adds
 numbered focus/visibility positions, header-scoped wheel/trackpad navigation and
-interruptible pane slides, with immediate terminal input and reduced motion. Mac
+continuous pane scrolling through intermediate terminals, with immediate input
+and reduced motion. Mac
 recovery, tap-to-click and new workspace/terminal creation have been confirmed by
 the owner; native review of this navigation slice remains open. See
 [appearance support](appearance.md). This starts milestones 2 and 3; it does not

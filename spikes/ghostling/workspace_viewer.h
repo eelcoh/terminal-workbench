@@ -47,6 +47,8 @@ typedef struct {
     int focused, first, count;
 } WorkbenchWorkspace;
 
+typedef struct { RenderTexture2D canvas; uint64_t epoch; } NavigationTile;
+
 typedef struct {
     WorkbenchWorkspace workspaces[WORKBENCH_MAX_WORKSPACES];
     int count, active;
@@ -75,10 +77,10 @@ typedef struct {
     bool navigation_valid, navigation_reset;
     char navigation_workspace[41];
     int navigation_first, navigation_focused, navigation_width, navigation_height;
-    float navigation_distance;
+    uint64_t navigation_epoch;
+    NavigationTile navigation_tiles[WORKBENCH_PANES];
     OverviewAnimation navigation_animation;
     PaneNavigationWheel navigation_wheel;
-    RenderTexture2D navigation_snapshot, navigation_spare;
     bool overview_open, overview_all, overview_agents, overview_waiting, overview_list;
     int overview_selected, overview_first;
     char overview_query[64];
@@ -277,37 +279,37 @@ static void workspace_chrome(WorkspaceClient *client)
     draw_header_button(client->font, overview_button(), "Overview", !client->dialog_open);
 }
 
-static void pane_draw(WorkspaceClient *client, WorkbenchPane *pane, int index, bool focused)
+/* Render at presentation geometry without changing pane bounds or PTY size. */
+static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, RenderTexture2D canvas, Rectangle bounds)
 {
     pane_bind(pane);
+    client_surface=bounds;
     ghostty_render_state_update(pane->render, pane->terminal);
     GhosttyRenderStateColors colors = GHOSTTY_INIT_SIZED(GhosttyRenderStateColors);
     ghostty_render_state_colors_get(pane->render, &colors);
     GhosttyTerminalScrollbar scrollbar = {0};
     ghostty_terminal_get(pane->terminal, GHOSTTY_TERMINAL_DATA_SCROLLBAR, &scrollbar);
-    BeginTextureMode(pane->canvas);
+    BeginTextureMode(canvas);
     ClearBackground((Color){colors.background.r, colors.background.g, colors.background.b, 255});
     render_terminal(pane->render, pane->rows, pane->cells, client->font,
                     client->cell_width, client->cell_height, 16, 4,
                     &scrollbar, pane->terminal, pane->images);
-    DrawRectangle(0, 0, (int)pane->bounds.width, 32, ui.surface);
-    (void)index;
+    DrawRectangle(0, 0, (int)bounds.width, 32, ui.surface);
     char label[128];
     const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
     snprintf(label, sizeof(label), "%s%s%s%s%s%s", pane->name, agent[0] ? " / " : "", agent,
              agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
              pane->closed ? "  /  connection closed" : pane->transport.replaying ? "  /  connecting" : "");
-    BeginScissorMode(8, 0, (int)pane->bounds.width - 150, 32);
+    BeginScissorMode(8, 0, (int)bounds.width - 150, 32);
     DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, ui.text);
     EndScissorMode();
-    if (pane->unread) DrawCircle((int)pane->bounds.width - 144, 16, 3, ui.waiting);
+    if (pane->unread) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
     if (client->managed) {
-        draw_header_button(client->font, (Rectangle){pane->bounds.width - 132, 6, 54, 20}, "Stop", true);
-        draw_header_button(client->font, (Rectangle){pane->bounds.width - 72, 6, 64, 20}, "Rename", true);
+        draw_header_button(client->font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
+        draw_header_button(client->font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);
     }
     EndTextureMode();
     pane_unbind();
-    (void)focused; /* Focus borders are drawn by the navigation compositor. */
 }
 
 #include "terminal_preview.h"
@@ -488,8 +490,6 @@ static int workspace_main(const char *catalog)
         BeginDrawing();
         ClearBackground(ui.background);
         if (!client->overview_open || client->overview_list) {
-            for (int p = workspace->first; p < workspace->count && p < workspace->first + 2; p++)
-                pane_draw(client, workspace->panes[p], p, p == workspace->focused);
             navigation_present(client,workspace,workspace->first);
         }
         if (!workspace->count) DrawTextEx(client->font, "Create a terminal to start working", (Vector2){224, 110}, 16, 0, ui.muted);
@@ -511,8 +511,8 @@ cleanup:
         for (int p = 0; p < client->workspaces[w].count; p++) pane_free(client->workspaces[w].panes[p]);
     flush_deferred_textures();
     if (client->overview_stage.id) UnloadRenderTexture(client->overview_stage);
-    if (client->navigation_snapshot.id) UnloadRenderTexture(client->navigation_snapshot);
-    if (client->navigation_spare.id) UnloadRenderTexture(client->navigation_spare);
+    for (int p=0;p<WORKBENCH_PANES;p++)
+        if (client->navigation_tiles[p].canvas.id) UnloadRenderTexture(client->navigation_tiles[p].canvas);
     UnloadFont(client->font);
     CloseWindow();
     free(client);

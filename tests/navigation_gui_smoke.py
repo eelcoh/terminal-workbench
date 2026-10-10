@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Wide-workspace navigation, immediate typing and stable PTY geometry in Xvfb."""
 from pathlib import Path
+import ctypes
 import fcntl
 import os
 import select
@@ -14,6 +15,28 @@ from gui_smoke import close_window
 from theme_gui_smoke import pixel
 from session_smoke import attach, send, wait_until
 ROOT=Path(__file__).resolve().parent.parent
+PANE_COLORS=[(40,20,20),(20,40,20),(20,20,40),(40,40,20),(40,20,40),(20,40,40),(50,30,20),(30,30,50)]
+
+class WindowSampler:
+    """Read window background pixels without sending keys or stalling a frame."""
+    def __init__(self, display, window):
+        self.lib=ctypes.CDLL('libX11.so.6'); self.window=int(window)
+        self.lib.XOpenDisplay.argtypes=[ctypes.c_char_p]; self.lib.XOpenDisplay.restype=ctypes.c_void_p
+        self.lib.XGetImage.argtypes=[ctypes.c_void_p,ctypes.c_ulong,ctypes.c_int,ctypes.c_int,ctypes.c_uint,ctypes.c_uint,ctypes.c_ulong,ctypes.c_int]
+        self.lib.XGetImage.restype=ctypes.c_void_p
+        self.lib.XGetPixel.argtypes=[ctypes.c_void_p,ctypes.c_int,ctypes.c_int]; self.lib.XGetPixel.restype=ctypes.c_ulong
+        self.lib.XDestroyImage.argtypes=[ctypes.c_void_p]
+        self.lib.XCloseDisplay.argtypes=[ctypes.c_void_p]
+        self.display=self.lib.XOpenDisplay(display.encode()); assert self.display
+    def colors(self):
+        image=self.lib.XGetImage(self.display,self.window,220,700,981,1,ctypes.c_ulong(-1).value,2)
+        assert image
+        try:
+            values=[self.lib.XGetPixel(image,x,0) for x in range(0,981,40)]
+            return {((v>>16)&255,(v>>8)&255,v&255) for v in values}
+        finally: self.lib.XDestroyImage(image)
+    def close(self): self.lib.XCloseDisplay(self.display)
+
 
 
 def main():
@@ -35,7 +58,8 @@ def main():
                     server=subprocess.Popen([runtime,str(path),'/bin/sh'],cwd=root,stdout=log,stderr=log); processes.append(server)
                     wait_until(path.exists)
                     connection,_,_=attach(path)
-                    send(connection,16,f'keep=p{p}; echo $$ > p{p}.pid; printf "\\033]11;#{40 if p==0 else 20:02x}{40 if p==1 else 20:02x}{40 if p==2 else 20:02x}\\007\\033[2J\\033[H"; i=0; while [ "$i" -lt 32 ]; do printf "Terminal {p+1} | build output %s | ready\\n" "$i"; i=$((i+1)); done\n'.encode())
+                    red,green,blue=PANE_COLORS[p%8]
+                    send(connection,16,f'keep=p{p}; echo $$ > p{p}.pid; printf "\\033]11;#{red:02x}{green:02x}{blue:02x}\\007\\033[2J\\033[H"; i=0; while [ "$i" -lt 32 ]; do printf "Terminal {p+1} | build output %s | ready\\n" "$i"; i=$((i+1)); done\n'.encode())
                     wait_until(lambda:(root/f'p{p}.pid').exists())
                     pids[p]=int((root/f'p{p}.pid').read_text()); inodes[p]=path.stat().st_ino; connection.close()
                 read_fd,write_fd=os.pipe()
@@ -83,21 +107,29 @@ def main():
                 baseline=geometry(); alive(); capture('positions')
                 if active>2:
                     # Confirm actual pixel movement, not just a completed focus change.
-                    click(363,16,.65); start_image=capture('start')
+                    click(363,16,1.35); start_image=capture('start')
                     click(377,16,.04); click(286,16,.06); middle=capture('moving')
                     time.sleep(.2); end_image=capture('settled')
                     if env.get('WORKBENCH_REDUCED_MOTION')!='1':
                         assert pixel(middle,220,700)==pixel(start_image,220,700), 'outgoing terminal vanished before the slide'
                         assert pixel(middle,1220,700)==pixel(end_image,1220,700) and pixel(middle,1220,700)!=pixel(start_image,1220,700), 'slide had not advanced before completion'
                     assert pixel(end_image,220,700)!=pixel(start_image,220,700), 'working-view pixels did not move'
-                    # A long backwards jump travels the complete viewport more slowly.
-                    click(363+7*14,16,.65); jump_start=capture('jump-start')
-                    click(363,16,.12); jump_middle=capture('jump-moving')
-                    time.sleep(.65); jump_end=capture('jump-settled')
+                    # Every intermediate pane must actually reach the screen, not
+                    # just exist in a pure animation model. Distinct OSC backgrounds
+                    # make the user's alternating-theme regression observable.
+                    click(363+7*14,16,1.35); jump_start=capture('jump-start')
+                    sampler=WindowSampler(env['DISPLAY'],window)
+                    try:
+                        click(363,16,.06); seen=set(); until=time.monotonic()+1.4
+                        while time.monotonic()<until:
+                            seen.update(sampler.colors()); time.sleep(.012)
+                    finally: sampler.close()
                     if env.get('WORKBENCH_REDUCED_MOTION')!='1':
-                        assert pixel(jump_middle,1220,700)==pixel(jump_start,1220,700), 'long jump completed like an adjacent move'
-                        assert pixel(jump_middle,220,700)!=pixel(jump_start,220,700), 'long jump did not reveal the destination'
+                        assert set(PANE_COLORS[2:6])<=seen, ('intermediate panes skipped',set(PANE_COLORS[2:6])-seen)
+                    jump_end=capture('jump-settled')
                     assert pixel(jump_end,1220,700)!=pixel(jump_start,1220,700), 'long jump did not complete'
+                    # Keep a midpoint artifact for native visual comparison.
+                    click(363+7*14,16,1.35); click(363,16,.5); capture('jump-moving'); time.sleep(.8)
                     # Retarget repeatedly before the previous move finishes.
                     click(363,16,.04); click(286,16,.04); click(286,16,.04); click(222,16,.04); click(222,16,.04)
                     verify(0,'retarget-input')
@@ -117,6 +149,16 @@ def main():
                     click(363,16,.04); click(363+3*14,16,.04); verify(3,'asymmetric-divider-input')
                     capture('asymmetric')
                     cmd('mousemove','--window',window,900,300); cmd('mousedown',1); time.sleep(.06)
+                    cmd('mousemove','--window',window,712,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
+                    # A narrow left slot must still finish with exactly the
+                    # destination pair, not expose three later strip tiles.
+                    cmd('mousemove','--window',window,712,300); cmd('mousedown',1); time.sleep(.06)
+                    cmd('mousemove','--window',window,460,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
+                    click(363+7*14,16,1.35); click(363,16,1.35)
+                    narrow_divider=capture('narrow-divider')
+                    assert pixel(narrow_divider,220,700)==PANE_COLORS[0]
+                    assert pixel(narrow_divider,650,700)==PANE_COLORS[1] and pixel(narrow_divider,1100,700)==PANE_COLORS[1]
+                    cmd('mousemove','--window',window,460,300); cmd('mousedown',1); time.sleep(.06)
                     cmd('mousemove','--window',window,712,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
                     click(363+7*14,16,.04)
                     click(286,16); verify(7,'last-boundary')

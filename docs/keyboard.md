@@ -107,9 +107,10 @@ the accumulation, and a short cooldown bounds momentum-driven changes. Leaving
 the strip clears residual navigation input. Scrolling inside terminal content
 continues to reach terminal scrolling and mouse-aware applications.
 
-The target gets focus immediately. Revealing a new pair slides cached pixels for
-270ms for adjacent moves and 420–580ms for full-viewport long jumps; typing is
-not delayed or consumed by the animation. Clicking or scrolling
+The target gets focus immediately. The view scrolls through the intervening panes for
+270ms on adjacent moves, increasing with travel distance up to 1.25s. Retargeting
+starts from the displayed position. Typing is not delayed or consumed by the
+animation. Clicking or scrolling
 inside moving terminal content settles the view before hit testing. Overview,
 dialogs, theme selection, workspace switches and window resizing also settle the
 working-view motion. `WORKBENCH_REDUCED_MOTION=1` disables both overview and pane

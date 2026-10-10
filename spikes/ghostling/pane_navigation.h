@@ -4,18 +4,36 @@
 #include <stdbool.h>
 #include <math.h>
 typedef struct { float accumulated; double last, next; int direction; } PaneNavigationWheel;
-/* Long jumps replace the complete viewport; adjacent moves retain their shared
- * pane. Duration grows with skipped positions, capped to keep input responsive. */
+/* Scroll through every pane position; longer travel gets time proportional to
+ * distance. Retarget from the displayed fractional position, not the old target. */
 typedef struct { float distance; double duration; } PaneNavigationMotion;
-static PaneNavigationMotion pane_navigation_motion(int from, int to, float stride, float viewport)
+static PaneNavigationMotion pane_navigation_motion(float from, float to, float stride)
 {
-    int steps = to > from ? to - from : from - to;
-    if (!steps) return (PaneNavigationMotion){0, 0};
-    int direction = to > from ? 1 : -1;
-    if (steps == 1) return (PaneNavigationMotion){direction * stride, .27};
-    int extra = steps - 2;
-    if (extra > 4) extra = 4;
-    return (PaneNavigationMotion){direction * viewport, .42 + extra * .04};
+    float steps=fabsf(to-from);
+    if (!steps) return (PaneNavigationMotion){0,0};
+    double duration=.27;
+    if (steps>1) duration+=(steps-1)*.18;
+    if (duration>1.25) duration=1.25;
+    return (PaneNavigationMotion){(to-from)*stride,duration};
+}
+/* The right destination expands/contracts into its divider slot as it arrives,
+ * so narrow-left layouts do not expose later tiles through the final right pane. */
+static float pane_navigation_right_width(float position, int target, float left, float right)
+{
+    float weight=1-fabsf(position-target);
+    if (weight<0) weight=0;
+    if (weight>1) weight=1;
+    return left+(right-left)*weight;
+}
+/* Only the intersecting strip tiles perform presentation work. */
+static void pane_navigation_visible(float position, int count, float stride, float viewport, int *first, int *last)
+{
+    if (count<=0 || stride<=0 || viewport<=0) { *first=*last=0; return; }
+    if (position<0) position=0;
+    *first=(int)position;
+    *last=(int)(position+viewport/stride)+1;
+    if (*first>count) *first=count;
+    if (*last>count) *last=count;
 }
 static void pane_navigation_focus(int count, int requested, int *focused, int *first)
 {

@@ -210,11 +210,20 @@ handles fractional input, reversal and bounded momentum. Input is scoped to the
 existing navigation header; terminal wheels and keyboard events retain their
 normal ownership.
 
-The working-view compositor captures existing pixels before target layout changes,
-then slides the cached source and target canvases. Rapid retargets capture the
-current composition using a spare texture, avoiding framebuffer feedback. Capture
-is event-only; steady rendering does not allocate snapshot textures or draw a
-staging pass. Animation never invokes terminal resize. Target layout can resize
-a pane when its normal slot size changes, including an asymmetric divider.
-Pointer interactions settle motion before using target geometry. Dialogs, themes,
-overview entry/exit, catalog reload, workspace switches and resize also settle it.
+The working-view compositor uses an animated fractional position along a pane
+strip. Every intermediate pane crosses the viewport; it does not replace one
+visible pair with another. Retargeting evaluates the current position before
+choosing a new destination. Intersecting tiles render once per navigation into
+reusable textures, using retained terminal state and presentation-only geometry.
+Intermediate tiles never request a PTY resize or receive keyboard/pointer input.
+The selected destination keeps normal layout/input ownership immediately.
+
+Only intersecting tiles update the render state, so hidden background workspaces
+remain outside the presentation path. At an equal divider this is at most three
+tiles; the eight-pane limit bounds texture retention. Steady frames use the
+existing two canvases. Target layout can resize a pane when its normal slot size
+changes, including an asymmetric divider. Pointer interactions settle motion
+before using target geometry. Dialogs, themes, overview entry/exit, catalog reload,
+workspace switches and resize also settle it. A live pixel-sampling regression
+checks every intermediate pane during an eight-to-one jump, with distinct
+backgrounds that cannot be confused with the source or destination.
