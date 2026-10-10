@@ -141,7 +141,7 @@ static void overview_drag_draw(WorkspaceClient *client, OverviewItem *items, int
     if (group >= 0) {
         int target = client->overview_groups[group];
         bool full = target != source.workspace && client->workspaces[target].count >= WORKBENCH_PANES;
-        Color color = full ? (Color){218, 108, 108, 255} : (Color){135, 181, 223, 255};
+        Color color = full ? ui.danger : ui.accent;
         Rectangle strip = overview_drag_strip(client, group);
         DrawRectangleLinesEx(strip, 2, color);
         if (!full) {
@@ -156,10 +156,10 @@ static void overview_drag_draw(WorkspaceClient *client, OverviewItem *items, int
     if (ghost.x + ghost.width > GetScreenWidth()) ghost.x = pointer.x - ghost.width - 14;
     if (ghost.y + ghost.height > GetScreenHeight()) ghost.y = pointer.y - ghost.height - 14;
     WorkbenchPane *pane = client->workspaces[source.workspace].panes[source.pane];
-    DrawRectangleRec(ghost, (Color){24, 28, 34, 245});
+    DrawRectangleRec(ghost, ui.raised);
     pane_preview_draw(client, pane, (Rectangle){ghost.x + 4, ghost.y + 26, ghost.width - 8, ghost.height - 30});
     BeginScissorMode((int)ghost.x + 8, (int)ghost.y, (int)ghost.width - 16, 24);
-    DrawTextEx(client->font, pane->name, (Vector2){ghost.x + 8, ghost.y + 5}, 13, 0, WHITE);
+    DrawTextEx(client->font, pane->name, (Vector2){ghost.x + 8, ghost.y + 5}, 13, 0, ui.text);
     EndScissorMode();
-    DrawRectangleLinesEx(ghost, 2, (Color){135, 181, 223, 255});
+    DrawRectangleLinesEx(ghost, 2, ui.accent);
 }

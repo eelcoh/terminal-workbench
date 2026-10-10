@@ -182,12 +182,12 @@ static void management_controls(WorkspaceClient *client)
     }
     draw_header_button(client->font, workspace_stop(), "x", client->managed && client->count > 0);
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
-    DrawRectangle(188, 0, 280, 32, (Color){22, 24, 27, 255});
+    DrawRectangle(188, 0, 280, 32, ui.surface);
     draw_header_button(client->font, terminal_navigation(0), "Prev", workspace->focused > 0);
     draw_header_button(client->font, terminal_navigation(1), "Next", workspace->focused + 1 < workspace->count);
     char count[48];
     snprintf(count, sizeof(count), "%d / %d terminals", workspace->count ? workspace->focused + 1 : 0, workspace->count);
-    DrawTextEx(client->font, count, (Vector2){326, 9}, 12, 0, (Color){165, 173, 185, 255});
+    DrawTextEx(client->font, count, (Vector2){326, 9}, 12, 0, ui.muted);
 }
 
 static void management_click(WorkspaceClient *client, Vector2 pointer)
@@ -298,39 +298,38 @@ static void dialog_draw(WorkspaceClient *client)
     Rectangle bounds = dialog_bounds();
     const char *titles[] = {"", "New workspace", "Rename workspace", "New terminal", "Rename terminal", "Stop terminal?", "Stop workspace?"};
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 160});
-    DrawRectangleRec(bounds, (Color){29, 32, 37, 255});
-    DrawRectangleLinesEx(bounds, 1, (Color){91, 109, 132, 255});
-    DrawTextEx(client->font, titles[client->dialog_kind], (Vector2){bounds.x + 24, bounds.y + 22}, 16, 0, WHITE);
+    ui_panel(bounds,ui.surface,true);
+    DrawTextEx(client->font, titles[client->dialog_kind], (Vector2){bounds.x + 24, bounds.y + 22}, 16, 0, ui.text);
     if (client->dialog_kind >= DIALOG_TERMINAL_CLOSE) {
         WorkbenchWorkspace *workspace = &client->workspaces[client->active];
         char message[160];
         snprintf(message, sizeof(message), "%s", client->edit_name);
         BeginScissorMode((int)bounds.x + 24, (int)bounds.y + 58, 372, 90);
-        DrawTextEx(client->font, message, (Vector2){bounds.x + 24, bounds.y + 60}, 14, 0, WHITE);
+        DrawTextEx(client->font, message, (Vector2){bounds.x + 24, bounds.y + 60}, 14, 0, ui.text);
         snprintf(message, sizeof(message), "Removes %d shell%s; stops foreground jobs.",
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE ? workspace->count : 1,
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE && workspace->count != 1 ? "s" : "");
-        DrawTextEx(client->font, message, (Vector2){bounds.x + 24, bounds.y + 86}, 12, 0, GRAY);
+        DrawTextEx(client->font, message, (Vector2){bounds.x + 24, bounds.y + 86}, 12, 0, ui.muted);
         DrawTextEx(client->font, client->management_busy ? "Stopping..." : client->dialog_error,
-            (Vector2){bounds.x + 24, bounds.y + 116}, 12, 0, (Color){219, 174, 93, 255});
+            (Vector2){bounds.x + 24, bounds.y + 116}, 12, 0, ui.waiting);
         EndScissorMode();
         draw_header_button(client->font, (Rectangle){bounds.x + 216, bounds.y + 162, 80, 30}, "Cancel", !client->management_busy);
         draw_header_button(client->font, (Rectangle){bounds.x + 306, bounds.y + 162, 90, 30}, "Stop", !client->management_busy);
         return;
     }
     Rectangle field = {bounds.x + 24, bounds.y + 64, 372, 36};
-    DrawRectangleRec(field, client->dialog_all ? (Color){48, 72, 98, 255} : (Color){17, 19, 22, 255});
+    DrawRectangleRounded(field,.2f,8,client->dialog_all ? ui.selected : ui.background);
     BeginScissorMode((int)field.x + 8, (int)field.y, (int)field.width - 16, (int)field.height);
-    DrawTextEx(client->font, client->edit_name, (Vector2){field.x + 8, field.y + 10}, 14, 0, WHITE);
+    DrawTextEx(client->font, client->edit_name, (Vector2){field.x + 8, field.y + 10}, 14, 0, ui.text);
     if (!client->dialog_all && !client->management_busy && ((int)(GetTime() * 2) % 2 == 0)) {
         Vector2 width = MeasureTextEx(client->font, client->edit_name, 14, 0);
         DrawLine((int)(field.x + 9 + width.x), (int)field.y + 9,
-                 (int)(field.x + 9 + width.x), (int)field.y + 25, WHITE);
+                 (int)(field.x + 9 + width.x), (int)field.y + 25, ui.text);
     }
     EndScissorMode();
     BeginScissorMode((int)bounds.x + 24, (int)bounds.y + 110, 372, 42);
     DrawTextEx(client->font, client->management_busy ? "Saving..." : client->dialog_error,
-        (Vector2){bounds.x + 24, bounds.y + 112}, 12, 0, (Color){219, 174, 93, 255});
+        (Vector2){bounds.x + 24, bounds.y + 112}, 12, 0, ui.waiting);
     EndScissorMode();
     draw_header_button(client->font, (Rectangle){bounds.x + 216, bounds.y + 162, 80, 30}, "Cancel", !client->management_busy);
     draw_header_button(client->font, (Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},

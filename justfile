@@ -15,6 +15,7 @@ check:
     python3 tests/close_smoke.py target/debug/workbench-session
     python3 tests/agent_smoke.py target/debug/workbench-session
     python3 tests/attention_smoke.py target/debug/workbench-session
+    python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
     python3 tests/build_env_test.py
 
@@ -44,6 +45,10 @@ expose-gui-test: spike-build
 
 move-gui-test: spike-build
     python3 tests/move_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+theme-gui-test: spike-build
+    python3 tests/theme_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
+    python3 tests/theme_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
 
 # Start/reuse the workspace sessions and attach a desktop window.
 spike: spike-build

@@ -149,10 +149,10 @@ static const char *remote_attention_name(uint8_t state)
 }
 static Color remote_attention_color(uint8_t state)
 {
-    if (state == 1) return (Color){135, 181, 223, 255};
-    if (state == 2) return (Color){235, 184, 93, 255};
-    if (state == 3) return (Color){150, 194, 157, 255};
-    return GRAY;
+    if (state == 1) return ui.accent;
+    if (state == 2) return ui.waiting;
+    if (state == 3) return ui.ready;
+    return ui.muted;
 }
 
 static const char *remote_agent_name(uint8_t agent)

@@ -81,7 +81,7 @@ def main():
                         wait_until(lambda: (root / f'{identity}.pid').exists())
                         pids[identity] = int((root / f'{identity}.pid').read_text())
                         if identity == 'w1p0':
-                            send(connection, 16, b"(while [ ! -e reveal ]; do sleep .05; done; printf '\\033[41m                                                  \\033[0m\\n'; touch changed) &\n")
+                            send(connection, 16, b"(while [ ! -e reveal ]; do sleep .05; done; printf '\\033[48;2;200;30;30m                                                  \\033[0m\\n'; touch changed) &\n")
                         connection.close()
                         time.sleep(0.04)
                 read_fd, write_fd = os.pipe()

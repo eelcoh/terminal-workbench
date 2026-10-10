@@ -1,3 +1,4 @@
+#include "theme_catalog.h"
 /* Experimental client layout. Runtime processes remain independently owned.
  * Terminal setup/rendering builds on the MIT-licensed Ghostling example;
  * see LICENSE.ghostling for its copyright and permission notice. */
@@ -52,6 +53,13 @@ typedef struct {
     Font font;
     const char *catalog_path;
     bool managed, dialog_open, dialog_all, management_busy;
+    bool theme_open, theme_has_custom;
+    int theme_selected, theme_ignored, theme_filter, theme_first;
+    char theme_query[64];
+    Theme theme_catalog[THEME_CATALOG_COUNT];
+    int theme_catalog_ignored[THEME_CATALOG_COUNT];
+    Theme theme_before, theme_custom;
+    char theme_path[1024], theme_error[256];
     int dialog_kind, management_fd;
     pid_t management_pid;
     char edit_name[64], dialog_error[256], management_reply[512];
@@ -115,6 +123,7 @@ static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
     pane_bind(pane);
     GhosttyResult result = ghostty_terminal_new(NULL, &pane->terminal, 80, 24);
     if (result != GHOSTTY_SUCCESS || !selection_ui_init()) return false;
+    ui_apply_terminal(pane->terminal);
     size_t history = 1000;
     ghostty_terminal_set(pane->terminal, GHOSTTY_TERMINAL_OPT_SCROLLBACK_MAX_LINES, &history);
     ghostty_terminal_resize(pane->terminal, 80, 24, client->cell_width, client->cell_height);
@@ -161,6 +170,7 @@ static Rectangle workspace_pane_bounds(WorkspaceClient *client, int count, int f
 static void pane_preview_refresh(WorkspaceClient *client, WorkbenchPane *pane);
 static void pane_preview_draw(WorkspaceClient *client, WorkbenchPane *pane, Rectangle target);
 #include "overview_ui.h"
+#include "theme_ui.h"
 
 static bool workspace_layout(WorkspaceClient *client)
 {
@@ -219,8 +229,8 @@ static Rectangle workspace_row(int index)
 
 static void workspace_chrome(WorkspaceClient *client)
 {
-    DrawRectangle(0, 32, WORKBENCH_SIDEBAR, GetScreenHeight() - 32, (Color){22, 24, 27, 255});
-    DrawTextEx(client->font, "WORKSPACES", (Vector2){16, 56}, 14, 0, (Color){130, 138, 150, 255});
+    DrawRectangle(0, 32, WORKBENCH_SIDEBAR, GetScreenHeight() - 32, ui.surface);
+    DrawTextEx(client->font, "WORKSPACES", (Vector2){16, 56}, 14, 0, ui.muted);
     int visible_rows = (GetScreenHeight() - 268) / 44;
     if (visible_rows < 1) visible_rows = 1;
     for (int w = client->sidebar_first; w < client->count && w < client->sidebar_first + visible_rows; w++) {
@@ -228,15 +238,17 @@ static void workspace_chrome(WorkspaceClient *client)
         bool active = w == client->active;
         bool unread = false;
         for (int p = 0; p < client->workspaces[w].count; p++) unread |= client->workspaces[w].panes[p]->unread;
-        DrawRectangleRec(row, active ? (Color){43, 48, 56, 255} : (Color){27, 30, 34, 255});
+        bool hovered=CheckCollisionPointRec(GetMousePosition(),row);
+        DrawRectangleRounded(row,.22f,8,active ? ui.selected : hovered ? ui.hover : ui.surface);
+        if (active) DrawRectangleRounded((Rectangle){row.x+2,row.y+10,3,row.height-20},.5f,6,ui.accent);
         BeginScissorMode((int)row.x + 8, (int)row.y, (int)row.width - 32, (int)row.height);
         DrawTextEx(client->font, client->workspaces[w].name, (Vector2){row.x + 10, row.y + 10}, 14, 0,
-                   active ? (Color){235, 239, 244, 255} : (Color){165, 173, 185, 255});
+                   active ? ui.text : ui.muted);
         EndScissorMode();
-        if (unread) DrawCircle((int)(row.x + row.width - 12), (int)(row.y + 18), 3, (Color){219, 174, 93, 255});
+        if (unread) DrawCircle((int)(row.x + row.width - 12), (int)(row.y + 18), 3, ui.waiting);
     }
-    DrawTextEx(client->font, "Click a pane to focus", (Vector2){12, GetScreenHeight() - 48}, 12, 0, (Color){130, 138, 150, 255});
-    DrawTextEx(client->font, "Dot: unseen output", (Vector2){12, GetScreenHeight() - 28}, 12, 0, (Color){130, 138, 150, 255});
+    draw_header_button(client->font, theme_button(), "Appearance", !client->dialog_open);
+    DrawTextEx(client->font, "Dot: unseen output", (Vector2){12, GetScreenHeight() - 28}, 12, 0, ui.muted);
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     WorkbenchPane *focused = workspace->panes[workspace->focused];
     bool can_copy = focused && selection_active(focused->terminal);
@@ -259,7 +271,7 @@ static void pane_draw(WorkspaceClient *client, WorkbenchPane *pane, int index, b
     render_terminal(pane->render, pane->rows, pane->cells, client->font,
                     client->cell_width, client->cell_height, 16, 4,
                     &scrollbar, pane->terminal, pane->images);
-    DrawRectangle(0, 0, (int)pane->bounds.width, 32, (Color){29, 32, 37, 255});
+    DrawRectangle(0, 0, (int)pane->bounds.width, 32, ui.surface);
     (void)index;
     char label[128];
     const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
@@ -267,9 +279,9 @@ static void pane_draw(WorkspaceClient *client, WorkbenchPane *pane, int index, b
              agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
              pane->closed ? "  /  connection closed" : pane->transport.replaying ? "  /  connecting" : "");
     BeginScissorMode(8, 0, (int)pane->bounds.width - 150, 32);
-    DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, (Color){198, 207, 219, 255});
+    DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, ui.text);
     EndScissorMode();
-    if (pane->unread) DrawCircle((int)pane->bounds.width - 144, 16, 3, (Color){219, 174, 93, 255});
+    if (pane->unread) DrawCircle((int)pane->bounds.width - 144, 16, 3, ui.waiting);
     if (client->managed) {
         draw_header_button(client->font, (Rectangle){pane->bounds.width - 132, 6, 54, 20}, "Stop", true);
         draw_header_button(client->font, (Rectangle){pane->bounds.width - 72, 6, 64, 20}, "Rename", true);
@@ -280,7 +292,7 @@ static void pane_draw(WorkspaceClient *client, WorkbenchPane *pane, int index, b
         (Rectangle){0, 0, pane->bounds.width, -pane->bounds.height},
         (Vector2){pane->bounds.x, pane->bounds.y}, WHITE);
     DrawRectangleLinesEx(pane->bounds, 1,
-        focused ? (Color){107, 142, 180, 255} : (Color){49, 54, 62, 255});
+        focused ? ui.accent : ui.border);
 }
 
 #include "terminal_preview.h"
@@ -299,6 +311,7 @@ static int workspace_main(const char *catalog)
     client->overview_animation_enabled = !reduced_motion || strcmp(reduced_motion, "1");
     client->overview_jump_workspace = client->overview_jump_pane = -1;
     int exit_code = 0;
+    if (!theme_initialize(client)) { free(client); return 1; }
     SetConfigFlags(FLAG_WINDOW_HIGHDPI);
     InitWindow(1240, 760, "Terminal Workbench — workspace spike");
     SetExitKey(KEY_NULL);
@@ -322,13 +335,19 @@ static int workspace_main(const char *catalog)
 
     while (!WindowShouldClose()) {
         overview_motion_tick(client);
-        if (!client->dialog_open && !client->overview_open && window_close_requested()) break;
-        bool toggled_overview = !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
+        if (!client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
+        bool theme_frame=client->theme_open;
+        if (!client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
+            && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
+            && CheckCollisionPointRec(GetMousePosition(),client->overview_open ? overview_theme_button(client) : theme_button())) {
+            theme_open(client); theme_frame=true;
+        }
+        bool toggled_overview = !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
         if (toggled_overview) {
             if (client->overview_open && !client->overview_closing) overview_close(client, -1, -1);
             else overview_open(client);
         }
-        bool modal_frame = client->dialog_open || client->overview_open || toggled_overview;
+        bool modal_frame = theme_frame || client->dialog_open || client->overview_open || toggled_overview;
         if (!management_poll(client)) { exit_code = 1; break; }
         Vector2 pointer = GetMousePosition();
         bool pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
@@ -368,7 +387,7 @@ static int workspace_main(const char *catalog)
         }
         bool divider_consumed = client->divider_dragging;
         if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) client->divider_dragging = false;
-        bool layout_deferred = client->overview_open && !client->overview_list;
+        bool layout_deferred = client->theme_open || (client->overview_open && !client->overview_list);
         if (!layout_deferred && !workspace_layout(client)) { exit_code = 1; break; }
         /* All sessions parse output. Only normal visible panes or visible
          * overview cards perform presentation work; previews never resize PTYs. */
@@ -416,7 +435,8 @@ static int workspace_main(const char *catalog)
         }
         if (client->dialog_open) dialog_input(client);
         bool overview_jumped = false;
-        if (client->overview_open && !client->overview_closing) overview_jumped = overview_input(client);
+        if (theme_frame) theme_input(client);
+        else if (client->overview_open && !client->overview_closing) overview_jumped = overview_input(client);
         else if (client->overview_closing) {
             while (GetKeyPressed() != 0) { }
             while (GetCharPressed() != 0) { }
@@ -426,17 +446,18 @@ static int workspace_main(const char *catalog)
             while (GetCharPressed() != 0) { }
         }
         workspace = &client->workspaces[client->active];
-        if (((overview_jumped && !client->overview_closing) || (layout_deferred && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
+        if (((overview_jumped && !client->overview_closing) || (layout_deferred && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
         if (client->overview_open && !client->overview_list) overview_previews_refresh(client);
         BeginDrawing();
-        ClearBackground((Color){17, 19, 22, 255});
+        ClearBackground(ui.background);
         if (!client->overview_open || client->overview_list)
         for (int p = workspace->first; p < workspace->count && p < workspace->first + 2; p++)
             pane_draw(client, workspace->panes[p], p, p == workspace->focused);
-        if (!workspace->count) DrawTextEx(client->font, "Create a terminal to start working", (Vector2){224, 110}, 16, 0, GRAY);
+        if (!workspace->count) DrawTextEx(client->font, "Create a terminal to start working", (Vector2){224, 110}, 16, 0, ui.muted);
         workspace_chrome(client);
         if (client->dialog_open) dialog_draw(client);
         if (client->overview_open) overview_present(client);
+        if (client->theme_open) theme_draw(client);
         EndDrawing();
         flush_deferred_textures();
     }

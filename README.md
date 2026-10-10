@@ -27,7 +27,8 @@ and contains no copied Herdr code.
 
 Clone this repository on your Mac and follow [the native build guide](docs/macos-build.md).
 It covers Apple Silicon/Intel dependencies, the pinned Zig compiler, build/run
-commands and platform validation. macOS behavior remains unverified until tested.
+commands and platform validation. The owner has confirmed a native build/run;
+full input, clipboard and interaction acceptance remains open.
 
 ## Try the terminal spike
 
@@ -90,6 +91,12 @@ reviewing the Workbench hooks in `/hooks`. The launchers add settings for that
 invocation; they do not edit global agent configuration. Existing shells need a
 new terminal for the updated runtime and PATH. See [hook details](docs/agent-attention.md).
 
+Use **Appearance** in the sidebar or **Theme** in the overview for live dark/light
+previews. Browse sample cards, search palettes and filter dark/light; the offline
+gallery includes Dracula and all four Catppuccin variants. Apply saves the palette; Cancel restores it without restarting shells.
+Import Ghostty color fields with `WORKBENCH_THEME=/path/to/theme just spike`.
+See [appearance support and limits](docs/appearance.md).
+
 Click **Close** in the top-right header to detach all shells, then run the
 command again to reconnect to the same processes. The original spike shell is
 kept as Main / Shell 1. Type `exit` to stop only the selected shell. Closing an
@@ -100,7 +107,7 @@ header or **Ctrl+Shift+C/V** on Linux. Scroll with the mouse wheel; typing or
 pasting returns to live output. Hold Shift to select inside mouse-enabled apps.
 
 The spike uses Linux X11/XWayland. Automated checks use an isolated Xvfb display.
-macOS and native Wayland remain unverified. This is an integration experiment
+Full macOS interaction acceptance and native Wayland remain unverified. This is an integration experiment
 with bounded replay and incomplete desktop input support, not a daily terminal.
 See [the spike's usage and limits](spikes/ghostling/README.md).
 
@@ -133,6 +140,7 @@ distrobox enter build-machine -- just check
 distrobox enter build-machine -- just spike-gui-test
 distrobox enter build-machine -- just workspace-gui-test
 distrobox enter build-machine -- just management-gui-test
+distrobox enter build-machine -- just theme-gui-test
 ```
 
 `just check` runs Rust formatting, Clippy, unit tests, real PTY/stop smoke checks, and catalog persistence/identity/recovery checks.

@@ -110,7 +110,7 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         WorkbenchWorkspace *workspace = &client->workspaces[w];
         float y = bounds.y + 116 + (group - client->overview_first) * overview_group_height(client);
         BeginScissorMode((int)bounds.x + 16, (int)y, (int)bounds.width - 100, 24);
-        DrawTextEx(client->font, workspace->name, (Vector2){bounds.x + 16, y + 4}, 14, 0, WHITE);
+        DrawTextEx(client->font, workspace->name, (Vector2){bounds.x + 16, y + 4}, 14, 0, ui.text);
         EndScissorMode();
         int matches = 0;
         for (int i = 0; i < count; i++) matches += items[i].workspace == w;
@@ -120,10 +120,10 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         }
         if (!matches) {
             Rectangle empty = {bounds.x + 16, y + 26, bounds.width - 32, overview_group_height(client) - 38};
-            DrawRectangleRec(empty, (Color){23, 26, 31, 255});
-            DrawRectangleLinesEx(empty, 1, (Color){49, 54, 62, 255});
+            DrawRectangleRec(empty, ui.background);
+            DrawRectangleLinesEx(empty, 1, ui.border);
             DrawTextEx(client->font, workspace->count ? "Drop into this workspace" : "Empty workspace / drop a terminal here",
-                (Vector2){empty.x + 16, empty.y + 16}, 13, 0, GRAY);
+                (Vector2){empty.x + 16, empty.y + 16}, 13, 0, ui.muted);
         }
     }
     for (int i = 0; i < count; i++) {
@@ -132,22 +132,22 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         Rectangle card = overview_card(client, items, i);
         bool selected = i == client->overview_selected;
         bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
-        DrawRectangleRec(card, (Color){20, 23, 28, 255});
+        ui_panel(card,ui.background,false);
         /* Texture rendering must happen outside the card's screen scissor. */
         pane_preview_draw(client, pane, (Rectangle){card.x + 4, card.y + 26, card.width - 8, card.height - 52});
-        DrawRectangleRec((Rectangle){card.x, card.y, card.width, 24}, (Color){35, 40, 48, 255});
+        DrawRectangleRec((Rectangle){card.x, card.y, card.width, 24}, ui.raised);
         BeginScissorMode((int)card.x + 8, (int)card.y, (int)card.width - 24, 24);
-        DrawTextEx(client->font, pane->name, (Vector2){card.x + 8, card.y + 5}, 13, 0, WHITE);
+        DrawTextEx(client->font, pane->name, (Vector2){card.x + 8, card.y + 5}, 13, 0, ui.text);
         EndScissorMode();
-        if (pane->unread) DrawCircle((int)(card.x + card.width - 12), (int)(card.y + 12), 3, (Color){219, 174, 93, 255});
+        if (pane->unread) DrawCircle((int)(card.x + card.width - 12), (int)(card.y + 12), 3, ui.waiting);
         const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
         const char *status = pane->closed ? "Disconnected" : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected";
         char detail[100];
         snprintf(detail, sizeof(detail), "%s%s%s", agent, agent[0] ? " / " : "", status);
         BeginScissorMode((int)card.x + 8, (int)(card.y + card.height - 23), (int)card.width - 16, 23);
         DrawTextEx(client->font, detail, (Vector2){card.x + 8, card.y + card.height - 18}, 12, 0,
-            agent[0] ? remote_attention_color(pane->transport.attention) : GRAY);
+            agent[0] ? remote_attention_color(pane->transport.attention) : ui.muted);
         EndScissorMode();
-        DrawRectangleLinesEx(card, selected ? 2 : 1, selected ? (Color){135, 181, 223, 255} : hovered ? (Color){91, 109, 132, 255} : (Color){49, 54, 62, 255});
+        DrawRectangleRoundedLinesEx(card,.06f,8,selected ? 2 : 1,selected ? ui.accent : hovered ? ui.muted : ui.border);
     }
 }

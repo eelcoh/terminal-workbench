@@ -127,3 +127,21 @@ filtered full-workspace rejection, cancellation, saved placement after reopening
 and live shell/socket/geometry continuity. Catalog tests reject invalid moves
 before saving, prove moves launch/stop no sessions, and verify live pane reuse.
 Native macOS drag validation remains pending.
+
+
+The first UX/appearance slice introduces shared semantic colors and rounded
+controls across workspace, overview and management surfaces. The workspace
+client supports original Night/Dawn palettes, imported Ghostty color fields,
+live preview, cancellation and saved appearance separately from session state.
+Pure parser checks and one/fifteen-terminal Xvfb checks verify import errors, save
+failures and session/input/geometry continuity. The loader is a documented color
+subset. The offline gallery now adds search, dark/light filters, Dracula and the
+four Catppuccin variants from pinned official sources, with their MIT licenses
+preserved. Bundled and imported files use the same parser. See [appearance](appearance.md)
+and [UX evidence and remaining review gates](ux-spike.md).
+
+The owner has confirmed a native macOS build/run after SSH dependency fetching
+was corrected. Full Mac terminal/input/clipboard/gesture acceptance and this
+new appearance slice remain unverified. Software-rendered idle CPU is high;
+physical GPU and frame-time measurements remain open. No final toolkit decision
+has been made.

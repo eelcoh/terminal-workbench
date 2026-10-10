@@ -26,13 +26,13 @@ static void draw_header_button(Font font, Rectangle bounds, const char *label,
                                bool enabled)
 {
     bool hovered = enabled && CheckCollisionPointRec(GetMousePosition(), bounds);
-    DrawRectangleRec(bounds, hovered ? (Color){ 54, 59, 67, 255 }
-                                    : (Color){ 38, 41, 46, 255 });
-    Vector2 text = MeasureTextEx(font, label, 14, 0);
+    bool pressed = hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    Color fill = pressed ? ui.selected : hovered ? ui.hover : ui.raised;
+    DrawRectangleRounded(bounds, .28f, 8, fill);
+    Vector2 text = MeasureTextEx(font, label, 13, 0);
     DrawTextEx(font, label,
-               (Vector2){ bounds.x + (bounds.width - text.x) / 2, bounds.y + 5 },
-               14, 0, enabled ? (Color){ 225, 228, 233, 255 }
-                              : (Color){ 100, 105, 113, 255 });
+               (Vector2){bounds.x + (bounds.width - text.x) / 2, bounds.y + (bounds.height - text.y) / 2},
+               13, 0, enabled ? ui.text : ui.muted);
 }
 
 static void draw_window_controls(Font font, bool can_copy, bool can_paste,
@@ -43,10 +43,10 @@ static void draw_window_controls(Font font, bool can_copy, bool can_paste,
     Rectangle paste = window_paste_bounds();
     Vector2 pointer = GetMousePosition();
     DrawRectangle(0, 0, GetScreenWidth(), WORKBENCH_HEADER_HEIGHT,
-                  (Color){ 22, 24, 27, 255 });
+                  ui.surface);
     BeginScissorMode(8, 4, (int)copy.x - 16, 24);
     DrawTextEx(font, notice ? notice : "Terminal Workbench", (Vector2){ 8, 8 },
-               14, 0, (Color){ 166, 171, 180, 255 });
+               14, 0, ui.muted);
     EndScissorMode();
     draw_header_button(font, copy, "Copy", can_copy);
     draw_header_button(font, paste, "Paste", can_paste);
@@ -63,8 +63,8 @@ static void draw_window_controls(Font font, bool can_copy, bool can_paste,
         float left = GetScreenWidth() - size.x - 16;
         if (left < 4) left = 4;
         DrawRectangle((int)left - 4, WORKBENCH_HEADER_HEIGHT + 4,
-                      (int)size.x + 8, 22, (Color){ 38, 41, 46, 255 });
+                      (int)size.x + 8, 22, ui.raised);
         DrawTextEx(font, hint, (Vector2){ left, WORKBENCH_HEADER_HEIGHT + 8 },
-                   14, 0, (Color){ 225, 228, 233, 255 });
+                   14, 0, ui.text);
     }
 }

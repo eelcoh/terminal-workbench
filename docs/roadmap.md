@@ -20,8 +20,9 @@ The Linux integration prototype has established:
 - Foreground agent identification and optional hook-driven Working, Needs input
   and Ready status. Real interactive CLI compatibility remains unverified.
 
-Linux checks use X11/Xvfb. macOS, native Wayland and physical GPU behavior remain
-unverified. The current renderer is an experiment; it is not the final toolkit.
+The owner has confirmed a native macOS build/run. Full macOS input/interaction
+acceptance remains open. Linux checks use X11/Xvfb; native Wayland and physical GPU
+behavior remain unverified. The current renderer is an experiment; it is not the final toolkit.
 
 ## Milestones
 
@@ -36,7 +37,11 @@ unverified. The current renderer is an experiment; it is not the final toolkit.
 | 7 | Real agent validation | Live Codex/Claude lifecycle transitions and hook trust/setup flows; explicit Unknown for unsupported agents or unavailable signals. |
 | 8 | Installable releases | macOS app bundle and Linux installation, configuration outside the repository, lifecycle/update policy and platform smoke checks. Finalize the product name before distribution; the project uses MIT. |
 
-This is the proposed sequence, not a claim that work has started. UX exploration
+The first UX slice now includes shared UI colors, rounded controls and live
+a searchable offline palette gallery with Night/Dawn, Dracula, Catppuccin and
+custom-color previews, Apply/Cancel and saved preferences. See
+[appearance support](appearance.md). This starts milestones 2 and 3; it does not
+complete the UX gate or choose the toolkit. UX exploration
 and a small theme-loading proof can accompany platform validation. The UX spike
 must inform toolkit selection; production theming follows the chosen integration.
 Runtime hardening and platform/input validation are requirements before daily-use
