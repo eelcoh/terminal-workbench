@@ -184,6 +184,9 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
         active_remote->snapshot_attempt = true;
     }
     active_remote->attach_started = GetTime();
+    fprintf(stderr, "session attachment request: %s via %s (%s)\n", path,
+        address.sun_path, active_remote->snapshot_attempt
+            ? (active_remote->takeover ? "ATM1 transfer" : "ATS1 snapshot") : "legacy replay");
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd < 0) { perror("socket"); return -1; }
     if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
@@ -191,6 +194,8 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
             fprintf(stderr, "Could not attach to session socket %s: %s\n", path, strerror(errno)); close(fd); return -1;
         }
         active_remote->snapshot_attempt = false;
+        active_remote->takeover_unsupported = true;
+        fprintf(stderr, "session attachment: no control endpoint for %s; using legacy replay\n", path);
         strcpy(address.sun_path, path);
         if (connect(fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
             fprintf(stderr,"Could not attach to session socket %s: %s\n",path,strerror(errno));
@@ -251,8 +256,9 @@ static bool remote_legacy_fallback(int fd)
     int flags = fcntl(fd, F_GETFL);
     if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) return false;
     active_remote->snapshot_attempt = false;
+    active_remote->takeover_unsupported = true;
     active_remote->receive_length = 0;
-    fprintf(stderr, "session attachment: legacy replay fallback\n");
+    fprintf(stderr, "session attachment: legacy replay fallback for %s\n", active_remote->session_path);
     return true;
 }
 /* Pre-transfer runtimes may still own live shells. Retry their ordinary
@@ -281,7 +287,7 @@ static bool remote_takeover_fallback(int fd)
     remote->takeover_unsupported=true;
     remote->receive_length=0;
     remote->attach_started=GetTime();
-    fprintf(stderr,"Earlier runtime: retrying ordinary attachment without revoking its owner.\n");
+    fprintf(stderr,"Earlier runtime: retrying ordinary attachment without revoking its owner (%s).\n",remote->session_path);
     return true;
 }
 
@@ -346,7 +352,7 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
                 } else if (kind == 4) {
                     static const char busy[] = "a window is already attached";
                     remote->attached_elsewhere = length == sizeof(busy)-1 && !memcmp(payload,busy,length);
-                    fprintf(stderr, "session rejected attachment: %.*s\n", (int)length, payload);
+                    fprintf(stderr, "session rejected attachment: %.*s (%s)\n", (int)length, payload, remote->session_path);
                     if (remote->attached_elsewhere)
                         fprintf(stderr, "%s\n", remote->takeover_unsupported
                             ? "Earlier runtime cannot transfer ownership. Its current window remains attached; close that window, then Reconnect here."

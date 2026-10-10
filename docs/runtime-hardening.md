@@ -70,9 +70,12 @@ without restarting its shell. The old window receives a revocation and offers th
 same action. Each terminal has one owner; moving one does not move its siblings.
 The transfer restores the current runtime snapshot and then accepts live input.
 
-Earlier runtimes do not support ownership transfer. A failed transfer tries an
-ordinary attachment, preserving the current owner. If it is still attached, the
-UI labels the action Reconnect and asks you to close the owning window first.
+Earlier runtimes do not support ownership transfer. Replay-only connections
+are recognized on initial attachment and offer Reconnect immediately. Older
+snapshot runtimes without transfer support are recognized after a failed transfer;
+an ordinary attachment preserves the current owner. Reconnect asks you to close
+the owning window first. Attachment diagnostics identify the session socket and
+requested method so mixed runtime generations can be distinguished in viewer.log.
 New terminals
 created after building use the new runtime and support direct transfer. Existing
 shells are never killed or automatically upgraded to enable this feature.

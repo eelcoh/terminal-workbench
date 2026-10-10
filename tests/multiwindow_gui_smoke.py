@@ -84,6 +84,8 @@ def main():
                 click(b,535,58);time.sleep(.5)
                 line(b,'printf "%s:%s" "$$" "$keep" > transferred')
                 assert read('transferred')==pid+':original'
+                log.flush()
+                assert f"session attachment request: {state/'one.sock'} via {state/'one.ctl'} (ATM1 transfer)" in (root/'test.log').read_text()
                 # Transfer just one pane: its sibling remains usable in window A.
                 click(a,900,250);line(a,'echo $$ > sibling.pid');sibling=read('sibling.pid')
                 click(a,535,58);time.sleep(.5)
@@ -140,13 +142,16 @@ def main():
                 alias=root/'old.sock';alias.symlink_to(state/'one.sock')
                 listener=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
                 listener.bind(str(alias.with_suffix('.ctl')));listener.listen()
+                legacy_only=False
+                attachment_methods=[]
                 def proxy(connection):
                     with connection:
                         upstream=None
                         try:
                             connection.settimeout(1)
                             method=connection.recv(5,socket.MSG_WAITALL)
-                            if method==b'ATM1\n':return
+                            if method in (b'ATM1\n',b'ATS1\n'):attachment_methods.append(method)
+                            if method==b'ATM1\n' or (legacy_only and method==b'ATS1\n'):return
                             upstream=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
                             upstream.connect(str(state/'one.ctl'));upstream.sendall(method)
                             connection.settimeout(None)
@@ -177,6 +182,21 @@ def main():
                 line(c,'printf "%s:%s" "$$" "$keep" > old-reconnect')
                 assert read('old-reconnect')==pid+':original'
                 focus(c);close_window(c,env);assert older.wait(timeout=5)==0
+                # Replay-only runtimes are recognized on initial attachment,
+                # before the user clicks a misleading transfer action.
+                legacy_only=True
+                replay_owner,f=launch()
+                replay_client,g=launch(dict(env,WORKBENCH_WORKSPACES=str(older_catalog)))
+                transfer_requests=attachment_methods.count(b'ATM1\n')
+                click(g,1050,58);time.sleep(.6)
+                assert attachment_methods.count(b'ATM1\n')==transfer_requests
+                line(f,'printf "%s:%s" "$$" "$keep" > replay-owner-preserved')
+                assert read('replay-owner-preserved')==pid+':original'
+                focus(f);close_window(f,env);assert replay_owner.wait(timeout=5)==0;time.sleep(.3)
+                click(g,1050,58);time.sleep(.6)
+                line(g,'printf "%s:%s" "$$" "$keep" > replay-reconnect')
+                assert read('replay-reconnect')==pid+':original'
+                focus(g);close_window(g,env);assert replay_client.wait(timeout=5)==0
                 listener.close()
                 # Launch the second real window from the same retained shell
                 # being transferred, matching the user's nested just-spike flow.
