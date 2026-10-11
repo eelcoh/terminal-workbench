@@ -102,13 +102,15 @@ are rejected before any stop; macOS process-group behavior remains unverified.
 
 Foreground identification now samples the PTY group leader in the runtime and
 publishes labels through an optional metadata connection, including while detached.
-Linux native-process fixtures and GUI labels/Agents filtering are tested; current
-real CLI releases and the macOS adapter remain unverified. Executable/launcher
+Linux native-process fixtures and GUI labels/Agents filtering are tested; real
+Linux Codex 0.161.0 and Claude Code 2.1.296 recognition now passes. Other CLI
+releases and the macOS adapter remain unverified. Executable/launcher
 recognition is a heuristic with wrapper/background limitations. Identity alone adds no agent
 working/waiting claims. Optional hook observers provide lifecycle status and
 a Needs input filter; runtime and GUI fixtures validate transitions, detach,
-clearing and legacy subscriptions. Real interactive agent releases and Mac hooks
-remain unverified. See [hook integration](agent-attention.md).
+clearing and legacy subscriptions. Real Linux Codex/Claude hooks now validate completed turns, interactive
+questions and same-process detach/reattach. Permission prompts and Mac hooks
+remain unverified. See [the live validation record](agent-validation.md). See [hook integration](agent-attention.md).
 
 
 The overview now defaults to a spatial workspace view with cached live terminal
@@ -229,3 +231,9 @@ before using target geometry. Dialogs, themes, overview entry/exit, catalog relo
 workspace switches and resize also settle it. A live pixel-sampling regression
 checks every intermediate pane during an eight-to-one jump, with distinct
 backgrounds that cannot be confused with the source or destination.
+
+Terminal glyph rendering now loads bundled JetBrains Mono Unicode mappings and
+a licensed Noto Sans Symbols 2 fallback instead of the ASCII-only atlas. Linux
+screenshots exercise Claude block art, prompt/status symbols and a monochrome
+package icon. Native Mac font/Retina acceptance and full shaping remain open.
+See [terminal fonts](terminal-fonts.md).

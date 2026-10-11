@@ -1,0 +1,51 @@
+#pragma once
+#include "terminal_font_codepoints.h"
+#include "font_noto_symbols.h"
+
+// Both atlases are loaded once per window, not while rendering panes. The
+// generated Unicode lists are sorted; Raylib preserves their glyph order.
+static Font terminal_fallback_font;
+static int terminal_glyph_index(Font font,int cp) {
+    if (font.glyphCount>=95 && font.glyphs[0].value==32 && cp>=32 && cp<=126)
+        return cp-32;
+    int left=0,right=font.glyphCount;
+    while(left<right) {
+        int mid=left+(right-left)/2,value=font.glyphs[mid].value;
+        if(value<cp) left=mid+1; else right=mid;
+    }
+    return left<font.glyphCount && font.glyphs[left].value==cp ? left : -1;
+}
+static Font terminal_font_load(int pixels) {
+    Font font=LoadFontFromMemory(".ttf",font_jetbrains_mono,sizeof(font_jetbrains_mono),pixels,
+        terminal_primary_codepoints,sizeof(terminal_primary_codepoints)/sizeof(int));
+    terminal_fallback_font=LoadFontFromMemory(".ttf",font_noto_symbols,sizeof(font_noto_symbols),pixels,
+        terminal_fallback_codepoints,sizeof(terminal_fallback_codepoints)/sizeof(int));
+    SetTextureFilter(terminal_fallback_font.texture,TEXTURE_FILTER_BILINEAR);
+    return font;
+}
+static void terminal_font_unload(Font font) {
+    UnloadFont(terminal_fallback_font); UnloadFont(font);
+    terminal_fallback_font=(Font){0};
+}
+static void terminal_draw_grapheme(Font primary,const uint32_t *points,uint32_t count,
+    Vector2 position,float size,Color color) {
+    for(uint32_t i=0;i<count;i++) {
+        int cp=points[i];
+        // Variation selectors and joiners affect shaping, not standalone ink.
+        // Full complex-script/color-emoji shaping remains a toolkit gate.
+        if(cp==0xfe0e || cp==0xfe0f || cp==0x200d) continue;
+        Font font=primary;
+        int index=terminal_glyph_index(font,cp);
+        if(index<0) { font=terminal_fallback_font; index=terminal_glyph_index(font,cp); }
+        if(index<0) { font=primary; index=terminal_glyph_index(font,'?'); }
+        if(index<0 || !font.texture.id) continue;
+        float scale=size/font.baseSize;
+        Rectangle rec=font.recs[index]; GlyphInfo glyph=font.glyphs[index];
+        float padding=font.glyphPadding;
+        Rectangle source={rec.x-padding,rec.y-padding,rec.width+2*padding,rec.height+2*padding};
+        Rectangle dest={position.x+(glyph.offsetX-padding)*scale,
+            position.y+(glyph.offsetY-padding)*scale,source.width*scale,source.height*scale};
+        DrawTexturePro(font.texture,source,dest,(Vector2){0},0,color);
+        position.x+=(glyph.advanceX ? glyph.advanceX : rec.width+glyph.offsetX)*scale;
+    }
+}

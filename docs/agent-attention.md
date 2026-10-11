@@ -5,6 +5,14 @@ normal agent arguments. The generated commands live under .local/bin, added to
 PATH only in new Workbench runtime shells. Previously running servers are not
 replaced by a build. Create a new terminal to obtain the integration.
 
+Plain `claude` or `codex` launches provide identity only and remain Unknown for
+lifecycle status. Linux validation also ran the real Workbench runtime and Claude
+2.1.296 inside build-machine: SessionStart, prompt submission and completed-turn
+hooks reported Ready/Working/Ready. This does not prove a host runtime can identify
+an agent behind a container wrapper; the runtime, foreground group and reporting
+socket must be reachable in the agent's environment. The launcher adds observers
+for that invocation without editing the user's agent hook definitions.
+
 The launcher execs the agent in its foreground group and supplies a fresh run
 token. Claude receives additional --settings JSON. Codex receives inline session
 configuration and --no-daemon so hook processes inherit this terminal's reporting
@@ -47,8 +55,11 @@ dots and connection labels remain independent.
 
 Validated on Linux using named native-process fixtures, real runtime sockets,
 hook payloads and isolated GUI tests. Launcher argument capture verifies generated
-settings and environment. Real interactive Codex/Claude releases and macOS hook
-execution remain unverified; supported schemas vary by agent version. A container
+settings and environment. Real Linux Codex 0.161.0 and Claude Code 2.1.296 sessions now validate
+foreground identity, hook-driven Working/Ready, question-driven Needs input and
+same-process detach/reattach. Permission prompts and native macOS hook execution
+remain unverified; supported schemas vary by agent version. See
+[the live validation record](agent-validation.md). A container
 agent that cannot reach the host socket or inherit its environment will not report.
 
 Schemas: [Codex hooks](https://developers.openai.com/codex/hooks/) and

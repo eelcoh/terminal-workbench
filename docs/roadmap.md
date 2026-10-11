@@ -18,7 +18,8 @@ The Linux integration prototype has established:
 - Searchable spatial/list overviews, live previews, zoom transitions and saved
   drag-to-move/reorder without restarting sessions.
 - Foreground agent identification and optional hook-driven Working, Needs input
-  and Ready status. Real interactive CLI compatibility remains unverified.
+  and Ready status. Real Linux Codex/Claude lifecycle validation has started; other agents and
+  native macOS integration remain open.
 
 The owner has confirmed a native macOS build/run. Full macOS input/interaction
 acceptance remains open. Linux checks use X11/Xvfb; native Wayland and physical GPU
@@ -34,7 +35,7 @@ behavior remain unverified. The current renderer is an experiment; it is not the
 | 4 | Persistent runtime hardening | Runtime-owned terminal state, bounded snapshots/scrollback, detached query replies, a session service, and explicit exit/recovery behavior. |
 | 5 | Complete workspace workflows | Smooth horizontal pane navigation, workspace directories, layout/focus persistence, terminal search and clear exited/disconnected states. |
 | 6 | Fresh keyboard model | Scoped actions, configurable shortcuts, command palette and a way to forward intercepted bindings to terminals; platform input validation. |
-| 7 | Real agent validation | Live Codex/Claude lifecycle transitions and hook trust/setup flows; explicit Unknown for unsupported agents or unavailable signals. |
+| 7 | Real agent validation | Live Codex/Claude on Linux and GitHub Copilot CLI on macOS, lifecycle transitions and hook trust/setup flows; explicit Unknown for unsupported agents or unavailable signals. |
 | 8 | Installable releases | macOS app bundle and Linux installation, configuration outside the repository, lifecycle/update policy and platform smoke checks. Finalize the product name before distribution; the project uses MIT. |
 
 The first UX slice now includes shared UI colors, rounded controls and
@@ -89,6 +90,21 @@ reserves shell control keys and includes terminal/workspace navigation defaults.
 Send next key to terminal bypasses interception once, with cancellation and stable
 terminal targeting. The owner confirmed smooth palette interaction; native Mac
 acceptance of the new bindings and forwarding remains pending. See [Commands](commands.md) and [shortcut settings](shortcuts.md).
+
+Real agent validation now exercises installed Linux Codex 0.161.0 and Claude
+Code 2.1.296: foreground recognition, Ready/Working turns, interactive question
+Needs input and same-process detach/reattach. Codex's normal hook-trust prompt
+and untrusted Unknown fallback were observed. Permission-prompt behavior,
+graphical background-workspace flows and native Mac integration remain open.
+GitHub Copilot CLI is the owner's only permitted agent on the Mac and is a
+required integration target; it is not currently recognized or hooked.
+Additional Linux agents can follow after this core matrix is reliable.
+See [the live validation record](agent-validation.md).
+
+The terminal font compatibility slice now renders Claude's Unicode logo and
+status symbols using embedded primary/fallback glyphs; Linux screenshot coverage
+passes. Native Mac/Retina validation, full shaping and broader font preferences
+remain open. See [terminal fonts](terminal-fonts.md).
 
 ## UX spike: a product-quality gate
 

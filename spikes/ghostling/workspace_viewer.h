@@ -512,8 +512,7 @@ static int workspace_main(const char *catalog)
     SetTargetFPS(60);
     Vector2 dpi = GetWindowScaleDPI();
     int font_pixels = (int)(16 * dpi.y);
-    client->font = LoadFontFromMemory(".ttf", font_jetbrains_mono,
-                       (int)sizeof(font_jetbrains_mono), font_pixels, NULL, 0);
+    client->font = terminal_font_load(font_pixels);
     SetTextureFilter(client->font.texture, TEXTURE_FILTER_BILINEAR);
     Vector2 glyph = MeasureTextEx(client->font, "M", font_pixels, 0);
     client->cell_width = (int)(glyph.x / dpi.x);
@@ -709,7 +708,7 @@ cleanup:
     if (client->overview_stage.id) UnloadRenderTexture(client->overview_stage);
     for (int p=0;p<WORKBENCH_PANES;p++)
         if (client->navigation_tiles[p].canvas.id) UnloadRenderTexture(client->navigation_tiles[p].canvas);
-    UnloadFont(client->font);
+    terminal_font_unload(client->font);
     CloseWindow();
     free(client);
     return exit_code;

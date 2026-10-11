@@ -57,6 +57,8 @@ On this workstation, read-only installation inspection found Codex 0.161.0 with
 an executable named codex, and Claude 2.1.289 behind the ~/.local/bin/claude symlink
 to ~/.local/share/claude/versions/2.1.289. The latter required a specific install-path
 rule because the resolved executable basename is its version. Both launch layouts
-are covered; interactive CLI sessions have not yet been exercised here.
+are covered. Subsequent real Linux validation exercised Codex 0.161.0 and
+Claude Code 2.1.296; see [the live validation record](agent-validation.md).
+Other agents and native macOS recognition remain unverified.
 
 Lifecycle status is separate, optional hook evidence. See [hook integration](agent-attention.md).

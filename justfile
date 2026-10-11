@@ -24,6 +24,7 @@ check: runtime-build
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
     python3 tests/build_env_test.py
+    python3 tests/font_assets_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
     python3 tests/terminal_status_cli_test.py
@@ -117,3 +118,7 @@ window-state-gui-test: spike-build
 # Action palette routing and modal isolation with real live shells.
 commands-gui-test: spike-build
     python3 tests/command_palette_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Real Unicode glyph rendering, independent of the system's installed fonts.
+font-gui-test: spike-build
+    python3 tests/font_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

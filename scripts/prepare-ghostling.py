@@ -2,6 +2,7 @@
 """Prepare a pinned Ghostling adaptation and marked Raylib input fix locally."""
 from pathlib import Path
 import subprocess
+from font_cmap import header as font_codepoint_header
 
 ROOT = Path(__file__).resolve().parent.parent
 REVISION = "63842bf8e5e481160f81d348da9ff6fd27986798"
@@ -28,6 +29,13 @@ for path in [ "bin2header.cmake", "LICENSE", "fonts/OFL.txt", "fonts/JetBrainsMo
     target.parent.mkdir(parents=True, exist_ok=True)
     write_if_changed(target, upstream(path))
 
+for name in ("NotoSansSymbols2-Regular.ttf", "OFL.txt"):
+    write_if_changed(destination / "fonts" / ("Noto-" + name if name == "OFL.txt" else name),
+        (ROOT / "fonts/noto-symbols" / name).read_bytes())
+write_if_changed(destination / "terminal_font_codepoints.h", font_codepoint_header(
+    (destination / "fonts/JetBrainsMono-Regular.ttf").read_bytes(),
+    (destination / "fonts/NotoSansSymbols2-Regular.ttf").read_bytes()).encode())
+
 # Adapt only our generated CMake file; the pinned upstream tree stays unchanged.
 cmake = upstream("CMakeLists.txt").decode()
 archive = "    DOWNLOAD_EXTRACT_TIMESTAMP OFF\n    URL https://github.com/raysan5/raylib/archive/refs/tags/${RAYLIB_VERSION}.tar.gz"
@@ -43,7 +51,16 @@ cmake = cmake.replace("# Use a system-installed raylib if available, otherwise f
 start_raylib = cmake.index("find_package(raylib")
 end_raylib = cmake.index("# --- libghostty", start_raylib)
 cmake = cmake[:start_raylib] + 'find_package(Python3 COMPONENTS Interpreter REQUIRED)\nFetchContent_Declare(raylib\n  GIT_REPOSITORY git@github.com:raysan5/raylib.git\n  GIT_TAG ${RAYLIB_VERSION}\n  GIT_SHALLOW TRUE\n)\nFetchContent_MakeAvailable(raylib)\nexecute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/patch-raylib-input.py" "${raylib_SOURCE_DIR}"\n  COMMAND_ERROR_IS_FATAL ANY)\n\n' + cmake[end_raylib:]
+write_if_changed(destination / "embed-font.py", (ROOT / "scripts/embed-font.py").read_bytes())
 write_if_changed(destination / "patch-raylib-input.py", (ROOT / "scripts/patch-raylib-input.py").read_bytes())
+cmake = cmake.replace("# --- Our Project", """set(SYMBOL_FONT_INPUT "${CMAKE_SOURCE_DIR}/fonts/NotoSansSymbols2-Regular.ttf")
+set(SYMBOL_FONT_HEADER "${CMAKE_BINARY_DIR}/font_noto_symbols.h")
+add_custom_command(OUTPUT "${SYMBOL_FONT_HEADER}"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/embed-font.py"
+    "${SYMBOL_FONT_INPUT}" "${SYMBOL_FONT_HEADER}" font_noto_symbols
+  DEPENDS "${SYMBOL_FONT_INPUT}" "${CMAKE_SOURCE_DIR}/embed-font.py")
+# --- Our Project""")
+cmake = cmake.replace('main.c "${FONT_HEADER}"', 'main.c "${FONT_HEADER}" "${SYMBOL_FONT_HEADER}"')
 write_if_changed(destination / "CMakeLists.txt", cmake.encode())
 
 text = upstream("main.c").decode()
@@ -54,6 +71,18 @@ def replace_once(old, new):
     global text
     assert text.count(old) == 1, f"pinned source adaptation no longer applies: {old}"
     text = text.replace(old, new)
+
+replace_once('#include "font_jetbrains_mono.h"', '#include "font_jetbrains_mono.h"\n#include "terminal_font.h"')
+replace_once('Font mono_font = LoadFontFromMemory(".ttf", font_jetbrains_mono,\n                         (int)sizeof(font_jetbrains_mono), font_size_px, NULL, 0);',
+    'Font mono_font = terminal_font_load(font_size_px);')
+replace_once('UnloadFont(mono_font);', 'terminal_font_unload(mono_font);')
+grapheme_start = text.index('            // Build a UTF-8 string from the grapheme codepoints.')
+grapheme_end = text.index('            // Resolve foreground and background colors', grapheme_start)
+text = text[:grapheme_start] + text[grapheme_end:]
+replace_once('DrawTextEx(font, text, (Vector2){x + italic_offset, y}, font_size, 0, ray_fg);',
+    'terminal_draw_grapheme(font, codepoints, len, (Vector2){x + italic_offset, y}, font_size, ray_fg);')
+replace_once('DrawTextEx(font, text, (Vector2){x + italic_offset + 1, y}, font_size, 0, ray_fg);',
+    'terminal_draw_grapheme(font, codepoints, len, (Vector2){x + italic_offset + 1, y}, font_size, ray_fg);')
 
 replace_once('InitWindow(800, 600, "ghostling");', 'InitWindow(960, 640, "Terminal Workbench — terminal spike");\n    SetExitKey(KEY_NULL);')
 replace_once('ioctl(pty_fd, TIOCSWINSZ, &new_ws);', '(void)new_ws;\n                remote_resize(pty_fd, term_cols, term_rows);')
@@ -149,7 +178,7 @@ replace_once('int main(void)', '#include "snapshot_restore.h"\n\nstatic int sing
 text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
 write_if_changed(destination / "main.c", text.encode())
 write_if_changed(destination / "session_bridge.h", (ROOT / "spikes/ghostling/session_bridge.h").read_bytes())
-for name in ["window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "navigation_ui.h"]:
+for name in ["terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "navigation_ui.h"]:
     write_if_changed(destination / name, (ROOT / "spikes/ghostling" / name).read_bytes())
 for collection in ["catppuccin", "dracula"]:
     target = destination / "theme-licenses" / collection / "LICENSE"
