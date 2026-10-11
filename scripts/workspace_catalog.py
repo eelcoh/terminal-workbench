@@ -337,7 +337,22 @@ def main():
     parser.add_argument("--position", type=int, default=-1)
     args = parser.parse_args()
     try:
-        from session_service import request
+        from session_service import request, exchange, PROTOCOL, Unavailable
+        if args.command == "terminal.status":
+            # Background presentation checks do not restart an explicitly stopped service.
+            try:
+                reply = exchange(args.state_dir.resolve(), dict(protocol=PROTOCOL, method="terminal.status", identity=args.id))
+            except ValueError as error:
+                if str(error) != "Unknown session service method":
+                    raise
+                # Live services keep their older Python code after git pull.
+                health = exchange(args.state_dir.resolve(), dict(protocol=PROTOCOL, method="health"))
+                terminal = next((t for t in health["terminals"] if t["id"] == args.id), None)
+                if terminal is None:
+                    raise ValueError("Terminal no longer exists")
+                reply = dict(id=terminal["id"], state=terminal["state"])
+            print("STATE\t" + reply["id"] + "\t" + reply["state"], flush=True)
+            return 0
         data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position)["data"]
         # Return the identity from this operation's locked result, never infer
         # it from a later projection that another window may have changed.
@@ -347,6 +362,9 @@ def main():
             print("CREATED\t" + workspace["terminals"][-1]["id"] + "\t" + workspace["id"], flush=True)
         print("OK", flush=True)
         return 0
+    except Unavailable:
+        print("ERROR\tSession service unavailable; relaunch Workbench, then Check again",flush=True)
+        return 1
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
         print("ERROR\t" + str(error).replace("\n", " ").replace("\t", " ")[:400], flush=True)
         return 1

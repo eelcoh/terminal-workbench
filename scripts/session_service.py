@@ -21,7 +21,7 @@ PROTOCOL = 1
 LIMIT = 256 * 1024
 METHODS = {"initialize", "workspace.create", "workspace.rename", "workspace.close",
            "terminal.create", "terminal.rename", "terminal.close", "terminal.move",
-           "session.recover", "terminal.recover", "health", "service.shutdown"}
+           "session.recover", "terminal.recover", "terminal.status", "health", "service.shutdown"}
 
 class Unavailable(Exception):
     pass
@@ -199,6 +199,27 @@ class Authority:
             return dict(stopped=True)
         if method == "health":
             return self.health()
+        if method == "terminal.status":
+            # Read one runtime fact without attachment or capability enumeration.
+            with catalog.locked(self.directory):
+                data = catalog.load(self.directory)
+                terminal = next((t for w in data["workspaces"] for t in w["terminals"] if t["id"] == identity), None)
+                if terminal is None:
+                    raise ValueError("Terminal no longer exists")
+                path = catalog.socket_path(self.directory, terminal)
+                try:
+                    for candidate in (path.with_suffix(".ctl"), path):
+                        try:
+                            metadata = candidate.lstat()
+                        except FileNotFoundError:
+                            continue
+                        if not stat.S_ISSOCK(metadata.st_mode) or metadata.st_uid != os.getuid():
+                            raise ValueError("Session endpoint is not a user-owned socket")
+                    alive = catalog.endpoint_alive(path.with_suffix(".ctl")) or catalog.endpoint_alive(path)
+                    state = "running" if alive else "stopped"
+                except (OSError, ValueError):
+                    state = "unavailable"
+            return dict(id=identity, state=state)
         if message.get("runtime") != str(self.runtime) or message.get("cwd") != str(self.cwd):
             raise ValueError("Session service configuration differs; stop the service before changing runtime or directory")
         if method == "initialize":

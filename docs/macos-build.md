@@ -237,4 +237,14 @@ one window and launch `just spike` again: it should reuse that slot and restore
 its size and working view while the other window keeps its own focus. Open the
 overview, scroll both axes and close/reopen to check its saved context. Ownership
 stays explicit: terminals owned by another window still offer Move here.
-These native checks remain pending. See [window state](window-state.md).
+The owner confirmed native view restoration on 2026-10-11. See [window state](window-state.md).
+
+## Graphical stopped-terminal recovery acceptance
+
+In a disposable terminal, run `exit`. It should keep its frozen output and show
+Shell stopped with **Start new shell** in the header. Open the confirmation and
+Cancel: no shell should start. Confirm on a second attempt: a fresh shell should
+accept input with the same terminal name and theme. An entry owned by another
+window must continue offering Move here, never Start new shell. Native Mac
+acceptance of this recovery flow remains pending. Detailed exit causes remain
+unknown after service restart; stopped is the supported fact.

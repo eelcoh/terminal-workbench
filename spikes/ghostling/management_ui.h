@@ -3,7 +3,8 @@
 extern char **environ;
 
 enum { DIALOG_WORKSPACE_CREATE = 1, DIALOG_WORKSPACE_RENAME,
-       DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE };
+       DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE, DIALOG_TERMINAL_RECOVER, DIALOG_TERMINAL_STATUS };
+enum { RUNTIME_CHECKING, RUNTIME_RUNNING, RUNTIME_STOPPED, RUNTIME_UNAVAILABLE };
 
 static void dialog_open(WorkspaceClient *client, int kind)
 {
@@ -12,9 +13,11 @@ static void dialog_open(WorkspaceClient *client, int kind)
     client->dialog_kind = kind;
     client->dialog_error[0] = '\0';
     client->dialog_all = true;
+    client->management_target[0]=0;
+    if (kind == DIALOG_TERMINAL_RECOVER) strcpy(client->management_target,workspace->panes[workspace->focused]->id);
     if (kind == DIALOG_WORKSPACE_CLOSE) {
         strcpy(client->edit_name, workspace->name);
-    } else if (kind == DIALOG_TERMINAL_CLOSE) {
+    } else if (kind == DIALOG_TERMINAL_CLOSE || kind == DIALOG_TERMINAL_RECOVER) {
         strcpy(client->edit_name, workspace->panes[workspace->focused]->name);
     } else if (kind == DIALOG_WORKSPACE_RENAME)
         strcpy(client->edit_name, workspace->name);
@@ -51,6 +54,22 @@ static bool management_poll(WorkspaceClient *client)
     client->management_fd = -1;
     client->management_busy = false;
     client->management_pid = -1;
+    if (client->dialog_kind == DIALOG_TERMINAL_STATUS) {
+        char identity[41]={0}, state[24]={0};
+        bool valid=result>0 && WIFEXITED(status) && WEXITSTATUS(status)==0
+            && sscanf(client->management_reply,"STATE\t%40[^\t]\t%23[^\r\n]",identity,state)==2
+            && !strcmp(identity,client->management_target);
+        for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++) {
+            WorkbenchPane *pane=client->workspaces[w].panes[p];
+            if (strcmp(pane->id,client->management_target) || !pane->closed) continue;
+            pane->runtime_state=valid && !strcmp(state,"stopped") ? RUNTIME_STOPPED
+                : valid && !strcmp(state,"running") ? RUNTIME_RUNNING : RUNTIME_UNAVAILABLE;
+            pane->status_checked=true;
+            if (pane->runtime_state==RUNTIME_STOPPED) pane->transport.attached_elsewhere=false;
+        }
+        client->navigation_reset=true;
+        return true;
+    }
     if (result > 0 && WIFEXITED(status) && WEXITSTATUS(status) == 0) {
         struct stat stamp;
         bool observed=stat(client->catalog_path,&stamp)==0;
@@ -84,12 +103,25 @@ static bool management_poll(WorkspaceClient *client)
         client->dialog_open = false;
         if (client->dialog_kind == DIALOG_TERMINAL_MOVE) overview_move_saved(client);
         client->appearance_dirty=true; client->navigation_reset=true;
-        clipboard_notice("Saved");
+        if (client->dialog_kind == DIALOG_TERMINAL_RECOVER) {
+            bool attached=false;
+            for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++) {
+                WorkbenchPane *pane=client->workspaces[w].panes[p];
+                if (!strcmp(pane->id,client->management_target)) attached=pane_attach(client,pane,false);
+            }
+            clipboard_notice(attached ? "New shell started" : "Shell started; reconnect to continue");
+        } else clipboard_notice("Saved");
     } else {
         const char *message = strstr(client->management_reply, "ERROR\t");
         message = message ? message + 6 : "Could not save; session metadata was preserved";
         snprintf(client->dialog_error, sizeof(client->dialog_error), "%.*s",
                  (int)strcspn(message, "\r\n"), message);
+        if (client->dialog_kind == DIALOG_TERMINAL_RECOVER) {
+            fprintf(stderr,"Terminal recovery failed: %s\n",client->dialog_error);
+            for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++)
+                if (!strcmp(client->workspaces[w].panes[p]->id,client->management_target))
+                    client->workspaces[w].panes[p]->status_checked=false;
+        }
         if (client->dialog_kind == DIALOG_TERMINAL_MOVE) {
             snprintf(client->overview_notice, sizeof(client->overview_notice), "%s", client->dialog_error);
             client->overview_notice_until = GetTime() + 5;
@@ -151,10 +183,29 @@ static void management_execute(WorkspaceClient *client, const char *method, cons
 static void management_start(WorkspaceClient *client)
 {
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
+    if (client->dialog_kind == DIALOG_TERMINAL_RECOVER) {
+        management_execute(client,"terminal.recover",client->management_target,"","",-1);
+        return;
+    }
     const char *methods[] = {"", "workspace.create", "workspace.rename", "terminal.create", "terminal.rename", "terminal.close", "workspace.close"};
     const char *identity = (client->dialog_kind == DIALOG_TERMINAL_RENAME || client->dialog_kind == DIALOG_TERMINAL_CLOSE)
         ? workspace->panes[workspace->focused]->id : workspace->id;
     management_execute(client, methods[client->dialog_kind], identity, client->edit_name, "", -1);
+}
+static void management_check_status(WorkspaceClient *client)
+{
+    if (!client->managed || client->management_busy || client->dialog_open || client->theme_open || client->overview_open) return;
+    WorkbenchWorkspace *workspace=&client->workspaces[client->active];
+    for (int p=workspace->first;p<workspace->count && p<workspace->first+2;p++) {
+        WorkbenchPane *pane=workspace->panes[p];
+        if (!pane->closed || pane->status_checked) continue;
+        client->dialog_kind=DIALOG_TERMINAL_STATUS;
+        strcpy(client->management_target,pane->id);
+        pane->status_checked=true; /* One bounded request per disconnection; retry is explicit. */
+        management_execute(client,"terminal.status",pane->id,"","",-1);
+        if (!client->management_busy) pane->runtime_state=RUNTIME_UNAVAILABLE;
+        return;
+    }
 }
 static void management_move_start(WorkspaceClient *client, const char *identity, const char *destination, int position)
 {
@@ -193,6 +244,8 @@ static Rectangle terminal_move_here_bounds(Rectangle bounds)
 }
 static Rectangle terminal_move_here(WorkbenchPane *pane)
 {
+    if (pane->runtime_state==RUNTIME_STOPPED)
+        return (Rectangle){pane->bounds.x+pane->bounds.width-264,pane->bounds.y+6,126,20};
     return terminal_move_here_bounds(pane->bounds);
 }
 static Rectangle workspace_stop(void) { return (Rectangle){150, 51, 26, 22}; }
@@ -238,12 +291,18 @@ static void management_controls(WorkspaceClient *client)
 static bool management_click(WorkspaceClient *client, Vector2 pointer)
 {
     if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return false;
+    if (client->management_busy) return true;
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     for (int p=workspace->first;p<workspace->count && p<workspace->first+2;p++) {
         WorkbenchPane *pane=workspace->panes[p];
         if (pane->closed && CheckCollisionPointRec(pointer,terminal_move_here(pane))) {
             workspace->focused=p;
-            if (!pane_move_here(client,pane)) clipboard_notice("Could not connect; reopen to recover the session");
+            if (client->managed && pane->runtime_state==RUNTIME_STOPPED) dialog_open(client,DIALOG_TERMINAL_RECOVER);
+            else if (client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE) {
+                pane->status_checked=false; pane->runtime_state=RUNTIME_CHECKING;
+            } else if (pane->runtime_state!=RUNTIME_CHECKING || !client->managed) {
+                if (!pane_move_here(client,pane)) clipboard_notice("Could not connect; checking runtime status");
+            }
             client->navigation_reset=true;
             return true;
         }
@@ -289,8 +348,8 @@ static void dialog_input(WorkspaceClient *client)
         Rectangle bounds = dialog_bounds();
         bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
         Vector2 pointer = GetMousePosition();
-        if (escape || (click && CheckCollisionPointRec(pointer, (Rectangle){bounds.x + 216, bounds.y + 162, 80, 30}))) client->dialog_open = false;
-        else if (click && CheckCollisionPointRec(pointer, (Rectangle){bounds.x + 306, bounds.y + 162, 90, 30})) management_start(client);
+        if (escape || (click && CheckCollisionPointRec(pointer, (Rectangle){bounds.x + (client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 180 : 216), bounds.y + 162, 80, 30}))) client->dialog_open = false;
+        else if (click && CheckCollisionPointRec(pointer, (Rectangle){bounds.x + (client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 270 : 306), bounds.y + 162, client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 126 : 90, 30})) management_start(client);
         return;
     }
     int key;
@@ -352,7 +411,7 @@ static void dialog_input(WorkspaceClient *client)
 static void dialog_draw(WorkspaceClient *client)
 {
     Rectangle bounds = dialog_bounds();
-    const char *titles[] = {"", "New workspace", "Rename workspace", "New terminal", "Rename terminal", "Stop terminal?", "Stop workspace?"};
+    const char *titles[] = {"", "New workspace", "Rename workspace", "New terminal", "Rename terminal", "Stop terminal?", "Stop workspace?", "", "Start new shell?"};
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 160});
     ui_panel(bounds,ui.surface,true);
     DrawTextEx(client->font, titles[client->dialog_kind], (Vector2){bounds.x + 24, bounds.y + 22}, 16, 0, ui.text);
@@ -362,6 +421,16 @@ static void dialog_draw(WorkspaceClient *client)
         snprintf(message, sizeof(message), "%s", client->edit_name);
         BeginScissorMode((int)bounds.x + 24, (int)bounds.y + 58, 372, 90);
         DrawTextEx(client->font, message, (Vector2){bounds.x + 24, bounds.y + 60}, 14, 0, ui.text);
+        if (client->dialog_kind==DIALOG_TERMINAL_RECOVER) {
+            DrawTextEx(client->font,"Previous shell has stopped. Starts a fresh shell.",(Vector2){bounds.x+24,bounds.y+86},12,0,ui.muted);
+            DrawTextEx(client->font,"Keeps its name and theme; prior jobs do not resume.",(Vector2){bounds.x+24,bounds.y+104},12,0,ui.muted);
+            DrawTextEx(client->font,client->management_busy ? "Starting..." : client->dialog_error,
+                (Vector2){bounds.x+24,bounds.y+128},12,0,ui.waiting);
+            EndScissorMode();
+            draw_header_button(client->font,(Rectangle){bounds.x+180,bounds.y+162,80,30},"Cancel",!client->management_busy);
+            draw_header_button(client->font,(Rectangle){bounds.x+270,bounds.y+162,126,30},"Start new shell",!client->management_busy);
+            return;
+        }
         snprintf(message, sizeof(message), "Removes %d shell%s; stops foreground jobs.",
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE ? workspace->count : 1,
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE && workspace->count != 1 ? "s" : "");

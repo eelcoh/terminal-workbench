@@ -54,6 +54,17 @@ def main():
             connection, _, _ = attach(path)
             send(connection, 16, b'keep=retained; echo $$ > before.pid\n')
             pid = marker("before.pid")
+            # One-terminal status is readonly, including with a live attachment.
+            assert call("terminal.status","spike")["state"]=="running"
+            assert request(state,runtime,root/'other',"terminal.status","spike")["state"]=="running"
+            cli=[sys.executable,str(ROOT/'scripts/workspace_catalog.py'),'--state-dir',str(state),
+                '--runtime',str(runtime),'--cwd',str(root),'--command','terminal.status','--id','spike']
+            checked=subprocess.run(cli,capture_output=True,text=True,timeout=10)
+            assert checked.returncode==0 and checked.stdout=='STATE\tspike\trunning\n'
+            assert path.stat().st_ino==inode
+            try:call("terminal.status","missing")
+            except ValueError as error:assert "no longer exists" in str(error)
+            else:raise AssertionError('unknown identity status accepted')
             appearance = state / "appearance.state"
             appearance.write_bytes(b"saved colors")
             # A configuration mismatch cannot mutate state, but health and an
@@ -65,6 +76,8 @@ def main():
             # Lifecycle requests do not seize input ownership or lose process state.
             request(state, runtime, root / "other", "service.shutdown")
             wait_until(stopped)
+            checked=subprocess.run(cli,capture_output=True,text=True,timeout=10)
+            assert checked.returncode==1 and not endpoint(state).exists()
             send(connection, 16, b'printf "%s:%s" "$$" "$keep" > service-stopped\n')
             assert marker("service-stopped") == pid + ":retained"
             adopted = call()
@@ -91,6 +104,11 @@ def main():
             dead = state / "main-2.sock"
             subprocess.run([str(runtime), "stop", str(dead)], check=True, timeout=15)
             wait_until(lambda: not dead.exists())
+            assert call("terminal.status","main-2")["state"]=="stopped"
+            # Uncertain endpoints do not authorize a fresh shell.
+            control=dead.with_suffix('.ctl');control.write_text('keep this file')
+            assert call("terminal.status","main-2")["state"]=="unavailable"
+            assert control.read_text()=='keep this file';control.unlink()
             saved = (state / "workspaces.json").read_bytes()
             assert call()["data"] == data and not dead.exists()
             health = call("health")

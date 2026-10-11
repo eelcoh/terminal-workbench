@@ -42,7 +42,8 @@ typedef struct {
     char socket_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
     char id[41], name[64];
     int fd;
-    bool closed, scrollbar_dragging, unread, focused;
+    bool closed, scrollbar_dragging, unread, focused, status_checked;
+    int runtime_state;
 } WorkbenchPane;
 
 typedef struct {
@@ -82,7 +83,7 @@ typedef struct {
     char theme_path[1024], theme_error[256];
     int dialog_kind, management_fd;
     pid_t management_pid;
-    char edit_name[64], dialog_error[256], management_reply[512];
+    char edit_name[64], dialog_error[256], management_reply[512], management_target[41];
     size_t management_length;
     int sidebar_first;
     bool navigation_valid, navigation_reset;
@@ -149,17 +150,17 @@ static void pane_free(WorkbenchPane *pane)
     free(pane);
 }
 
-static bool pane_move_here(WorkspaceClient *client, WorkbenchPane *pane)
+static bool pane_attach(WorkspaceClient *client, WorkbenchPane *pane, bool takeover)
 {
     pane_bind(pane);
     if (pane->fd >= 0) close(pane->fd);
     if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
     free(pane->transport.snapshot);
-    bool earlier_runtime=pane->transport.takeover_unsupported;
+    bool earlier_runtime=takeover && pane->transport.takeover_unsupported;
     memset(&pane->transport,0,sizeof(pane->transport));
     pane->transport.agent_fd=-1;
     pane->transport.replaying=true;
-    pane->transport.takeover=!earlier_runtime;
+    pane->transport.takeover=takeover && !earlier_runtime;
     pane->transport.takeover_unsupported=earlier_runtime;
     ghostty_selection_gesture_reset(pane->selection.gesture,pane->terminal);
     pane->selection.dragging=false;
@@ -168,8 +169,15 @@ static bool pane_move_here(WorkspaceClient *client, WorkbenchPane *pane)
     pane->fd=remote_connect(pane->socket_path,80,24,client->cell_width,client->cell_height);
     pane->effects.pty_fd=pane->fd;
     pane->closed=pane->fd<0;
+    pane->status_checked=false;
+    pane->runtime_state=0;
     pane_unbind();
     return !pane->closed;
+}
+
+static bool pane_move_here(WorkspaceClient *client, WorkbenchPane *pane)
+{
+    return pane_attach(client,pane,true);
 }
 
 static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
@@ -341,7 +349,13 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
         Rectangle footer={0,fmaxf(32,bounds.height-34),bounds.width,34};
         DrawRectangleRec(footer,ui.surface);
         BeginScissorMode(8,(int)footer.y,(int)bounds.width-16,34);
-        const char *hint=pane->transport.attached_elsewhere
+        const char *hint=client->managed && pane->runtime_state==RUNTIME_STOPPED
+            ? "Shell stopped. Start a new shell to continue; prior jobs do not resume."
+            : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE
+            ? "Runtime status unavailable. Check again before recovering."
+            : client->managed && pane->runtime_state==RUNTIME_CHECKING
+            ? "Checking runtime status..."
+            : pane->transport.attached_elsewhere
             ? (pane->transport.takeover_unsupported
                 ? "Earlier runtime: close the owning window, then Reconnect."
                 : "Move here to continue in the live terminal.")
@@ -354,14 +368,20 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
     snprintf(label, sizeof(label), "%s%s%s%s%s%s", pane->name, agent[0] ? " / " : "", agent,
              agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
-             pane->closed ? (pane->transport.attached_elsewhere ? "  /  open in another window" : "  /  connection closed") : pane->transport.replaying ? "  /  connecting" : "");
-    BeginScissorMode(8, 0, (int)bounds.width - (pane->closed ? 242 : 150), 32);
+             pane->closed ? (client->managed && pane->runtime_state==RUNTIME_STOPPED ? "  /  shell stopped" : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "  /  status unavailable" : pane->transport.attached_elsewhere ? "  /  open in another window" : "  /  disconnected") : pane->transport.replaying ? "  /  connecting" : "");
+    BeginScissorMode(8, 0, (int)bounds.width - (pane->closed ? (pane->runtime_state==RUNTIME_STOPPED ? 282 : 242) : 150), 32);
     DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, ui.text);
     EndScissorMode();
     if (pane->unread && !pane->closed) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
-    if (pane->closed)
-        draw_header_button(client->font,terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height}),
-            pane->transport.takeover_unsupported ? "Reconnect" : "Move here",true);
+    if (pane->closed) {
+        Rectangle action=pane->runtime_state==RUNTIME_STOPPED ? (Rectangle){bounds.width-264,6,126,20}
+            : terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height});
+        const char *label=client->managed && pane->runtime_state==RUNTIME_STOPPED ? "Start new shell"
+            : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "Check again"
+            : client->managed && pane->runtime_state==RUNTIME_CHECKING ? "Checking..."
+            : pane->transport.takeover_unsupported ? "Reconnect" : "Move here";
+        draw_header_button(client->font,action,label,!client->managed || pane->runtime_state!=RUNTIME_CHECKING);
+    }
     if (client->managed) {
         draw_header_button(client->font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
         draw_header_button(client->font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);
@@ -569,7 +589,9 @@ static int workspace_main(const char *catalog)
                 pane_bind(pane);
                 if (!pane->closed) {
                     uint64_t before = pane->transport.output_revision;
-                    if (pty_read(pane->fd, &pane->terminal, &pane->effects) != PTY_READ_OK) pane->closed = true;
+                    if (pty_read(pane->fd, &pane->terminal, &pane->effects) != PTY_READ_OK) {
+                        pane->closed=true; pane->status_checked=false; pane->runtime_state=0;
+                    }
                     pane->effects.cols = pane->transport.cols;
                     pane->effects.rows = pane->transport.rows;
                     if (!focused && pane->transport.output_revision != before) pane->unread = true;
@@ -634,6 +656,7 @@ static int workspace_main(const char *catalog)
         EndDrawing();
         flush_deferred_textures();
         window_view_save(client,false);
+        management_check_status(client);
     }
     window_view_save(client,true);
 cleanup:

@@ -31,14 +31,25 @@ The service writes diagnostics to `.local/sessions/service.log`.
 Fresh state directories get initial workspaces and terminals. Once a catalog exists,
 opening a window preserves stopped entries instead of silently starting replacement
 shells. This includes terminals whose socket vanished after shell exit or reboot.
-Stopped entries remain visible; the initial recovery interface is the CLI above.
-A graphical recovery flow with confirmation and detailed exit reasons is follow-up.
+Stopped entries remain visible. The graphical client now checks the service when
+a disconnected terminal becomes visible and offers **Start new shell** only for a
+confirmed stopped runtime. Its confirmation preserves the terminal name/theme
+and explains that prior jobs do not resume. Cancel leaves the entry stopped.
+A service-unavailable or uncertain endpoint offers **Check again**, not recovery.
+Live terminals keep ownership-aware **Move here** / **Reconnect** actions.
+Status checks are asynchronous for visible disconnected terminals, once per disconnection, and do not start a stopped
+service. Older running services fall back to their existing readonly health method.
+A cached stopped result is rechecked by the recovery operation: if another caller
+has already started a shell, the operation refuses to replace it. After recovery,
+the client attempts an ordinary attachment, without taking another window's owner.
+Detailed exit codes and distinction between shell exit, runtime crash and reboot
+still require persisted lifecycle evidence; the UI says stopped rather than guessing.
 
 ## Protocol and compatibility
 
 The private `service.rpc` Unix stream endpoint carries one bounded newline-terminated JSON request
 and reply per connection. Protocol 1 exposes catalog operations, `health`,
-`terminal.recover`, `session.recover` and service shutdown. Requests are serialized
+`terminal.status` (readonly), `terminal.recover`, `session.recover` and service shutdown. Requests are serialized
 and catalog writes retain the existing lock and JSON/TSV projection semantics.
 PTY input, snapshots and rendering do not travel through this service. Focus,
 selection and layout remain local to each window. There is no frame-time polling.

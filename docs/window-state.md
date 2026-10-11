@@ -45,8 +45,7 @@ stable slot reuse. `just window-state-gui-test` exercises two real Linux windows
 close/reopen, size/split/focus, catalog reorder, input reaching the original live
 shell, both overview scroll axes, query restoration, crash checkpoints, deleted
 identities and corrupt-state fallback. Existing launch and multiwindow tests
-cover diagnostics and ownership handoff. Native macOS view restoration still
-needs manual acceptance.
+cover diagnostics and ownership handoff. The owner confirmed native macOS view restoration on 2026-10-11.
 
 On a Mac, open two windows with `just spike`, choose different workspaces and
 terminals, resize each, and close/reopen one while the other stays open. Confirm
