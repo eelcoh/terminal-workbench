@@ -10,7 +10,9 @@
 #include "overview_animation.h"
 #include "pane_navigation.h"
 #include "overview_scroll.h"
+#include "window_state.h"
 #include <sys/stat.h>
+#include <limits.h>
 
 #define WORKBENCH_MAX_WORKSPACES 8
 #define WORKBENCH_PANES 8
@@ -54,6 +56,10 @@ typedef struct { RenderTexture2D canvas; uint64_t epoch; } NavigationTile;
 typedef struct {
     WorkbenchWorkspace workspaces[WORKBENCH_MAX_WORKSPACES];
     int count, active;
+    const char *window_state_path;
+    WindowState saved_view;
+    double view_checked;
+    bool view_loaded, view_restore_overview, view_has_overview;
     float divider;
     bool divider_dragging;
     int cell_width, cell_height;
@@ -224,6 +230,7 @@ static Rectangle workspace_pane_bounds(WorkspaceClient *client, int count, int f
 }
 static void pane_preview_refresh(WorkspaceClient *client, WorkbenchPane *pane);
 static void pane_preview_draw(WorkspaceClient *client, WorkbenchPane *pane, Rectangle target);
+static void window_view_restore_overview(WorkspaceClient *client);
 #include "overview_ui.h"
 #include "theme_ui.h"
 
@@ -365,6 +372,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
 
 #include "terminal_preview.h"
 #include "navigation_ui.h"
+#include "window_state_client.h"
 
 /* One metadata check per window, four times/second; no pane-scaled I/O.
  * The atomic catalog projection is the shared organization authority for the
@@ -427,6 +435,14 @@ static int workspace_main(const char *catalog)
 {
     WorkspaceClient *client = calloc(1, sizeof(*client));
     if (!client) return 1;
+    /* Keep the inherited slot lease in this viewer, not management children. */
+    const char *slot_descriptor=getenv("WORKBENCH_WINDOW_SLOT_FD");
+    if (slot_descriptor) {
+        char *end=NULL; long descriptor=strtol(slot_descriptor,&end,10);
+        if (*slot_descriptor && end && !*end && descriptor>=3 && descriptor<=INT_MAX)
+            (void)fcntl((int)descriptor,F_SETFD,FD_CLOEXEC);
+        unsetenv("WORKBENCH_WINDOW_SLOT_FD");
+    }
     client->catalog_path = catalog;
     /* Observe before loading so a concurrent replacement is checked again. */
     (void)stat(catalog,&client->catalog_stamp);
@@ -438,10 +454,15 @@ static int workspace_main(const char *catalog)
     const char *reduced_motion = getenv("WORKBENCH_REDUCED_MOTION");
     client->overview_animation_enabled = !reduced_motion || strcmp(reduced_motion, "1");
     client->overview_jump_workspace = client->overview_jump_pane = -1;
+    client->window_state_path=getenv("WORKBENCH_WINDOW_STATE");
+    client->view_loaded=client->window_state_path && window_state_read(&client->saved_view,client->window_state_path);
+    client->view_has_overview=client->view_loaded && client->saved_view.context;
+    client->view_restore_overview=client->view_has_overview;
+    if (client->view_loaded) window_view_restore_layout(client);
     int exit_code = 0;
     if (!theme_initialize(client)) { free(client); return 1; }
     SetConfigFlags(FLAG_WINDOW_HIGHDPI);
-    InitWindow(1240, 760, "Terminal Workbench — workspace spike");
+    InitWindow(client->view_loaded ? client->saved_view.width : 1240, client->view_loaded ? client->saved_view.height : 760, "Terminal Workbench — workspace spike");
     if (!IsWindowReady()) { fprintf(stderr, "Workbench window initialization failed\n"); free(client); return 1; }
     SetExitKey(KEY_NULL);
     SetWindowState(FLAG_WINDOW_RESIZABLE);
@@ -465,6 +486,8 @@ static int workspace_main(const char *catalog)
                     client->workspaces[w].panes[p]->id, client->workspaces[w].panes[p]->socket_path);
                 exit_code = 1; goto cleanup;
             }
+
+    if (client->view_loaded && client->saved_view.overview) overview_open(client);
 
     while (!WindowShouldClose()) {
         workspace_refresh(client);
@@ -610,7 +633,9 @@ static int workspace_main(const char *catalog)
         if (client->theme_open) theme_draw(client);
         EndDrawing();
         flush_deferred_textures();
+        window_view_save(client,false);
     }
+    window_view_save(client,true);
 cleanup:
     if (client->management_busy) {
         int status;

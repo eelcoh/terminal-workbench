@@ -78,5 +78,12 @@ int main(void) {
     assert(catalog_apply(&client,&s,true));
     assert(client.workspaces[1].first==2 && client.workspaces[1].focused==2);
     assert(initializations==0 && frees==0);
+    /* Sidebar scroll is anchored to workspace identity across reordering. */
+    client.sidebar_first=1;
+    CatalogWorkspace temporary=s.workspaces[0]; s.workspaces[0]=s.workspaces[1]; s.workspaces[1]=temporary;
+    assert(catalog_apply(&client,&s,true));
+    assert(client.sidebar_first==0 && !strcmp(client.workspaces[client.sidebar_first].id,"b"));
+    assert(client.active==1 && !strcmp(client.workspaces[client.active].id,"a"));
+    assert(initializations==0 && frees==0);
     return 0;
 }

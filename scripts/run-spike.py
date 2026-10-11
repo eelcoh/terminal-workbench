@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from session_service import request
+from window_slots import acquire_window_slot
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -17,7 +18,17 @@ def inside_workbench(environment):
 def launch_viewer(viewer, root, sessions, environment, *, detach=False):
     """Log viewer diagnostics; nested launches release their invoking terminal."""
     log_path = sessions / "viewer.log"
+    slot_fd, view_path = acquire_window_slot(sessions)
+    environment = dict(environment, WORKBENCH_WINDOW_STATE=str(view_path), WORKBENCH_WINDOW_SLOT_FD=str(slot_fd))
+    print(f"Window view: {view_path.name}", flush=True)
     print(f"Viewer log: {log_path}", flush=True)
+    try:
+        return _launch_viewer(viewer, root, environment, detach, log_path, slot_fd)
+    finally:
+        os.close(slot_fd)
+
+
+def _launch_viewer(viewer, root, environment, detach, log_path, slot_fd):
     with log_path.open("ab", buffering=0) as log:
         log.write(f"\n--- Viewer launch {datetime.now(timezone.utc).isoformat()} ---\n{viewer}\n".encode())
         try:
@@ -25,7 +36,7 @@ def launch_viewer(viewer, root, sessions, environment, *, detach=False):
                                        stdin=subprocess.DEVNULL if detach else None,
                                        stdout=log if detach else subprocess.PIPE,
                                        stderr=subprocess.STDOUT, start_new_session=detach,
-                                       close_fds=True)
+                                       close_fds=True, pass_fds=(slot_fd,))
         except OSError as error:
             message = f"Could not launch viewer: {error}\n"
             log.write(message.encode())
@@ -82,7 +93,7 @@ def main():
     environment.pop("WORKBENCH_SOCKET", None)
     try:
         return launch_viewer(viewer, ROOT, sessions, environment, detach=inside_workbench(os.environ))
-    except OSError as error:
+    except (OSError, ValueError) as error:
         print(f"Viewer startup/logging failed: {error}", file=sys.stderr)
         return 1
 

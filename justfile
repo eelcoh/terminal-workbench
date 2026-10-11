@@ -26,6 +26,7 @@ check: runtime-build
     python3 tests/build_env_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
+    python3 tests/window_slots_test.py
     python3 tests/launch_diagnostics_test.py
 
 # Finds Zig 0.16.0 locally/on PATH, or uses an explicit ZIG executable.
@@ -106,3 +107,7 @@ recover-terminal id:
 # Stops the organization service only. Live terminals and windows continue.
 service-stop:
     python3 scripts/session_service.py stop --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
+
+# Independent client view restoration across close, crash and catalog changes.
+window-state-gui-test: spike-build
+    python3 tests/window_state_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

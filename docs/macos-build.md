@@ -225,4 +225,16 @@ Launching another window should start a new service and retain those shell proce
 For a disposable terminal, run `exit`, then launch another window: its saved entry
 should remain stopped. `just recover-terminal ID` explicitly starts a new shell for
 that entry while preserving its name and theme. This service slice is validated on
-Linux; these native macOS checks are still pending. See [session service](session-service.md).
+Linux. Native macOS startup/reuse, shared PID and stop/live-adoption were confirmed
+on 2026-10-11; selected stopped-terminal recovery still needs acceptance.
+See [session service](session-service.md).
+
+## Window view restoration acceptance
+
+Run `just spike` twice and note each printed Window view slot. Choose a different
+workspace and focused terminal in each, then resize and adjust the divider. Close
+one window and launch `just spike` again: it should reuse that slot and restore
+its size and working view while the other window keeps its own focus. Open the
+overview, scroll both axes and close/reopen to check its saved context. Ownership
+stays explicit: terminals owned by another window still offer Move here.
+These native checks remain pending. See [window state](window-state.md).

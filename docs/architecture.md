@@ -202,3 +202,11 @@ surviving terminal in each workspace, falling back to the nearest source index.
 The overview reveals the moved terminal after saving while ordinary PTY layout
 remains deferred until leaving Spatial Overview. Drag ghost rendering reuses a
 preview texture and performs no runtime work or additional texture allocation.
+
+## Client view persistence
+
+The launcher leases one reusable window slot, separate from the organization
+service. Its viewer saves size, split width, stable identity selections and
+overview context in a private versioned client file. Closing releases the slot
+and preserves live terminals. Restoring a view never claims another window's
+terminal or recovers a stopped process. See [window state](window-state.md).

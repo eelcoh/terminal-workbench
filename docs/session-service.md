@@ -74,4 +74,5 @@ malformed request/unsafe endpoint isolation.
 
 `just multiwindow-gui-test` and `just management-gui-test` exercise the service through
 real windows and the management CLI. Linux checks use X11/Xvfb. Native macOS service
-startup, shared PID, stop/adoption and selected recovery still need manual acceptance.
+startup/reuse, shared PID and stop/live-adoption were confirmed on 2026-10-11.
+Selected stopped-terminal recovery still needs manual macOS acceptance.

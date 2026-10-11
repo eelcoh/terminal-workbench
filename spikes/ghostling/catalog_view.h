@@ -114,7 +114,9 @@ static bool catalog_read(CatalogSnapshot *snapshot, const char *path)
 static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bool initialize)
 {
     WorkbenchWorkspace updated[WORKBENCH_MAX_WORKSPACES] = {0};
-    char active_id[41];
+    char active_id[41], sidebar_id[41]={0};
+    if (client->sidebar_first>=0 && client->sidebar_first<client->count)
+        strcpy(sidebar_id,client->workspaces[client->sidebar_first].id);
     strcpy(active_id, client->workspaces[client->active].id);
     bool valid = true;
     for (int w = 0; w < snapshot->count && valid; w++) {
@@ -177,6 +179,8 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
     if (client->active >= client->count) client->active = client->count > 0 ? client->count - 1 : 0;
     for (int w = 0; w < client->count; w++)
         if (!strcmp(client->workspaces[w].id, active_id)) client->active = w;
+    for (int w=0;w<client->count;w++)
+        if (!strcmp(client->workspaces[w].id,sidebar_id)) client->sidebar_first=w;
     if (client->sidebar_first >= client->count) client->sidebar_first = client->count > 0 ? client->count - 1 : 0;
     return true;
 }

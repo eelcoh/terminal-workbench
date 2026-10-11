@@ -65,6 +65,11 @@ commands, reports runtime health/capabilities, adopts surviving runtimes after s
 restart, and requires explicit recovery for stopped saved terminals. Recovery UI,
 creation/close journaling and installation lifecycle remain open. See
 [the session service slice](session-service.md).
+Session-service startup, shared PID, stop and live adoption are also confirmed
+on macOS; individual stopped-terminal recovery remains a separate acceptance check.
+Per-window view persistence now saves size, split width, stable workspace/terminal
+focus and overview context in independently leased client slots. Native macOS
+view-restoration acceptance remains pending. See [window state](window-state.md).
 See [the hardening slice and measurements](runtime-hardening.md).
 
 ## UX spike: a product-quality gate

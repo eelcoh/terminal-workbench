@@ -97,6 +97,7 @@ static void overview_open(WorkspaceClient *client)
 {
     overview_animation_target(&client->overview_animation, 1, GetTime(), client->overview_animation_enabled && !client->overview_list ? 0.18 : 0);
     client->overview_open = true;
+    client->view_has_overview = true;
     client->overview_closing = false;
     client->overview_drag_armed = client->overview_dragging = false;
     client->overview_jump_workspace = client->overview_jump_pane = -1;
@@ -120,6 +121,7 @@ static void overview_open(WorkspaceClient *client)
             client->overview_selected = i;
     overview_reveal(client, items, count);
     overview_scroll_update(client,items,count,true);
+    if (client->view_restore_overview) window_view_restore_overview(client);
 }
 
 static bool overview_requested(void)
