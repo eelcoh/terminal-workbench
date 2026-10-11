@@ -126,12 +126,7 @@ static void overview_open(WorkspaceClient *client)
 
 static bool overview_requested(void)
 {
-    return (clipboard_chord_down() && IsKeyPressed(KEY_O)
-#if defined(__APPLE__)
-        && (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT))
-#endif
-        ) || (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
-            && CheckCollisionPointRec(GetMousePosition(), overview_button()));
+    return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(),overview_button());
 }
 
 static void overview_apply_jump(WorkspaceClient *client, int workspace_index, int pane_index)

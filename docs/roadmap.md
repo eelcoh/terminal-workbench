@@ -84,9 +84,11 @@ See [the hardening slice and measurements](runtime-hardening.md).
 
 The fresh keyboard model now starts with a searchable Commands palette and a
 client action registry. Mouse/chord entry, navigation, workspace/terminal dialogs,
-capacity explanations and confirmed stops reuse established workflows. Individual
-shortcut settings, collision checks and forwarding intercepted terminal bindings
-remain next; native Mac palette acceptance is pending. See [Commands](commands.md).
+capacity explanations and confirmed stops reuse established workflows. Shortcut settings now records and saves per-action bindings, rejects conflicts,
+reserves shell control keys and includes terminal/workspace navigation defaults.
+Send next key to terminal bypasses interception once, with cancellation and stable
+terminal targeting. The owner confirmed smooth palette interaction; native Mac
+acceptance of the new bindings and forwarding remains pending. See [Commands](commands.md) and [shortcut settings](shortcuts.md).
 
 ## UX spike: a product-quality gate
 

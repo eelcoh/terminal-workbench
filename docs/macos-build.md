@@ -275,3 +275,21 @@ and verify the explanation. Try an empty workspace and the smallest window.
 Command+A/V should edit the query, and ordinary Ctrl-C/D/Z should still reach the
 shell outside the palette. Native acceptance of these new palette checks is pending.
 See [Commands](commands.md).
+
+## Configurable shortcut acceptance
+
+Use Command+Option+Left/Right to navigate terminals and Command+Option+Up/Down to
+navigate workspaces. Command+T/N should open terminal/workspace creation without
+saving; Escape cancels. In Commands, search Shortcut settings, then Next terminal.
+Record another chord and Save. Verify it appears in Commands, works, survives a
+window reopen, and can be cleared or restored with Default. A duplicate chord must
+show a conflict without changing the saved map. Try navigation while a name dialog
+is open: it must stay in that dialog. Stop shortcuts must still require clicking
+confirmation.
+
+In a disposable terminal application, choose Send next key to terminal and press
+a bound chord. Verify the application receives it and Workbench focus stays put;
+Escape or clicking elsewhere cancels an armed forward. Clipboard shortcuts can be
+cleared without leaving their old interception active. Bare Ctrl-C/D/Z stay terminal
+input. Mac settings use `.local/shortcuts-macos.conf`; Linux preferences are separate.
+These new native checks remain pending. See [shortcuts](shortcuts.md).

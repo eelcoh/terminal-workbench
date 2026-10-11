@@ -113,6 +113,7 @@ def main():
         return 1
     print("Opening saved workspaces. Close detaches shells; exit stops only the focused shell.", flush=True)
     environment = dict(os.environ, WORKBENCH_WORKSPACES=str(sessions / "workspaces.tsv"),
+        WORKBENCH_SHORTCUTS=os.environ.get("WORKBENCH_SHORTCUTS",str(ROOT / ".local" / ("shortcuts-macos.conf" if sys.platform=="darwin" else "shortcuts-linux.conf"))),
         WORKBENCH_CATALOG_SCRIPT=str(ROOT / "scripts/workspace_catalog.py"),
         WORKBENCH_STATE_DIR=str(sessions), WORKBENCH_RUNTIME=str(runtime), WORKBENCH_PROJECT=str(ROOT))
     environment.pop("WORKBENCH_SOCKET", None)

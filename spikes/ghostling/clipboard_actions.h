@@ -1,5 +1,6 @@
 /* Clipboard I/O is a client action; raw Ctrl-C continues to reach the shell. */
 #define WORKBENCH_CLIPBOARD_LIMIT 65536
+static bool workbench_clipboard_keys=true;
 static const char *clipboard_message = NULL;
 static double clipboard_message_until = 0;
 
@@ -76,7 +77,7 @@ static void clipboard_paste(int fd, GhosttyTerminal terminal)
 
 static bool handle_clipboard(int fd, GhosttyTerminal terminal, bool can_paste)
 {
-    bool chord = clipboard_chord_down();
+    bool chord = workbench_clipboard_keys && clipboard_chord_down();
     bool copy_key = chord && (IsKeyPressed(KEY_C) || IsKeyPressedRepeat(KEY_C));
     bool paste_key = chord && (IsKeyPressed(KEY_V) || IsKeyPressedRepeat(KEY_V));
     bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);

@@ -168,14 +168,19 @@ def main():
             # A lost reply never replays a possibly committed mutation.
             lost = root / "lost-reply"; lost.mkdir()
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
-                listener.bind(str(endpoint(lost))); listener.listen()
+                listener.bind(str(endpoint(lost))); listener.listen(); listener.settimeout(3)
                 received = []
                 def discard_reply():
                     peer, _ = listener.accept()
+                    peer.settimeout(3)
                     with peer: received.append(peer.recv(4096))
-                worker = threading.Thread(target=discard_reply); worker.start()
+                worker = threading.Thread(target=discard_reply, daemon=True); worker.start()
                 try: request(lost, runtime, root, "workspace.create", title="Once")
                 except ValueError as error: assert "closed before replying" in str(error)
+                except (ConnectionResetError, BrokenPipeError):
+                    # Closing a peer without replying may produce EOF or reset.
+                    # Both are indeterminate mutation outcomes, never retries.
+                    pass
                 else: raise AssertionError("lost mutation reply accepted")
                 worker.join(timeout=3)
                 assert len(received) == 1 and not (lost / "service.log").exists()

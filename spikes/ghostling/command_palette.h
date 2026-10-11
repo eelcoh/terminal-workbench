@@ -1,29 +1,4 @@
 /* Client actions and a searchable palette. Shared facts still use management. */
-typedef enum {
-    COMMAND_OVERVIEW, COMMAND_APPEARANCE, COMMAND_WORKSPACE_CREATE,
-    COMMAND_WORKSPACE_RENAME, COMMAND_WORKSPACE_FOLDER, COMMAND_WORKSPACE_STOP,
-    COMMAND_TERMINAL_CREATE, COMMAND_TERMINAL_RENAME, COMMAND_TERMINAL_STOP,
-    COMMAND_TERMINAL_PREVIOUS, COMMAND_TERMINAL_NEXT,
-    COMMAND_WORKSPACE_PREVIOUS, COMMAND_WORKSPACE_NEXT, COMMAND_TERMINAL_RECOVER,
-    COMMAND_COUNT
-} WorkbenchCommand;
-typedef struct { const char *title, *detail; } CommandDefinition;
-static const CommandDefinition command_definitions[COMMAND_COUNT]={
-    {"Open overview","Search workspaces and terminals"},
-    {"Change appearance","Themes and application colors"},
-    {"New workspace","Create a project and its first shell"},
-    {"Rename workspace","Edit this workspace's name"},
-    {"Change project folder","Where new and replacement shells start"},
-    {"Stop workspace","Confirm before stopping its shells"},
-    {"New terminal","Create a shell in this workspace"},
-    {"Rename terminal","Edit the focused terminal's name"},
-    {"Stop terminal","Confirm before stopping the focused shell"},
-    {"Previous terminal","Focus the preceding terminal"},
-    {"Next terminal","Focus the following terminal"},
-    {"Previous workspace","Switch to the preceding workspace"},
-    {"Next workspace","Switch to the following workspace"},
-    {"Start new shell","Confirm replacement of a stopped terminal"}
-};
 static Rectangle command_button(void) { return (Rectangle){8,GetScreenHeight()-26,168,22}; }
 static Rectangle command_bounds(void)
 {
@@ -50,7 +25,9 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
     WorkbenchPane *pane=workspace->count ? workspace->panes[workspace->focused] : NULL;
     if (client->management_busy) return "A session change is still being saved";
     switch (command) {
-    case COMMAND_OVERVIEW: case COMMAND_APPEARANCE: return NULL;
+    case COMMAND_OVERVIEW: case COMMAND_APPEARANCE: case COMMAND_PALETTE: case COMMAND_SHORTCUTS: return NULL;
+    case COMMAND_COPY: return pane && selection_active(pane->terminal) ? NULL : "Select terminal text to copy";
+    case COMMAND_PASTE: case COMMAND_FORWARD: return pane && !pane->closed && !pane->transport.replaying ? NULL : "Focused terminal is not available for input";
     case COMMAND_TERMINAL_PREVIOUS: return workspace->focused>0 ? NULL : "Already at the first terminal";
     case COMMAND_TERMINAL_NEXT: return workspace->focused+1<workspace->count ? NULL : "No following terminal";
     case COMMAND_WORKSPACE_PREVIOUS: return client->active>0 ? NULL : "Already at the first workspace";
@@ -71,13 +48,12 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
 }
 static bool command_requested(void)
 {
-    bool shift=IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-    return (clipboard_chord_down() && shift && IsKeyPressed(KEY_P))
-        || (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(),command_button()));
+    return IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(),command_button());
 }
 static void command_open(WorkspaceClient *client)
 {
     navigation_finish(client);
+    client->forwarding=false;client->command_settings=false;client->shortcut_recording=false;
     client->command_open=true; client->command_query[0]=0;
     client->command_selected=client->command_first=0; client->command_all=false;
     client->divider_dragging=false;
@@ -92,6 +68,16 @@ static void command_dispatch(WorkspaceClient *client, int command)
     client->command_open=false;
     WorkbenchWorkspace *workspace=&client->workspaces[client->active];
     switch (command) {
+    case COMMAND_PALETTE: command_open(client);break;
+    case COMMAND_SHORTCUTS: command_open(client);shortcut_load(client);client->command_settings=true;break;
+    case COMMAND_COPY: {
+        WorkbenchPane *pane=workspace->panes[workspace->focused];pane_bind(pane);clipboard_copy(pane->terminal);pane_unbind();break;
+    }
+    case COMMAND_PASTE: {
+        WorkbenchPane *pane=workspace->panes[workspace->focused];pane_bind(pane);clipboard_paste(pane->fd,pane->terminal);pane_unbind();break;
+    }
+    case COMMAND_FORWARD:
+        client->forwarding=true;strcpy(client->forward_terminal,workspace->panes[workspace->focused]->id);client->forward_deadline=GetTime()+10;break;
     case COMMAND_OVERVIEW: overview_open(client); break;
     case COMMAND_APPEARANCE: theme_open(client); break;
     case COMMAND_WORKSPACE_CREATE: dialog_open(client,DIALOG_WORKSPACE_CREATE); break;
@@ -128,6 +114,7 @@ static void command_reveal(WorkspaceClient *client, int count)
 }
 static void command_input(WorkspaceClient *client)
 {
+    if (client->shortcut_recording) { shortcut_record_input(client);return; }
     bool enter=false,escape=false,backspace=false,changed=false; int direction=0,key;
     while ((key=GetKeyPressed())!=0) {
         enter|=key==KEY_ENTER; escape|=key==KEY_ESCAPE; backspace|=key==KEY_BACKSPACE;
@@ -172,15 +159,19 @@ static void command_input(WorkspaceClient *client)
     }
     if (clicked) for (int i=client->command_first;i<count && i<client->command_first+command_visible_rows();i++)
         if (CheckCollisionPointRec(pointer,command_row(i-client->command_first))) {
-            client->command_selected=i; command_dispatch(client,matches[i]); return;
+            client->command_selected=i; if (client->command_settings) shortcut_edit_open(client,matches[i]); else command_dispatch(client,matches[i]); return;
         }
-    if (enter && count) command_dispatch(client,matches[client->command_selected]);
+    if (enter && count) {
+        if (client->command_settings) shortcut_edit_open(client,matches[client->command_selected]);
+        else command_dispatch(client,matches[client->command_selected]);
+    }
 }
 static void command_draw(WorkspaceClient *client)
 {
+    if (client->shortcut_recording) { shortcut_record_draw(client);return; }
     Rectangle b=command_bounds();
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,160}); ui_panel(b,ui.surface,true);
-    DrawTextEx(client->font,"Commands",(Vector2){b.x+20,b.y+20},16,0,ui.text);
+    DrawTextEx(client->font,client->command_settings ? "Shortcut settings" : "Commands",(Vector2){b.x+20,b.y+20},16,0,ui.text);
     draw_header_button(client->font,(Rectangle){b.x+b.width-80,b.y+14,64,24},"Done",true);
     Rectangle field={b.x+16,b.y+54,b.width-32,32};
     DrawRectangleRounded(field,.2f,8,ui.background); DrawRectangleRoundedLinesEx(field,.2f,8,1,ui.accent);
@@ -194,19 +185,20 @@ static void command_draw(WorkspaceClient *client)
     int matches[COMMAND_COUNT],count=command_matches(client,matches);
     for (int i=client->command_first;i<count && i<client->command_first+command_visible_rows();i++) {
         int command=matches[i]; Rectangle row=command_row(i-client->command_first);
-        const char *reason=command_unavailable(client,command); bool selected=i==client->command_selected;
+        const char *reason=client->command_settings ? NULL : command_unavailable(client,command); bool selected=i==client->command_selected;
         DrawRectangleRounded(row,.2f,8,selected ? ui.selected : CheckCollisionPointRec(GetMousePosition(),row) ? ui.hover : ui.surface);
         if (selected) DrawRectangleRounded((Rectangle){row.x+2,row.y+8,3,row.height-16},.5f,6,ui.accent);
-        BeginScissorMode((int)row.x+10,(int)row.y,(int)row.width-20,(int)row.height);
+        char binding[96];shortcut_label(client->shortcuts.bindings[command],shortcut_platform_apple(),binding,sizeof(binding));
+        if (!client->shortcuts.bindings[command].key) strcpy(binding,client->command_settings ? "Unbound" : "");
+        Vector2 binding_size=MeasureTextEx(client->font,binding,11,0);
+        DrawTextEx(client->font,binding,(Vector2){row.x+row.width-binding_size.x-12,row.y+7},11,0,ui.muted);
+        BeginScissorMode((int)row.x+10,(int)row.y,(int)(row.width-28-binding_size.x),(int)row.height);
         DrawTextEx(client->font,command_definitions[command].title,(Vector2){row.x+12,row.y+5},14,0,reason ? ui.muted : ui.text);
-        DrawTextEx(client->font,reason ? reason : command_definitions[command].detail,(Vector2){row.x+12,row.y+24},11,0,reason ? ui.waiting : ui.muted);
+        DrawTextEx(client->font,reason ? reason : client->command_settings ? (command==COMMAND_OVERVIEW ? "Working view / overview toggle; Enter edits" : "Working view; Enter edits binding") : command_definitions[command].detail,(Vector2){row.x+12,row.y+24},11,0,reason ? ui.waiting : ui.muted);
         EndScissorMode();
     }
     if (!count) DrawTextEx(client->font,"No matching actions",(Vector2){b.x+24,b.y+110},14,0,ui.muted);
-#if defined(__APPLE__)
-    const char *hint="Command+Shift+P   Up/Down choose   Enter runs   Esc closes";
-#else
-    const char *hint="Ctrl+Shift+P   Up/Down choose   Enter runs   Esc closes";
-#endif
-    DrawTextEx(client->font,hint,(Vector2){b.x+20,b.y+b.height-24},11,0,ui.muted);
+    char hint[160],opening[96];shortcut_label(client->shortcuts.bindings[COMMAND_PALETTE],shortcut_platform_apple(),opening,sizeof(opening));
+    snprintf(hint,sizeof(hint),"%s   Up/Down choose   Enter %s   Esc closes",opening,client->command_settings ? "edits" : "runs");
+    DrawTextEx(client->font,client->shortcut_error[0] ? client->shortcut_error : hint,(Vector2){b.x+20,b.y+b.height-24},10,0,client->shortcut_error[0] ? ui.waiting : ui.muted);
 }

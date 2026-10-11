@@ -49,8 +49,8 @@ Drag selects text; double-click selects a word and triple-click selects a line
 through Ghostty's gesture engine. Shift forces local selection when a terminal
 application has mouse reporting enabled. Typing or pasting clears selection and
 returns to live output. Clipboard text is limited to 64 KiB in this spike.
-These conventions do not freeze the workspace keymap; configurable action
-routing and a final desktop input layer remain future work.
+Clipboard defaults can now be changed or cleared in Shortcut settings. The final
+desktop input layer and full native platform acceptance remain future work.
 
 ## Workspace layout prototype
 
@@ -65,7 +65,8 @@ Enter saves, Escape/Cancel dismisses without a mutation, and Ctrl+A/V (Linux) or
 Command+A/V (macOS, unverified) follow text-field conventions. Saving runs
 asynchronously and disables editing until completion. No dialog input reaches the
 focused terminal. Workspace/terminal creation and rename remain available through
-visible controls; navigation shortcuts are still undecided.
+visible controls and Commands. Navigation now has editable platform defaults;
+see [shortcut settings](shortcuts.md).
 
 Stop confirmations consume all terminal input. Escape/Cancel dismisses them;
 termination requires clicking Stop. Enter cannot confirm. Window Close continues
@@ -74,8 +75,8 @@ to detach without stopping any shell. No workspace close shortcut is frozen yet.
 ## Overview prototype
 
 Overview opens with its header button, Ctrl+Shift+O on Linux, or Command+Shift+O
-on macOS (unverified). This provisional action follows the clipboard modifier
-conventions; the final configurable keymap remains open. The chord toggles the
+on macOS (unverified). This default follows clipboard modifier
+conventions and can now be changed through Shortcut settings. The chord toggles the
 overview. Spatial mode is the default: Left/Right selects a terminal in its
 workspace, Up/Down moves between workspaces while retaining the nearest column,
 and Enter jumps. Wheel scrolls workspace rows; Shift+wheel scrolls the row under
@@ -120,7 +121,7 @@ transitions. No new terminal-intercepting keyboard chord is added by this slice.
 ## Commands palette prototype
 
 Commands in the sidebar opens a searchable action list. Ctrl+Shift+P (Linux) and
-Command+Shift+P (macOS, native acceptance pending) are provisional opening chords.
+Command+Shift+P (macOS, native acceptance pending) are editable default chords.
 Up/Down or wheel selects, Enter/click runs, and Escape/Done closes. Disabled actions
 explain their state; stop/replacement actions open the existing mouse confirmations.
 The dispatch frame remains modal, so a key cannot also save a newly opened dialog
@@ -129,6 +130,9 @@ The palette opens from the working view only. Queries and disabled commands are
 consumed locally while terminal output continues parsing.
 
 The action registry is client-local and uses existing management workflows.
-Configurable shortcuts, chord collision validation, a forward-to-terminal action,
-and native platform input acceptance remain subsequent keyboard slices.
+Shortcut settings now records, validates, saves, clears and restores per-action
+bindings. Navigation defaults cover terminals and workspaces. Send next key to
+terminal bypasses interception once through the ordinary Ghostty encoder.
+See [shortcut scopes and defaults](shortcuts.md); native platform acceptance,
+IME/layout behavior and multi-key sequences remain follow-up.
 See [Commands](commands.md) for the action set and validation.

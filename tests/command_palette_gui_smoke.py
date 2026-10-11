@@ -25,13 +25,19 @@ def main():
             try:
                 data=request(state,runtime,root)['data']
                 rd,wr=os.pipe()
-                xvfb=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1440x1000x24','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log)
+                xvfb=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1440x1000x24','-nolisten','tcp','-noreset'],pass_fds=(wr,),stdout=log,stderr=log)
                 processes.append(xvfb);os.close(wr)
-                assert select.select([rd],[],[],5)[0];display=os.read(rd,32).decode().strip();os.close(rd)
+                assert select.select([rd],[],[],5)[0]
+                # Xvfb writes the number and newline separately. Do not close
+                # its pipe after a short read of just the number (EPIPE).
+                with os.fdopen(rd) as ready:display=ready.readline().strip()
+                assert display.isdigit()
                 env.update(DISPLAY=':'+display,LIBGL_ALWAYS_SOFTWARE='1',WORKBENCH_WORKSPACES=str(state/'workspaces.tsv'),
                     WORKBENCH_CATALOG_SCRIPT=str(ROOT/'scripts/workspace_catalog.py'),WORKBENCH_STATE_DIR=str(state),
-                    WORKBENCH_RUNTIME=str(runtime),WORKBENCH_PROJECT=str(root),WORKBENCH_REDUCED_MOTION='1')
+                    WORKBENCH_RUNTIME=str(runtime),WORKBENCH_PROJECT=str(root),WORKBENCH_SHORTCUTS=str(root/'shortcuts.conf'),WORKBENCH_REDUCED_MOTION='1')
                 env.pop('WAYLAND_DISPLAY',None);env.pop('WORKBENCH_SOCKET',None)
+                # Xvfb may publish its display number before XKB setup completes.
+                wait_until(lambda:subprocess.run(['xdotool','getdisplaygeometry'],env=env,capture_output=True).returncode==0)
                 process=subprocess.Popen([str(viewer)],cwd=root,env=env,stdout=log,stderr=log);processes.append(process)
                 def cmd(*args):
                     result=subprocess.run(['xdotool',*map(str,args)],env=env,capture_output=True,text=True,timeout=5)
@@ -100,6 +106,61 @@ def main():
                 line('printf overlay-safe > overlays');assert marker('overlays')=='overlay-safe'
                 # Disabled result stays in palette and cannot start a shell.
                 palette('Start new shell');key('Return');key('Escape');os.kill(int(newpid),0)
+                # Default navigation routes only in the working view.
+                key('ctrl+shift+Left');line('printf "%s" "$$" > nav-left');assert marker('nav-left')==middlepid
+                key('ctrl+shift+Right');line('printf "%s" "$$" > nav-right');assert marker('nav-right')==newpid
+                key('ctrl+shift+Down');line('printf "%s" "$$" > nav-down');assert marker('nav-down')==scratchpid
+                key('ctrl+shift+Up');line('printf "%s" "$$" > nav-up');assert marker('nav-up')==newpid
+                # A shortcut opening an editor cannot save it in the same frame.
+                before=(state/'workspaces.json').read_bytes();key('ctrl+shift+t');key('Escape')
+                assert (state/'workspaces.json').read_bytes()==before
+                # Settings captures a chord, rejects collisions, then saves a valid one.
+                palette('Shortcut settings');text('Next terminal');key('Return')
+                key('ctrl+c');key('Return');time.sleep(.2)
+                assert not (root/'shortcuts.conf').exists()
+                key('ctrl+shift+p');key('Return');time.sleep(.2)
+                assert not (root/'shortcuts.conf').exists()
+                key('F12');time.sleep(.2)
+                artifacts=ROOT/'.local/test-results';artifacts.mkdir(parents=True,exist_ok=True)
+                shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1],artifacts/'shortcuts-conflict.png')
+                key('ctrl+shift+j');key('Return');time.sleep(.2)
+                key('F12');time.sleep(.2)
+                shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1],artifacts/'shortcuts.png')
+                key('Escape')
+                assert 'terminal.next=Ctrl+Shift+J' in (root/'shortcuts.conf').read_text()
+                key('ctrl+shift+Left');key('ctrl+shift+j')
+                line('printf "%s" "$$" > custom-nav');assert marker('custom-nav')==newpid
+                # A cancelled recording leaves the complete saved file unchanged.
+                saved=(root/'shortcuts.conf').read_bytes()
+                palette('Shortcut settings');text('Next terminal');key('Return');key('ctrl+shift+k');key('Escape');key('Escape')
+                assert (root/'shortcuts.conf').read_bytes()==saved
+                # Clear and Default restore an individual action, with no shell restart.
+                palette('Shortcut settings');text('Next terminal');key('Return');click(470,452);key('Return');key('Escape')
+                assert 'terminal.next=none' in (root/'shortcuts.conf').read_text()
+                palette('Shortcut settings');text('Next terminal');key('Return');click(550,452);key('Return');key('Escape')
+                assert 'terminal.next=Ctrl+Shift+Right' in (root/'shortcuts.conf').read_text()
+                # Send-next-key bypasses the application and uses Ghostty's encoder.
+                raw_script=root/'raw_keys.py'
+                raw_script.write_text("import os,sys,tty,termios,select,time\nfrom pathlib import Path\nsaved=termios.tcgetattr(0)\ntry:\n tty.setraw(0);Path('raw.ready').write_text('ready');assert select.select([0],[],[],8)[0];data=os.read(0,128);time.sleep(.2);Path('raw.bytes').write_text(data.hex())\nfinally:termios.tcsetattr(0,termios.TCSADRAIN,saved)\n")
+                line('python3 raw_keys.py');marker('raw.ready')
+                palette('Send next key');key('ctrl+shift+Left')
+                assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[1;6D'
+                line('printf "%s" "$$" > forwarded-focus');assert marker('forwarded-focus')==newpid
+                palette('Send next key');key('Escape');key('ctrl+shift+Left')
+                line('printf "%s" "$$" > cancelled-forward');assert marker('cancelled-forward')==middlepid
+                key('ctrl+shift+Right')
+                # Unbinding clipboard shortcuts must also disable the old handler.
+                palette('Shortcut settings');text('Paste clipboard');key('Return');click(470,452);key('Return');key('Escape')
+                assert 'paste=none' in (root/'shortcuts.conf').read_text(), (root/'shortcuts.conf').read_text()
+                (root/'raw.ready').unlink();(root/'raw.bytes').unlink()
+                line('python3 raw_keys.py');marker('raw.ready');key('ctrl+shift+v')
+                assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[118;6u'
+                (root/'raw.ready').unlink();(root/'raw.bytes').unlink()
+                line('python3 raw_keys.py');marker('raw.ready');palette('Send next key');key('ctrl+shift+p')
+                assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[112;6u'
+                # Navigation bindings have no effect inside an existing modal.
+                palette('Rename workspace');key('ctrl+shift+Left');key('Escape')
+                line('printf "%s" "$$" > modal-scope');assert marker('modal-scope')==newpid
                 # Fill organization externally to exercise live refresh and capacity.
                 for i in range(6):request(state,runtime,root,'workspace.create',title='Capacity '+str(i))
                 time.sleep(.5);before=(state/'workspaces.json').read_bytes()
@@ -113,10 +174,20 @@ def main():
                 palette('Next workspace');line('printf "%s" "$$" > small.pid');assert marker('small.pid')==scratchpid
                 # Ordinary terminal control input stays available outside the palette.
                 line('sleep 30');key('ctrl+c');line('printf ctrl-c-safe > controls');assert marker('controls')=='ctrl-c-safe'
+                # A fresh viewer loads the saved override while shells survive.
+                palette('Shortcut settings');text('Next terminal');key('Return');key('ctrl+shift+j');key('Return');key('Escape')
                 click(760,16);assert process.wait(timeout=5)==0
+                process=subprocess.Popen([str(viewer)],cwd=root,env=env,stdout=log,stderr=log);processes.append(process)
+                window=wait_until(find);cmd('windowfocus',window);time.sleep(.4)
+                key('ctrl+shift+j');line('printf "%s" "$$" > restored-binding');assert marker('restored-binding')==middlepid
+                click(1196,16);assert process.wait(timeout=5)==0
                 for value in (pid,newpid,middlepid,scratchpid):os.kill(int(value),0)
-                print('PASS: palette mouse/chord entry, filtering/cancel/no-match isolation, dialog handoff, create/rename, same-PID navigation, stop confirmation safety, theme/overview/folder routing, disabled recovery/capacity, minimum geometry and ordinary Ctrl-C')
+                print('PASS: palette mouse/chord entry, filtering/cancel/no-match isolation, dialog handoff, create/rename, same-PID navigation, stop confirmation safety, theme/overview/folder routing, disabled recovery/capacity, default/custom navigation, recorder collision/cancel/clear/default, raw forwarded arrow, unbound clipboard input, modal scope, saved override on reopen, cancelled forwarding, minimum geometry and ordinary Ctrl-C')
             finally:
+                if sys.exc_info()[0]:
+                    for sock in state.glob('*.sock'):
+                        screen=subprocess.run([str(runtime),'read',str(sock)],capture_output=True,text=True,timeout=5)
+                        print(sock.name,screen.stdout[-1800:],file=sys.stderr)
                 for process in reversed(processes):
                     if process.poll() is None:process.terminate();process.wait(timeout=5)
                 for sock in state.glob('*.sock'):subprocess.run([str(runtime),'stop',str(sock)],capture_output=True,timeout=15)

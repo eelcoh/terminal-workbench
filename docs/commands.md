@@ -1,9 +1,9 @@
 # Commands palette
 
 Open **Commands** at the bottom of the sidebar, **Ctrl+Shift+P** on Linux, or
-**Command+Shift+P** on macOS. This is the first slice of the fresh keyboard model;
-the opening chord is provisional, and per-action shortcut settings and forwarding
-intercepted chords remain follow-up.
+**Command+Shift+P** on macOS. The fresh keyboard model now supports configurable bindings,
+navigation shortcuts and sending an intercepted key to the terminal. Defaults are
+editable through Shortcut settings. See [shortcuts](shortcuts.md).
 
 Type to filter action titles and descriptions. Up/Down or the wheel selects a
 result; Enter or clicking a result runs it. Escape/Done closes the palette. Text
@@ -17,6 +17,7 @@ The initial actions cover:
 - Workspace creation, rename, project-folder editing and confirmed stop.
 - Terminal creation, rename, confirmed stop and confirmed replacement shell.
 - Previous/next terminal and previous/next workspace, retaining existing shells.
+- Shortcut settings, copy/paste and Send next key to terminal.
 
 Actions apply to the active workspace or focused terminal. Opening a dialog from
 an action consumes the dispatch key: Enter cannot also save or confirm the new
@@ -40,6 +41,9 @@ registry, with no filesystem reads, runtime queries or pane snapshots for matchi
 checks mouse/chord entry, filtering, cancellation and no-match input isolation,
 rename/create dialog handoff, unchanged shell PIDs during navigation, confirmation
 safety, folder/theme/overview routing, capacity and stopped-state rejection,
-minimum window geometry and ordinary Ctrl-C. Native macOS Command input, palette
+default/custom navigation, binding recording/conflicts/cancel/clear/default,
+saved bindings on reopen, modal scope, raw modified-arrow forwarding, unbound
+clipboard shortcuts, minimum window geometry and ordinary Ctrl-C. Native macOS
+shortcut input, palette
 visuals and interaction remain pending. The Raylib input backend still does not
 establish full IME, alternate-layout or native Wayland acceptance.

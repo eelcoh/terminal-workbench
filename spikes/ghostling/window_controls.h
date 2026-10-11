@@ -1,5 +1,6 @@
 /* Viewer-owned window controls, independent of terminal input and sessions. */
 #define WORKBENCH_HEADER_HEIGHT 32
+static const char *window_copy_hint=WORKBENCH_COPY_HINT, *window_paste_hint=WORKBENCH_PASTE_HINT;
 
 static Rectangle window_close_bounds(void)
 {
@@ -55,9 +56,9 @@ static void draw_window_controls(Font font, bool can_copy, bool can_paste,
     if (CheckCollisionPointRec(pointer, close))
         hint = "Close window; shell keeps running";
     else if (CheckCollisionPointRec(pointer, copy))
-        hint = can_copy ? WORKBENCH_COPY_HINT : "Select text to copy";
+        hint = can_copy ? window_copy_hint : "Select text to copy";
     else if (CheckCollisionPointRec(pointer, paste))
-        hint = can_paste ? WORKBENCH_PASTE_HINT : "Session is not ready for input";
+        hint = can_paste ? window_paste_hint : "Session is not ready for input";
     if (hint) {
         Vector2 size = MeasureTextEx(font, hint, 14, 0);
         float left = GetScreenWidth() - size.x - 16;

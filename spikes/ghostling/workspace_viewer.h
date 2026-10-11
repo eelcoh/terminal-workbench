@@ -11,6 +11,7 @@
 #include "pane_navigation.h"
 #include "overview_scroll.h"
 #include "window_state.h"
+#include "shortcut_state.h"
 #include <sys/stat.h>
 #include <limits.h>
 
@@ -73,6 +74,14 @@ typedef struct {
     bool command_open, command_all;
     int command_selected, command_first;
     char command_query[64];
+    ShortcutState shortcuts;
+    const char *shortcut_path;
+    char shortcut_error[256];
+    bool command_settings, shortcut_recording, shortcut_capture_valid, forwarding;
+    int shortcut_edit, passthrough_key;
+    ShortcutChord shortcut_candidate;
+    char forward_terminal[41];
+    double forward_deadline;
     bool theme_open, theme_has_custom;
     int theme_selected, theme_ignored, theme_filter, theme_first;
     char theme_query[64];
@@ -246,6 +255,10 @@ static void pane_preview_draw(WorkspaceClient *client, WorkbenchPane *pane, Rect
 static void window_view_restore_overview(WorkspaceClient *client);
 #include "overview_ui.h"
 #include "theme_ui.h"
+static const char *command_unavailable(WorkspaceClient *client, int command);
+static void command_dispatch(WorkspaceClient *client, int command);
+static void command_open(WorkspaceClient *client);
+#include "shortcut_client.h"
 #include "command_palette.h"
 
 static bool workspace_layout(WorkspaceClient *client)
@@ -329,7 +342,7 @@ static void workspace_chrome(WorkspaceClient *client)
     WorkbenchPane *focused = workspace->panes[workspace->focused];
     bool can_copy = focused && selection_active(focused->terminal);
     bool can_paste = focused && !focused->closed && !focused->transport.replaying;
-    draw_window_controls(client->font, can_copy, can_paste, clipboard_current_notice());
+    draw_window_controls(client->font, can_copy, can_paste, client->forwarding ? "Next key (Esc cancels)" : clipboard_current_notice());
     management_controls(client);
     draw_header_button(client->font, overview_button(), "Overview", !client->dialog_open);
 }
@@ -474,6 +487,9 @@ static int workspace_main(const char *catalog)
     (void)stat(catalog,&client->catalog_stamp);
     if (!workspace_catalog(client, catalog)) { fprintf(stderr, "Could not load workspace catalog: %s\n", catalog); free(client); return 1; }
     client->managed = getenv("WORKBENCH_CATALOG_SCRIPT") != NULL;
+    workbench_clipboard_keys=false;
+    client->shortcuts=shortcut_defaults(shortcut_platform_apple());
+    client->shortcut_path=getenv("WORKBENCH_SHORTCUTS");shortcut_load(client);
     client->management_fd = -1;
     client->management_pid = -1;
     client->divider = 0.5f;
@@ -521,23 +537,25 @@ static int workspace_main(const char *catalog)
         if (client->command_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
         theme_sync(client);
         if (!client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
-        bool command_started=false;
-        if (!client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
+        bool shortcut_bypass=false;
+        bool shortcut_frame=shortcut_route(client,&shortcut_bypass);
+        bool command_started=shortcut_frame && client->command_open;
+        if (!shortcut_frame && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
             command_open(client); command_started=true;
         }
         bool command_frame=client->command_open;
         bool theme_frame=client->theme_open;
-        if (!command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
+        if (!shortcut_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
             && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
             && CheckCollisionPointRec(GetMousePosition(),client->overview_open ? overview_theme_button(client) : theme_button())) {
             theme_open(client); theme_frame=true;
         }
-        bool toggled_overview = !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
+        bool toggled_overview = !shortcut_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
         if (toggled_overview) {
             if (client->overview_open && !client->overview_closing) overview_close(client, -1, -1);
             else overview_open(client);
         }
-        bool modal_frame = command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
+        bool modal_frame = shortcut_frame || command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
         if (!management_poll(client)) { exit_code = 1; break; }
         if (command_frame) {
             if (command_started) {
@@ -570,7 +588,7 @@ static int workspace_main(const char *catalog)
         if (navigation_moving(client) && CheckCollisionPointRec(pointer,navigation_area())
             && (pressed || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
                 || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) || GetMouseWheelMoveV().x || GetMouseWheelMoveV().y)) navigation_finish(client);
-        if (pressed && !gesture_active && !modal_frame) {
+        if (pressed && !gesture_active && !modal_frame && !shortcut_bypass) {
             int visible_rows = (GetScreenHeight() - 268) / 44;
             if (visible_rows < 1) visible_rows = 1;
             for (int w = client->sidebar_first; w < client->count && w < client->sidebar_first + visible_rows; w++) {
@@ -625,7 +643,7 @@ static int workspace_main(const char *catalog)
             /* Header coordinates are window-local. Input and selection below use
              * pane-local coordinates; each pointer event has a single owner. */
             client_surface_active = false;
-            bool clipboard_key = modal_frame ? false : handle_clipboard(focused->fd, focused->terminal, paste_ready);
+            bool clipboard_key = (modal_frame || shortcut_bypass) ? false : handle_clipboard(focused->fd, focused->terminal, paste_ready);
             client_surface_active = true;
             if (!modal_frame && paste_ready && !clipboard_key && IsWindowFocused()) {
                 prepare_terminal_keyboard_input(focused->terminal);
@@ -643,9 +661,9 @@ static int workspace_main(const char *catalog)
             }
             pane_unbind();
         }
-        if (!command_frame && client->dialog_open) dialog_input(client);
+        if (!shortcut_frame && !command_frame && client->dialog_open) dialog_input(client);
         bool overview_jumped = false;
-        if (command_frame) { /* The entire palette/action-dispatch frame stays modal. */ }
+        if (shortcut_frame || command_frame) { /* The entire action-dispatch frame stays modal. */ }
         else if (theme_frame) theme_input(client);
         else if (client->overview_open && !client->overview_closing) overview_jumped = overview_input(client);
         else if (client->overview_closing) {
