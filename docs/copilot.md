@@ -41,3 +41,13 @@ The generated plugin is `.local/integrations/copilot/plugin.json` with its
 `hooks.json`. Hooks emit no stdout decisions or prompt content. See
 [status semantics](agent-attention.md) and
 [GitHub's plugin reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-plugin-reference).
+
+If an agent is absent from Agents, run `just agent-status` from another terminal
+while the agent is running. It reads runtime identity and the viewer's lifecycle
+subscription without attaching to PTYs, sending terminal input or restarting
+sessions. Save the output for diagnosis. `identity.agent` should be `copilot`;
+`viewer_metadata.agent_tag` should be 6. The output also includes runtime PID/start
+time and the built binary modification time: a process predating the new build
+may still be running older code. A new viewer does not replace that process.
+The reported Mac `copilot` executable name and matching PID/group are already
+recognized by the current detector; they do not establish which runtime is active.

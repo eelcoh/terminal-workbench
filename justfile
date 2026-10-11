@@ -104,6 +104,10 @@ multiwindow-gui-test: spike-build
 session-status:
     python3 scripts/session_service.py status --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
 
+# Read agent identity/status and viewer metadata; never restart or attach terminals.
+agent-status:
+    python3 scripts/agent_status.py
+
 # Restart only an explicitly selected stopped terminal; preserves identity/themes.
 recover-terminal id:
     python3 scripts/session_service.py recover --state-dir .local/sessions --runtime target/debug/workbench-session --cwd . --id "{{id}}"
