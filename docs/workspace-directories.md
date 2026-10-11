@@ -57,4 +57,5 @@ new-workspace name/folder input through Tab, first-shell working directory and
 existing terminal ownership flows. Native macOS workspace
 creation, capacity release, folder editing and new-terminal directory behavior were
 confirmed by the owner. Native recovery-directory and invalid-path checks remain
-pending; the new selection and capacity cues still need native visual review.
+pending. The owner also confirmed the selection and capacity cues on Linux and
+macOS.

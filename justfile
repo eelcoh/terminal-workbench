@@ -113,3 +113,7 @@ service-stop:
 # Independent client view restoration across close, crash and catalog changes.
 window-state-gui-test: spike-build
     python3 tests/window_state_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Action palette routing and modal isolation with real live shells.
+commands-gui-test: spike-build
+    python3 tests/command_palette_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

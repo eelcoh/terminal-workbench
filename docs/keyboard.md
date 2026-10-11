@@ -1,6 +1,7 @@
 # Keyboard interaction
 
-Workspace and navigation bindings are intentionally undecided. Start with actions and terminal input
+The first Commands palette now exposes workspace and terminal actions without
+freezing individual navigation bindings. Start with actions and terminal input
 requirements rather than copying a predecessor's keymap.
 
 ## Actions to design
@@ -115,3 +116,19 @@ inside moving terminal content settles the view before hit testing. Overview,
 dialogs, theme selection, workspace switches and window resizing also settle the
 working-view motion. `WORKBENCH_REDUCED_MOTION=1` disables both overview and pane
 transitions. No new terminal-intercepting keyboard chord is added by this slice.
+
+## Commands palette prototype
+
+Commands in the sidebar opens a searchable action list. Ctrl+Shift+P (Linux) and
+Command+Shift+P (macOS, native acceptance pending) are provisional opening chords.
+Up/Down or wheel selects, Enter/click runs, and Escape/Done closes. Disabled actions
+explain their state; stop/replacement actions open the existing mouse confirmations.
+The dispatch frame remains modal, so a key cannot also save a newly opened dialog
+or reach a shell. Existing dialogs, overview and appearance retain precedence.
+The palette opens from the working view only. Queries and disabled commands are
+consumed locally while terminal output continues parsing.
+
+The action registry is client-local and uses existing management workflows.
+Configurable shortcuts, chord collision validation, a forward-to-terminal action,
+and native platform input acceptance remain subsequent keyboard slices.
+See [Commands](commands.md) for the action set and validation.

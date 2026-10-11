@@ -204,7 +204,7 @@ static void management_start(WorkspaceClient *client)
 }
 static void management_check_status(WorkspaceClient *client)
 {
-    if (!client->managed || client->management_busy || client->dialog_open || client->theme_open || client->overview_open) return;
+    if (!client->managed || client->management_busy || client->dialog_open || client->theme_open || client->command_open || client->overview_open) return;
     WorkbenchWorkspace *workspace=&client->workspaces[client->active];
     for (int p=workspace->first;p<workspace->count && p<workspace->first+2;p++) {
         WorkbenchPane *pane=workspace->panes[p];
@@ -275,7 +275,7 @@ static void management_controls(WorkspaceClient *client)
         draw_header_button(client->font, button, label, enabled);
     }
     if (client->managed && client->count>=WORKBENCH_MAX_WORKSPACES &&
-        !client->dialog_open && !client->theme_open && !client->overview_open &&
+        !client->command_open && !client->dialog_open && !client->theme_open && !client->overview_open &&
         CheckCollisionPointRec(GetMousePosition(),management_button(0))) {
         Rectangle button=management_button(0);
         const char *hint="Close a workspace to create another";
@@ -303,7 +303,7 @@ static void management_controls(WorkspaceClient *client)
         if (selected) DrawRectangleRounded((Rectangle){position.x+3,28,8,2},.5f,6,ui.accent);
     }
     Vector2 pointer=GetMousePosition();
-    if (!client->dialog_open && !client->theme_open && !client->overview_open && CheckCollisionPointRec(pointer,terminal_navigation_strip())) {
+    if (!client->command_open && !client->dialog_open && !client->theme_open && !client->overview_open && CheckCollisionPointRec(pointer,terminal_navigation_strip())) {
         const char *hint="Scroll here to move between terminals";
         for (int p=0;p<workspace->count;p++) if (CheckCollisionPointRec(pointer,terminal_position(p))) hint=workspace->panes[p]->name;
         Vector2 size=MeasureTextEx(client->font,hint,12,0);

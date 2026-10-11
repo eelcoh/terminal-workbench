@@ -77,9 +77,16 @@ moves. Missing folders produce a local creation/recovery error. The path editor
 is implemented; the owner confirmed macOS workspace creation, folder editing and
 new-terminal directory behavior. Native folder browsing and remaining recovery/
 invalid-path checks remain follow-up. Capacity and text-selection cues now explain
-the eight-workspace ceiling and replacement of selected paths.
+the eight-workspace ceiling and replacement of selected paths; the owner confirmed
+these cues on Linux and macOS.
 See [project folders](workspace-directories.md).
 See [the hardening slice and measurements](runtime-hardening.md).
+
+The fresh keyboard model now starts with a searchable Commands palette and a
+client action registry. Mouse/chord entry, navigation, workspace/terminal dialogs,
+capacity explanations and confirmed stops reuse established workflows. Individual
+shortcut settings, collision checks and forwarding intercepted terminal bindings
+remain next; native Mac palette acceptance is pending. See [Commands](commands.md).
 
 ## UX spike: a product-quality gate
 

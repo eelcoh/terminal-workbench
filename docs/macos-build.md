@@ -263,3 +263,15 @@ Recovery-directory and invalid-path checks remain pending. After the UX update,
 verify the Workspace limit (8) label and hover explanation at capacity, and the
 selected-path highlight and replacement hint in Folder, with light and dark themes.
 See [project folders](workspace-directories.md).
+
+## Commands palette acceptance
+
+After updating, click Commands at the bottom of the sidebar or press
+Command+Shift+P. Search for New workspace, Rename terminal, project folder,
+Next workspace and Change appearance. Verify Enter opens an editor without saving
+it, and that Stop terminal only opens a confirmation; Enter must not stop it.
+Escape should return cleanly to the same shell. At capacity, search New workspace
+and verify the explanation. Try an empty workspace and the smallest window.
+Command+A/V should edit the query, and ordinary Ctrl-C/D/Z should still reach the
+shell outside the palette. Native acceptance of these new palette checks is pending.
+See [Commands](commands.md).

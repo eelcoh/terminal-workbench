@@ -70,6 +70,9 @@ typedef struct {
     double catalog_checked;
     bool managed, dialog_open, dialog_all, management_busy, refreshing;
     char claim_new[41];
+    bool command_open, command_all;
+    int command_selected, command_first;
+    char command_query[64];
     bool theme_open, theme_has_custom;
     int theme_selected, theme_ignored, theme_filter, theme_first;
     char theme_query[64];
@@ -243,6 +246,7 @@ static void pane_preview_draw(WorkspaceClient *client, WorkbenchPane *pane, Rect
 static void window_view_restore_overview(WorkspaceClient *client);
 #include "overview_ui.h"
 #include "theme_ui.h"
+#include "command_palette.h"
 
 static bool workspace_layout(WorkspaceClient *client)
 {
@@ -320,7 +324,7 @@ static void workspace_chrome(WorkspaceClient *client)
         if (unread) DrawCircle((int)(row.x + row.width - 12), (int)(row.y + 18), 3, ui.waiting);
     }
     draw_header_button(client->font, theme_button(), "Appearance", !client->dialog_open);
-    DrawTextEx(client->font, "Dot: unseen output", (Vector2){12, GetScreenHeight() - 28}, 12, 0, ui.muted);
+    draw_header_button(client->font,command_button(),"Commands",!client->dialog_open && !client->theme_open && !client->overview_open && !client->management_busy);
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     WorkbenchPane *focused = workspace->panes[workspace->focused];
     bool can_copy = focused && selection_active(focused->terminal);
@@ -404,7 +408,7 @@ static void workspace_refresh(WorkspaceClient *client)
     double now=GetTime();
     if (now-client->catalog_checked<.25) return;
     client->catalog_checked=now;
-    if (client->management_busy || client->dialog_open || client->theme_open
+    if (client->management_busy || client->dialog_open || client->theme_open || client->command_open
         || client->overview_drag_armed || client->overview_closing || client->divider_dragging
         || navigation_moving(client) || overview_animation_busy(&client->overview_animation,now)) return;
     for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++)
@@ -514,22 +518,33 @@ static int workspace_main(const char *catalog)
     while (!WindowShouldClose()) {
         workspace_refresh(client);
         overview_motion_tick(client);
-        if (client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
+        if (client->command_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
         theme_sync(client);
-        if (!client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
+        if (!client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
+        bool command_started=false;
+        if (!client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
+            command_open(client); command_started=true;
+        }
+        bool command_frame=client->command_open;
         bool theme_frame=client->theme_open;
-        if (!client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
+        if (!command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
             && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
             && CheckCollisionPointRec(GetMousePosition(),client->overview_open ? overview_theme_button(client) : theme_button())) {
             theme_open(client); theme_frame=true;
         }
-        bool toggled_overview = !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
+        bool toggled_overview = !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
         if (toggled_overview) {
             if (client->overview_open && !client->overview_closing) overview_close(client, -1, -1);
             else overview_open(client);
         }
-        bool modal_frame = theme_frame || client->dialog_open || client->overview_open || toggled_overview;
+        bool modal_frame = command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
         if (!management_poll(client)) { exit_code = 1; break; }
+        if (command_frame) {
+            if (command_started) {
+                while (GetKeyPressed()!=0) { }
+                while (GetCharPressed()!=0) { }
+            } else command_input(client);
+        }
         Vector2 pointer = GetMousePosition();
         bool pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
         if (!modal_frame && pointer.x < WORKBENCH_SIDEBAR && pointer.y >= 88 && pointer.y < GetScreenHeight() - 180) {
@@ -628,9 +643,10 @@ static int workspace_main(const char *catalog)
             }
             pane_unbind();
         }
-        if (client->dialog_open) dialog_input(client);
+        if (!command_frame && client->dialog_open) dialog_input(client);
         bool overview_jumped = false;
-        if (theme_frame) theme_input(client);
+        if (command_frame) { /* The entire palette/action-dispatch frame stays modal. */ }
+        else if (theme_frame) theme_input(client);
         else if (client->overview_open && !client->overview_closing) overview_jumped = overview_input(client);
         else if (client->overview_closing) {
             while (GetKeyPressed() != 0) { }
@@ -655,6 +671,7 @@ static int workspace_main(const char *catalog)
         if (client->dialog_open) dialog_draw(client);
         if (client->overview_open) overview_present(client);
         if (client->theme_open) theme_draw(client);
+        if (client->command_open) command_draw(client);
         EndDrawing();
         flush_deferred_textures();
         window_view_save(client,false);
