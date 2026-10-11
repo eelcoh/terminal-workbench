@@ -24,6 +24,19 @@ def name(value):
         raise ValueError("Names must fit 63 UTF-8 bytes and contain no control characters")
     return value.strip()
 
+def directory_value(value, base=None, *, available=False):
+    if not isinstance(value,str) or not value or len(os.fsencode(value))>1023 or any(ord(ch)<32 or ord(ch)==127 for ch in value):
+        raise ValueError("Enter a folder path of at most 1023 bytes without control characters")
+    path=Path(value).expanduser()
+    if base is not None:
+        if not path.is_absolute(): path=Path(base)/path
+        path=path.resolve()
+    if not path.is_absolute(): raise ValueError("Saved workspace folder must be absolute")
+    if len(os.fsencode(path))>1023: raise ValueError("Resolved folder path exceeds 1023 bytes")
+    if available and (not path.is_dir() or not os.access(path,os.R_OK | os.X_OK)):
+        raise ValueError("Folder does not exist or cannot be accessed")
+    return str(path)
+
 @contextmanager
 def locked(directory):
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -48,7 +61,7 @@ def seed(directory):
     legacy = directory / "workspaces.tsv"
     if legacy.exists():
         lines = legacy.read_text().splitlines()
-        if lines and lines[0] in {"workbench-catalog-v2", "workbench-catalog-v3"}:
+        if lines and lines[0] in {"workbench-catalog-v2", "workbench-catalog-v3", "workbench-catalog-v4"}:
             raise ValueError("Saved catalog found without JSON metadata; existing files were preserved")
         if lines:
             defaults = []
@@ -73,6 +86,8 @@ def validate(data):
         raise ValueError("Invalid workspace count")
     ids = set()
     for workspace in workspaces:
+        if isinstance(workspace,dict) and "directory" in workspace:
+            directory_value(workspace["directory"])
         if not isinstance(workspace, dict) or not isinstance(workspace.get("terminals"), list) or not 0 <= len(workspace["terminals"]) <= MAX_TERMINALS:
             raise ValueError("Invalid terminal count")
         for entity in [workspace, *workspace["terminals"]]:
@@ -99,9 +114,12 @@ def socket_path(directory, terminal):
     return path
 
 def snapshot(directory, data):
-    lines = ["workbench-catalog-v3"]
+    version4=any("directory" in workspace for workspace in data["workspaces"])
+    lines = ["workbench-catalog-v4" if version4 else "workbench-catalog-v3"]
     for workspace in data["workspaces"]:
         lines.append("\t".join(["W", workspace["id"], workspace["name"]]))
+        if "directory" in workspace:
+            lines.append("\t".join(["D",workspace["id"],workspace["directory"]]))
         for terminal in workspace["terminals"]:
             lines.append("\t".join(["T", workspace["id"], terminal["id"], terminal["name"], str(socket_path(directory, terminal))]))
     return "\n".join(lines) + "\n"
@@ -160,7 +178,7 @@ def ensure_sessions(directory, data, runtime, cwd, *, on_spawn=None):
                     continue
                 log_path = directory / f"{terminal['id']}.log"
                 with log_path.open("ab") as log:
-                    process = subprocess.Popen([str(runtime), str(path)], cwd=cwd,
+                    process = subprocess.Popen([str(runtime), str(path)], cwd=directory_value(workspace.get("directory",str(cwd)),cwd,available=True),
                         stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True,
                         env={key: value for key, value in os.environ.items() if not key.startswith("WORKBENCH_")}
                             | {"WORKBENCH_AGENT_BIN": str(Path(__file__).resolve().parent.parent / ".local/bin")})
@@ -289,7 +307,7 @@ def close_sessions(directory, runtime, data, method, identity):
     save(directory, data)
     finish_close(directory, runtime, data)
 
-def manage(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, on_spawn=None):
+def manage(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, on_spawn=None, project_directory=None):
     directory = directory.resolve()
     with locked(directory):
         data = load(directory)
@@ -302,14 +320,26 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
             close_sessions(directory, runtime, data, method, identity)
             return data
         old_ids = {terminal["id"] for workspace in data["workspaces"] for terminal in workspace["terminals"]}
-        if method != "initialize":
+        # Directory changes are organization facts; never send cd to live shells.
+        if method in {"workspace.directory", "workspace.create_at"}:
+            selected=directory_value(project_directory,cwd,available=True)
+            if method=="workspace.directory":
+                workspace=next((w for w in data["workspaces"] if w["id"]==identity),None)
+                if workspace is None: raise ValueError("Workspace no longer exists")
+                workspace["directory"]=selected
+                save(directory,data)
+                return data
+            mutate(data,"workspace.create",identity,title)
+            data["workspaces"][-1]["directory"]=selected
+            method="initialize-new"
+        if method not in {"initialize","initialize-new"}:
             mutate(data, method, identity, title, destination, position)
         rendered = snapshot(directory, data)
         startup = data if method == "initialize" else {"workspaces": [
-            {"terminals": [terminal for terminal in workspace["terminals"] if terminal["id"] not in old_ids]}
+            {**workspace, "terminals": [terminal for terminal in workspace["terminals"] if terminal["id"] not in old_ids]}
             for workspace in data["workspaces"]
         ]}
-        started = ensure_sessions(directory, startup, runtime, cwd, **({"on_spawn": on_spawn} if on_spawn else {})) if method == "initialize" or method.endswith(".create") else []
+        started = ensure_sessions(directory, startup, runtime, cwd, **({"on_spawn": on_spawn} if on_spawn else {})) if method == "initialize" or method.endswith(".create") or method=="initialize-new" else []
         committed = False
         try:
             atomic_write(directory / "workspaces.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
@@ -334,6 +364,7 @@ def main():
     parser.add_argument("--id", default="")
     parser.add_argument("--name", default="")
     parser.add_argument("--to", default="")
+    parser.add_argument("--directory", default=None)
     parser.add_argument("--position", type=int, default=-1)
     args = parser.parse_args()
     try:
@@ -353,11 +384,11 @@ def main():
                 reply = dict(id=terminal["id"], state=terminal["state"])
             print("STATE\t" + reply["id"] + "\t" + reply["state"], flush=True)
             return 0
-        data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position)["data"]
+        data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position, project_directory=args.directory)["data"]
         # Return the identity from this operation's locked result, never infer
         # it from a later projection that another window may have changed.
-        if args.command in {"workspace.create", "terminal.create"}:
-            workspace = data["workspaces"][-1] if args.command == "workspace.create" else next(
+        if args.command in {"workspace.create", "workspace.create_at", "terminal.create"}:
+            workspace = data["workspaces"][-1] if args.command in {"workspace.create","workspace.create_at"} else next(
                 item for item in data["workspaces"] if item["id"] == args.id)
             print("CREATED\t" + workspace["terminals"][-1]["id"] + "\t" + workspace["id"], flush=True)
         print("OK", flush=True)

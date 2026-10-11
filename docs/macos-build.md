@@ -246,5 +246,15 @@ Shell stopped with **Start new shell** in the header. Open the confirmation and
 Cancel: no shell should start. Confirm on a second attempt: a fresh shell should
 accept input with the same terminal name and theme. An entry owned by another
 window must continue offering Move here, never Start new shell. Native Mac
-acceptance of this recovery flow remains pending. Detailed exit causes remain
+acceptance of this recovery flow was confirmed by the owner on 2026-10-11. Detailed exit causes remain
 unknown after service restart; stopped is the supported fact.
+
+## Workspace folder acceptance
+
+After updating, use New workspace and enter a project folder (Tab moves from the
+name to the folder). Run `pwd` in its first shell. Use New terminal and confirm
+it starts in the same folder. Change the project folder using Folder in the sidebar: existing
+shells must retain their current directory; a new terminal should use the new
+folder. Run `exit` in a disposable terminal, then Start new shell: its replacement
+should use the current workspace folder. Try a path with spaces and a missing
+folder. These native Mac checks remain pending. See [project folders](workspace-directories.md).

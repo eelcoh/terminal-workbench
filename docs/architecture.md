@@ -210,3 +210,11 @@ service. Its viewer saves size, split width, stable identity selections and
 overview context in a private versioned client file. Closing releases the slot
 and preserves live terminals. Restoring a view never claims another window's
 terminal or recovers a stopped process. See [window state](window-state.md).
+
+## Workspace directories
+
+An optional canonical project directory belongs to shared workspace organization.
+It controls the cwd of newly started and recovered shells; live process cwd stays
+with each runtime. Folder editing only updates metadata. The viewer projects the
+shared setting for editing; validation and startup happen in the organization
+service. See [workspace project folders](workspace-directories.md).

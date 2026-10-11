@@ -67,10 +67,15 @@ stopped entry, with local unavailable-status feedback and live-runtime protectio
 Detailed exit reasons, creation/close journaling and installation lifecycle remain open. See
 [the session service slice](session-service.md).
 Session-service startup, shared PID, stop and live adoption are also confirmed
-on macOS; individual stopped-terminal recovery remains a separate acceptance check.
+on macOS; graphical stopped-terminal recovery is also owner-confirmed.
 Per-window view persistence now saves size, split width, stable workspace/terminal
 focus and overview context in independently leased client slots. The owner has also confirmed native macOS
 view restoration. See [window state](window-state.md).
+Workspace project folders now support first/new/replacement shell startup,
+shared folder editing and preservation of live shell directories during edits or
+moves. Missing folders produce a local creation/recovery error. The path editor
+is implemented; native folder browsing and macOS acceptance remain follow-up.
+See [project folders](workspace-directories.md).
 See [the hardening slice and measurements](runtime-hardening.md).
 
 ## UX spike: a product-quality gate

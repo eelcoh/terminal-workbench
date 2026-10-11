@@ -164,3 +164,11 @@ capabilities. This read-only query leaves attachment ownership unchanged.
 Missing capability replies are reported as unadvertised rather than assuming an
 older runtime supports or lacks a particular attachment method. Existing methods
 and frame formats are unchanged; existing runtimes are never replaced implicitly.
+
+Catalog v4 adds `D\tworkspace-id\tabsolute-directory` records after workspace
+records. v2/v3 remain readable; the producer uses v4 only when folders are stored.
+Service health optionally advertises `methods`. `workspace.create_at` and
+`workspace.directory` require `project_directory`; they preserve the meaning of
+existing `workspace.create` and avoid success when an older service ignores a
+load-bearing folder parameter. Folder state belongs to shared organization;
+window geometry/focus and terminal process cwd retain their existing owners.

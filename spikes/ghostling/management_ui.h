@@ -3,7 +3,7 @@
 extern char **environ;
 
 enum { DIALOG_WORKSPACE_CREATE = 1, DIALOG_WORKSPACE_RENAME,
-       DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE, DIALOG_TERMINAL_RECOVER, DIALOG_TERMINAL_STATUS };
+       DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE, DIALOG_TERMINAL_RECOVER, DIALOG_TERMINAL_STATUS, DIALOG_WORKSPACE_DIRECTORY };
 enum { RUNTIME_CHECKING, RUNTIME_RUNNING, RUNTIME_STOPPED, RUNTIME_UNAVAILABLE };
 
 static void dialog_open(WorkspaceClient *client, int kind)
@@ -13,7 +13,12 @@ static void dialog_open(WorkspaceClient *client, int kind)
     client->dialog_kind = kind;
     client->dialog_error[0] = '\0';
     client->dialog_all = true;
+    client->edit_folder=kind==DIALOG_WORKSPACE_DIRECTORY;
+    const char *folder=workspace->directory[0] ? workspace->directory : getenv("WORKBENCH_PROJECT");
+    if (kind==DIALOG_WORKSPACE_CREATE) folder=getenv("WORKBENCH_PROJECT");
+    snprintf(client->edit_directory,sizeof(client->edit_directory),"%s",folder ? folder : "");
     client->management_target[0]=0;
+    if (kind==DIALOG_WORKSPACE_DIRECTORY) strcpy(client->management_target,workspace->id);
     if (kind == DIALOG_TERMINAL_RECOVER) strcpy(client->management_target,workspace->panes[workspace->focused]->id);
     if (kind == DIALOG_WORKSPACE_CLOSE) {
         strcpy(client->edit_name, workspace->name);
@@ -139,13 +144,14 @@ static void management_execute(WorkspaceClient *client, const char *method, cons
     if (!script || !directory || !runtime || !cwd) {
         strcpy(client->dialog_error, "Management requires the workspace launcher"); return;
     }
-    char name_argument[72], position_argument[24];
+    char name_argument[72], position_argument[24], directory_argument[1040];
+    snprintf(directory_argument,sizeof(directory_argument),"--directory=%s",client->edit_directory);
     snprintf(name_argument, sizeof(name_argument), "--name=%s", title);
     snprintf(position_argument, sizeof(position_argument), "%d", position);
     char *arguments[] = {"python3", (char *)script, "--state-dir", (char *)directory,
         "--runtime", (char *)runtime, "--cwd", (char *)cwd,
         "--command", (char *)method, "--id", (char *)identity,
-        name_argument, "--to", (char *)destination, "--position", position_argument, NULL};
+        name_argument, directory_argument, "--to", (char *)destination, "--position", position_argument, NULL};
     int pipe_fds[2];
     if (pipe(pipe_fds) < 0) { strcpy(client->dialog_error, "Could not start save"); return; }
     posix_spawn_file_actions_t actions;
@@ -187,7 +193,11 @@ static void management_start(WorkspaceClient *client)
         management_execute(client,"terminal.recover",client->management_target,"","",-1);
         return;
     }
-    const char *methods[] = {"", "workspace.create", "workspace.rename", "terminal.create", "terminal.rename", "terminal.close", "workspace.close"};
+    if (client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY) {
+        management_execute(client,"workspace.directory",client->management_target,"","",-1);
+        return;
+    }
+    const char *methods[] = {"", "workspace.create_at", "workspace.rename", "terminal.create", "terminal.rename", "terminal.close", "workspace.close"};
     const char *identity = (client->dialog_kind == DIALOG_TERMINAL_RENAME || client->dialog_kind == DIALOG_TERMINAL_CLOSE)
         ? workspace->panes[workspace->focused]->id : workspace->id;
     management_execute(client, methods[client->dialog_kind], identity, client->edit_name, "", -1);
@@ -220,7 +230,8 @@ static void management_move_start(WorkspaceClient *client, const char *identity,
 
 static Rectangle management_button(int index)
 {
-    return (Rectangle){8, GetScreenHeight() - 172 + index * 38, WORKBENCH_SIDEBAR - 16, 30};
+    if (index==3) return (Rectangle){118,GetScreenHeight()-134,58,30};
+    return (Rectangle){8, GetScreenHeight() - 172 + index * 38, index==1 ? 104 : WORKBENCH_SIDEBAR - 16, 30};
 }
 static Rectangle terminal_navigation(int next)
 {
@@ -252,8 +263,8 @@ static Rectangle workspace_stop(void) { return (Rectangle){150, 51, 26, 22}; }
 
 static void management_controls(WorkspaceClient *client)
 {
-    const char *labels[] = {"New workspace", "Rename workspace", "New terminal"};
-    for (int i = 0; i < 3; i++) {
+    const char *labels[] = {"New workspace", "Rename", "New terminal", "Folder"};
+    for (int i = 0; i < 4; i++) {
         Rectangle button = management_button(i);
         bool enabled = client->managed && (i != 0 || client->count < WORKBENCH_MAX_WORKSPACES)
             && (i == 0 || client->count > 0)
@@ -313,6 +324,7 @@ static bool management_click(WorkspaceClient *client, Vector2 pointer)
         else if (CheckCollisionPointRec(pointer, management_button(1)) && client->count) dialog_open(client, DIALOG_WORKSPACE_RENAME);
         else if (CheckCollisionPointRec(pointer, management_button(2)) && client->count && workspace->count < WORKBENCH_PANES)
             dialog_open(client, DIALOG_TERMINAL_CREATE);
+        else if (client->count && CheckCollisionPointRec(pointer, management_button(3))) dialog_open(client,DIALOG_WORKSPACE_DIRECTORY);
         else if (client->count && CheckCollisionPointRec(pointer, workspace_stop())) dialog_open(client, DIALOG_WORKSPACE_CLOSE);
         else
             for (int p = workspace->first; p < workspace->count && p < workspace->first + 2; p++)
@@ -339,7 +351,7 @@ static Rectangle dialog_bounds(void)
 
 static void dialog_input(WorkspaceClient *client)
 {
-    if (client->dialog_kind >= DIALOG_TERMINAL_CLOSE) {
+    if (client->dialog_kind >= DIALOG_TERMINAL_CLOSE && client->dialog_kind!=DIALOG_WORKSPACE_DIRECTORY) {
         bool escape = false;
         int key;
         while ((key = GetKeyPressed()) != 0) escape |= key == KEY_ESCAPE;
@@ -352,54 +364,63 @@ static void dialog_input(WorkspaceClient *client)
         else if (click && CheckCollisionPointRec(pointer, (Rectangle){bounds.x + (client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 270 : 306), bounds.y + 162, client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 126 : 90, 30})) management_start(client);
         return;
     }
+    bool dual=client->dialog_kind==DIALOG_WORKSPACE_CREATE;
+    Rectangle bounds=dialog_bounds();
+    if (!client->management_busy && dual && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        bool folder=CheckCollisionPointRec(GetMousePosition(),(Rectangle){bounds.x+24,bounds.y+116,372,28});
+        bool name=CheckCollisionPointRec(GetMousePosition(),(Rectangle){bounds.x+24,bounds.y+64,372,36});
+        if (folder || name) { client->edit_folder=folder; client->dialog_all=true; }
+    }
     int key;
     bool enter = false, escape = false, backspace = false;
     while ((key = GetKeyPressed()) != 0) {
+        if (key==KEY_TAB && dual && !client->management_busy) { client->edit_folder=!client->edit_folder; client->dialog_all=true; }
         enter |= key == KEY_ENTER;
         escape |= key == KEY_ESCAPE;
         backspace |= key == KEY_BACKSPACE;
     }
+    char *edit=client->edit_folder ? client->edit_directory : client->edit_name;
+    size_t capacity=client->edit_folder ? sizeof(client->edit_directory) : sizeof(client->edit_name);
     bool text_modifier = text_edit_modifier_down();
     bool paste = !client->management_busy && text_modifier && IsKeyPressed(KEY_V);
     if (paste) {
         const char *clipboard = GetClipboardText();
         if (clipboard && clipboard[0]) {
-            size_t size = strnlen(clipboard, 64);
-            size_t existing = client->dialog_all ? 0 : strlen(client->edit_name);
-            bool valid = size + existing < sizeof(client->edit_name);
+            size_t size = strnlen(clipboard, capacity);
+            size_t existing = client->dialog_all ? 0 : strlen(edit);
+            bool valid = size + existing < capacity;
             for (size_t i = 0; valid && i < size; i++)
                 if ((unsigned char)clipboard[i] < 32 || clipboard[i] == 127) valid = false;
             if (valid) {
-                memcpy(client->edit_name + existing, clipboard, size + 1);
+                memcpy(edit + existing, clipboard, size + 1);
                 client->dialog_all = false;
                 client->dialog_error[0] = '\0';
-            } else strcpy(client->dialog_error, "Paste a single-line name of at most 63 bytes");
+            } else strcpy(client->dialog_error, "Paste a single-line value that fits the field");
         }
     }
     int character;
     while ((character = GetCharPressed()) != 0) {
         if (client->management_busy || text_modifier || character < 32 || character == 127) continue;
         char bytes[4]; int count = utf8_encode((uint32_t)character, bytes);
-        size_t length = client->dialog_all ? 0 : strlen(client->edit_name);
-        if (length + (size_t)count < sizeof(client->edit_name)) {
-            memcpy(client->edit_name + length, bytes, count);
-            client->edit_name[length + count] = '\0';
+        size_t length = client->dialog_all ? 0 : strlen(edit);
+        if (length + (size_t)count < capacity) {
+            memcpy(edit + length, bytes, count);
+            edit[length + count] = '\0';
             client->dialog_all = false;
         }
     }
     if (client->management_busy) return;
     if (text_modifier && IsKeyPressed(KEY_A)) client->dialog_all = true;
     if (backspace || IsKeyPressedRepeat(KEY_BACKSPACE)) {
-        size_t length = strlen(client->edit_name);
+        size_t length = strlen(edit);
         if (client->dialog_all) length = 0;
         else if (length) {
             length--;
-            while (length && ((unsigned char)client->edit_name[length] & 0xc0) == 0x80) length--;
+            while (length && ((unsigned char)edit[length] & 0xc0) == 0x80) length--;
         }
-        client->edit_name[length] = '\0';
+        edit[length] = '\0';
         client->dialog_all = false;
     }
-    Rectangle bounds = dialog_bounds();
     Vector2 pointer = GetMousePosition();
     bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     Rectangle cancel = {bounds.x + 216, bounds.y + 162, 80, 30};
@@ -408,14 +429,25 @@ static void dialog_input(WorkspaceClient *client)
     else if (enter || (click && CheckCollisionPointRec(pointer, save))) management_start(client);
 }
 
+static void dialog_field(WorkspaceClient *client, Rectangle field, const char *value, bool active)
+{
+    DrawRectangleRounded(field,.2f,8,active && client->dialog_all ? ui.selected : ui.background);
+    Vector2 width=MeasureTextEx(client->font,value,14,0);
+    float x=field.x+8-fmaxf(0,width.x-(field.width-20));
+    BeginScissorMode((int)field.x+8,(int)field.y,(int)field.width-16,(int)field.height);
+    DrawTextEx(client->font,value,(Vector2){x,field.y+(field.height-14)/2},14,0,ui.text);
+    if (active && !client->dialog_all && !client->management_busy && ((int)(GetTime()*2)%2==0))
+        DrawLine((int)(x+width.x+1),(int)field.y+6,(int)(x+width.x+1),(int)(field.y+field.height-6),ui.text);
+    EndScissorMode();
+}
 static void dialog_draw(WorkspaceClient *client)
 {
     Rectangle bounds = dialog_bounds();
-    const char *titles[] = {"", "New workspace", "Rename workspace", "New terminal", "Rename terminal", "Stop terminal?", "Stop workspace?", "", "Start new shell?"};
+    const char *titles[] = {"", "New workspace", "Rename workspace", "New terminal", "Rename terminal", "Stop terminal?", "Stop workspace?", "", "Start new shell?", "", "Project folder"};
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 160});
     ui_panel(bounds,ui.surface,true);
     DrawTextEx(client->font, titles[client->dialog_kind], (Vector2){bounds.x + 24, bounds.y + 22}, 16, 0, ui.text);
-    if (client->dialog_kind >= DIALOG_TERMINAL_CLOSE) {
+    if (client->dialog_kind >= DIALOG_TERMINAL_CLOSE && client->dialog_kind!=DIALOG_WORKSPACE_DIRECTORY) {
         WorkbenchWorkspace *workspace = &client->workspaces[client->active];
         char message[160];
         snprintf(message, sizeof(message), "%s", client->edit_name);
@@ -442,19 +474,18 @@ static void dialog_draw(WorkspaceClient *client)
         draw_header_button(client->font, (Rectangle){bounds.x + 306, bounds.y + 162, 90, 30}, "Stop", !client->management_busy);
         return;
     }
-    Rectangle field = {bounds.x + 24, bounds.y + 64, 372, 36};
-    DrawRectangleRounded(field,.2f,8,client->dialog_all ? ui.selected : ui.background);
-    BeginScissorMode((int)field.x + 8, (int)field.y, (int)field.width - 16, (int)field.height);
-    DrawTextEx(client->font, client->edit_name, (Vector2){field.x + 8, field.y + 10}, 14, 0, ui.text);
-    if (!client->dialog_all && !client->management_busy && ((int)(GetTime() * 2) % 2 == 0)) {
-        Vector2 width = MeasureTextEx(client->font, client->edit_name, 14, 0);
-        DrawLine((int)(field.x + 9 + width.x), (int)field.y + 9,
-                 (int)(field.x + 9 + width.x), (int)field.y + 25, ui.text);
-    }
-    EndScissorMode();
-    BeginScissorMode((int)bounds.x + 24, (int)bounds.y + 110, 372, 42);
-    DrawTextEx(client->font, client->management_busy ? "Saving..." : client->dialog_error,
-        (Vector2){bounds.x + 24, bounds.y + 112}, 12, 0, ui.waiting);
+    bool dual=client->dialog_kind==DIALOG_WORKSPACE_CREATE;
+    bool directory=client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY;
+    dialog_field(client,(Rectangle){bounds.x+24,bounds.y+64,372,36},directory ? client->edit_directory : client->edit_name,
+        directory || !client->edit_folder);
+    if (dual) {
+        DrawTextEx(client->font,"Project folder",(Vector2){bounds.x+24,bounds.y+104},10,0,ui.muted);
+        dialog_field(client,(Rectangle){bounds.x+24,bounds.y+116,372,28},client->edit_directory,client->edit_folder);
+    } else if (directory)
+        DrawTextEx(client->font,"New and replacement shells start here.",(Vector2){bounds.x+24,bounds.y+104},12,0,ui.muted);
+    BeginScissorMode((int)bounds.x+24,(int)bounds.y+(dual ? 146 : 110),372,dual ? 14 : 42);
+    DrawTextEx(client->font,client->management_busy ? "Saving..." : client->dialog_error,
+        (Vector2){bounds.x+24,bounds.y+(dual ? 146 : 128)},12,0,ui.waiting);
     EndScissorMode();
     draw_header_button(client->font, (Rectangle){bounds.x + 216, bounds.y + 162, 80, 30}, "Cancel", !client->management_busy);
     draw_header_button(client->font, (Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},

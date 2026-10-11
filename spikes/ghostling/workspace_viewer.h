@@ -47,7 +47,7 @@ typedef struct {
 } WorkbenchPane;
 
 typedef struct {
-    char id[41], name[64];
+    char id[41], name[64], directory[1024];
     WorkbenchPane *panes[WORKBENCH_PANES];
     int focused, first, count;
 } WorkbenchWorkspace;
@@ -83,6 +83,8 @@ typedef struct {
     char theme_path[1024], theme_error[256];
     int dialog_kind, management_fd;
     pid_t management_pid;
+    char edit_directory[1024];
+    bool edit_folder;
     char edit_name[64], dialog_error[256], management_reply[512], management_target[41];
     size_t management_length;
     int sidebar_first;

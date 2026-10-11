@@ -3,7 +3,7 @@ typedef struct {
     char id[41], name[64], path[sizeof(((struct sockaddr_un *)0)->sun_path)];
 } CatalogTerminal;
 typedef struct {
-    char id[41], name[64];
+    char id[41], name[64], directory[1024];
     CatalogTerminal terminals[WORKBENCH_PANES];
     int count;
 } CatalogWorkspace;
@@ -26,8 +26,8 @@ static bool catalog_read(CatalogSnapshot *snapshot, const char *path)
 {
     FILE *file = fopen(path, "r");
     if (!file) { perror("workspace catalog"); return false; }
-    char line[512];
-    bool valid = true, version2 = false, version3 = false;
+    char line[1600];
+    bool valid = true, version2 = false, version3 = false, version4=false;
     int line_number = 0;
     while (fgets(line, sizeof(line), file)) {
         if (!strchr(line, '\n')) { valid = false; break; }
@@ -38,6 +38,7 @@ static bool catalog_read(CatalogSnapshot *snapshot, const char *path)
         if (line_number == 1 && strcmp(line, "workbench-catalog-v3") == 0) {
             version3 = true; continue;
         }
+        if (line_number==1 && !strcmp(line,"workbench-catalog-v4")) { version3=version4=true; continue; }
         char *fields[5] = {line};
         int field_count = 1;
         for (char *next = strchr(line, '\t'); next; next = strchr(next, '\t')) {
@@ -53,6 +54,10 @@ static bool catalog_read(CatalogSnapshot *snapshot, const char *path)
                 CatalogWorkspace *workspace = &snapshot->workspaces[snapshot->count++];
                 if (!catalog_field(workspace->id, sizeof(workspace->id), fields[1])
                     || !catalog_field(workspace->name, sizeof(workspace->name), fields[2])) valid = false;
+            } else if (version4 && !strcmp(fields[0],"D") && field_count==3 && snapshot->count>0) {
+                CatalogWorkspace *workspace=&snapshot->workspaces[snapshot->count-1];
+                if (strcmp(workspace->id,fields[1]) || workspace->directory[0] || fields[2][0]!='/'
+                    || !catalog_field(workspace->directory,sizeof(workspace->directory),fields[2])) valid=false;
             } else if (strcmp(fields[0], "T") == 0 && field_count == 5 && snapshot->count > 0) {
                 CatalogWorkspace *workspace = &snapshot->workspaces[snapshot->count - 1];
                 if (strcmp(workspace->id, fields[1]) || workspace->count == WORKBENCH_PANES) { valid = false; break; }
@@ -124,7 +129,7 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
         WorkbenchWorkspace *next = &updated[w], *old = NULL;
         for (int i = 0; i < client->count; i++)
             if (!strcmp(client->workspaces[i].id, saved->id)) old = &client->workspaces[i];
-        strcpy(next->id, saved->id); strcpy(next->name, saved->name);
+        strcpy(next->id, saved->id); strcpy(next->name, saved->name); strcpy(next->directory,saved->directory);
         char focused_id[41] = {0};
         if (old && old->count) strcpy(focused_id, old->panes[old->focused]->id);
         for (int p = 0; p < saved->count; p++) {

@@ -21,7 +21,7 @@ PROTOCOL = 1
 LIMIT = 256 * 1024
 METHODS = {"initialize", "workspace.create", "workspace.rename", "workspace.close",
            "terminal.create", "terminal.rename", "terminal.close", "terminal.move",
-           "session.recover", "terminal.recover", "terminal.status", "health", "service.shutdown"}
+           "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "health", "service.shutdown"}
 
 class Unavailable(Exception):
     pass
@@ -84,10 +84,10 @@ def prepare_directory(directory):
         raise ValueError("Session directory must be owned by you and not writable by other users")
 
 
-def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1):
+def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None):
     directory, runtime, cwd = directory.resolve(), runtime.resolve(), cwd.resolve()
     message = dict(protocol=PROTOCOL, method=method, identity=identity, title=title,
-                   destination=destination, position=position, runtime=str(runtime), cwd=str(cwd))
+                   destination=destination, position=position, runtime=str(runtime), cwd=str(cwd), project_directory=project_directory)
     try:
         return exchange(directory, message)
     except Unavailable:
@@ -157,7 +157,7 @@ class Authority:
                             for w in data["workspaces"] for t in w["terminals"]}
         self.capabilities = {key: value for key, value in self.capabilities.items() if key in current_controls}
         return dict(service_pid=os.getpid(), terminals=terminals,
-                    runtime_binary=str(self.runtime), directory=str(self.cwd))
+                    runtime_binary=str(self.runtime), directory=str(self.cwd), methods=sorted(METHODS))
 
     def runtime_capabilities(self, path):
         control = path.with_suffix(".ctl")
@@ -192,6 +192,9 @@ class Authority:
             raise ValueError("Unknown session service method")
         identity, title, destination = (message.get(key, "") for key in ("identity", "title", "destination"))
         position = message.get("position", -1)
+        project_directory=message.get("project_directory")
+        if project_directory is not None and (not isinstance(project_directory,str) or len(os.fsencode(project_directory))>1023):
+            raise ValueError("Invalid workspace folder")
         if not all(isinstance(value, str) and len(value) <= 1024 for value in (identity, title, destination)) or type(position) is not int:
             raise ValueError("Invalid session service parameters")
         if method == "service.shutdown":
@@ -240,12 +243,14 @@ class Authority:
                 path = catalog.socket_path(self.directory, terminal)
                 if catalog.endpoint_alive(path.with_suffix(".ctl")) or catalog.endpoint_alive(path):
                     raise ValueError("Terminal is still running; recovery would replace a live shell")
-                subset = {"workspaces": [{"terminals": [terminal]}]}
+                workspace=next(w for w in data["workspaces"] if terminal in w["terminals"])
+                subset = {"workspaces": [{**workspace, "terminals": [terminal]}]}
+                catalog.directory_value(workspace.get("directory",str(self.cwd)),self.cwd,available=True)
                 catalog.recover_sessions(self.directory, subset)
                 catalog.ensure_sessions(self.directory, subset, self.runtime, self.cwd, on_spawn=self.started)
             return dict(data=data, service_pid=os.getpid())
         data = catalog.manage(self.directory, self.runtime, self.cwd, method, identity, title,
-                              destination, position, on_spawn=self.started)
+                              destination, position, on_spawn=self.started, project_directory=project_directory)
         return dict(data=data, service_pid=os.getpid())
 
 

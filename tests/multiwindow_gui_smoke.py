@@ -2,6 +2,7 @@
 """Shared catalog changes and explicit ownership transfer between real windows."""
 from pathlib import Path
 import json
+import re
 import os
 import select
 import shutil
@@ -34,7 +35,7 @@ def main():
             + "script="+repr(str(ROOT/'scripts/workspace_catalog.py'))+"\n"
             + "flag="+repr(str(root/'race'))+"\n"
             + "args=sys.argv[1:]\nresult=subprocess.run([sys.executable,script,*args],capture_output=True,text=True)\n"
-            + "if result.returncode==0 and '--command' in args and args[args.index('--command')+1]=='workspace.create' and Path(flag).exists():\n"
+            + "if result.returncode==0 and '--command' in args and args[args.index('--command')+1] in ('workspace.create','workspace.create_at') and Path(flag).exists():\n"
             + "    concurrent=[('--name=Concurrent project' if a.startswith('--name=') else a) for a in args]\n"
             + "    subprocess.run([sys.executable,script,*concurrent],check=True,capture_output=True)\n"
             + "    Path(flag).unlink();time.sleep(.6)\n"
@@ -69,15 +70,26 @@ def main():
                 def click(window,x,y):
                     focus(window);cmd('mousemove','--window',window,x,y);cmd('mousedown',1);time.sleep(.06);cmd('mouseup',1);time.sleep(.15)
                 def type_text(window,value):cmd('type','--clearmodifiers','--window',window,'--delay',12,'--',value)
-                def line(window,value):focus(window);type_text(window,value);key(window,'Return')
+                def line(window,value):
+                    # Test markers stay in the fixture root regardless of shell cwd.
+                    value=re.sub(r' > ([A-Za-z0-9_.-]+)(?=;|$)',lambda match:' > '+shlex.quote(str(root/match.group(1))),value)
+                    focus(window);type_text(window,value);key(window,'Return')
                 def read(name):return wait_until(lambda:(root/name).exists() and (root/name).read_text().strip(),timeout=10)
                 def metadata():return json.loads((state/'workspaces.json').read_text())
                 def edit(window,x,y,title,predicate):
                     click(window,x,y);type_text(window,title);key(window,'Return');wait_until(lambda:predicate(metadata()),timeout=10);time.sleep(.65)
+                project=root/'Projects with spaces';project.mkdir()
+                alternate=root/'Other project';alternate.mkdir()
                 first,a=launch()
                 line(a,'keep=original; printf "%s" "$$" > original.pid')
                 pid=read('original.pid');inode=(state/'one.sock').stat().st_ino
                 second,b=launch(dict(env,WORKBENCH_CATALOG_SCRIPT=str(wrapper)))
+                # Set a folder in B, then inspect A's shared editor and keep live shell cwd.
+                click(b,147,641);type_text(b,str(project));key(b,'Return')
+                wait_until(lambda:metadata()['workspaces'][0].get('directory')==str(project));time.sleep(.65)
+                click(a,147,641);key(a,'Escape')
+                assert (state/'workspaces.tsv').read_text().startswith('workbench-catalog-v4\n')
+                line(a,'printf "%s" "$PWD" > unchanged-cwd');assert read('unchanged-cwd')==str(root)
                 key(b,'F12');time.sleep(.15)
                 artifacts=ROOT/'.local/test-results';artifacts.mkdir(exist_ok=True)
                 shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1],artifacts/'move-here-header.png')
@@ -94,7 +106,10 @@ def main():
                 # GUI creation claims new terminals for the creating window even
                 # if the other window observes the atomic catalog first.
                 (root/'race').touch()
-                edit(b,84,603,'Shared project',lambda d:len(d['workspaces'])==4)
+                click(b,84,603);type_text(b,'Shared project');key(b,'Tab');type_text(b,str(alternate));key(b,'Return')
+                wait_until(lambda:len(metadata()['workspaces'])==4);time.sleep(.65)
+                assert next(w for w in metadata()['workspaces'] if w['name']=='Shared project')['directory']==str(alternate)
+                line(b,'printf "%s" "$PWD" > created-workspace-cwd');assert read('created-workspace-cwd')==str(alternate)
                 created=metadata()['workspaces'][2];created_id=created['id'];terminal=created['terminals'][0]['id']
                 line(b,'keep=new; echo $$ > new.pid');new_pid=read('new.pid')
                 click(a,84,238);line(a,'echo $$ > concurrent.pid')

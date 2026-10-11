@@ -14,7 +14,7 @@ typedef struct {
     int retained_parser_marker;
 } WorkbenchPane;
 typedef struct {
-    char id[41], name[64];
+    char id[41], name[64], directory[1024];
     WorkbenchPane *panes[8];
     int count, focused, first;
 } WorkbenchWorkspace;
@@ -78,6 +78,15 @@ int main(void) {
     assert(catalog_apply(&client,&s,true));
     assert(client.workspaces[1].first==2 && client.workspaces[1].focused==2);
     assert(initializations==0 && frees==0);
+    /* v4 carries bounded project paths without changing pane identity. */
+    f=fopen(path,"w");assert(f);
+    fprintf(f,"workbench-catalog-v4\nW\ta\tSource\nD\ta\t/tmp/project with spaces\nW\tb\tTarget\nT\tb\ttwo\tTwo\t/tmp/two.sock\nT\tb\tone\tOne\t/tmp/one.sock\nT\tb\tthree\tThree\t/tmp/three.sock\n");fclose(f);
+    assert(workspace_reload(&client));
+    assert(!strcmp(client.workspaces[0].directory,"/tmp/project with spaces"));
+    assert(one.fd==77 && one.retained_parser_marker==123 && initializations==0 && frees==0);
+    f=fopen(path,"w");assert(f);fputs("workbench-catalog-v4\nW\ta\tSource\nD\ta\trelative\n",f);fclose(f);
+    assert(!workspace_reload(&client));
+    assert(!strcmp(client.workspaces[0].directory,"/tmp/project with spaces"));
     /* Sidebar scroll is anchored to workspace identity across reordering. */
     client.sidebar_first=1;
     CatalogWorkspace temporary=s.workspaces[0]; s.workspaces[0]=s.workspaces[1]; s.workspaces[1]=temporary;

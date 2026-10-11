@@ -5,7 +5,8 @@ from pathlib import Path
 import os
 import subprocess
 import sys
-from session_service import request
+import time
+from session_service import request, exchange, Unavailable, PROTOCOL
 from window_slots import acquire_window_slot
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -69,6 +70,26 @@ def _launch_viewer(viewer, root, environment, detach, log_path, slot_fd):
     return result if result >= 0 else 1
 
 
+def ensure_service(sessions,runtime,root):
+    service = request(sessions, runtime, root)
+    health = request(sessions, runtime, root, "health")
+    if "workspace.create_at" not in health.get("methods",[]):
+        print("Updating the organization service; existing shells stay running.",flush=True)
+        request(sessions,runtime,root,"service.shutdown")
+        deadline=time.monotonic()+5
+        while True:
+            try:
+                current=exchange(sessions,dict(protocol=PROTOCOL,method="health"))
+                if "workspace.create_at" in current.get("methods",[]): break
+            except (Unavailable,ConnectionResetError,BrokenPipeError):
+                break
+            if time.monotonic()>deadline: raise ValueError("Previous session service did not stop")
+            time.sleep(.02)
+        service=request(sessions,runtime,root)
+        health=request(sessions,runtime,root,"health")
+    return service,health
+
+
 def main():
     runtime = ROOT / "target/debug/workbench-session"
     viewer = ROOT / ".local/build/viewer/ghostling"
@@ -77,8 +98,7 @@ def main():
         print("Build the spike first with: just spike-build", file=sys.stderr)
         return 1
     try:
-        service = request(sessions, runtime, ROOT)
-        health = request(sessions, runtime, ROOT, "health")
+        service,health=ensure_service(sessions,runtime,ROOT)
         stopped = sum(terminal["state"] != "running" for terminal in health["terminals"])
         print(f"Session service: {service['service_pid']}; {len(health['terminals']) - stopped} running, {stopped} stopped/unavailable", flush=True)
         if stopped:
