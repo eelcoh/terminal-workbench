@@ -4,7 +4,14 @@ A workspace can save a project folder shared by all windows. In **New workspace*
 enter a name and a Project folder; Tab switches between the fields. For an
 existing workspace, use **Folder** beside Rename in the sidebar. Type or paste an
 absolute path, `~/...`, or a path relative to the Workbench project directory.
-This slice provides a path editor; a native folder browser remains follow-up.
+The focused field has an outline; selected text uses the theme's selection colors.
+Opening the folder editor selects its current path, and typing replaces that
+selection. The dialog labels this behavior. This slice provides a path editor;
+a native folder browser remains follow-up.
+
+The spike currently supports eight workspaces. At capacity, New workspace changes
+to **Workspace limit (8)**; hovering or clicking explains that closing a workspace
+allows another to be created.
 
 The first shell in a new workspace, subsequent new terminals, and explicitly
 recovered shells start in its saved folder. Existing shells retain their current
@@ -47,5 +54,7 @@ verify folder refresh without reconnecting retained terminal resources.
 
 `just multiwindow-gui-test` covers the project-folder editor, shared updates,
 new-workspace name/folder input through Tab, first-shell working directory and
-existing terminal ownership flows. Native macOS folder-entry and shell-directory
-acceptance remains pending.
+existing terminal ownership flows. Native macOS workspace
+creation, capacity release, folder editing and new-terminal directory behavior were
+confirmed by the owner. Native recovery-directory and invalid-path checks remain
+pending; the new selection and capacity cues still need native visual review.

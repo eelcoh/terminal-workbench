@@ -269,7 +269,20 @@ static void management_controls(WorkspaceClient *client)
         bool enabled = client->managed && (i != 0 || client->count < WORKBENCH_MAX_WORKSPACES)
             && (i == 0 || client->count > 0)
             && (i != 2 || client->workspaces[client->active].count < WORKBENCH_PANES);
-        draw_header_button(client->font, button, labels[i], enabled);
+        char limit_label[48];
+        snprintf(limit_label,sizeof(limit_label),"Workspace limit (%d)",WORKBENCH_MAX_WORKSPACES);
+        const char *label=i==0 && client->count>=WORKBENCH_MAX_WORKSPACES ? limit_label : labels[i];
+        draw_header_button(client->font, button, label, enabled);
+    }
+    if (client->managed && client->count>=WORKBENCH_MAX_WORKSPACES &&
+        !client->dialog_open && !client->theme_open && !client->overview_open &&
+        CheckCollisionPointRec(GetMousePosition(),management_button(0))) {
+        Rectangle button=management_button(0);
+        const char *hint="Close a workspace to create another";
+        Vector2 size=MeasureTextEx(client->font,hint,12,0);
+        Rectangle tip={button.x+button.width+8,button.y+3,size.x+16,24};
+        DrawRectangleRounded(tip,.25f,6,ui.raised);
+        DrawTextEx(client->font,hint,(Vector2){tip.x+8,tip.y+6},12,0,ui.text);
     }
     draw_header_button(client->font, workspace_stop(), "x", client->managed && client->count > 0);
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
@@ -319,8 +332,11 @@ static bool management_click(WorkspaceClient *client, Vector2 pointer)
         }
     }
     if (client->managed) {
-        if (CheckCollisionPointRec(pointer, management_button(0)) && client->count < WORKBENCH_MAX_WORKSPACES)
-            dialog_open(client, DIALOG_WORKSPACE_CREATE);
+        if (CheckCollisionPointRec(pointer, management_button(0))) {
+            if (client->count < WORKBENCH_MAX_WORKSPACES) dialog_open(client,DIALOG_WORKSPACE_CREATE);
+            else clipboard_notice("Workspace limit reached; close a workspace to create another");
+            return true;
+        }
         else if (CheckCollisionPointRec(pointer, management_button(1)) && client->count) dialog_open(client, DIALOG_WORKSPACE_RENAME);
         else if (CheckCollisionPointRec(pointer, management_button(2)) && client->count && workspace->count < WORKBENCH_PANES)
             dialog_open(client, DIALOG_TERMINAL_CREATE);
@@ -431,11 +447,17 @@ static void dialog_input(WorkspaceClient *client)
 
 static void dialog_field(WorkspaceClient *client, Rectangle field, const char *value, bool active)
 {
-    DrawRectangleRounded(field,.2f,8,active && client->dialog_all ? ui.selected : ui.background);
+    DrawRectangleRounded(field,.2f,8,ui.background);
+    DrawRectangleRoundedLinesEx(field,.2f,8,1,active ? ui.accent : ui.border);
     Vector2 width=MeasureTextEx(client->font,value,14,0);
     float x=field.x+8-fmaxf(0,width.x-(field.width-20));
     BeginScissorMode((int)field.x+8,(int)field.y,(int)field.width-16,(int)field.height);
-    DrawTextEx(client->font,value,(Vector2){x,field.y+(field.height-14)/2},14,0,ui.text);
+    bool selected=active && client->dialog_all && !client->management_busy;
+    float text_y=field.y+(field.height-14)/2;
+    if (selected && value[0])
+        DrawRectangleRec((Rectangle){x-1,text_y-2,width.x+2,18},ui_color(current_theme.selection_background));
+    DrawTextEx(client->font,value,(Vector2){x,text_y},14,0,
+        selected ? ui_color(current_theme.selection_foreground) : ui.text);
     if (active && !client->dialog_all && !client->management_busy && ((int)(GetTime()*2)%2==0))
         DrawLine((int)(x+width.x+1),(int)field.y+6,(int)(x+width.x+1),(int)(field.y+field.height-6),ui.text);
     EndScissorMode();
@@ -479,10 +501,12 @@ static void dialog_draw(WorkspaceClient *client)
     dialog_field(client,(Rectangle){bounds.x+24,bounds.y+64,372,36},directory ? client->edit_directory : client->edit_name,
         directory || !client->edit_folder);
     if (dual) {
-        DrawTextEx(client->font,"Project folder",(Vector2){bounds.x+24,bounds.y+104},10,0,ui.muted);
+        DrawTextEx(client->font,client->edit_folder && client->dialog_all ? "Project folder (selected; typing replaces it)" : "Project folder",
+            (Vector2){bounds.x+24,bounds.y+104},10,0,ui.muted);
         dialog_field(client,(Rectangle){bounds.x+24,bounds.y+116,372,28},client->edit_directory,client->edit_folder);
     } else if (directory)
-        DrawTextEx(client->font,"New and replacement shells start here.",(Vector2){bounds.x+24,bounds.y+104},12,0,ui.muted);
+        DrawTextEx(client->font,client->dialog_all ? "Path selected; typing replaces it." : "New and replacement shells start here.",
+            (Vector2){bounds.x+24,bounds.y+104},12,0,ui.muted);
     BeginScissorMode((int)bounds.x+24,(int)bounds.y+(dual ? 146 : 110),372,dual ? 14 : 42);
     DrawTextEx(client->font,client->management_busy ? "Saving..." : client->dialog_error,
         (Vector2){bounds.x+24,bounds.y+(dual ? 146 : 128)},12,0,ui.waiting);

@@ -257,4 +257,9 @@ it starts in the same folder. Change the project folder using Folder in the side
 shells must retain their current directory; a new terminal should use the new
 folder. Run `exit` in a disposable terminal, then Start new shell: its replacement
 should use the current workspace folder. Try a path with spaces and a missing
-folder. These native Mac checks remain pending. See [project folders](workspace-directories.md).
+folder. The owner confirmed workspace creation, releasing capacity by closing one
+of eight workspaces, folder editing and new-terminal startup in the chosen folder.
+Recovery-directory and invalid-path checks remain pending. After the UX update,
+verify the Workspace limit (8) label and hover explanation at capacity, and the
+selected-path highlight and replacement hint in Folder, with light and dark themes.
+See [project folders](workspace-directories.md).
