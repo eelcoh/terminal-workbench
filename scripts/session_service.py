@@ -27,6 +27,11 @@ class Unavailable(Exception):
     pass
 
 
+class ReplyClosed(ValueError):
+    """A sent request lost its reply; mutations must never be replayed."""
+    pass
+
+
 def endpoint(directory):
     path = directory / "service.rpc"
     if len(os.fsencode(path)) >= 104:
@@ -39,7 +44,7 @@ def receive(connection):
     while b"\n" not in data:
         chunk = connection.recv(min(4096, LIMIT + 1 - len(data)))
         if not chunk:
-            raise ValueError("Session service closed before replying")
+            raise ReplyClosed("Session service closed before replying")
         data.extend(chunk)
         if len(data) > LIMIT:
             raise ValueError("Session service message exceeds size limit")

@@ -6,7 +6,7 @@ import os
 import subprocess
 import sys
 import time
-from session_service import request, exchange, Unavailable, PROTOCOL
+from session_service import request, exchange, Unavailable, ReplyClosed, PROTOCOL
 from window_slots import acquire_window_slot
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -81,8 +81,13 @@ def ensure_service(sessions,runtime,root):
             try:
                 current=exchange(sessions,dict(protocol=PROTOCOL,method="health"))
                 if "workspace.create_at" in current.get("methods",[]): break
-            except (Unavailable,ConnectionResetError,BrokenPipeError):
+            except Unavailable:
                 break
+            except (ReplyClosed,ConnectionResetError,BrokenPipeError):
+                # The old listener can accept a queued health probe while
+                # shutting down, then close it without a reply. Only this
+                # readonly probe is retried; wait for the endpoint to stop.
+                pass
             if time.monotonic()>deadline: raise ValueError("Previous session service did not stop")
             time.sleep(.02)
         service=request(sessions,runtime,root)
