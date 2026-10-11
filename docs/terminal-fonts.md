@@ -25,6 +25,7 @@ color-emoji/emoji-sequence support; those remain toolkit acceptance requirements
 characters, required fallback symbols, the bundled digest and OFL license.
 `just font-gui-test` renders a terminal specimen in Xvfb and compares each glyph
 with a literal question-mark baseline, also requiring visible ink. The retained
-image is `.local/test-results/fonts.png`. Native macOS/Retina validation remains
-open: build `just spike` and check a live Copilot session and the symbols above.
+image is `.local/test-results/fonts.png`. The owner confirmed glyph rendering
+on Linux and native macOS in GitHub Copilot CLI. Specific Retina scale coverage
+and the broader shaping requirements remain open.
 Running terminals can stay alive during the viewer rebuild.

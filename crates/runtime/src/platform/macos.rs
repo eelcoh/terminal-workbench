@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 pub fn identity(group: i32) -> Option<ProcessIdentity> {
-    // Read only the executable path. macOS script-launcher discovery remains open.
+    // Read the foreground leader only; never traverse process descendants.
     let output = Command::new("/bin/ps")
         .args(["-p", &group.to_string(), "-o", "comm="])
         .output()
@@ -15,8 +15,39 @@ pub fn identity(group: i32) -> Option<ProcessIdentity> {
     if path.is_empty() {
         return None;
     }
+    let executable = PathBuf::from(path);
+    if executable
+        .file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+            matches!(name, "node" | "nodejs" | "python" | "python3") || name.starts_with("python3.")
+        })
+    {
+        // KERN_PROCARGS2 starts with argc, executable, NUL padding, then argv.
+        // A fixed prefix bounds per-sample work; oversized/unavailable arguments
+        // leave launcher recognition unavailable rather than scanning processes.
+        let mut bytes = [0u8; 16 * 1024];
+        let mut size = bytes.len();
+        let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, group];
+        let result = unsafe {
+            libc::sysctl(
+                mib.as_mut_ptr(),
+                mib.len() as u32,
+                bytes.as_mut_ptr().cast(),
+                &mut size,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        if let Some(identity) = (result == 0 && size <= bytes.len())
+            .then(|| super::macos_arguments::decode(&bytes[..size]))
+            .flatten()
+        {
+            return Some(identity);
+        }
+    }
     Some(ProcessIdentity {
-        executable: PathBuf::from(path),
+        executable,
         script: None,
     })
 }

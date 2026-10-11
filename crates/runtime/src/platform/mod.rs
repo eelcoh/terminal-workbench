@@ -18,6 +18,8 @@ pub fn stop_group(group: Option<i32>) -> io::Result<()> {
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(any(target_os = "macos", test))]
+mod macos_arguments;
 
 #[derive(Debug)]
 pub struct ProcessIdentity {

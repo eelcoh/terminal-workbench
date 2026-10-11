@@ -8,9 +8,11 @@ Claude or Codex installation there. Additional Linux candidates include Pi,
 Gemini CLI, OpenCode and Hermes. Installation availability is not compatibility
 evidence. They are follow-up targets, not prerequisites for the first slice.
 
-Copilot currently has no Workbench identity tag, launcher or lifecycle adapter.
-Its integration must retain ordinary input, trust and permission behavior, and
-remain Unknown where signals are unavailable. Use the installed CLI version and
+Copilot now has native/npm foreground identification and an optional `wb-copilot`
+invocation-local plugin for lifecycle events. Runtime/socket and GUI fixtures
+validate the integration contracts; native macOS acceptance remains pending.
+Ordinary input, trust and permissions are retained, with Unknown when lifecycle
+signals are unavailable. Record the installed CLI version and use
 the [official hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
 to establish the supported events; do not assume Claude's payload or configuration
 shape applies. Company policies may restrict hooks as well as CLI installation.
@@ -54,10 +56,32 @@ with both the Workbench runtime and CLI launched inside build-machine. This
 validates that shared container environment, not arbitrary host/container
 boundaries or descendant-process discovery. Plain Claude remains identity-only.
 
+## Copilot Linux observations — 2026-10-11
+
+The current Copilot integration was tested with the real native Linux binary
+from `@github/copilot` 1.0.95 in a disposable Workbench PTY. The empty test folder
+was trusted for that session only. A no-tool echo produced Working → Ready and
+the expected reply. Detach/reattach retained the same live PID and metadata.
+The built-in `ask_user` question produced Needs input; answering returned
+Working → Ready. Normal `/exit` cleared identity and status. Startup remained Unknown
+until the first prompt dispatched lifecycle events.
+
+Canceling the question through Ctrl+C returned the CLI to its prompt but emitted
+no observed completion report; Workbench retained Needs input. This is a known
+missing-event limitation, not permission to infer status from output or enable
+hooks against policy. Interrupt/resume paths remain an open validation item.
+
+`just check` and `just copilot-gui-test` pass. GUI checks use a named executable
+fixture and supplied hook events, not a live CLI; live permission prompts and
+graphical/background acceptance remain pending. The owner reports Copilot
+**1.0.96-2** on macOS; native identity and lifecycle acceptance for that version
+are pending. The Mac adapter also recognizes the npm Node launcher layout through
+a bounded process-argument prefix, with decoder tests on Linux.
+
 ## Manual acceptance sequence
 
 1. Build with `just spike`; create a new terminal so it has current launchers.
-2. Run `wb-codex` or `wb-claude` in an empty test workspace. Review normal trust
+2. Run `wb-codex`, `wb-claude` or `wb-copilot` in an empty test workspace. Review normal trust
    prompts; check Unknown before lifecycle evidence arrives.
 3. Ask for a simple no-tool reply. Check Working while processing and Ready
    after the turn completes. Ready does not claim the task succeeded.
@@ -72,7 +96,7 @@ boundaries or descendant-process discovery. Plain Claude remains identity-only.
 8. Test disabled or untrusted hooks: ordinary input still works, lifecycle stays
    Unknown. Do not enable hooks against user or administrator policy.
 
-Mac follow-up uses Copilot after its adapter is implemented, records its exact
+Mac follow-up uses `wb-copilot` ([instructions](copilot.md)), records its exact
 version and repeats the relevant sequence on native macOS. Permission behavior,
 resume/interrupt/error paths, child-agent isolation, stale/missing signals and
 native input/GUI behavior remain part of the milestone; the table above does not

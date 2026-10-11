@@ -1,11 +1,11 @@
 # Agent lifecycle status
 
-Run `just spike`, create a new terminal, and use `wb-codex` or `wb-claude` with
+Run `just spike`, create a new terminal, and use `wb-codex`, `wb-claude` or `wb-copilot` with
 normal agent arguments. The generated commands live under .local/bin, added to
 PATH only in new Workbench runtime shells. Previously running servers are not
 replaced by a build. Create a new terminal to obtain the integration.
 
-Plain `claude` or `codex` launches provide identity only and remain Unknown for
+Plain `claude`, `codex` or `copilot` launches provide identity only and remain Unknown for
 lifecycle status. Linux validation also ran the real Workbench runtime and Claude
 2.1.296 inside build-machine: SessionStart, prompt submission and completed-turn
 hooks reported Ready/Working/Ready. This does not prove a host runtime can identify
@@ -21,11 +21,20 @@ launcher does not write agent settings or turn on disabled hooks. Codex may ask
 you to review and trust these definitions in /hooks; no trust bypass is used.
 Same-event hook overrides supplied by the caller can replace the launcher entry.
 
+Copilot receives an invocation-local `--plugin-dir` containing command observers.
+It does not install a plugin or edit user/project settings. Its camelCase events
+are normalized explicitly; `agentStop` reports Ready and `ask_user` reports Needs
+input. Actual permission/elicitation notifications report Needs input. Copilot's
+`permissionRequest` occurs before its rules engine and is deliberately not used
+as evidence of a displayed prompt. Background-agent notifications are ignored;
+`errorOccurred` clears status to Unknown. Older versions lacking `--plugin-dir`
+can use plain `copilot` with identity only. See [Copilot testing](copilot.md).
+
 | Event | Display |
 | --- | --- |
 | SessionStart, Stop, Codex Interrupt | Ready |
 | UserPromptSubmit, ordinary PreToolUse, PostToolUse | Working |
-| PermissionRequest, AskUserQuestion/request_user_input | Needs input |
+| Codex/Claude PermissionRequest, AskUserQuestion/request_user_input | Needs input |
 | Claude Elicitation or permission/elicitation notification | Needs input |
 | Claude ElicitationResult, PostToolUseFailure | Working |
 | Claude idle notification | Ready |
@@ -63,4 +72,5 @@ remain unverified; supported schemas vary by agent version. See
 agent that cannot reach the host socket or inherit its environment will not report.
 
 Schemas: [Codex hooks](https://developers.openai.com/codex/hooks/) and
-[Claude Code hooks](https://code.claude.com/docs/en/hooks).
+[Claude Code hooks](https://code.claude.com/docs/en/hooks) and
+[Copilot hooks](https://docs.github.com/en/copilot/reference/hooks-reference).

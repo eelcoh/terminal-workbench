@@ -32,14 +32,40 @@ def state(event):
             return 3
     return None
 
+COPILOT_EVENTS = {'sessionStart': 'SessionStart', 'sessionEnd': 'SessionEnd',
+    'userPromptSubmitted': 'UserPromptSubmit', 'preToolUse': 'PreToolUse',
+    'postToolUse': 'PostToolUse', 'postToolUseFailure': 'PostToolUseFailure',
+    'agentStop': 'Stop', 'errorOccurred': 'ErrorOccurred', 'notification': 'Notification'}
+
+def copilot_state(event, configured_event):
+    if not isinstance(event, dict) or configured_event not in COPILOT_EVENTS:
+        return None
+    if any(event.get(field) for field in ('agent_id', 'agent_type', 'agentId', 'agentType', 'agentName', 'parentSessionId')):
+        return None
+    name = COPILOT_EVENTS[configured_event]
+    supplied_name = event.get('hook_event_name')
+    if supplied_name is not None and supplied_name not in (name, configured_event):
+        return None
+    # PermissionRequest is before the rules engine, not proof of a prompt.
+    # Only actual notifications or the question tool establish Needs input.
+    if name == 'ErrorOccurred':
+        return 0
+    if name == 'Notification':
+        return 2 if event.get('notification_type') in ('permission_prompt', 'elicitation_dialog') else None
+    if name == 'PreToolUse':
+        tool = event.get('toolName', event.get('tool_name'))
+        return 2 if tool in ('ask_user', 'AskUserQuestion') else 1
+    return state(dict(event, hook_event_name=name))
+
 def main():
     sequence = time.monotonic_ns()
     try:
-        tag = {'codex': 1, 'claude': 2}[sys.argv[1]]
+        tag = {'codex': 1, 'claude': 2, 'copilot': 6}[sys.argv[1]]
         raw = sys.stdin.buffer.read(LIMIT + 1)
         if len(raw) > LIMIT:
             return
-        status = state(json.loads(raw))
+        event = json.loads(raw)
+        status = copilot_state(event, sys.argv[2]) if sys.argv[1] == 'copilot' else state(event)
         if status is None:
             return
         path = Path(os.environ['WORKBENCH_SESSION_SOCKET']).with_suffix('.ctl')

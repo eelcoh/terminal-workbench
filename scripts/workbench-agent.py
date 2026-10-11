@@ -10,6 +10,11 @@ import uuid
 COMMON = ('SessionStart', 'SessionEnd', 'UserPromptSubmit', 'PreToolUse', 'PermissionRequest', 'PostToolUse', 'Stop')
 
 def arguments(agent, tail):
+    if agent == 'copilot':
+        plugin = Path(__file__).resolve().parent.parent / '.local/integrations/copilot'
+        if not (plugin / 'hooks.json').is_file():
+            raise ValueError('Copilot observers are missing; rebuild with just spike.')
+        return ['copilot', '--plugin-dir', str(plugin), *tail]
     command = shlex.join(['python3', str(Path(__file__).with_name('agent-hook.py')), agent])
     events = COMMON + (('Interrupt',) if agent == 'codex' else ('PostToolUseFailure', 'Notification', 'Elicitation', 'ElicitationResult'))
     hooks = {event: [{'hooks': [{'type': 'command', 'command': command, 'timeout': 2}]}] for event in events}
@@ -23,12 +28,15 @@ def arguments(agent, tail):
     return [*result, *tail]
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ('codex', 'claude'):
-        sys.exit('Usage: workbench-agent.py codex|claude [agent arguments...]')
+    if len(sys.argv) < 2 or sys.argv[1] not in ('codex', 'claude', 'copilot'):
+        sys.exit('Usage: workbench-agent.py codex|claude|copilot [agent arguments...]')
     if not os.environ.get('WORKBENCH_SESSION_SOCKET'):
-        sys.exit('Run wb-codex or wb-claude inside a newly created Workbench terminal.')
+        sys.exit('Run wb-codex, wb-claude or wb-copilot inside a newly created Workbench terminal.')
     environment = dict(os.environ, WORKBENCH_AGENT_GROUP=str(os.getpgrp()), WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
-    args = arguments(sys.argv[1], sys.argv[2:])
+    try:
+        args = arguments(sys.argv[1], sys.argv[2:])
+    except ValueError as error:
+        sys.exit(str(error))
     try:
         os.execvpe(args[0], args, environment)
     except OSError as error:

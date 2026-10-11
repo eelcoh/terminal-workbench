@@ -97,13 +97,15 @@ Needs input and same-process detach/reattach. Codex's normal hook-trust prompt
 and untrusted Unknown fallback were observed. Permission-prompt behavior,
 graphical background-workspace flows and native Mac integration remain open.
 GitHub Copilot CLI is the owner's only permitted agent on the Mac and is a
-required integration target; it is not currently recognized or hooked.
+required integration target. Native/npm identification and invocation-local hooks
+are implemented; native Mac acceptance is pending. See [Copilot testing](copilot.md).
 Additional Linux agents can follow after this core matrix is reliable.
 See [the live validation record](agent-validation.md).
 
 The terminal font compatibility slice now renders Claude's Unicode logo and
 status symbols using embedded primary/fallback glyphs; Linux screenshot coverage
-passes. Native Mac/Retina validation, full shaping and broader font preferences
+passes. The owner confirmed glyphs on Linux and native macOS in Copilot.
+Specific Retina scaling coverage, full shaping and broader font preferences
 remain open. See [terminal fonts](terminal-fonts.md).
 
 ## UX spike: a product-quality gate

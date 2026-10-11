@@ -9,6 +9,7 @@ pub enum Agent {
     Gemini,
     OpenCode,
     Aider,
+    Copilot,
     Unknown,
 }
 
@@ -21,6 +22,7 @@ impl Agent {
             Self::Gemini => 3,
             Self::OpenCode => 4,
             Self::Aider => 5,
+            Self::Copilot => 6,
             Self::Unknown => 255,
         }
     }
@@ -41,6 +43,9 @@ impl Agent {
             }
             Self::OpenCode => {
                 "{\"agent\":\"opencode\",\"available\":true,\"source\":\"foreground-process\"}\n"
+            }
+            Self::Copilot => {
+                "{\"agent\":\"copilot\",\"available\":true,\"source\":\"foreground-process\"}\n"
             }
             Self::Aider => {
                 "{\"agent\":\"aider\",\"available\":true,\"source\":\"foreground-process\"}\n"
@@ -78,6 +83,7 @@ pub fn identify(process: Option<ProcessIdentity>) -> Agent {
         "gemini" => Agent::Gemini,
         "opencode" => Agent::OpenCode,
         "aider" => Agent::Aider,
+        "copilot" => Agent::Copilot,
         _ => Agent::None,
     };
     if direct != Agent::None {
@@ -87,6 +93,9 @@ pub fn identify(process: Option<ProcessIdentity>) -> Agent {
         return Agent::None;
     };
     if name == "node" || name == "nodejs" {
+        if script.ends_with("@github/copilot/npm-loader.js") {
+            return Agent::Copilot;
+        }
         if script.ends_with("@openai/codex/bin/codex.js") {
             return Agent::Codex;
         }
@@ -119,6 +128,31 @@ mod tests {
     #[test]
     fn identification_uses_executable_and_launcher_boundaries() {
         assert_eq!(identify(None), Agent::Unknown);
+        assert_eq!(Agent::Codex.tag(), 1);
+        assert_eq!(Agent::Claude.tag(), 2);
+        assert_eq!(Agent::Aider.tag(), 5);
+        assert_eq!(Agent::Copilot.tag(), 6);
+        assert_eq!(identify(process("/opt/bin/copilot", None)), Agent::Copilot);
+        assert_eq!(identify(process("/opt/bin/not-copilot", None)), Agent::None);
+        assert_eq!(
+            identify(process(
+                "/usr/bin/node",
+                Some("/pkg/@github/copilot/npm-loader.js")
+            )),
+            Agent::Copilot
+        );
+        assert_eq!(
+            identify(process("/usr/bin/node", Some("/pkg/copilot/npm-loader.js"))),
+            Agent::None
+        );
+        assert_eq!(
+            identify(process(
+                "/bin/sh",
+                Some("/pkg/@github/copilot/npm-loader.js")
+            )),
+            Agent::None
+        );
+
         assert_eq!(
             identify(process(
                 "/home/user/.local/share/claude/versions/2.1.289",

@@ -72,7 +72,7 @@ impl Attention {
         sequence: u64,
         status: Status,
     ) -> bool {
-        if !(1..=5).contains(&agent)
+        if !(1..=6).contains(&agent)
             || self.agent.tag() != agent
             || self.group != Some(group)
             || sequence == 0

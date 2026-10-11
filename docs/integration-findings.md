@@ -235,5 +235,11 @@ backgrounds that cannot be confused with the source or destination.
 Terminal glyph rendering now loads bundled JetBrains Mono Unicode mappings and
 a licensed Noto Sans Symbols 2 fallback instead of the ASCII-only atlas. Linux
 screenshots exercise Claude block art, prompt/status symbols and a monochrome
-package icon. Native Mac font/Retina acceptance and full shaping remain open.
+package icon. The owner confirmed glyphs on Linux and native macOS in Copilot;
+specific Retina scale coverage and full shaping remain open.
 See [terminal fonts](terminal-fonts.md).
+
+Copilot integration now adds native/npm identity and an invocation-local hook
+plugin, with runtime/socket and overview fixture coverage. No user/project hook
+settings are edited; native Mac agent acceptance is pending. See
+[Copilot testing](copilot.md).

@@ -133,7 +133,7 @@ static void remote_agent_read(void)
             remote->agent_used += (size_t)n;
             if (total > 5 && remote->agent_used == total) {
                 const uint8_t *bytes = remote->agent_buffer;
-                remote->agent = bytes[5] <= 5 ? bytes[5] : 255;
+                remote->agent = bytes[5] <= 6 ? bytes[5] : 255;
                 remote->attention = bytes[0] == 6 && bytes[6] <= 3 ? bytes[6] : 0;
                 if (bytes[0] == 6) remote->agent_v2_received = true;
                 remote->agent_used = 0;
@@ -163,8 +163,8 @@ static Color remote_attention_color(uint8_t state)
 
 static const char *remote_agent_name(uint8_t agent)
 {
-    const char *names[] = {"", "Codex", "Claude", "Gemini", "OpenCode", "Aider"};
-    return agent <= 5 ? names[agent] : "";
+    const char *names[] = {"", "Codex", "Claude", "Gemini", "OpenCode", "Aider", "Copilot"};
+    return agent <= 6 ? names[agent] : "";
 }
 
 static int remote_connect(const char *path, uint16_t cols, uint16_t rows,

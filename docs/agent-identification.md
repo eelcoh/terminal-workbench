@@ -1,7 +1,7 @@
 # Foreground agent identification
 
 The runtime samples its PTY foreground process-group leader once per second.
-Recognition uses executable filenames (codex, claude, gemini, opencode, aider)
+Recognition uses executable filenames (codex, claude, gemini, opencode, aider, copilot)
 and selected Node/Python launcher paths. The native Claude install layout also
 recognizes numeric version filenames beneath .local/share/claude/versions. It never scans terminal output or user
 prompts, and never classifies an agent as working, idle, or waiting from activity.
@@ -16,8 +16,11 @@ not retain a recognized leader can be missed. A foreground group does not have t
 represent a coding agent, even if its executable uses a recognized name.
 
 macOS has a separate adapter using /bin/ps to obtain only the leader's executable
-path. Native executable recognition is implemented but unverified on a Mac;
-macOS script-wrapper recognition is not implemented. Other Unix targets return
+path. For Node/Python leaders it reads a fixed 16 KiB process-argument buffer
+and decodes only the executable and first launcher argument. This covers the
+Copilot npm-loader.js layout without exposing prompts or environment through the
+API. Oversized or unavailable arguments leave script recognition unavailable.
+Native macOS agent recognition remains unverified. Other Unix targets return
 unavailable. No system process arguments or prompts are exposed by the API.
 
 The JSON snapshot is available through `workbench-session inspect SOCKET`:
@@ -43,7 +46,7 @@ lookup, subscribe/inspect, detach/reattach, clearing, ordinary-output isolation 
 watcher cleanup. Unit tests exercise launcher boundaries and unknown evidence.
 The GUI test uses a named sleep fixture to verify labels, filtering and clearing.
 These checks prove our implementation contracts, not compatibility with current
-interactive releases of all five agents. Live CLI/version validation remains open.
+interactive releases of all six agents. Live CLI/version validation remains open.
 
 Launcher references inspected for this experiment:
 

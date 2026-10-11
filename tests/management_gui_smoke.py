@@ -30,8 +30,8 @@ def main():
                 processes.append(xvfb)
                 os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
-                display = os.read(read_fd, 32).decode().strip()
-                os.close(read_fd)
+                with os.fdopen(read_fd) as display_pipe:
+                    display = display_pipe.readline().strip()
                 environment = dict(os.environ, DISPLAY=f":{display}", WORKBENCH_WORKSPACES=str(state / "workspaces.tsv"),
                     WORKBENCH_CATALOG_SCRIPT=str(helper), WORKBENCH_STATE_DIR=str(state),
                     WORKBENCH_RUNTIME=runtime, WORKBENCH_PROJECT=str(root), LIBGL_ALWAYS_SOFTWARE="1", SHELL="/bin/sh")
@@ -211,7 +211,8 @@ def main():
                 assert read("overview-keyboard-small") == f"{checks_pid}:checks"
                 # Runtime identity appears in the overview and its Agents filter.
                 # This named sleep fixture proves the adapter, not a real CLI's UI.
-                fixture = root / "codex"
+                agent_fixture = os.environ.get("WORKBENCH_TEST_AGENT", "codex")
+                fixture = root / agent_fixture
                 shutil.copyfile("/usr/bin/sleep", fixture)
                 fixture.chmod(0o700)
                 checks_id = metadata()["workspaces"][2]["terminals"][2]["id"]
@@ -220,20 +221,26 @@ def main():
                     result = subprocess.run([runtime, "inspect", str(checks_socket)], capture_output=True, text=True, check=True, timeout=5)
                     return json.loads(result.stdout)
                 line(f"sh -c 'echo $$ > attention.pid; exec {fixture} 120'")
-                wait_until(lambda: agent_identity()["agent"] == "codex")
+                wait_until(lambda: agent_identity()["agent"] == agent_fixture)
                 assert agent_identity()["status"] == "unknown"
                 hook_environment = dict(os.environ, WORKBENCH_SESSION_SOCKET=str(checks_socket),
                     WORKBENCH_AGENT_GROUP=str(os.getpgid(int(read("attention.pid")))), WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
                 def report(event, status):
-                    result = subprocess.run(["python3", str(ROOT / "scripts/agent-hook.py"), "codex"],
-                        input=json.dumps({"hook_event_name": event}), text=True, capture_output=True, env=hook_environment, timeout=3)
+                    extra = []
+                    if agent_fixture == "copilot":
+                        names = {"UserPromptSubmit": "userPromptSubmitted", "PostToolUse": "postToolUse", "Stop": "agentStop"}
+                        if event == "PermissionRequest":
+                            event = "Notification"
+                        extra = [names.get(event, "notification")]
+                    result = subprocess.run(["python3", str(ROOT / "scripts/agent-hook.py"), agent_fixture, *extra],
+                        input=json.dumps({"hook_event_name": event, "notification_type": "permission_prompt"}), text=True, capture_output=True, env=hook_environment, timeout=3)
                     assert result.returncode == 0 and result.stdout == result.stderr == ""
                     wait_until(lambda: agent_identity()["status"] == status)
                     time.sleep(0.15)
                 report("UserPromptSubmit", "working")
                 time.sleep(0.2)
                 click(522, 16)
-                type_text("codex")
+                type_text(agent_fixture)
                 click(844, 74)
                 key("F12")
                 time.sleep(0.2)

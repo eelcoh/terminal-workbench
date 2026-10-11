@@ -21,6 +21,7 @@ check: runtime-build
     python3 tests/close_smoke.py target/debug/workbench-session
     python3 tests/agent_smoke.py target/debug/workbench-session
     python3 tests/attention_smoke.py target/debug/workbench-session
+    python3 tests/copilot_observer_test.py
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
     python3 tests/build_env_test.py
@@ -122,3 +123,7 @@ commands-gui-test: spike-build
 # Real Unicode glyph rendering, independent of the system's installed fonts.
 font-gui-test: spike-build
     python3 tests/font_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Copilot labels and Needs input filtering through the existing GUI workflows.
+copilot-gui-test: spike-build
+    WORKBENCH_TEST_AGENT=copilot python3 tests/management_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
