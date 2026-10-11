@@ -148,7 +148,7 @@ def recover_sessions(directory, data):
         path.unlink()
 
 
-def ensure_sessions(directory, data, runtime, cwd):
+def ensure_sessions(directory, data, runtime, cwd, *, on_spawn=None):
     started = []
     try:
         for workspace in data["workspaces"]:
@@ -170,6 +170,8 @@ def ensure_sessions(directory, data, runtime, cwd):
                     if process.poll() is not None or time.monotonic() >= deadline:
                         raise ValueError(f"Shell failed to start; inspect {log_path.name}")
                     time.sleep(0.02)
+                if on_spawn is not None:
+                    on_spawn(terminal["id"], process)
         return started
     except Exception:
         for process in started:
@@ -287,7 +289,7 @@ def close_sessions(directory, runtime, data, method, identity):
     save(directory, data)
     finish_close(directory, runtime, data)
 
-def manage(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1):
+def manage(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, on_spawn=None):
     directory = directory.resolve()
     with locked(directory):
         data = load(directory)
@@ -307,7 +309,7 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
             {"terminals": [terminal for terminal in workspace["terminals"] if terminal["id"] not in old_ids]}
             for workspace in data["workspaces"]
         ]}
-        started = ensure_sessions(directory, startup, runtime, cwd) if method == "initialize" or method.endswith(".create") else []
+        started = ensure_sessions(directory, startup, runtime, cwd, **({"on_spawn": on_spawn} if on_spawn else {})) if method == "initialize" or method.endswith(".create") else []
         committed = False
         try:
             atomic_write(directory / "workspaces.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
@@ -335,7 +337,8 @@ def main():
     parser.add_argument("--position", type=int, default=-1)
     args = parser.parse_args()
     try:
-        data = manage(args.state_dir, args.runtime.resolve(), args.cwd.resolve(), args.command, args.id, args.name, args.to, args.position)
+        from session_service import request
+        data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position)["data"]
         # Return the identity from this operation's locked result, never infer
         # it from a later projection that another window may have changed.
         if args.command in {"workspace.create", "terminal.create"}:

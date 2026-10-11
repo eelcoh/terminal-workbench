@@ -65,8 +65,11 @@ remains undecided.
 ## Workspace layout experiment
 
 The spike launcher bootstraps independent runtime processes under stable socket
-identities. A Python management module owns saved workspace and terminal names,
-identities, and session startup. It preserves `spike.sock` as Main's first shell
+identities. An automatically started Python organization service wraps the
+management module
+and owns saved workspace and terminal names, identities, startup and explicit
+recovery. All launcher/management CLI requests reuse that authority. It preserves
+`spike.sock` as Main's first shell
 when migrating the old fixed catalog. The shared organization is stored in
 `.local/sessions/workspaces.json`; a versioned TSV projection feeds the C viewer.
 New runtimes now retain their own VT state and support detached queries plus
@@ -75,8 +78,11 @@ New viewers negotiate a pinned snapshot attachment on the control endpoint.
 Capture and registration share the runtime event loop; the writer sends the
 snapshot and ready boundary before queued live output. The client decodes into
 a new VT and rebinds appearance/effects before feeding live bytes. Legacy
-connections keep ordered replay and its 16 MiB limit. A final runtime still needs
-a session service and lifecycle/recovery policy.
+connections keep ordered replay and its 16 MiB limit. The initial session service
+adopts live runtimes after its restart and retains
+stopped entries until explicit recovery. Installation lifecycle, durable operation
+journaling and a graphical recovery flow remain open.
+See [session service](session-service.md).
 See [the first runtime hardening slice](runtime-hardening.md).
 
 Each viewer pane owns its transport queues, VT instance, encoders, selection,

@@ -80,8 +80,11 @@ New terminals
 created after building use the new runtime and support direct transfer. Existing
 shells are never killed or automatically upgraded to enable this feature.
 
-This is shared organization and ownership support for the spike, using the
-existing catalog authority. It is not yet a unified session-service daemon.
+Shared organization now runs through an automatically started Python session service
+using the existing catalog authority. Rust runtimes continue to own PTYs and input
+attachments. Service restart adopts live endpoints; stopped saved terminals require
+explicit recovery. See [session-service lifecycle and validation](session-service.md).
+This remains the spike integration, not a final installed daemon.
 Named session selection, persisted window layouts, cross-window appearance
 updates and restart-after-reboot policy remain follow-up work.
 
@@ -167,7 +170,8 @@ appropriate before performance acceptance.
    the bounded complete-snapshot attachment is implemented, with legacy fallback.
 2. Synchronize query ownership, appearance defaults, pixel metrics and supported
    graphics state before treating restored snapshots as a full viewer replacement.
-3. Introduce a session service with explicit lifecycle, exit and recovery policy.
+3. Extend the initial organization service with recovery UI, creation/close
+   journaling, subscriptions, exit reasons and installation lifecycle policy.
 4. Define snapshot persistence/versioning and recovery without implying that a
    stopped runtime can resurrect arbitrary processes.
 

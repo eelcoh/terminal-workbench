@@ -25,6 +25,7 @@ check: runtime-build
     python3 tests/overview_animation_test.py
     python3 tests/build_env_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
+    python3 tests/session_service_test.py target/debug/workbench-session
     python3 tests/launch_diagnostics_test.py
 
 # Finds Zig 0.16.0 locally/on PATH, or uses an explicit ZIG executable.
@@ -93,3 +94,15 @@ overview-scale-gui-test: spike-build
 # Shared catalog projection and runtime ownership transfer across two windows.
 multiwindow-gui-test: spike-build
     python3 tests/multiwindow_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Inspect runtime health without attaching to or restarting terminals.
+session-status:
+    python3 scripts/session_service.py status --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
+
+# Restart only an explicitly selected stopped terminal; preserves identity/themes.
+recover-terminal id:
+    python3 scripts/session_service.py recover --state-dir .local/sessions --runtime target/debug/workbench-session --cwd . --id "{{id}}"
+
+# Stops the organization service only. Live terminals and windows continue.
+service-stop:
+    python3 scripts/session_service.py stop --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .

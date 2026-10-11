@@ -59,8 +59,12 @@ Runtime hardening has started with runtime-owned VT state, bounded terminal-stat
 exports, detached query handling and negotiated snapshot-based reattachment. New
 runtimes/windows reconnect beyond the legacy 16 MiB journal limit; old running
 sessions retain replay fallback. Shared catalog changes now refresh across windows,
-with explicit live-terminal ownership transfer and independent window focus. A
-session service and explicit lifecycle/recovery policy remain next.
+with explicit live-terminal ownership transfer and independent window focus.
+An automatically reused organization service now routes window startup and catalog
+commands, reports runtime health/capabilities, adopts surviving runtimes after service
+restart, and requires explicit recovery for stopped saved terminals. Recovery UI,
+creation/close journaling and installation lifecycle remain open. See
+[the session service slice](session-service.md).
 See [the hardening slice and measurements](runtime-hardening.md).
 
 ## UX spike: a product-quality gate

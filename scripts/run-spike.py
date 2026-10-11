@@ -5,7 +5,7 @@ from pathlib import Path
 import os
 import subprocess
 import sys
-from workspace_catalog import manage
+from session_service import request
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -66,7 +66,12 @@ def main():
         print("Build the spike first with: just spike-build", file=sys.stderr)
         return 1
     try:
-        manage(sessions, runtime, ROOT)
+        service = request(sessions, runtime, ROOT)
+        health = request(sessions, runtime, ROOT, "health")
+        stopped = sum(terminal["state"] != "running" for terminal in health["terminals"])
+        print(f"Session service: {service['service_pid']}; {len(health['terminals']) - stopped} running, {stopped} stopped/unavailable", flush=True)
+        if stopped:
+            print("Saved terminals were preserved. Use just session-status and just recover-terminal ID to start a replacement shell.", flush=True)
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
         print(f"Workspace startup failed: {error}. Existing state and sockets are preserved.", file=sys.stderr)
         return 1

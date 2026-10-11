@@ -262,6 +262,15 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
             }
             let event = match &command {
                 b"STOP\n" => Event::Stop(stream),
+                b"CAPS\n" => {
+                    let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                    let report = format!(
+                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\"]}}\n",
+                        std::process::id()
+                    );
+                    let _ = stream.write_all(report.as_bytes());
+                    continue;
+                }
                 b"INFO\n" => Event::Inspect(stream),
                 b"TEXT\n" => Event::TerminalRead(stream, false),
                 b"SNAP\n" => Event::TerminalRead(stream, true),

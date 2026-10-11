@@ -74,7 +74,7 @@ def main():
         environment.pop('WAYLAND_DISPLAY', None); environment.pop('WORKBENCH_SOCKET', None)
         with (root / 'test.log').open('w+') as log:
             try:
-                subprocess.run(['python3', str(ROOT / 'scripts/workspace_catalog.py'), '--state-dir', str(state), '--runtime', runtime, '--cwd', str(root)], env=environment, stdout=log, stderr=log, check=True, timeout=20)
+                subprocess.run(['python3', str(ROOT / 'scripts/workspace_catalog.py'), '--state-dir', str(state), '--runtime', runtime, '--cwd', str(root), '--command', 'session.recover'], env=environment, stdout=log, stderr=log, check=True, timeout=20)
                 pids = {}
                 for w in range(workspaces):
                     for p in range(panes):
@@ -88,7 +88,7 @@ def main():
                         connection.close()
                         time.sleep(0.04)
                 read_fd, write_fd = os.pipe()
-                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
+                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
                 processes.append(xvfb); os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
                 environment['DISPLAY'] = ':' + os.read(read_fd, 32).decode().strip(); os.close(read_fd)

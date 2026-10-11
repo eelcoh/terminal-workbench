@@ -331,6 +331,23 @@ def main():
                 edit(84, 603, "Restart", lambda data: len(data["workspaces"]) == 1)
                 line("printf empty-recovery > recovery")
                 assert read("recovery") == "empty-recovery"
+                # Opening saved organization does not resurrect an exited shell.
+                recovered_id = metadata()["workspaces"][0]["terminals"][0]["id"]
+                recovered_path = state / f"{recovered_id}.sock"
+                line("exit")
+                wait_until(lambda: not recovered_path.exists())
+                close_window(window, environment)
+                assert viewer.wait(timeout=5) == 0
+                subprocess.run(bootstrap, env=environment, check=True, stdout=log, stderr=log, timeout=10)
+                assert not recovered_path.exists()
+                viewer, window = launch()
+                assert viewer.poll() is None and not recovered_path.exists()
+                subprocess.run(bootstrap + ["--command", "terminal.recover", "--id", recovered_id],
+                               env=environment, check=True, stdout=log, stderr=log, timeout=10)
+                click(1050, 58)
+                time.sleep(.6)
+                line("printf explicit-recovery > recovered-shell")
+                assert read("recovered-shell") == "explicit-recovery"
                 close_window(window, environment)
                 assert viewer.wait(timeout=5) == 0
                 print("PASS: GUI create/rename, unchanged PIDs on rename, cancelled/invalid names, third-terminal navigation, persisted names and same-shell reopen; confirmed stops, foreground job termination, middle-pane removal, surviving PIDs, empty states and no resurrection; overview filtering, modal isolation, cross-workspace/third-pane jumps, hidden output, scrolling and minimum-size keyboard navigation; runtime agent labels, lifecycle status, attention filtering and clearing")

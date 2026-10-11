@@ -178,7 +178,9 @@ static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
     ghostty_terminal_resize(pane->terminal, 80, 24, client->cell_width, client->cell_height);
     pane->transport.takeover=client->claim_new[0] && !strcmp(client->claim_new,pane->id);
     pane->fd = remote_connect(pane->socket_path, 80, 24, client->cell_width, client->cell_height);
-    if (pane->fd < 0 && !client->refreshing) return false;
+    /* Managed windows keep stopped saved entries visible for explicit recovery.
+     * A standalone viewer still reports an unusable startup endpoint as failure. */
+    if (pane->fd < 0 && !client->refreshing && !client->managed) return false;
     pane->closed=pane->fd<0;
     pane->effects = (EffectsContext){ .pty_fd = pane->fd,
         .cell_width = client->cell_width, .cell_height = client->cell_height,

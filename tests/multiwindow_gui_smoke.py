@@ -45,7 +45,7 @@ def main():
         with (root/'test.log').open('w+') as log:
             try:
                 bootstrap=['python3',env['WORKBENCH_CATALOG_SCRIPT'],'--state-dir',str(state),'--runtime',runtime,'--cwd',str(root)]
-                subprocess.run(bootstrap,env=env,check=True,stdout=log,stderr=log,timeout=15)
+                subprocess.run(bootstrap+["--command","session.recover"],env=env,check=True,stdout=log,stderr=log,timeout=15)
                 read_fd,write_fd=os.pipe()
                 xvfb=subprocess.Popen(['Xvfb','-displayfd',str(write_fd),'-screen','0','1440x1000x24','-noreset','-nolisten','tcp'],pass_fds=(write_fd,),stdout=log,stderr=log)
                 processes.append(xvfb);os.close(write_fd)

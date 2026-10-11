@@ -214,3 +214,15 @@ remain local to each window. Closing a workspace should remove it from both.
 Direct transfer requires a runtime launched by this build. Existing terminals
 keep their earlier runtime: the UI will ask you to close their owning window
 before clicking Reconnect. This reconnects without restarting the shell.
+
+## Session service acceptance
+
+After `git pull && just spike`, open a second window and verify that both launches
+print the same Session service PID. `just session-status` reports runtime health;
+already-running older runtimes may be shown as unadvertised or legacy replay.
+Run `just service-stop` and verify that typing still works in an existing window.
+Launching another window should start a new service and retain those shell processes.
+For a disposable terminal, run `exit`, then launch another window: its saved entry
+should remain stopped. `just recover-terminal ID` explicitly starts a new shell for
+that entry while preserving its name and theme. This service slice is validated on
+Linux; these native macOS checks are still pending. See [session service](session-service.md).

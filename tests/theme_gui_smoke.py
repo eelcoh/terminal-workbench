@@ -68,7 +68,7 @@ def main():
         viewer = None
         with (root/'test.log').open('w+') as log:
             try:
-                subprocess.run(['python3', env['WORKBENCH_CATALOG_SCRIPT'], '--state-dir', str(state), '--runtime', runtime, '--cwd', str(root)], env=env, stdout=log, stderr=log, check=True, timeout=20)
+                subprocess.run(['python3', env['WORKBENCH_CATALOG_SCRIPT'], '--state-dir', str(state), '--runtime', runtime, '--cwd', str(root), '--command', 'session.recover'], env=env, stdout=log, stderr=log, check=True, timeout=20)
                 pids, sockets = {}, {}
                 for w in data['workspaces']:
                     for terminal in w['terminals']:
@@ -79,7 +79,7 @@ def main():
                         sockets[identity] = (state/f'{identity}.sock').stat().st_ino
                         connection.close()
                 read_fd, write_fd = os.pipe()
-                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
+                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
                 processes.append(xvfb); os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
                 env['DISPLAY'] = ':' + os.read(read_fd,32).decode().strip(); os.close(read_fd)

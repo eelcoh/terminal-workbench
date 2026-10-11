@@ -149,3 +149,18 @@ window must be closed first; clicking Reconnect afterward reconnects to the same
 shell. Partial snapshots and incompatible revisions never trigger this fallback.
 Missing older snapshot methods may still use ordinary legacy replay attachment.
 Rebuilding does not replace an already-running runtime.
+
+## Organization service and runtime capabilities
+
+Window launch and management commands now route through a separate private
+`service.rpc` endpoint under the state directory. It uses one bounded JSON line
+per request/reply, protocol 1, serialized catalog operations and explicit health,
+shutdown and selected recovery methods. It does not carry PTY output or input.
+See [session service](session-service.md) for lifecycle, safety and validation.
+
+New runtime control sockets also accept `CAPS\n` (five bytes), returning one JSON
+line with protocol 1, runtime PID and `snapshot`, `transfer`, `terminal-read`
+capabilities. This read-only query leaves attachment ownership unchanged.
+Missing capability replies are reported as unadvertised rather than assuming an
+older runtime supports or lacks a particular attachment method. Existing methods
+and frame formats are unchanged; existing runtimes are never replaced implicitly.
