@@ -139,7 +139,7 @@ The full `just check` and GUI recipes currently include Linux-specific fixtures
 and Xvfb/xdotool tests; they are not yet a complete Mac test suite. Manually check
 shell input and Ctrl-C, a full-screen editor, resizing, selection/scrollback,
 Command+C/V, overview navigation/dragging, and Close/reconnect to the same shell.
-Also exercise Command+Shift+O, Option/Alt, composition, keyboard layouts and
+Also exercise Command+Option+O, Option/Alt, composition, keyboard layouts and
 reduced motion (`WORKBENCH_REDUCED_MOTION=1 just spike`).
 
 If a build or launch fails, keep the command and its error output. Runtime logs
@@ -267,7 +267,7 @@ See [project folders](workspace-directories.md).
 ## Commands palette acceptance
 
 After updating, click Commands at the bottom of the sidebar or press
-Command+Shift+P. Search for New workspace, Rename terminal, project folder,
+Command+Option+P. Search for New workspace, Rename terminal, project folder,
 Next workspace and Change appearance. Verify Enter opens an editor without saving
 it, and that Stop terminal only opens a confirmation; Enter must not stop it.
 Escape should return cleanly to the same shell. At capacity, search New workspace
@@ -279,7 +279,7 @@ See [Commands](commands.md).
 ## Configurable shortcut acceptance
 
 Use Command+Option+Left/Right to navigate terminals and Command+Option+Up/Down to
-navigate workspaces. Command+T/N should open terminal/workspace creation without
+navigate workspaces. Command+Option+T/N should open terminal/workspace creation without
 saving; Escape cancels. In Commands, search Shortcut settings, then Next terminal.
 Record another chord and Save. Verify it appears in Commands, works, survives a
 window reopen, and can be cleared or restored with Default. A duplicate chord must
@@ -293,3 +293,23 @@ Escape or clicking elsewhere cancels an armed forward. Clipboard shortcuts can b
 cleared without leaving their old interception active. Bare Ctrl-C/D/Z stay terminal
 input. Mac settings use `.local/shortcuts-macos.conf`; Linux preferences are separate.
 These new native checks remain pending. See [shortcuts](shortcuts.md).
+
+## Shortcut-help acceptance
+
+Open help with Command+Option+/ in the working view and in Overview. Confirm it
+shows your actual bindings, including customized or cleared actions. New Mac
+defaults use Command+Option+P/O/T/N for Commands, Overview and terminal/workspace
+creation; copy/paste stay Command+C/V. If earlier defaults were saved as explicit
+bindings, reset those actions using Default in their shortcut recorder.
+
+Close help with its chord, Escape or Done, preserving the underlying shell focus
+or Overview query/selection. Enter/Edit shortcuts should open settings without
+editing an action in the same frame. Record a slash chord, test conflicts and
+clear/remap help; Commands must remain a mouse route to Show shortcuts.
+
+Check slash/Option on your keyboard layout, and ensure the chord or its generated
+text never reaches the shell while help is open. Resize while help is open, scroll
+the narrow list with keyboard and trackpad, and review dark/light readability.
+Live output should continue parsing, shell variables/PIDs should survive, and
+normal terminal sizing resumes when returning to the working view. Native results
+for this slice are pending.

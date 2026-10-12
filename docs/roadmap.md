@@ -123,11 +123,14 @@ and Shortcut settings surfaces. Review variable-width motion and native input on
 both platforms before the toolkit/installable-build decision.
 See [the detailed layout requirements](ux-spike.md#niri-reference-and-next-layout-slice).
 
-## Planned UX slice: shortcut-help overlay
+## Current UX slice: shortcut-help overlay
 
-Add a Niri-inspired overlay that makes the current keyboard model discoverable
-without permanent extra chrome. Proposed editable defaults are **Command+Option+/**
-on macOS and **Ctrl+Shift+/** on Linux. This is roadmap work, not implemented yet.
+The prototype now provides a Niri-inspired overlay showing current configured
+bindings in themed groups. Editable defaults are **Command+Option+/** on macOS
+and **Ctrl+Shift+/** on Linux, with Commands entry and an Edit shortcuts link.
+Mac application defaults share Command+Option, except Command+C/V for clipboard.
+Saved custom bindings remain intact. The owner has confirmed the independent
+widths and their Mac navigation-consistent shortcuts; native help acceptance is open.
 
 - Toggle the overlay with its shortcut; Escape and a visible close control dismiss
   it. Provide a **Show shortcuts** action in Commands for mouse access.
@@ -144,14 +147,13 @@ on macOS and **Ctrl+Shift+/** on Linux. This is roadmap work, not implemented ye
   dark states, narrow-window scrolling, keyboard access and reduced-motion support.
   Opening help must preserve shell processes, PTY geometry and terminal state while
   background output continues parsing.
-- Extend the shortcut parser/recorder to support slash: punctuation is currently
-  unsupported. Validate slash versus question-mark input and modifier handling on
-  actual Linux/Mac keyboard layouts, alongside conflicts, remapping and forwarding.
+- Slash is supported by the shortcut parser/recorder. Validate slash versus
+  question-mark input and modifier handling on actual Linux/Mac keyboard layouts, alongside conflicts, remapping and forwarding.
 
 Acceptance includes custom and cleared bindings appearing correctly, predictable
 open/close and modal routing, native keyboard checks on both platforms, and owner
-review of the overlay's clarity and polish. This belongs to the UX spike and fresh
-keyboard milestone before installable releases.
+review of the overlay's clarity and polish. See [shortcut help](shortcuts.md#shortcut-help-overlay).
+This belongs to the UX spike and fresh keyboard milestone before installable releases.
 
 ## UX spike: a product-quality gate
 

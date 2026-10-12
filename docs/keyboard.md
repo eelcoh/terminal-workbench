@@ -86,9 +86,9 @@ to detach without stopping any shell. No workspace close shortcut is frozen yet.
 
 ## Overview prototype
 
-Overview opens with its header button, Ctrl+Shift+O on Linux, or Command+Shift+O
-on macOS (unverified). This default follows clipboard modifier
-conventions and can now be changed through Shortcut settings. The chord toggles the
+Overview opens with its header button, Ctrl+Shift+O on Linux, or Command+Option+O
+on macOS (unverified). This default follows the application modifier
+family and can now be changed through Shortcut settings. The chord toggles the
 overview. Spatial mode is the default: Left/Right selects a terminal in its
 workspace, Up/Down moves between workspaces while retaining the nearest column,
 and Enter jumps. Wheel scrolls workspace rows; Shift+wheel scrolls the row under
@@ -133,7 +133,7 @@ transitions. No new terminal-intercepting keyboard chord is added by this slice.
 ## Commands palette prototype
 
 Commands in the sidebar opens a searchable action list. Ctrl+Shift+P (Linux) and
-Command+Shift+P (macOS, native acceptance pending) are editable default chords.
+Command+Option+P (macOS, native acceptance pending) are editable default chords.
 Up/Down or wheel selects, Enter/click runs, and Escape/Done closes. Disabled actions
 explain their state; stop/replacement actions open the existing mouse confirmations.
 The dispatch frame remains modal, so a key cannot also save a newly opened dialog
@@ -148,3 +148,13 @@ terminal bypasses interception once through the ordinary Ghostty encoder.
 See [shortcut scopes and defaults](shortcuts.md); native platform acceptance,
 IME/layout behavior and multi-key sequences remain follow-up.
 See [Commands](commands.md) for the action set and validation.
+
+## Shortcut help
+
+Command+Option+/ on Mac and Ctrl+Shift+/ on Linux open a grouped overlay using
+the current configured map. It is available in the working view and Overview;
+existing editors and overlays retain precedence. Escape/Done/toggle return to the
+underlying view, and Enter/Edit shortcuts leads to settings. All help input is
+consumed locally. Mac application defaults now share Command+Option, including
+new terminal/workspace; copy/paste keep Command+C/V. Saved overrides are preserved.
+See [shortcut help and validation](shortcuts.md#shortcut-help-overlay).

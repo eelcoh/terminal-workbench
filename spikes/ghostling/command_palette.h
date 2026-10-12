@@ -23,6 +23,7 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
 {
     WorkbenchWorkspace *workspace=&client->workspaces[client->active];
     WorkbenchPane *pane=workspace->count ? workspace->panes[workspace->focused] : NULL;
+    if (command==COMMAND_HELP) return NULL;
     if (client->management_busy) return "A session change is still being saved";
     switch (command) {
     case COMMAND_OVERVIEW: case COMMAND_APPEARANCE: case COMMAND_PALETTE: case COMMAND_SHORTCUTS: return NULL;
@@ -56,7 +57,7 @@ static void command_open(WorkspaceClient *client)
 {
     navigation_finish(client);
     client->forwarding=false;client->command_settings=false;client->shortcut_recording=false;
-    client->command_open=true; client->command_query[0]=0;
+    client->help_open=false;client->command_open=true; client->command_query[0]=0;
     client->command_selected=client->command_first=0; client->command_all=false;
     client->divider_dragging=false;
     for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++) {
@@ -80,6 +81,7 @@ static void command_dispatch(WorkspaceClient *client, int command)
         }
         workspace_focus(workspace,workspace->focused);client->navigation_reset=true;break;
     }
+    case COMMAND_HELP: shortcut_help_open(client);break;
     case COMMAND_PALETTE: command_open(client);break;
     case COMMAND_SHORTCUTS: command_open(client);shortcut_load(client);client->command_settings=true;break;
     case COMMAND_COPY: {
@@ -206,7 +208,7 @@ static void command_draw(WorkspaceClient *client)
         DrawTextEx(client->font,binding,(Vector2){row.x+row.width-binding_size.x-12,row.y+7},11,0,ui.muted);
         BeginScissorMode((int)row.x+10,(int)row.y,(int)(row.width-28-binding_size.x),(int)row.height);
         DrawTextEx(client->font,command_definitions[command].title,(Vector2){row.x+12,row.y+5},14,0,reason ? ui.muted : ui.text);
-        DrawTextEx(client->font,reason ? reason : client->command_settings ? (command==COMMAND_OVERVIEW ? "Working view / overview toggle; Enter edits" : "Working view; Enter edits binding") : command_definitions[command].detail,(Vector2){row.x+12,row.y+24},11,0,reason ? ui.waiting : ui.muted);
+        DrawTextEx(client->font,reason ? reason : client->command_settings ? ((command==COMMAND_OVERVIEW || command==COMMAND_HELP) ? "Working view / overview; Enter edits" : "Working view; Enter edits binding") : command_definitions[command].detail,(Vector2){row.x+12,row.y+24},11,0,reason ? ui.waiting : ui.muted);
         EndScissorMode();
     }
     if (!count) DrawTextEx(client->font,"No matching actions",(Vector2){b.x+24,b.y+110},14,0,ui.muted);

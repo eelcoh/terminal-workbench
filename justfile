@@ -131,3 +131,13 @@ font-gui-test: spike-build
 # Copilot labels and Needs input filtering through the existing GUI workflows.
 copilot-gui-test: spike-build
     WORKBENCH_TEST_AGENT=copilot python3 tests/management_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Current shortcut help, slash recording and overlay input ownership.
+shortcuts-gui-test: spike-build
+    python3 tests/shortcut_help_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+    WORKBENCH_REDUCED_MOTION=1 python3 tests/shortcut_help_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Fixed window geometry, populated runtime cardinality and equal terminal estate.
+shortcuts-scale-gui-test: spike-build
+    python3 tests/shortcut_help_scale.py target/debug/workbench-session .local/build/viewer/ghostling 1
+    python3 tests/shortcut_help_scale.py target/debug/workbench-session .local/build/viewer/ghostling 15

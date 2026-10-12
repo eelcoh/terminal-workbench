@@ -1,7 +1,7 @@
 # Commands palette
 
 Open **Commands** at the bottom of the sidebar, **Ctrl+Shift+P** on Linux, or
-**Command+Shift+P** on macOS. The fresh keyboard model now supports configurable bindings,
+**Command+Option+P** on macOS. The fresh keyboard model now supports configurable bindings,
 navigation shortcuts and sending an intercepted key to the terminal. Defaults are
 editable through Shortcut settings. See [shortcuts](shortcuts.md).
 

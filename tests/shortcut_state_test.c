@@ -13,11 +13,21 @@ int main(void)
     assert(linux_state.bindings[COMMAND_WIDTH_FULL].key=='F' && linux_state.bindings[COMMAND_WIDTH_FULL].mods==(SHORTCUT_CTRL|SHORTCUT_SHIFT));
     assert(mac.bindings[COMMAND_WIDTH_CYCLE].key=='R' && mac.bindings[COMMAND_WIDTH_CYCLE].mods==mac.bindings[COMMAND_TERMINAL_NEXT].mods);
     assert(mac.bindings[COMMAND_WIDTH_FULL].key=='F' && mac.bindings[COMMAND_WIDTH_FULL].mods==mac.bindings[COMMAND_TERMINAL_NEXT].mods);
+    for (int i=0;i<COMMAND_COUNT;i++) if (mac.bindings[i].key)
+        assert(mac.bindings[i].mods==(i==COMMAND_COPY || i==COMMAND_PASTE ? SHORTCUT_SUPER : SHORTCUT_SUPER|SHORTCUT_ALT));
+    assert(mac.bindings[COMMAND_PALETTE].key=='P' && mac.bindings[COMMAND_OVERVIEW].key=='O');
+    assert(mac.bindings[COMMAND_TERMINAL_CREATE].key=='T' && mac.bindings[COMMAND_WORKSPACE_CREATE].key=='N');
+    assert(linux_state.bindings[COMMAND_HELP].key==47 && linux_state.bindings[COMMAND_HELP].mods==(SHORTCUT_CTRL|SHORTCUT_SHIFT));
+    assert(mac.bindings[COMMAND_HELP].key==47);
     ShortcutChord chord={0};assert(shortcut_parse("Command+Option+Left",&chord) && chord.mods==12);
     char label[96];shortcut_label(chord,true,label,sizeof(label));assert(!strcmp(label,"Command+Option+Left"));
     for (int i=0;i<COMMAND_COUNT;i++) { shortcut_label(linux_state.bindings[i],false,label,sizeof(label));ShortcutChord roundtrip;assert(shortcut_parse(label,&roundtrip));assert(roundtrip.key==linux_state.bindings[i].key && roundtrip.mods==linux_state.bindings[i].mods); }
     const char *bad[]={"Ctrl+C","Ctrl+D","Ctrl+Z","P","Shift+Left","Escape","Ctrl+F12","Ctrl+Ctrl+P","Ctrl+P+Shift","Ctrl+","Alt+unknown","Ctrl+Alt+Shift+Super+Shift+P"};
     for (size_t i=0;i<sizeof(bad)/sizeof(bad[0]);i++) assert(!shortcut_parse(bad[i],&chord));
+    assert(shortcut_parse("Ctrl+Shift+/",&chord) && chord.key==47 && chord.mods==3);
+    assert(shortcut_parse("Command+Option+Slash",&chord) && chord.key==47 && chord.mods==12);
+    shortcut_label(chord,true,label,sizeof(label));assert(!strcmp(label,"Command+Option+/"));
+    assert(!shortcut_parse("Ctrl+Shift+?",&chord) && !shortcut_parse("/",&chord));
     assert(shortcut_parse("F8",&chord));assert(shortcut_parse("none",&chord));
     char path[1024];snprintf(path,sizeof(path),"%s/shortcuts.conf",getenv("WB_TEST_DIRECTORY"));
     assert(shortcut_write(path,&linux_state,error,sizeof(error)));struct stat statbuf;assert(!stat(path,&statbuf) && (statbuf.st_mode&0777)==0600);
@@ -33,6 +43,14 @@ int main(void)
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)));
     assert(loaded.bindings[COMMAND_COPY].key=='R' && !loaded.bindings[COMMAND_WIDTH_CYCLE].key);
     assert(loaded.bindings[COMMAND_WIDTH_FULL].key=='F');
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncopy=Ctrl+Shift+/\n",file);fclose(file);
+    assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && !loaded.bindings[COMMAND_HELP].key);
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncommands=Command+Shift+P\noverview=Command+Shift+O\nterminal.new=Command+T\n",file);fclose(file);
+    assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_PALETTE].mods==(SHORTCUT_SUPER|SHORTCUT_SHIFT));
+    assert(loaded.bindings[COMMAND_OVERVIEW].mods==(SHORTCUT_SUPER|SHORTCUT_SHIFT) && loaded.bindings[COMMAND_TERMINAL_CREATE].mods==SHORTCUT_SUPER);
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncopy=Command+Option+P\n",file);fclose(file);
+    assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && !loaded.bindings[COMMAND_PALETTE].key);
+    assert(loaded.bindings[COMMAND_COPY].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
     assert(!shortcut_read(getenv("WB_TEST_DIRECTORY"),false,&loaded,error,sizeof(error)));
     unlink(path);assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && !memcmp(&loaded,&mac,sizeof(mac)));
     puts("PASS: platform navigation defaults, shortcut roundtrip, reserved controls, unknown/duplicate/version/truncated rejection, atomic private save, collisions, partial overrides, unbinding and transactional fallback");return 0;

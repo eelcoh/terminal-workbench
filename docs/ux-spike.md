@@ -334,3 +334,39 @@ These short software-rendered samples are noisy and show no reliable scaling
 regression; they do not establish native frame pacing or GPU performance.
 Native Linux/Wayland and Mac width gestures, editable shortcuts, visual motion,
 and mixed-theme agent layouts still require owner review. The UX gate remains open.
+
+## Shortcut-help prototype
+
+The grouped help sheet now shows the live configured action map, including unbound
+actions, and reuses application colors and rounded panels. At 1240×760 every group
+fits in two columns; narrow windows use a vertically scrollable single column.
+Escape/Done/toggle return to the underlying view, and Enter/Edit shortcuts opens
+settings. Help works over Overview while preserving its query and selection.
+Mac application defaults share Command+Option (P/O/T/N, navigation, widths and /);
+copy/paste retain Command+C/V. Saved overrides are preserved.
+
+Bindings reload only on opening. A single retained body texture redraws for open,
+scroll or size changes; modal buttons keep live hover states. If texture allocation
+fails, the same content draws directly. Help consumes input, preserves PTY geometry
+even during overlay window resize, and continues parsing runtime output. Its state
+is temporary and does not become a server/session fact or a restored window mode.
+
+`just check`, the Linux viewer build, Commands and Overview regression checks pass.
+`just shortcuts-gui-test` passes ordinary/reduced-motion runs with live shells:
+slash/Shift input isolation, current/custom/unbound maps, settings/recorder handoff,
+Overview layering, dialog precedence, narrow cached-body redraw and light/dark
+colors, with retained shell PIDs/state/geometry. Captures are
+`.local/test-results/shortcut-help-{wide,custom,small,small-home,light}.png`.
+
+`just shortcuts-scale-gui-test` uses fixed 1240×760 windows and populated terminals.
+One terminal fills the estate; fifteen have eight active-workspace terminals and
+seven hidden, with two half-width columns visible. The final sequential two-second
+idle samples were 249.9% CPU with one terminal and 272.0% with fifteen (+8.8%;
+100% is one CPU core). Earlier direct-body drawing sampled 262.9% / 289.7%. These
+short llvmpipe samples are noisy and do not establish a reliable performance gain
+or native frame pacing. The live check also verifies one body texture allocation
+through idle frames and retained terminal geometry/processes.
+
+Native Mac slash/Option behavior, non-US layouts, physical trackpad gestures,
+accessibility and owner review of the sheet remain open. This completes the runnable
+help slice's Linux functional proof, not the wider UX/toolkit gate.

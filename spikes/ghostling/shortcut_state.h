@@ -16,7 +16,7 @@
 typedef struct { int key; unsigned mods; } ShortcutChord;
 typedef struct { ShortcutChord bindings[COMMAND_COUNT]; } ShortcutState;
 static const struct { const char *name; int key; } shortcut_keys[]={
-    {"Left",263},{"Right",262},{"Up",265},{"Down",264},{"Space",32},{"Tab",258},
+    {"/",47},{"Left",263},{"Right",262},{"Up",265},{"Down",264},{"Space",32},{"Tab",258},
     {"Enter",257},{"Backspace",259},{"Delete",261},{"Home",268},{"End",269},
     {"PageUp",266},{"PageDown",267},{"Insert",260},
     {"F1",290},{"F2",291},{"F3",292},{"F4",293},{"F5",294},{"F6",295},
@@ -29,6 +29,7 @@ static int shortcut_key(const char *name)
         if (ch>='a' && ch<='z') ch-=32;
         if ((ch>='A' && ch<='Z') || (ch>='0' && ch<='9')) return ch;
     }
+    if (!strcasecmp(name,"Slash")) return 47;
     for (size_t i=0;i<sizeof(shortcut_keys)/sizeof(shortcut_keys[0]);i++)
         if (!strcasecmp(name,shortcut_keys[i].name)) return shortcut_keys[i].key;
     return 0;
@@ -68,13 +69,15 @@ static void shortcut_label(ShortcutChord chord, bool apple, char *out, size_t ca
 }
 static ShortcutState shortcut_defaults(bool apple)
 {
-    ShortcutState state={0};unsigned base=apple ? SHORTCUT_SUPER : SHORTCUT_CTRL|SHORTCUT_SHIFT;
-    state.bindings[COMMAND_PALETTE]=(ShortcutChord){'P',base|SHORTCUT_SHIFT};
-    state.bindings[COMMAND_OVERVIEW]=(ShortcutChord){'O',base|SHORTCUT_SHIFT};
-    state.bindings[COMMAND_COPY]=(ShortcutChord){'C',base}; state.bindings[COMMAND_PASTE]=(ShortcutChord){'V',base};
-    state.bindings[COMMAND_TERMINAL_CREATE]=(ShortcutChord){'T',base};
-    state.bindings[COMMAND_WORKSPACE_CREATE]=(ShortcutChord){'N',base};
+    ShortcutState state={0};
     unsigned navigation=apple ? SHORTCUT_SUPER|SHORTCUT_ALT : SHORTCUT_CTRL|SHORTCUT_SHIFT;
+    unsigned clipboard=apple ? SHORTCUT_SUPER : navigation;
+    state.bindings[COMMAND_PALETTE]=(ShortcutChord){'P',navigation};
+    state.bindings[COMMAND_OVERVIEW]=(ShortcutChord){'O',navigation};
+    state.bindings[COMMAND_COPY]=(ShortcutChord){'C',clipboard};state.bindings[COMMAND_PASTE]=(ShortcutChord){'V',clipboard};
+    state.bindings[COMMAND_TERMINAL_CREATE]=(ShortcutChord){'T',navigation};
+    state.bindings[COMMAND_WORKSPACE_CREATE]=(ShortcutChord){'N',navigation};
+    state.bindings[COMMAND_HELP]=(ShortcutChord){47,navigation};
     state.bindings[COMMAND_WIDTH_CYCLE]=(ShortcutChord){'R',navigation};
     state.bindings[COMMAND_WIDTH_FULL]=(ShortcutChord){'F',navigation};
     state.bindings[COMMAND_TERMINAL_PREVIOUS]=(ShortcutChord){263,navigation};state.bindings[COMMAND_TERMINAL_NEXT]=(ShortcutChord){262,navigation};
@@ -110,7 +113,8 @@ static bool shortcut_read(const char *path, bool apple, ShortcutState *out, char
     fclose(file);
     if (!valid) { snprintf(error,capacity,"Invalid shortcut file; existing bindings kept"); return false; }
     /* New defaults must not invalidate a previously customized old binding. */
-    for (int i=COMMAND_WIDTH_CYCLE;i<COMMAND_COUNT;i++) if (!seen[i])
+    for (int i=0;i<COMMAND_COUNT;i++) if (!seen[i] && (i>=COMMAND_WIDTH_CYCLE || (apple &&
+        (i==COMMAND_PALETTE || i==COMMAND_OVERVIEW || i==COMMAND_TERMINAL_CREATE || i==COMMAND_WORKSPACE_CREATE))))
         for (int j=0;j<COMMAND_COUNT;j++) if (seen[j] && next.bindings[i].key==next.bindings[j].key
             && next.bindings[i].mods==next.bindings[j].mods) next.bindings[i]=(ShortcutChord){0};
     if (!shortcut_valid(&next,error,capacity)) return false;

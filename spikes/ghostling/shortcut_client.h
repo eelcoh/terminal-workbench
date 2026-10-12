@@ -103,9 +103,14 @@ static bool shortcut_route(WorkspaceClient *client, bool *bypass)
         ShortcutChord chord=client->shortcuts.bindings[i];
         bool repeat=i==COMMAND_TERMINAL_PREVIOUS || i==COMMAND_TERMINAL_NEXT || i==COMMAND_WORKSPACE_PREVIOUS || i==COMMAND_WORKSPACE_NEXT;
         if (!chord.key || chord.mods!=mods || (!IsKeyPressed(chord.key) && !(repeat && IsKeyPressedRepeat(chord.key)))) continue;
-        if (client->overview_open && (i!=COMMAND_OVERVIEW || client->overview_drag_armed || client->management_busy)) return false;
+        if (client->help_open && i!=COMMAND_HELP) continue;
+        if (client->overview_open && ((i!=COMMAND_OVERVIEW && i!=COMMAND_HELP) || client->overview_drag_armed || client->management_busy)) return false;
         workbench_key_blocked[chord.key]=true;shortcut_drain();
-        if (client->overview_open && !client->overview_closing) overview_close(client,-1,-1);
+        if (i==COMMAND_HELP) {
+            if (client->help_open) client->help_open=false;
+            else if (!client->overview_closing) shortcut_help_open(client);
+        }
+        else if (client->overview_open && !client->overview_closing) overview_close(client,-1,-1);
         else if (client->overview_open && client->overview_closing) overview_open(client);
         else {
             const char *reason=command_unavailable(client,i);

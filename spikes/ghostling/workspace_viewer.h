@@ -75,7 +75,11 @@ typedef struct {
     double catalog_checked;
     bool managed, dialog_open, dialog_all, management_busy, refreshing;
     char claim_new[41];
-    bool command_open, command_all;
+    bool command_open, command_all, help_open;
+    float help_scroll;
+    RenderTexture2D help_canvas;
+    bool help_dirty, help_cache_failed;
+    char help_bindings[COMMAND_COUNT][96];
     int command_selected, command_first;
     char command_query[64];
     ShortcutState shortcuts;
@@ -288,8 +292,10 @@ static void window_view_restore_overview(WorkspaceClient *client);
 static const char *command_unavailable(WorkspaceClient *client, int command);
 static void command_dispatch(WorkspaceClient *client, int command);
 static void command_open(WorkspaceClient *client);
+static void shortcut_help_open(WorkspaceClient *client);
 #include "shortcut_client.h"
 #include "command_palette.h"
+#include "shortcut_help_ui.h"
 
 static bool workspace_layout(WorkspaceClient *client)
 {
@@ -452,7 +458,7 @@ static void workspace_refresh(WorkspaceClient *client)
     double now=GetTime();
     if (now-client->catalog_checked<.25) return;
     client->catalog_checked=now;
-    if (client->management_busy || client->dialog_open || client->theme_open || client->command_open
+    if (client->management_busy || client->dialog_open || client->theme_open || client->command_open || client->help_open
         || client->overview_drag_armed || client->overview_closing || client->divider_dragging
         || navigation_moving(client) || overview_animation_busy(&client->overview_animation,now)) return;
     for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++)
@@ -564,28 +570,29 @@ static int workspace_main(const char *catalog)
     while (!WindowShouldClose()) {
         workspace_refresh(client);
         overview_motion_tick(client);
-        if (client->command_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
+        if (client->help_open || client->command_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
         theme_sync(client);
-        if (!client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
+        if (!client->help_open && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
         bool shortcut_bypass=false;
         bool shortcut_frame=shortcut_route(client,&shortcut_bypass);
+        bool help_frame=client->help_open;
         bool command_started=shortcut_frame && client->command_open;
-        if (!shortcut_frame && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
+        if (!shortcut_frame && !help_frame && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
             command_open(client); command_started=true;
         }
         bool command_frame=client->command_open;
         bool theme_frame=client->theme_open;
-        if (!shortcut_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
+        if (!shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
             && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
             && CheckCollisionPointRec(GetMousePosition(),client->overview_open ? overview_theme_button(client) : theme_button())) {
             theme_open(client); theme_frame=true;
         }
-        bool toggled_overview = !shortcut_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
+        bool toggled_overview = !shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
         if (toggled_overview) {
             if (client->overview_open && !client->overview_closing) overview_close(client, -1, -1);
             else overview_open(client);
         }
-        bool modal_frame = shortcut_frame || command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
+        bool modal_frame = help_frame || shortcut_frame || command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
         if (!management_poll(client)) { exit_code = 1; break; }
         if (command_frame) {
             if (command_started) {
@@ -659,7 +666,7 @@ static int workspace_main(const char *catalog)
         }
         theme_sync(client);
         navigation_prepare(client);
-        bool layout_deferred = client->theme_open || (client->overview_open && !client->overview_list);
+        bool layout_deferred = client->help_open || help_frame || client->theme_open || (client->overview_open && !client->overview_list);
         if (!layout_deferred && !workspace_layout(client)) { exit_code = 1; break; }
         /* All sessions parse output. Only normal visible panes or visible
          * overview cards perform presentation work; previews never resize PTYs. */
@@ -707,9 +714,10 @@ static int workspace_main(const char *catalog)
             }
             pane_unbind();
         }
-        if (!shortcut_frame && !command_frame && client->dialog_open) dialog_input(client);
+        if (!help_frame && !shortcut_frame && !command_frame && client->dialog_open) dialog_input(client);
         bool overview_jumped = false;
         if (shortcut_frame || command_frame) { /* The entire action-dispatch frame stays modal. */ }
+        else if (help_frame) shortcut_help_input(client);
         else if (theme_frame) theme_input(client);
         else if (client->overview_open && !client->overview_closing) overview_jumped = overview_input(client);
         else if (client->overview_closing) {
@@ -721,10 +729,11 @@ static int workspace_main(const char *catalog)
             while (GetCharPressed() != 0) { }
         }
         workspace = &client->workspaces[client->active];
-        if (((overview_jumped && !client->overview_closing) || (layout_deferred && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
+        if (((overview_jumped && !client->overview_closing) || (layout_deferred && !help_frame && !client->help_open && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
         theme_sync(client);
         if (overview_jumped) { navigation_finish(client); client->navigation_valid=false; }
         if (client->overview_open && !client->overview_list) overview_previews_refresh(client);
+        if (client->help_open) shortcut_help_prepare(client);
         BeginDrawing();
         ClearBackground(ui.background);
         if (!client->overview_open || client->overview_list) {
@@ -741,6 +750,7 @@ static int workspace_main(const char *catalog)
         if (client->overview_open) overview_present(client);
         if (client->theme_open) theme_draw(client);
         if (client->command_open) command_draw(client);
+        if (client->help_open) shortcut_help_draw(client);
         EndDrawing();
         flush_deferred_textures();
         window_view_save(client,false);
@@ -758,6 +768,7 @@ cleanup:
         for (int p = 0; p < client->workspaces[w].count; p++) pane_free(client->workspaces[w].panes[p]);
     flush_deferred_textures();
     if (client->overview_stage.id) UnloadRenderTexture(client->overview_stage);
+    if (client->help_canvas.id) UnloadRenderTexture(client->help_canvas);
     for (int p=0;p<WORKBENCH_PANES;p++)
         if (client->navigation_tiles[p].canvas.id) UnloadRenderTexture(client->navigation_tiles[p].canvas);
     terminal_font_unload(client->font);

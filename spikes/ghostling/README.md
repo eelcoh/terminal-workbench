@@ -87,7 +87,7 @@ isolated display to verify real clipboard transfer.
 ## Terminal overview
 
 Overview in the header or Ctrl+Shift+O on Linux opens a searchable list of every
-terminal, including those outside the visible pane columns. Command+Shift+O is
+terminal, including those outside the visible pane columns. Command+Option+O is
 the unverified macOS binding. Filter by workspace or terminal name, click a row,
 or use Up/Down and Enter. Escape/Done dismisses; wheel scrolling reveals longer
 lists. Filtering supports ASCII case-insensitive matching and exact UTF-8 bytes.
@@ -151,3 +151,9 @@ isolated Xvfb display. Management is available independently through
 `python3 scripts/workspace_catalog.py --help`.
 The terminal setup derives from Ghostling; [LICENSE.ghostling](LICENSE.ghostling)
 preserves its MIT copyright/permission notice beside the source adaptations.
+
+Show shortcuts in Commands, Ctrl+Shift+/ (Linux), or Command+Option+/ (Mac) opens
+a grouped help overlay using the current bindings. It works over Overview too.
+Escape/Done/toggle close it; Enter/Edit shortcuts opens settings. Mac defaults for
+Commands, Overview and new terminal/workspace now use Command+Option+P/O/T/N.
+Saved custom bindings keep their previous chords until edited or reset with Default.
