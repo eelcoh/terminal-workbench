@@ -99,6 +99,15 @@ Command/Cmd/Super, Alt/Option, and Ctrl/Control are accepted modifier aliases.
 Editor saves write the complete map. Cross-platform files use Super as the stored
 Command modifier; labels display Command and Option on macOS.
 
+## Planned shortcut help
+
+The roadmap includes a Niri-inspired help overlay, proposed for Command+Option+/
+on Mac and Ctrl+Shift+/ on Linux. It will show the active configured bindings,
+including unbound actions, and link to Shortcut settings. The help action will
+also be editable and available through Commands. Slash support and native layout
+validation are part of that slice; this overlay is not implemented yet.
+See [the roadmap requirements](roadmap.md#planned-ux-slice-shortcut-help-overlay).
+
 ## Validation
 
 `just check` covers Linux/Mac defaults, parsing, reserved controls, aliases,

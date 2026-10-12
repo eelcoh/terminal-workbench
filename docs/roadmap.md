@@ -34,7 +34,7 @@ behavior remain unverified. The current renderer is an experiment; it is not the
 | 3 | Ghostty-compatible theming | Theme selection, live preview/apply/cancel, saved preferences, coherent terminal/UI colors and dark/light support, without replacing running sessions. |
 | 4 | Persistent runtime hardening | Runtime-owned terminal state, bounded snapshots/scrollback, detached query replies, a session service, and explicit exit/recovery behavior. |
 | 5 | Complete workspace workflows | Smooth horizontal pane navigation, workspace directories, layout/focus persistence, terminal search and clear exited/disconnected states. |
-| 6 | Fresh keyboard model | Scoped actions, configurable shortcuts, command palette and a way to forward intercepted bindings to terminals; platform input validation. |
+| 6 | Fresh keyboard model | Scoped actions, configurable shortcuts, command palette, shortcut-help overlay and a way to forward intercepted bindings to terminals; platform input validation. |
 | 7 | Real agent validation | Live Codex/Claude on Linux and GitHub Copilot CLI on macOS, lifecycle transitions and hook trust/setup flows; explicit Unknown for unsupported agents or unavailable signals. |
 | 8 | Installable releases | macOS app bundle and Linux installation, configuration outside the repository, lifecycle/update policy and platform smoke checks. Finalize the product name before distribution; the project uses MIT. |
 
@@ -122,6 +122,36 @@ window's workspace layout. Configurable actions use the existing Commands
 and Shortcut settings surfaces. Review variable-width motion and native input on
 both platforms before the toolkit/installable-build decision.
 See [the detailed layout requirements](ux-spike.md#niri-reference-and-next-layout-slice).
+
+## Planned UX slice: shortcut-help overlay
+
+Add a Niri-inspired overlay that makes the current keyboard model discoverable
+without permanent extra chrome. Proposed editable defaults are **Command+Option+/**
+on macOS and **Ctrl+Shift+/** on Linux. This is roadmap work, not implemented yet.
+
+- Toggle the overlay with its shortcut; Escape and a visible close control dismiss
+  it. Provide a **Show shortcuts** action in Commands for mouse access.
+- Group actions by navigation, terminal/workspace management, terminal widths,
+  overview/appearance and clipboard/input. Show the active configured bindings
+  with platform-appropriate labels, including an explicit unbound state, rather
+  than a hardcoded list of defaults.
+- Offer a clear path to Shortcut settings. Keep the help action itself configurable
+  and show binding edits when the overlay is reopened.
+- Make help available from the working view and Overview, preserving the underlying
+  view and focus when dismissed. Respect existing dialogs and shortcut recording;
+  help input must not leak into terminals or trigger another action.
+- Match application themes, typography and surface styling, with readable light/
+  dark states, narrow-window scrolling, keyboard access and reduced-motion support.
+  Opening help must preserve shell processes, PTY geometry and terminal state while
+  background output continues parsing.
+- Extend the shortcut parser/recorder to support slash: punctuation is currently
+  unsupported. Validate slash versus question-mark input and modifier handling on
+  actual Linux/Mac keyboard layouts, alongside conflicts, remapping and forwarding.
+
+Acceptance includes custom and cleared bindings appearing correctly, predictable
+open/close and modal routing, native keyboard checks on both platforms, and owner
+review of the overlay's clarity and polish. This belongs to the UX spike and fresh
+keyboard milestone before installable releases.
 
 ## UX spike: a product-quality gate
 
