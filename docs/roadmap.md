@@ -191,6 +191,17 @@ Long UTF-8 names use ellipses; pane geometry, action targets, terminal input and
 keyboard bindings stay unchanged. See [the chrome refinement](interface-typography.md#pane-headers-and-workspace-sidebar).
 Native Mac and owner visual review of this slice remain open.
 
+## Minimal chrome design study
+
+The owner's Niri/Dank Material/Foot references lead to a new
+[minimal chrome study](minimal-chrome.md), with an
+[interactive local sketch](prototypes/minimal-chrome.html). Top-bar indicators
+represent panes: focus, visibility and off-screen position. A compact left rail
+can expand into separate Workspaces and Agents views; occasional actions move to
+application/pane menus. Compact versus pinned navigation remains for owner review.
+This is a sample-data design proposal. Native menu/sidebar implementation and
+platform acceptance are upcoming UX work; the running viewer is unchanged.
+
 ## UX spike: a product-quality gate
 
 The UX spike is a dedicated milestone, not a final cosmetic pass. Build a runnable

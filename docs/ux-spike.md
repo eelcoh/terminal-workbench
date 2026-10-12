@@ -486,3 +486,23 @@ idle. These short samples show no clear scaling change and do not establish
 native frame pacing. Label fitting adds bounded work per visible row/header,
 not per PTY byte or hidden terminal output, and introduces no heap allocation
 or runtime inspection in those loops.
+
+## Minimal chrome and navigation study
+
+The owner supplied Niri, Dank Material and Foot references and clarified that
+the proposed top-bar position indicators should represent panes. Workspace and
+agent navigation still belongs in the left-side design, without assuming
+Herdr's combined list is the final answer.
+
+[The design proposal](minimal-chrome.md) and
+[interactive sketch](prototypes/minimal-chrome.html) compare a compact rail with
+a pinned named panel. Separate Workspaces/Agents modes retain cross-workspace
+agent attention while removing permanent secondary actions from the working
+view. Top-bar pane indicators reflect focus and viewport intersection; pane
+headers keep names and activity plus a visible overflow affordance.
+
+This slice is sample-data HTML for structural review. It does not change native
+viewer behavior or establish platform/runtime acceptance. Review the placement,
+discoverability, agent context and compact/pinned tradeoff before implementing
+shared menus, indicator geometry and sidebar layout in the app. Preserve existing
+keyboard navigation, scoped themes, explicit stop/recovery and multiwindow facts.
