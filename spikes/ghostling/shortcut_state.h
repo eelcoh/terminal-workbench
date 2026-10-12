@@ -74,9 +74,9 @@ static ShortcutState shortcut_defaults(bool apple)
     state.bindings[COMMAND_COPY]=(ShortcutChord){'C',base}; state.bindings[COMMAND_PASTE]=(ShortcutChord){'V',base};
     state.bindings[COMMAND_TERMINAL_CREATE]=(ShortcutChord){'T',base};
     state.bindings[COMMAND_WORKSPACE_CREATE]=(ShortcutChord){'N',base};
-    state.bindings[COMMAND_WIDTH_CYCLE]=(ShortcutChord){'R',base|SHORTCUT_SHIFT};
-    state.bindings[COMMAND_WIDTH_FULL]=(ShortcutChord){'F',base|SHORTCUT_SHIFT};
     unsigned navigation=apple ? SHORTCUT_SUPER|SHORTCUT_ALT : SHORTCUT_CTRL|SHORTCUT_SHIFT;
+    state.bindings[COMMAND_WIDTH_CYCLE]=(ShortcutChord){'R',navigation};
+    state.bindings[COMMAND_WIDTH_FULL]=(ShortcutChord){'F',navigation};
     state.bindings[COMMAND_TERMINAL_PREVIOUS]=(ShortcutChord){263,navigation};state.bindings[COMMAND_TERMINAL_NEXT]=(ShortcutChord){262,navigation};
     state.bindings[COMMAND_WORKSPACE_PREVIOUS]=(ShortcutChord){265,navigation};state.bindings[COMMAND_WORKSPACE_NEXT]=(ShortcutChord){264,navigation};
     return state;

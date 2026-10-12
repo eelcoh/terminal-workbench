@@ -117,8 +117,8 @@ Scroll the workspace list if
 the window is too short to show every row.
 
 Click a pane/title to focus it. Each terminal starts at half width. Ctrl+Shift+R
-(Linux) / Command+Shift+R (Mac) cycles half → two thirds → third; Ctrl+Shift+F /
-Command+Shift+F toggles full terminal-area width and restores the preset on a second
+(Linux) / Command+Option+R (Mac) cycles half → two thirds → third; Ctrl+Shift+F /
+Command+Option+F toggles full terminal-area width and restores the preset on a second
 press. Drag a right gap for a snapped guide and release to apply that terminal's
 width. Commands also offers explicit presets. Widths and strip positions are
 saved independently in each window view.

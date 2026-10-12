@@ -16,8 +16,8 @@ saved binding. Commands displays the active binding beside each action.
 | New workspace | Ctrl+Shift+N | Command+N |
 | Previous / next terminal | Ctrl+Shift+Left / Right | Command+Option+Left / Right |
 | Previous / next workspace | Ctrl+Shift+Up / Down | Command+Option+Up / Down |
-| Cycle focused terminal width | Ctrl+Shift+R | Command+Shift+R |
-| Toggle focused terminal full width | Ctrl+Shift+F | Command+Shift+F |
+| Cycle focused terminal width | Ctrl+Shift+R | Command+Option+R |
+| Toggle focused terminal full width | Ctrl+Shift+F | Command+Option+F |
 | Copy selection | Ctrl+Shift+C | Command+C |
 | Paste clipboard | Ctrl+Shift+V | Command+V |
 

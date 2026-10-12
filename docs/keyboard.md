@@ -21,7 +21,7 @@ selection and **Toggle terminal full width** for the focused terminal. Full widt
 restores its previous preset when toggled back; other terminals keep their widths.
 Commands offers each preset, Shortcut settings edits the bindings, and dragging
 a right gap previews a snapped guide. Defaults are Ctrl+Shift+R/F on Linux and
-Command+Shift+R/F on Mac. Niri's Super+R/Super+F interactions are references; using the same
+Command+Option+R/F on Mac. Niri's Super+R/Super+F interactions are references; using the same
 chords inside Workbench on Linux would compete with the window manager. Native
 application fullscreen remains distinct from one terminal filling its content area.
 See [layout requirements](ux-spike.md#niri-reference-and-next-layout-slice).

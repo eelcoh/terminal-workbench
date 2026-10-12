@@ -9,6 +9,10 @@ int main(void)
     assert(shortcut_valid(&linux_state,error,sizeof(error)) && shortcut_valid(&mac,error,sizeof(error)));
     assert(linux_state.bindings[COMMAND_TERMINAL_NEXT].key==262 && linux_state.bindings[COMMAND_TERMINAL_NEXT].mods==(SHORTCUT_CTRL|SHORTCUT_SHIFT));
     assert(mac.bindings[COMMAND_WORKSPACE_PREVIOUS].key==265 && mac.bindings[COMMAND_WORKSPACE_PREVIOUS].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
+    assert(linux_state.bindings[COMMAND_WIDTH_CYCLE].key=='R' && linux_state.bindings[COMMAND_WIDTH_CYCLE].mods==(SHORTCUT_CTRL|SHORTCUT_SHIFT));
+    assert(linux_state.bindings[COMMAND_WIDTH_FULL].key=='F' && linux_state.bindings[COMMAND_WIDTH_FULL].mods==(SHORTCUT_CTRL|SHORTCUT_SHIFT));
+    assert(mac.bindings[COMMAND_WIDTH_CYCLE].key=='R' && mac.bindings[COMMAND_WIDTH_CYCLE].mods==mac.bindings[COMMAND_TERMINAL_NEXT].mods);
+    assert(mac.bindings[COMMAND_WIDTH_FULL].key=='F' && mac.bindings[COMMAND_WIDTH_FULL].mods==mac.bindings[COMMAND_TERMINAL_NEXT].mods);
     ShortcutChord chord={0};assert(shortcut_parse("Command+Option+Left",&chord) && chord.mods==12);
     char label[96];shortcut_label(chord,true,label,sizeof(label));assert(!strcmp(label,"Command+Option+Left"));
     for (int i=0;i<COMMAND_COUNT;i++) { shortcut_label(linux_state.bindings[i],false,label,sizeof(label));ShortcutChord roundtrip;assert(shortcut_parse(label,&roundtrip));assert(roundtrip.key==linux_state.bindings[i].key && roundtrip.mods==linux_state.bindings[i].mods); }

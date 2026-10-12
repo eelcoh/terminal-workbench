@@ -300,7 +300,7 @@ testing share the same button rectangle, including during pane navigation.
 The prototype now cycles half → two thirds → third for the focused terminal,
 selects explicit presets through Commands, and toggles full terminal-area width
 without losing its preferred preset. Linux defaults are Ctrl+Shift+R/F; Mac
-uses Command+Shift+R/F. Shortcut settings can edit or clear these bindings.
+uses Command+Option+R/F. Shortcut settings can edit or clear these bindings.
 A right-gap drag displays a snapped guide and commits on release. Other terminal
 preferences stay unchanged. A lone terminal starts at half width too.
 
