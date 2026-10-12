@@ -23,3 +23,13 @@ static void ui_focus_button(Font font, UiFocus focus, int item, Rectangle bounds
 {
     draw_header_button(font,bounds,label,enabled);ui_focus_ring(focus,item,bounds);
 }
+
+static void ui_focus_action(Font font, UiFocus focus, int item, Rectangle bounds, const char *label, bool enabled, bool destructive)
+{
+    draw_header_button(font,bounds,label,enabled);
+    if (enabled) {
+        Color color=destructive ? ui.danger : ui.accent;
+        DrawRectangleRoundedLinesEx(bounds,ui_roundness(bounds,6),8,1,ui_mix(ui.surface,color,.65f));
+    }
+    ui_focus_ring(focus,item,bounds);
+}

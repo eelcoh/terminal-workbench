@@ -146,19 +146,19 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         Rectangle strip = {bounds.x+16,y,bounds.width-32,overview_group_height(client)};
         if (!CheckCollisionRecs(strip,overview_content(client))) continue;
         overview_clip(client,(Rectangle){bounds.x+16,y,bounds.width-100,24});
-        DrawTextEx(client->font, workspace->name, (Vector2){bounds.x + 16, y + 4}, 14, 0, ui.text);
+        DrawTextEx(client->ui_font, workspace->name, (Vector2){bounds.x + 16, y + 4},UI_TEXT_BODY, 0, ui.text);
         EndScissorMode();
         int matches = 0;
         for (int i = 0; i < count; i++) matches += items[i].workspace == w;
         overview_clip(client,overview_content(client));
         if (matches > overview_columns_visible(client)) {
-            draw_header_button(client->font, overview_pan_button(client, group, false), "<", client->overview_horizontal[w].target > 0);
-            draw_header_button(client->font, overview_pan_button(client, group, true), ">", client->overview_horizontal[w].target + overview_columns_visible(client) < matches);
+            draw_header_button(client->ui_font, overview_pan_button(client, group, false), "<", client->overview_horizontal[w].target > 0);
+            draw_header_button(client->ui_font, overview_pan_button(client, group, true), ">", client->overview_horizontal[w].target + overview_columns_visible(client) < matches);
         }
         if (!matches) {
             Rectangle empty = {bounds.x + 16, y + 26, bounds.width - 32, overview_group_height(client) - 38};
-            DrawTextEx(client->font, workspace->count ? "Drop into this workspace" : "Empty workspace / drop a terminal here",
-                (Vector2){empty.x + 16, empty.y + 16}, 13, 0, ui.muted);
+            DrawTextEx(client->ui_font, workspace->count ? "Drop into this workspace" : "Empty workspace / drop a terminal here",
+                (Vector2){empty.x + 16, empty.y + 16},UI_TEXT_BODY, 0, ui.muted);
         }
         EndScissorMode();
     }
@@ -175,7 +175,7 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         DrawRectangleRec((Rectangle){card.x, card.y, card.width, 24}, ui.raised);
         EndScissorMode();
         overview_clip(client,(Rectangle){card.x+8,card.y,card.width-24,24});
-        DrawTextEx(client->font, pane->name, (Vector2){card.x + 8, card.y + 5}, 13, 0, ui.text);
+        DrawTextEx(client->ui_font, pane->name, (Vector2){card.x + 8, card.y + 5},UI_TEXT_BODY, 0, ui.text);
         EndScissorMode();
         overview_clip(client,overview_content(client));
         if (pane->unread) DrawCircle((int)(card.x + card.width - 12), (int)(card.y + 12), 3, ui.waiting);
@@ -185,7 +185,7 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         snprintf(detail, sizeof(detail), "%s%s%s", agent, agent[0] ? " / " : "", status);
         EndScissorMode();
         overview_clip(client,(Rectangle){card.x+8,card.y+card.height-23,card.width-16,23});
-        DrawTextEx(client->font, detail, (Vector2){card.x + 8, card.y + card.height - 18}, 12, 0,
+        DrawTextEx(client->ui_font, detail, (Vector2){card.x + 8, card.y + card.height - 18},UI_TEXT_CAPTION, 0,
             agent[0] ? remote_attention_color(pane->transport.attention) : ui.muted);
         EndScissorMode();
         overview_clip(client,overview_content(client));

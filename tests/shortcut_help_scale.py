@@ -77,7 +77,7 @@ def main():
                     image=wait_until(lambda:next((path for path in root.glob('screenshot*.png') if path.stat().st_mtime_ns>=started),None),timeout=5)
                     artifacts=ROOT/'.local/test-results'; artifacts.mkdir(exist_ok=True)
                     mode='reduced' if env.get('WORKBENCH_REDUCED_MOTION')=='1' else 'animated'
-                    target=artifacts/f'help-scale-{total}-{mode}.png'; shutil.copyfile(image,target); key('ctrl+u'); return target
+                    target=artifacts/f'help-scale-{env.get("WORKBENCH_RENDER_SCALE","1")}x-{total}-{mode}.png'; shutil.copyfile(image,target); key('ctrl+u'); return target
                 verify(0,'initial')
                 # Equal terminal estate: one full column versus two half columns.
                 if active==1: key('ctrl+shift+f');time.sleep(.3)
@@ -86,10 +86,11 @@ def main():
                 def ticks():return sum(map(int,Path(f'/proc/{viewer.pid}/stat').read_text().split(') ',1)[1].split()[11:13]))
                 started=time.monotonic();start=ticks();time.sleep(2)
                 cpu=(ticks()-start)/ticks_per_second/(time.monotonic()-started)*100
-                log.flush();assert (root/'test.log').read_text().count('Texture loaded successfully (920x578')==1, 'idle help repeatedly allocated its body'
+                scale=int(env.get('WORKBENCH_RENDER_SCALE','1'))
+                log.flush();assert (root/'test.log').read_text().count(f'Texture loaded successfully ({920*scale}x{578*scale}')==1, 'idle help repeatedly allocated its body'
                 assert geometry()==baseline;key('ctrl+shift+slash');verify(0,'help-scale-input')
                 alive();close_window(window,env);assert viewer.wait(timeout=5)==0
-                print(f'PASS ({total}, help at 1240x760): populated panes, retained PID/socket/geometry, input after toggle; 2s idle CPU={cpu:.1f}%')
+                print(f'PASS ({total}, help at 1240x760 / {scale}x backing): populated panes, retained PID/socket/geometry, input after toggle; 2s idle CPU={cpu:.1f}%')
             except Exception:
                 log.flush(); print((root/'test.log').read_text()[-6000:],file=sys.stderr); raise
             finally:

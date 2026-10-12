@@ -412,3 +412,45 @@ These short samples do not establish native frame pacing or a performance gain.
 Native Mac focus, Option/slash handling, non-US layouts, IME, physical trackpad
 interaction, Retina and accessibility acceptance remain open. The UI gate is
 not yet complete. See [Mac focus checks](macos-build.md#keyboard-focus-acceptance).
+
+## Typography and surface polish prototype
+
+The owner confirmed basic Mac keyboard focus, then requested stronger typography
+and general polish, also reporting soft Mac terminal text. The current slice
+adds bundled Adwaita Sans for interface text and keeps terminal content and
+keycaps monospace. Shared 12/14/16/22/24-pixel text roles, larger field/title text,
+consistent corners, quieter disabled controls and explicit action/hover/pressed
+outlines improve hierarchy without adding permanent chrome.
+
+Source inspection found Retina atlases being reduced into logical-size pane
+textures and enlarged for display. Pane and navigation canvases now allocate at
+backing resolution, draw logical coordinates through a camera and snap presentation
+to backing pixels. Help's retained body follows the same resolution and clip
+contract. Terminal sizing and input coordinates remain logical.
+
+See [the rendering and typography details](interface-typography.md). Native Mac
+font appearance, Retina/non-Retina and monitor transitions need owner review;
+Linux simulated 2x checks cannot substitute for that. The overall UI gate stays
+open for visual acceptance, complex shaping, IME and accessibility.
+
+Validation for this slice passes `just check`, the Linux viewer build, help and
+Overview (ordinary/reduced motion), Commands, Appearance (1/15 populated panes),
+Unicode glyph rendering and `just retina-gui-test`. The latter protects the
+existing 7×16 grid: 1x and 2x both reported 41 rows / 72 columns in the fixed
+half-pane fixture, retained live shell state, exercised explicit stop/recovery,
+and verified 1026×1416 pane and 1840×1156 help backing allocations at 2x.
+Doubled-resolution navigation also passes with 15 populated terminals.
+
+Dark/light captures were visually reviewed, including help, fields, action/focus
+outlines and Appearance. Captures live under `.local/test-results/`, including
+`focus-help-edit.png`, `focus-appearance-cancel-light.png` and `retina-focus-*.png`.
+
+Fixed 1240×760, sequential two-second help samples with a visible focus outline
+measured 250.9% / 278.4% CPU for 1 / 15 terminals at 1x (+11.0%), and
+286.5% / 333.4% at 2x (+16.4%; 100% is one CPU core). Every run retained
+PID/socket/geometry and one help-body allocation through idle. These short
+llvmpipe measurements are noisy; they establish neither a performance gain nor
+native GPU/frame-pacing acceptance. Backing textures cost four times the pixels
+at 2x, while fixed overview previews stay bounded. Interface font atlases load
+once per window; the new draw helpers do not add filesystem/process inspection
+or terminal-state aggregation to pane loops.

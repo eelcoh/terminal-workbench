@@ -184,5 +184,6 @@ previous transaction. Closing a recorder returns to its settings result. Help
 over Overview preserves the exact query, selection and focused control.
 
 `just focus-gui-test` checks these flows with disposable Linux/Xvfb sessions.
-Native Mac focus, Option input, non-US layouts, IME and accessibility remain
+The owner confirmed basic Mac focus navigation. Broader Option input, non-US
+layouts, IME and accessibility remain
 part of platform acceptance.

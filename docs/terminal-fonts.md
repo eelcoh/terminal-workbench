@@ -29,3 +29,14 @@ image is `.local/test-results/fonts.png`. The owner confirmed glyph rendering
 on Linux and native macOS in GitHub Copilot CLI. Specific Retina scale coverage
 and the broader shaping requirements remain open.
 Running terminals can stay alive during the viewer rebuild.
+
+## Terminal sharpness and interface fonts
+
+Interface chrome now has its own bundled sans-serif face and type hierarchy.
+Terminal text retains the existing monospace font and 7×16 logical grid. Pane
+and navigation canvases now render at backing-pixel resolution, removing the
+logical-texture reduction/enlargement stage on Retina displays. Help uses a
+matching backing texture. See [typography and backing resolution](interface-typography.md).
+
+The owner reported soft terminal text on Mac before this change. Native Mac
+sharpness of the corrected pipeline remains to be reviewed after rebuilding.

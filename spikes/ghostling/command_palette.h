@@ -193,15 +193,15 @@ static void command_draw(WorkspaceClient *client)
     if (client->shortcut_recording) { shortcut_record_draw(client);return; }
     Rectangle b=command_bounds();
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,160}); ui_panel(b,ui.surface,true);
-    DrawTextEx(client->font,client->command_settings ? "Shortcut settings" : "Commands",(Vector2){b.x+20,b.y+20},16,0,ui.text);
-    ui_focus_button(client->font,client->command_focus,2,(Rectangle){b.x+b.width-80,b.y+14,64,24},"Done",true);
+    DrawTextEx(client->ui_font,client->command_settings ? "Shortcut settings" : "Commands",(Vector2){b.x+20,b.y+20},UI_TEXT_TITLE,0,ui.text);
+    ui_focus_button(client->ui_font,client->command_focus,2,(Rectangle){b.x+b.width-80,b.y+14,64,24},"Done",true);
     Rectangle field={b.x+16,b.y+54,b.width-32,32};
     DrawRectangleRounded(field,.2f,8,ui.background); DrawRectangleRoundedLinesEx(field,.2f,8,1,ui.accent);
     ui_focus_ring(client->command_focus,0,field);
     BeginScissorMode((int)field.x+8,(int)field.y,(int)field.width-16,(int)field.height);
-    Vector2 size=MeasureTextEx(client->font,client->command_query,14,0);
+    Vector2 size=MeasureTextEx(client->ui_font,client->command_query,UI_TEXT_BODY,0);
     if (client->command_focus.item==0 && client->command_all && client->command_query[0]) DrawRectangleRec((Rectangle){field.x+8,field.y+6,size.x,20},ui_color(current_theme.selection_background));
-    DrawTextEx(client->font,client->command_query[0] ? client->command_query : "Search actions...",(Vector2){field.x+8,field.y+8},14,0,
+    DrawTextEx(client->ui_font,client->command_query[0] ? client->command_query : "Search actions...",(Vector2){field.x+8,field.y+8},UI_TEXT_BODY,0,
         !client->command_query[0] ? ui.muted : client->command_focus.item==0 && client->command_all ? ui_color(current_theme.selection_foreground) : ui.text);
     if (client->command_focus.item==0 && !client->command_all && ((int)(GetTime()*2)%2==0)) DrawLine((int)(field.x+8+size.x),(int)field.y+6,(int)(field.x+8+size.x),(int)field.y+26,ui.text);
     EndScissorMode();
@@ -214,15 +214,15 @@ static void command_draw(WorkspaceClient *client)
         if (selected) DrawRectangleRounded((Rectangle){row.x+2,row.y+8,3,row.height-16},.5f,6,ui.accent);
         char binding[96];shortcut_label(client->shortcuts.bindings[command],shortcut_platform_apple(),binding,sizeof(binding));
         if (!client->shortcuts.bindings[command].key) strcpy(binding,client->command_settings ? "Unbound" : "");
-        Vector2 binding_size=MeasureTextEx(client->font,binding,11,0);
-        DrawTextEx(client->font,binding,(Vector2){row.x+row.width-binding_size.x-12,row.y+7},11,0,ui.muted);
+        Vector2 binding_size=MeasureTextEx(client->font,binding,12,0);
+        DrawTextEx(client->font,binding,(Vector2){row.x+row.width-binding_size.x-12,row.y+7},12,0,ui.muted);
         BeginScissorMode((int)row.x+10,(int)row.y,(int)(row.width-28-binding_size.x),(int)row.height);
-        DrawTextEx(client->font,command_definitions[command].title,(Vector2){row.x+12,row.y+5},14,0,reason ? ui.muted : ui.text);
-        DrawTextEx(client->font,reason ? reason : client->command_settings ? ((command==COMMAND_OVERVIEW || command==COMMAND_HELP) ? "Working view / overview; Enter edits" : "Working view; Enter edits binding") : command_definitions[command].detail,(Vector2){row.x+12,row.y+24},11,0,reason ? ui.waiting : ui.muted);
+        DrawTextEx(client->ui_font,command_definitions[command].title,(Vector2){row.x+12,row.y+5},UI_TEXT_LEAD,0,reason ? ui.muted : ui.text);
+        DrawTextEx(client->ui_font,reason ? reason : client->command_settings ? ((command==COMMAND_OVERVIEW || command==COMMAND_HELP) ? "Working view / overview; Enter edits" : "Working view; Enter edits binding") : command_definitions[command].detail,(Vector2){row.x+12,row.y+24},UI_TEXT_CAPTION,0,reason ? ui.waiting : ui.muted);
         EndScissorMode();
     }
-    if (!count) DrawTextEx(client->font,"No matching actions",(Vector2){b.x+24,b.y+110},14,0,ui.muted);
+    if (!count) DrawTextEx(client->ui_font,"No matching actions",(Vector2){b.x+24,b.y+110},UI_TEXT_BODY,0,ui.muted);
     char hint[160],opening[96];shortcut_label(client->shortcuts.bindings[COMMAND_PALETTE],shortcut_platform_apple(),opening,sizeof(opening));
     snprintf(hint,sizeof(hint),"%s   Tab focuses   Arrows choose   Enter %s   Esc closes",opening,client->command_settings ? "edits" : "runs");
-    DrawTextEx(client->font,client->shortcut_error[0] ? client->shortcut_error : hint,(Vector2){b.x+20,b.y+b.height-24},10,0,client->shortcut_error[0] ? ui.waiting : ui.muted);
+    DrawTextEx(client->ui_font,client->shortcut_error[0] ? client->shortcut_error : hint,(Vector2){b.x+20,b.y+b.height-24},UI_TEXT_CAPTION,0,client->shortcut_error[0] ? ui.waiting : ui.muted);
 }

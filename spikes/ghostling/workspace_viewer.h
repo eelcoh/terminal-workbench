@@ -1,4 +1,6 @@
 #include "theme_catalog.h"
+#include "ui_font.h"
+#include "pixel_geometry.h"
 #include "appearance_state.h"
 /* Experimental client layout. Runtime processes remain independently owned.
  * Terminal setup/rendering builds on the MIT-licensed Ghostling example;
@@ -70,7 +72,8 @@ typedef struct {
     float divider_preview;
     bool divider_dragging;
     int cell_width, cell_height;
-    Font font;
+    Font font, ui_font;
+    float raster_scale;
     const char *catalog_path;
     struct stat catalog_stamp;
     double catalog_checked;
@@ -320,7 +323,7 @@ static bool workspace_layout(WorkspaceClient *client)
         if (rows > 1000) rows = 1000;
         if (cols != pane->transport.wanted_cols || rows != pane->transport.wanted_rows)
             remote_resize(pane->fd, (uint16_t)cols, (uint16_t)rows);
-        int width = (int)pane->bounds.width, canvas_height = (int)pane->bounds.height;
+        int width=pixel_extent((int)pane->bounds.width,client->raster_scale),canvas_height=pixel_extent((int)pane->bounds.height,client->raster_scale);
         if (pane->canvas.texture.width != width || pane->canvas.texture.height != canvas_height) {
             if (pane->canvas.id) UnloadRenderTexture(pane->canvas);
             pane->canvas = LoadRenderTexture(width, canvas_height);
@@ -358,7 +361,7 @@ static Rectangle workspace_row(int index)
 static void workspace_chrome(WorkspaceClient *client)
 {
     DrawRectangle(0, 32, WORKBENCH_SIDEBAR, GetScreenHeight() - 32, ui.surface);
-    DrawTextEx(client->font, "WORKSPACES", (Vector2){16, 56}, 14, 0, ui.muted);
+    DrawTextEx(client->ui_font, "WORKSPACES", (Vector2){16, 56},UI_TEXT_BODY, 0, ui.muted);
     int visible_rows = (GetScreenHeight() - 268) / 44;
     if (visible_rows < 1) visible_rows = 1;
     for (int w = client->sidebar_first; w < client->count && w < client->sidebar_first + visible_rows; w++) {
@@ -370,20 +373,20 @@ static void workspace_chrome(WorkspaceClient *client)
         DrawRectangleRounded(row,.22f,8,active ? ui.selected : hovered ? ui.hover : ui.surface);
         if (active) DrawRectangleRounded((Rectangle){row.x+2,row.y+10,3,row.height-20},.5f,6,ui.accent);
         BeginScissorMode((int)row.x + 8, (int)row.y, (int)row.width - 32, (int)row.height);
-        DrawTextEx(client->font, client->workspaces[w].name, (Vector2){row.x + 10, row.y + 10}, 14, 0,
+        DrawTextEx(client->ui_font, client->workspaces[w].name, (Vector2){row.x + 10, row.y + 10},UI_TEXT_BODY, 0,
                    active ? ui.text : ui.muted);
         EndScissorMode();
         if (unread) DrawCircle((int)(row.x + row.width - 12), (int)(row.y + 18), 3, ui.waiting);
     }
-    draw_header_button(client->font, theme_button(), "Appearance", !client->dialog_open);
-    draw_header_button(client->font,command_button(),"Commands",!client->dialog_open && !client->theme_open && !client->overview_open && !client->management_busy);
+    draw_header_button(client->ui_font, theme_button(), "Appearance", !client->dialog_open);
+    draw_header_button(client->ui_font,command_button(),"Commands",!client->dialog_open && !client->theme_open && !client->overview_open && !client->management_busy);
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     WorkbenchPane *focused = workspace->panes[workspace->focused];
     bool can_copy = focused && selection_active(focused->terminal);
     bool can_paste = focused && !focused->closed && !focused->transport.replaying;
-    draw_window_controls(client->font, can_copy, can_paste, client->forwarding ? "Next key (Esc cancels)" : clipboard_current_notice());
+    draw_window_controls(client->ui_font, can_copy, can_paste, client->forwarding ? "Next key (Esc cancels)" : clipboard_current_notice());
     management_controls(client);
-    draw_header_button(client->font, overview_button(), "Overview", !client->dialog_open);
+    draw_header_button(client->ui_font, overview_button(), "Overview", !client->dialog_open);
 }
 
 /* Render at presentation geometry without changing pane bounds or PTY size. */
@@ -397,6 +400,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     GhosttyTerminalScrollbar scrollbar = {0};
     ghostty_terminal_get(pane->terminal, GHOSTTY_TERMINAL_DATA_SCROLLBAR, &scrollbar);
     BeginTextureMode(canvas);
+    BeginMode2D((Camera2D){.zoom=client->raster_scale});
     ClearBackground((Color){colors.background.r, colors.background.g, colors.background.b, 255});
     render_terminal(pane->render, pane->rows, pane->cells, client->font,
                     client->cell_width, client->cell_height, 16, 4,
@@ -406,7 +410,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
          * of its text. The opaque footer belongs to client chrome. */
         Rectangle footer={0,fmaxf(32,bounds.height-34),bounds.width,34};
         DrawRectangleRec(footer,ui.surface);
-        BeginScissorMode(8,(int)footer.y,(int)bounds.width-16,34);
+        BeginScissorMode((int)(8*client->raster_scale),(int)(footer.y*client->raster_scale),(int)((bounds.width-16)*client->raster_scale),(int)(34*client->raster_scale));
         const char *hint=client->managed && pane->runtime_state==RUNTIME_STOPPED
             ? "Shell stopped. Start a new shell to continue; prior jobs do not resume."
             : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE
@@ -418,7 +422,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
                 ? "Earlier runtime: close the owning window, then Reconnect."
                 : "Move here to continue in the live terminal.")
             : "Connection closed. Move here to try reconnecting.";
-        DrawTextEx(client->font,hint,(Vector2){10,footer.y+10},12,0,ui.muted);
+        DrawTextEx(client->ui_font,hint,(Vector2){10,footer.y+10},UI_TEXT_CAPTION,0,ui.muted);
         EndScissorMode();
     }
     DrawRectangle(0, 0, (int)bounds.width, 32, ui.surface);
@@ -428,8 +432,8 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
              agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
              pane->closed ? (client->managed && pane->runtime_state==RUNTIME_STOPPED ? "  /  shell stopped" : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "  /  status unavailable" : pane->transport.attached_elsewhere ? "  /  open in another window" : "  /  disconnected") : pane->transport.replaying ? "  /  connecting" : "");
     int reserve=bounds.width<300 ? (pane->closed ? 142 : 16) : (pane->closed ? (pane->runtime_state==RUNTIME_STOPPED ? 282 : 242) : 150);
-    BeginScissorMode(8,0,(int)fmaxf(1,bounds.width-reserve),32);
-    DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, ui.text);
+    BeginScissorMode((int)(8*client->raster_scale),0,(int)(fmaxf(1,bounds.width-reserve)*client->raster_scale),(int)(32*client->raster_scale));
+    DrawTextEx(client->ui_font, label, (Vector2){10, 8},UI_TEXT_BODY, 0, ui.text);
     EndScissorMode();
     if (pane->unread && !pane->closed) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
     if (pane->closed) {
@@ -439,12 +443,13 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
             : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "Check again"
             : client->managed && pane->runtime_state==RUNTIME_CHECKING ? "Checking..."
             : pane->transport.takeover_unsupported ? "Reconnect" : "Move here";
-        draw_header_button(client->font,action,label,!client->managed || pane->runtime_state!=RUNTIME_CHECKING);
+        draw_header_button(client->ui_font,action,label,!client->managed || pane->runtime_state!=RUNTIME_CHECKING);
     }
     if (client->managed && bounds.width>=300) {
-        draw_header_button(client->font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
-        draw_header_button(client->font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);
+        draw_header_button(client->ui_font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
+        draw_header_button(client->ui_font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);
     }
+    EndMode2D();
     EndTextureMode();
     pane_unbind();
 }
@@ -550,15 +555,22 @@ static int workspace_main(const char *catalog)
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetWindowMinSize(800, 300);
     SetTargetFPS(60);
-    Vector2 dpi = GetWindowScaleDPI();
-    int font_pixels = (int)(16 * dpi.y);
+    client->raster_scale=pixel_scale(GetScreenWidth(),GetRenderWidth());
+    /* Diagnostic override exercises doubled backing textures on a 1x Xvfb display. */
+    const char *raster_override=getenv("WORKBENCH_RENDER_SCALE");
+    if (raster_override) {
+        char *end=NULL;float scale=strtof(raster_override,&end);
+        if (end && !*end && isfinite(scale) && scale>=1 && scale<=4) client->raster_scale=scale;
+    }
+    int font_pixels=(int)(16*client->raster_scale);
     client->font = terminal_font_load(font_pixels);
     SetTextureFilter(client->font.texture, TEXTURE_FILTER_BILINEAR);
     Vector2 glyph = MeasureTextEx(client->font, "M", font_pixels, 0);
-    client->cell_width = (int)(glyph.x / dpi.x);
-    client->cell_height = (int)(glyph.y / dpi.y);
+    client->cell_width = (int)(glyph.x / client->raster_scale);
+    client->cell_height = (int)(glyph.y / client->raster_scale);
     if (client->cell_width < 1) client->cell_width = 1;
     if (client->cell_height < 1) client->cell_height = 1;
+    client->ui_font=ui_font_load(client->raster_scale,client->font);
     ghostty_sys_set(GHOSTTY_SYS_OPT_DECODE_PNG, (const void *)decode_png);
     for (int w = 0; w < client->count; w++)
         for (int p = 0; p < client->workspaces[w].count; p++)
@@ -747,7 +759,7 @@ static int workspace_main(const char *catalog)
                 DrawText(label,(int)client->divider_preview-32,48,18,ui.accent);
             }
         }
-        if (!workspace->count) DrawTextEx(client->font, "Create a terminal to start working", (Vector2){224, 110}, 16, 0, ui.muted);
+        if (!workspace->count) DrawTextEx(client->ui_font, "Create a terminal to start working", (Vector2){224, 110},UI_TEXT_LEAD, 0, ui.muted);
         workspace_chrome(client);
         if (client->dialog_open) dialog_draw(client);
         if (client->overview_open) overview_present(client);
@@ -774,6 +786,7 @@ cleanup:
     if (client->help_canvas.id) UnloadRenderTexture(client->help_canvas);
     for (int p=0;p<WORKBENCH_PANES;p++)
         if (client->navigation_tiles[p].canvas.id) UnloadRenderTexture(client->navigation_tiles[p].canvas);
+    ui_font_unload(client->ui_font,client->font);
     terminal_font_unload(client->font);
     CloseWindow();
     free(client);

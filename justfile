@@ -145,3 +145,8 @@ shortcuts-scale-gui-test: spike-build
 # Keyboard focus traversal, explicit confirmations and overlay restoration.
 focus-gui-test: spike-build
     python3 tests/ui_focus_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Backing-texture/atlas fidelity and logical PTY/input contracts at simulated 2x.
+retina-gui-test: spike-build
+    python3 tests/retina_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+    WORKBENCH_RENDER_SCALE=2 python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15

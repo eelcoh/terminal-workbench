@@ -63,28 +63,28 @@ static void shortcut_help_input(WorkspaceClient *client)
     }
 }
 /* Retain only the static scroll body; modal buttons still draw live hover states. */
-static void shortcut_help_content(WorkspaceClient *client, Rectangle body, bool wide)
+static void shortcut_help_content(WorkspaceClient *client, Rectangle body, bool wide, float scale)
 {
-    BeginScissorMode((int)body.x,(int)body.y,(int)body.width,(int)body.height);
+    BeginScissorMode((int)(body.x*scale),(int)(body.y*scale),(int)(body.width*scale),(int)(body.height*scale));
     for (int g=0;g<SHORTCUT_HELP_GROUPS;g++) {
         float width=wide ? (body.width-12)/2 : body.width;
         Rectangle card={body.x+(wide ? g%2*(width+12) : 0),body.y+shortcut_help_group_top(g,wide)-client->help_scroll,width,shortcut_help_group_height(g)};
         if (card.y+card.height<=body.y || card.y>=body.y+body.height) continue;
         DrawRectangleRounded(card,.08f,8,ui.background);
-        DrawTextEx(client->font,shortcut_help_groups[g].title,(Vector2){card.x+14,card.y+12},14,0,ui.accent);
+        DrawTextEx(client->ui_font,shortcut_help_groups[g].title,(Vector2){card.x+14,card.y+12},UI_TEXT_LEAD,0,ui.accent);
         for (int row=0;row<shortcut_help_groups[g].count;row++) {
             int action=shortcut_help_groups[g].actions[row];float y=card.y+38+row*32;
-            float binding_width=fminf(card.width*.58f,MeasureTextEx(client->font,client->help_bindings[action],12,0).x+16);
+            float binding_width=fminf(card.width*.58f,MeasureTextEx(client->font,client->help_bindings[action],13,0).x+16);
             Rectangle pill={card.x+card.width-binding_width-12,y,binding_width,24};
             DrawRectangleRounded(pill,.22f,8,ui.raised);
             /* Intersect row clips with the scroll body; Raylib scissors do not nest. */
             int top=(int)fmaxf(body.y,y),bottom=(int)fminf(body.y+body.height,y+26);
             if (bottom<=top) continue;
-            BeginScissorMode((int)card.x+14,top,(int)fmaxf(1,card.width-binding_width-38),bottom-top);
-            DrawTextEx(client->font,command_definitions[action].title,(Vector2){card.x+14,y+5},12,0,ui.text);
-            BeginScissorMode((int)pill.x+7,top,(int)pill.width-14,bottom-top);
-            DrawTextEx(client->font,client->help_bindings[action],(Vector2){pill.x+8,y+5},12,0,client->shortcuts.bindings[action].key ? ui.text : ui.muted);
-            BeginScissorMode((int)body.x,(int)body.y,(int)body.width,(int)body.height);
+            BeginScissorMode((int)((card.x+14)*scale),(int)(top*scale),(int)(fmaxf(1,card.width-binding_width-38)*scale),(int)((bottom-top)*scale));
+            DrawTextEx(client->ui_font,command_definitions[action].title,(Vector2){card.x+14,y+5},UI_TEXT_BODY,0,ui.text);
+            BeginScissorMode((int)((pill.x+7)*scale),(int)(top*scale),(int)((pill.width-14)*scale),(int)((bottom-top)*scale));
+            DrawTextEx(client->font,client->help_bindings[action],(Vector2){pill.x+8,y+5},13,0,client->shortcuts.bindings[action].key ? ui.text : ui.muted);
+            BeginScissorMode((int)(body.x*scale),(int)(body.y*scale),(int)(body.width*scale),(int)(body.height*scale));
         }
     }
     EndScissorMode();
@@ -92,7 +92,7 @@ static void shortcut_help_content(WorkspaceClient *client, Rectangle body, bool 
 static void shortcut_help_prepare(WorkspaceClient *client)
 {
     Rectangle body=shortcut_help_body();
-    int width=(int)body.width,height=(int)body.height;
+    int width=pixel_extent(body.width,client->raster_scale),height=pixel_extent(body.height,client->raster_scale);
     if (client->help_canvas.id && (client->help_canvas.texture.width!=width || client->help_canvas.texture.height!=height)) {
         UnloadRenderTexture(client->help_canvas);client->help_canvas=(RenderTexture2D){0};client->help_dirty=true;
     }
@@ -105,7 +105,9 @@ static void shortcut_help_prepare(WorkspaceClient *client)
     }
     if (!client->help_canvas.id || !client->help_dirty) return;
     BeginTextureMode(client->help_canvas);ClearBackground(BLANK);
-    shortcut_help_content(client,(Rectangle){0,0,width,height},shortcut_help_bounds().width>=900);
+    BeginMode2D((Camera2D){.zoom=client->raster_scale});
+    shortcut_help_content(client,(Rectangle){0,0,body.width,body.height},shortcut_help_bounds().width>=900,client->raster_scale);
+    EndMode2D();
     EndTextureMode();client->help_dirty=false;
 }
 static void shortcut_help_draw(WorkspaceClient *client)
@@ -113,21 +115,21 @@ static void shortcut_help_draw(WorkspaceClient *client)
     Rectangle b=shortcut_help_bounds(),body=shortcut_help_body();bool wide=b.width>=900;
     float maximum=fmaxf(0,shortcut_help_content_height(wide)-body.height);
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,160});ui_panel(b,ui.surface,true);
-    DrawTextEx(client->font,"Keyboard shortcuts",(Vector2){b.x+22,b.y+20},20,0,ui.text);
-    DrawTextEx(client->font,"Your current bindings. Terminal actions apply in the working view.",(Vector2){b.x+22,b.y+52},13,0,ui.muted);
-    ui_focus_button(client->font,client->help_focus,2,(Rectangle){b.x+b.width-84,b.y+18,64,26},"Done",true);
+    DrawTextEx(client->ui_font,"Keyboard shortcuts",(Vector2){b.x+22,b.y+20},UI_TEXT_DISPLAY,0,ui.text);
+    DrawTextEx(client->ui_font,"Your current bindings. Terminal actions apply in the working view.",(Vector2){b.x+22,b.y+52},UI_TEXT_BODY,0,ui.muted);
+    ui_focus_button(client->ui_font,client->help_focus,2,(Rectangle){b.x+b.width-84,b.y+18,64,26},"Done",true);
     if (client->help_canvas.id)
-        DrawTextureRec(client->help_canvas.texture,(Rectangle){0,0,body.width,-body.height},(Vector2){body.x,body.y},WHITE);
-    else shortcut_help_content(client,body,wide);
+        DrawTexturePro(client->help_canvas.texture,(Rectangle){0,0,client->help_canvas.texture.width,-client->help_canvas.texture.height},body,(Vector2){0},0,WHITE);
+    else shortcut_help_content(client,body,wide,1);
     ui_focus_ring(client->help_focus,0,body);
     if (maximum>0) {
         float thumb=fmaxf(20,body.height*body.height/(body.height+maximum));
         DrawRectangleRounded((Rectangle){body.x+body.width-3,body.y+(body.height-thumb)*client->help_scroll/maximum,3,thumb},.5f,6,ui.muted);
     }
-    ui_focus_button(client->font,client->help_focus,1,shortcut_help_settings(),"Edit shortcuts",true);
+    ui_focus_button(client->ui_font,client->help_focus,1,shortcut_help_settings(),"Edit shortcuts",true);
     char hint[160];snprintf(hint,sizeof(hint),"%s%sTab focuses   Esc closes   Arrows / wheel scroll",
         client->shortcuts.bindings[COMMAND_HELP].key ? client->help_bindings[COMMAND_HELP] : "",
         client->shortcuts.bindings[COMMAND_HELP].key ? " toggles   " : "");
     BeginScissorMode((int)b.x+180,(int)b.y+(int)b.height-42,(int)b.width-200,30);
-    DrawTextEx(client->font,hint,(Vector2){b.x+180,b.y+b.height-31},11,0,ui.muted);EndScissorMode();
+    DrawTextEx(client->ui_font,hint,(Vector2){b.x+180,b.y+b.height-31},UI_TEXT_CAPTION,0,ui.muted);EndScissorMode();
 }

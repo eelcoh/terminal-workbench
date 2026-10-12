@@ -1,5 +1,7 @@
 /* Presentation tokens shared by terminal chrome, overview and dialogs. */
 #include "theme_core.h"
+#include <math.h>
+enum { UI_TEXT_CAPTION=12, UI_TEXT_BODY=14, UI_TEXT_LEAD=16, UI_TEXT_TITLE=22, UI_TEXT_DISPLAY=24 };
 static Theme current_theme;
 static const Theme *active_terminal_theme;
 static const Theme *terminal_style(void) { return active_terminal_theme ? active_terminal_theme : &current_theme; }
@@ -27,14 +29,18 @@ static void ui_theme_set(Theme theme)
     ui.waiting = light ? (Color){131,86,18,255} : (Color){230,198,137,255};
     ui.ready = light ? (Color){43,112,77,255} : (Color){165,210,177,255};
 }
+static float ui_roundness(Rectangle bounds, float radius)
+{
+    return fminf(1,2*radius/fmaxf(1,fminf(bounds.width,bounds.height)));
+}
 static void ui_panel(Rectangle bounds, Color fill, bool elevated)
 {
     if (elevated) {
         Rectangle shadow = {bounds.x,bounds.y+7,bounds.width,bounds.height};
-        DrawRectangleRounded(shadow,.06f,10,(Color){0,0,0,25});
+        DrawRectangleRounded(shadow,ui_roundness(shadow,12),10,(Color){0,0,0,25});
     }
-    DrawRectangleRounded(bounds,.06f,10,fill);
-    DrawRectangleRoundedLinesEx(bounds,.06f,10,1,ui.border);
+    DrawRectangleRounded(bounds,ui_roundness(bounds,elevated ? 12 : 8),10,fill);
+    DrawRectangleRoundedLinesEx(bounds,ui_roundness(bounds,elevated ? 12 : 8),10,1,ui.border);
 }
 static void ui_apply_terminal(GhosttyTerminal terminal, const Theme *theme)
 {

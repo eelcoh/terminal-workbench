@@ -174,26 +174,26 @@ static void theme_draw(WorkspaceClient *client)
     Rectangle bounds=theme_bounds(),grid=theme_grid();
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,75});
     ui_panel(bounds,ui.surface,true);
-    DrawTextEx(client->font,"Appearance",(Vector2){bounds.x+24,bounds.y+22},20,0,ui.text);
+    DrawTextEx(client->ui_font,"Appearance",(Vector2){bounds.x+24,bounds.y+22},UI_TEXT_DISPLAY,0,ui.text);
     char target[160];
     WorkbenchWorkspace *workspace=&client->workspaces[client->active]; WorkbenchPane *focused=theme_focused(client);
     if (client->theme_scope==1) snprintf(target,sizeof(target),"Workspace: %s%s",workspace->name,appearance_binding(client->appearance.workspaces,client->appearance.workspace_count,workspace->id) ? "" : " / inherits defaults");
     else if (client->theme_scope==2) snprintf(target,sizeof(target),"Terminal: %s%s",focused ? focused->name : "none",focused && appearance_binding(client->appearance.terminals,client->appearance.terminal_count,focused->id) ? "" : " / inherits workspace");
     else snprintf(target,sizeof(target),"%s",client->theme_scope==3 ? "Default colors for terminals without a workspace theme" : "Application colors / choosing a palette keeps chrome stable");
-    DrawTextEx(client->font,target,(Vector2){bounds.x+24,bounds.y+53},12,0,ui.muted);
+    DrawTextEx(client->ui_font,target,(Vector2){bounds.x+24,bounds.y+53},UI_TEXT_CAPTION,0,ui.muted);
     const char *scopes[]={"Application","Workspace","Terminal","Defaults"};
     for (int i=0;i<4;i++) {
         bool enabled=i!=1 && i!=2 ? true : i==1 ? client->count>0 : focused!=NULL;
-        Rectangle tab=theme_scope_button(i); ui_focus_button(client->font,client->theme_focus,i+2,tab,scopes[i],enabled);
+        Rectangle tab=theme_scope_button(i); ui_focus_button(client->ui_font,client->theme_focus,i+2,tab,scopes[i],enabled);
         if (client->theme_scope==i) DrawRectangleRoundedLinesEx(tab,.2f,8,1,ui.accent);
     }
     Rectangle follow=theme_follow_button();
-    ui_focus_button(client->font,client->theme_focus,6,follow,client->appearance.follow ? "[x] Follow active workspace" : "[ ] Follow active workspace",true);
+    ui_focus_button(client->ui_font,client->theme_focus,6,follow,client->appearance.follow ? "[x] Follow active workspace" : "[ ] Follow active workspace",true);
     if (client->appearance.follow) DrawRectangleRoundedLinesEx(follow,.2f,8,1,ui.accent);
     const char *filters[]={"All","Dark","Light"};
     for (int i=0;i<3;i++) {
         Rectangle tab={bounds.x+24+i*72,bounds.y+118,64,28};
-        ui_focus_button(client->font,client->theme_focus,i+7,tab,filters[i],true);
+        ui_focus_button(client->ui_font,client->theme_focus,i+7,tab,filters[i],true);
         if (client->theme_filter==i) DrawRectangleRoundedLinesEx(tab,.2f,8,1,ui.accent);
     }
     Rectangle search={bounds.x+252,bounds.y+118,bounds.width-276,28};
@@ -201,20 +201,20 @@ static void theme_draw(WorkspaceClient *client)
     DrawRectangleRoundedLinesEx(search,.22f,8,1,ui.border);
     ui_focus_ring(client->theme_focus,0,search);
     BeginScissorMode((int)search.x+8,(int)search.y,(int)search.width-42,(int)search.height);
-    DrawTextEx(client->font,client->theme_query[0] ? client->theme_query : "Type to search palettes...",(Vector2){search.x+8,search.y+7},12,0,client->theme_query[0] ? ui.text : ui.muted);
+    DrawTextEx(client->ui_font,client->theme_query[0] ? client->theme_query : "Type to search palettes...",(Vector2){search.x+8,search.y+7},UI_TEXT_CAPTION,0,client->theme_query[0] ? ui.text : ui.muted);
     EndScissorMode();
-    if (client->theme_query[0]) ui_focus_button(client->font,client->theme_focus,10,(Rectangle){bounds.x+bounds.width-52,bounds.y+118,28,28},"x",true);
+    if (client->theme_query[0]) ui_focus_button(client->ui_font,client->theme_focus,10,(Rectangle){bounds.x+bounds.width-52,bounds.y+118,28,28},"x",true);
     int indices[THEME_CATALOG_COUNT+2],count=theme_matches(client,indices);
     BeginScissorMode((int)grid.x,(int)grid.y,(int)grid.width,(int)grid.height);
-    if (!count) DrawTextEx(client->font,"No palettes match / change the search or filter",(Vector2){grid.x+16,grid.y+24},13,0,ui.muted);
+    if (!count) DrawTextEx(client->ui_font,"No palettes match / change the search or filter",(Vector2){grid.x+16,grid.y+24},UI_TEXT_BODY,0,ui.muted);
     for (int i=0;i<count;i++) {
         Rectangle card=theme_card(i,client->theme_first);
         if (card.y+card.height<=grid.y || card.y>=grid.y+grid.height) continue;
         int index=indices[i]; const Theme *theme=theme_choice(client,index);
         bool selected=index==client->theme_selected, hovered=CheckCollisionPointRec(GetMousePosition(),card);
         ui_panel(card,selected ? ui.selected : hovered ? ui.hover : ui.raised,false);
-        DrawTextEx(client->font,theme_catalog_name(index),(Vector2){card.x+10,card.y+(card.height<80 ? 4 : 10)},13,0,ui.text);
-        DrawTextEx(client->font,theme_light(theme) ? "Light" : "Dark",(Vector2){card.x+card.width-46,card.y+(card.height<80 ? 5 : 12)},10,0,ui.muted);
+        DrawTextEx(client->ui_font,theme_catalog_name(index),(Vector2){card.x+10,card.y+(card.height<80 ? 4 : 10)},UI_TEXT_BODY,0,ui.text);
+        DrawTextEx(client->ui_font,theme_light(theme) ? "Light" : "Dark",(Vector2){card.x+card.width-46,card.y+(card.height<80 ? 5 : 12)},UI_TEXT_CAPTION,0,ui.muted);
         if (card.height>=80) {
         Rectangle sample={card.x+8,card.y+34,card.width-16,card.height-42};
         DrawRectangleRounded(sample,.1f,8,ui_color(theme->background));
@@ -235,13 +235,13 @@ static void theme_draw(WorkspaceClient *client)
     }
     int ignored=client->theme_selected<THEME_CATALOG_COUNT ? client->theme_catalog_ignored[client->theme_selected] : client->theme_selected==THEME_CATALOG_COUNT+1 || (client->theme_has_import && !memcmp(theme_choice(client,client->theme_selected),&client->theme_imported,sizeof(Theme))) ? client->theme_ignored : 0;
     const char *notice=client->theme_error[0] ? client->theme_error : ignored ? "Color fields applied / other Ghostty options ignored" : "Tab focuses / Arrows preview / Enter applies / Esc restores";
-    DrawTextEx(client->font,notice,(Vector2){bounds.x+24,bounds.y+bounds.height-64},11,0,client->theme_error[0] ? ui.danger : ui.muted);
+    DrawTextEx(client->ui_font,notice,(Vector2){bounds.x+24,bounds.y+bounds.height-64},UI_TEXT_CAPTION,0,client->theme_error[0] ? ui.danger : ui.muted);
     char label[64]; snprintf(label,sizeof(label),"%d palette%s",count,count==1 ? "" : "s");
     bool inherits=client->theme_scope==1 || client->theme_scope==2;
-    if (inherits) ui_focus_button(client->font,client->theme_focus,11,(Rectangle){bounds.x+24,bounds.y+bounds.height-48,150,30},client->theme_scope==1 ? "Use defaults" : "Use workspace",true);
-    DrawTextEx(client->font,label,(Vector2){bounds.x+(inherits ? 186 : 24),bounds.y+bounds.height-35},12,0,ui.muted);
+    if (inherits) ui_focus_button(client->ui_font,client->theme_focus,11,(Rectangle){bounds.x+24,bounds.y+bounds.height-48,150,30},client->theme_scope==1 ? "Use defaults" : "Use workspace",true);
+    DrawTextEx(client->ui_font,label,(Vector2){bounds.x+(inherits ? 186 : 24),bounds.y+bounds.height-35},UI_TEXT_CAPTION,0,ui.muted);
     Rectangle cancel={bounds.x+bounds.width-208,bounds.y+bounds.height-48,80,30};
     Rectangle apply={bounds.x+bounds.width-118,bounds.y+bounds.height-48,94,30};
-    ui_focus_button(client->font,client->theme_focus,12,cancel,"Cancel",true);
-    ui_focus_button(client->font,client->theme_focus,13,apply,"Apply",count>0);
+    ui_focus_button(client->ui_font,client->theme_focus,12,cancel,"Cancel",true);
+    ui_focus_action(client->ui_font,client->theme_focus,13,apply,"Apply",count>0,false);
 }

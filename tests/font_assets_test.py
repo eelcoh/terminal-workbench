@@ -29,6 +29,11 @@ def main():
     assert covered==sorted(set(covered))
     assert all(ord(cp) in covered for cp in '⏵◐✻📦')
     assert 'SIL OPEN FONT LICENSE Version 1.1' in (asset.parent/'OFL.txt').read_text()
-    print('PASS: cmap format 4/12, non-BMP/missing glyphs, symbol coverage, font digest and license')
+    interface=ROOT/'fonts/adwaita-sans/AdwaitaSans-Regular.ttf'
+    assert hashlib.sha256(interface.read_bytes()).hexdigest() in (interface.parent/'README.md').read_text()
+    assert 'SIL OPEN FONT LICENSE Version 1.1' in (interface.parent/'OFL.txt').read_text()
+    ui_covered=codepoints(interface.read_bytes())
+    assert all(ord(cp) in ui_covered for cp in 'Workbench café Ελληνικά / →')
+    print('PASS: bundled interface integrity/coverage/license; cmap format 4/12, non-BMP/missing glyphs, symbol coverage, font digest and license')
 
 if __name__=='__main__':main()

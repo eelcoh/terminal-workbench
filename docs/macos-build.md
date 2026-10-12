@@ -324,3 +324,17 @@ Open help with Command+Option+/, focus Edit shortcuts or Done, and verify Escape
 returns to the previous Overview filter and focus. In Appearance, visit scope,
 follow, filters, inheritance and Cancel/Apply; Escape must restore prior colors.
 Native focus and keyboard-layout acceptance of this slice is pending.
+
+### Typography and Retina review
+
+Rebuild with `just spike` and compare the terminal's text sharpness with the
+previous build on the same Retina display. Terminal font and logical size remain
+the same; the backing canvas now renders at display resolution. UI labels use a
+bundled sans-serif face with larger titles and more readable captions.
+
+Review Commands, help, name/path dialogs, Appearance and Overview in both dark
+and light application themes. Check long names/paths, narrow-window clipping,
+keyboard focus and hovered/pressed/disabled controls. Try mixed third/two-third
+widths and full width; selecting/copying text should still follow the same grid.
+Also review a non-Retina display and moving the window between different-DPI
+monitors. This slice's native typography/sharpness acceptance is pending.

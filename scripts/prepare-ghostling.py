@@ -2,7 +2,7 @@
 """Prepare a pinned Ghostling adaptation and marked Raylib input fix locally."""
 from pathlib import Path
 import subprocess
-from font_cmap import header as font_codepoint_header
+from font_cmap import header as font_codepoint_header, codepoints
 
 ROOT = Path(__file__).resolve().parent.parent
 REVISION = "63842bf8e5e481160f81d348da9ff6fd27986798"
@@ -36,6 +36,13 @@ write_if_changed(destination / "terminal_font_codepoints.h", font_codepoint_head
     (destination / "fonts/JetBrainsMono-Regular.ttf").read_bytes(),
     (destination / "fonts/NotoSansSymbols2-Regular.ttf").read_bytes()).encode())
 
+for name in ("AdwaitaSans-Regular.ttf", "OFL.txt"):
+    write_if_changed(destination / "fonts" / ("Adwaita-"+name if name=="OFL.txt" else name),
+        (ROOT / "fonts/adwaita-sans" / name).read_bytes())
+ui_points=codepoints((ROOT / "fonts/adwaita-sans/AdwaitaSans-Regular.ttf").read_bytes())
+write_if_changed(destination / "ui_font_codepoints.h", ("// Generated from the bundled interface font.\n#pragma once\nstatic int ui_font_codepoints[]={\n"+
+    "\n".join("    "+",".join(map(str,ui_points[i:i+16]))+"," for i in range(0,len(ui_points),16))+"\n};\n").encode())
+
 # Adapt only our generated CMake file; the pinned upstream tree stays unchanged.
 cmake = upstream("CMakeLists.txt").decode()
 archive = "    DOWNLOAD_EXTRACT_TIMESTAMP OFF\n    URL https://github.com/raysan5/raylib/archive/refs/tags/${RAYLIB_VERSION}.tar.gz"
@@ -59,8 +66,14 @@ add_custom_command(OUTPUT "${SYMBOL_FONT_HEADER}"
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/embed-font.py"
     "${SYMBOL_FONT_INPUT}" "${SYMBOL_FONT_HEADER}" font_noto_symbols
   DEPENDS "${SYMBOL_FONT_INPUT}" "${CMAKE_SOURCE_DIR}/embed-font.py")
+set(UI_FONT_INPUT "${CMAKE_SOURCE_DIR}/fonts/AdwaitaSans-Regular.ttf")
+set(UI_FONT_HEADER "${CMAKE_BINARY_DIR}/font_adwaita_sans.h")
+add_custom_command(OUTPUT "${UI_FONT_HEADER}"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/embed-font.py"
+    "${UI_FONT_INPUT}" "${UI_FONT_HEADER}" font_adwaita_sans
+  DEPENDS "${UI_FONT_INPUT}" "${CMAKE_SOURCE_DIR}/embed-font.py")
 # --- Our Project""")
-cmake = cmake.replace('main.c "${FONT_HEADER}"', 'main.c "${FONT_HEADER}" "${SYMBOL_FONT_HEADER}"')
+cmake = cmake.replace('main.c "${FONT_HEADER}"', 'main.c "${FONT_HEADER}" "${SYMBOL_FONT_HEADER}" "${UI_FONT_HEADER}"')
 write_if_changed(destination / "CMakeLists.txt", cmake.encode())
 
 text = upstream("main.c").decode()
@@ -178,7 +191,7 @@ replace_once('int main(void)', '#include "snapshot_restore.h"\n\nstatic int sing
 text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
 write_if_changed(destination / "main.c", text.encode())
 write_if_changed(destination / "session_bridge.h", (ROOT / "spikes/ghostling/session_bridge.h").read_bytes())
-for name in ["terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
+for name in ["terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "ui_font.h", "pixel_geometry.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
     write_if_changed(destination / name, (ROOT / "spikes/ghostling" / name).read_bytes())
 for collection in ["catppuccin", "dracula"]:
     target = destination / "theme-licenses" / collection / "LICENSE"

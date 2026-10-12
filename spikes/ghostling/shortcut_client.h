@@ -65,18 +65,18 @@ static void shortcut_record_draw(WorkspaceClient *client)
 {
     Rectangle b=dialog_bounds();char label[96];shortcut_label(client->shortcut_candidate,shortcut_platform_apple(),label,sizeof(label));
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,160});ui_panel(b,ui.surface,true);
-    DrawTextEx(client->font,"Set shortcut",(Vector2){b.x+24,b.y+22},16,0,ui.text);
-    DrawTextEx(client->font,command_definitions[client->shortcut_edit].title,(Vector2){b.x+24,b.y+50},13,0,ui.muted);
+    DrawTextEx(client->ui_font,"Set shortcut",(Vector2){b.x+24,b.y+22},UI_TEXT_TITLE,0,ui.text);
+    DrawTextEx(client->ui_font,command_definitions[client->shortcut_edit].title,(Vector2){b.x+24,b.y+50},UI_TEXT_BODY,0,ui.muted);
     DrawRectangleRounded((Rectangle){b.x+24,b.y+72,372,32},.2f,8,ui.background);
     ui_focus_ring(client->shortcut_focus,0,(Rectangle){b.x+24,b.y+72,372,32});
-    DrawTextEx(client->font,!client->shortcut_candidate.key ? "Unbound" : label,(Vector2){b.x+32,b.y+80},14,0,ui.text);
-    DrawTextEx(client->font,"Press a shortcut, then Save. Escape cancels.",(Vector2){b.x+24,b.y+112},11,0,ui.muted);
+    DrawTextEx(client->ui_font,!client->shortcut_candidate.key ? "Unbound" : label,(Vector2){b.x+32,b.y+80},UI_TEXT_BODY,0,ui.text);
+    DrawTextEx(client->ui_font,"Press a shortcut, then Save. Escape cancels.",(Vector2){b.x+24,b.y+112},UI_TEXT_CAPTION,0,ui.muted);
     BeginScissorMode((int)b.x+24,(int)b.y+130,372,28);
-    DrawTextEx(client->font,client->shortcut_error,(Vector2){b.x+24,b.y+132},10,0,ui.waiting);EndScissorMode();
-    ui_focus_button(client->font,client->shortcut_focus,1,(Rectangle){b.x+24,b.y+162,72,30},"Clear",true);
-    ui_focus_button(client->font,client->shortcut_focus,2,(Rectangle){b.x+104,b.y+162,92,30},"Default",true);
-    ui_focus_button(client->font,client->shortcut_focus,3,(Rectangle){b.x+216,b.y+162,80,30},"Cancel",true);
-    ui_focus_button(client->font,client->shortcut_focus,4,(Rectangle){b.x+306,b.y+162,90,30},"Save",client->shortcut_capture_valid);
+    DrawTextEx(client->ui_font,client->shortcut_error,(Vector2){b.x+24,b.y+132},UI_TEXT_CAPTION,0,ui.waiting);EndScissorMode();
+    ui_focus_button(client->ui_font,client->shortcut_focus,1,(Rectangle){b.x+24,b.y+162,72,30},"Clear",true);
+    ui_focus_button(client->ui_font,client->shortcut_focus,2,(Rectangle){b.x+104,b.y+162,92,30},"Default",true);
+    ui_focus_button(client->ui_font,client->shortcut_focus,3,(Rectangle){b.x+216,b.y+162,80,30},"Cancel",true);
+    ui_focus_action(client->ui_font,client->shortcut_focus,4,(Rectangle){b.x+306,b.y+162,90,30},"Save",client->shortcut_capture_valid,false);
 }
 static void shortcut_drain(void)
 {

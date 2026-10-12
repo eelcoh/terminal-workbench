@@ -145,8 +145,8 @@ static void overview_drag_draw(WorkspaceClient *client, OverviewItem *items, int
             overview_drag_position(client, items, count, target, pointer.x, &marker);
             DrawRectangle((int)marker - 1, (int)strip.y + 26, 3, (int)strip.height - 26, color);
         }
-        DrawTextEx(client->font, full ? "Workspace full" : "Release to move / Esc to cancel",
-            (Vector2){strip.x + 240, strip.y + 4}, 13, 0, color);
+        DrawTextEx(client->ui_font, full ? "Workspace full" : "Release to move / Esc to cancel",
+            (Vector2){strip.x + 240, strip.y + 4},UI_TEXT_BODY, 0, color);
     }
     Rectangle ghost = {pointer.x + 14, pointer.y + 14, 210, 142};
     if (ghost.x + ghost.width > GetScreenWidth()) ghost.x = pointer.x - ghost.width - 14;
@@ -155,7 +155,7 @@ static void overview_drag_draw(WorkspaceClient *client, OverviewItem *items, int
     DrawRectangleRec(ghost, ui.raised);
     pane_preview_draw(client, pane, (Rectangle){ghost.x + 4, ghost.y + 26, ghost.width - 8, ghost.height - 30});
     BeginScissorMode((int)ghost.x + 8, (int)ghost.y, (int)ghost.width - 16, 24);
-    DrawTextEx(client->font, pane->name, (Vector2){ghost.x + 8, ghost.y + 5}, 13, 0, ui.text);
+    DrawTextEx(client->ui_font, pane->name, (Vector2){ghost.x + 8, ghost.y + 5},UI_TEXT_BODY, 0, ui.text);
     EndScissorMode();
     DrawRectangleLinesEx(ghost, 2, ui.accent);
 }

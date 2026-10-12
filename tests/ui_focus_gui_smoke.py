@@ -69,11 +69,15 @@ def main():
                     try:return fcntl.ioctl(fd,termios.TIOCGWINSZ,bytes(8))
                     finally:os.close(fd)
                 baseline=geometry()
+                import struct
+                # Existing 7x16 monospace grid at the fixed 1240x760 half-pane layout.
+                assert struct.unpack('HHHH',baseline)[:2]==(41,72), 'interface typography changed the terminal grid'
+                if env.get('WORKBENCH_GEOMETRY_OUTPUT'): Path(env['WORKBENCH_GEOMETRY_OUTPUT']).write_text(json.dumps(struct.unpack('HHHH',baseline)[:2]))
                 artifacts=ROOT/'.local/test-results';artifacts.mkdir(parents=True,exist_ok=True)
                 def capture(name):
                     started=time.time_ns();key('F12')
                     image=wait_until(lambda:next((p for p in root.glob('screenshot*.png') if p.stat().st_mtime_ns>=started),None))
-                    destination=artifacts/name;shutil.copyfile(image,destination);return destination
+                    destination=artifacts/(('retina-' if env.get('WORKBENCH_RENDER_SCALE')=='2' else '')+name);shutil.copyfile(image,destination);return destination
                 def safe(name):
                     line('printf "%s:%s" "$$" "$keep" > '+name);assert marker(name)==pid+':help'
                     assert geometry()==baseline
@@ -143,6 +147,11 @@ def main():
                 assert not (root/'shortcuts.conf').exists()
                 from gui_smoke import close_window
                 close_window(window,env);assert process.wait(timeout=5)==0
+                log.flush();render_log=(root/'test.log').read_text()
+                assert 'Could not load interface font' not in render_log
+                if env.get('WORKBENCH_RENDER_SCALE')=='2':
+                    assert 'Texture loaded successfully (1026x1416' in render_log, 'pane canvas remained at logical resolution'
+                    assert 'Texture loaded successfully (1840x1156' in render_log, 'help cache remained at logical resolution'
                 print('PASS: forward/reverse focus traversal, text/button isolation, create/folder/save/cancel, help/settings/recorder, overview focus restoration, appearance scope/follow/apply/cancel, deliberate stop/recovery, narrow focus and live shell continuity')
             finally:
                 if sys.exc_info()[0]:

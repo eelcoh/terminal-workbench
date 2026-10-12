@@ -19,10 +19,11 @@ static void navigation_present(WorkspaceClient *client, WorkbenchWorkspace *work
         if (!moving) { pane_render_canvas(client,pane,pane->canvas,pane->bounds);continue; }
         NavigationTile *tile=&client->navigation_tiles[p];
         int width=(int)pane_width_pixels(widths,p,area.width,WORKBENCH_GAP);
-        if (tile->canvas.id && (tile->canvas.texture.width!=width || tile->canvas.texture.height!=(int)area.height)) {
+        int pixel_width=pixel_extent(width,client->raster_scale),pixel_height=pixel_extent((int)area.height,client->raster_scale);
+        if (tile->canvas.id && (tile->canvas.texture.width!=pixel_width || tile->canvas.texture.height!=pixel_height)) {
             UnloadRenderTexture(tile->canvas);*tile=(NavigationTile){0};
         }
-        if (!tile->canvas.id) tile->canvas=LoadRenderTexture(width,(int)area.height);
+        if (!tile->canvas.id) tile->canvas=LoadRenderTexture(pixel_width,pixel_height);
         if (!tile->canvas.id) { navigation_finish(client);return; }
         if (tile->epoch!=client->navigation_epoch) {
             pane_render_canvas(client,pane,tile->canvas,(Rectangle){0,0,width,area.height});
@@ -34,8 +35,9 @@ static void navigation_present(WorkspaceClient *client, WorkbenchWorkspace *work
         if (!pane_width_visible(widths,p,position,area.width,WORKBENCH_GAP)) continue;
         RenderTexture2D canvas=moving ? client->navigation_tiles[p].canvas : workspace->panes[p]->canvas;
         if (!canvas.id) continue;
-        Rectangle bounds={area.x+pane_width_start(widths,p,area.width,WORKBENCH_GAP)-position,area.y,canvas.texture.width,canvas.texture.height};
-        DrawTextureRec(canvas.texture,(Rectangle){0,0,bounds.width,-bounds.height},(Vector2){bounds.x,bounds.y},WHITE);
+        Rectangle bounds={pixel_snap(area.x+pane_width_start(widths,p,area.width,WORKBENCH_GAP)-position,client->raster_scale),area.y,
+            (int)pane_width_pixels(widths,p,area.width,WORKBENCH_GAP),(int)area.height};
+        DrawTexturePro(canvas.texture,(Rectangle){0,0,canvas.texture.width,-canvas.texture.height},bounds,(Vector2){0},0,WHITE);
         DrawRectangleLinesEx(bounds,1,p==workspace->focused ? ui.accent : ui.border);
     }
     EndScissorMode();

@@ -166,8 +166,21 @@ Escape restores the underlying overlay/view, with Appearance cancellation
 restoring the prior transaction. See [focus behavior](keyboard.md#dialog-and-overlay-focus).
 
 Linux acceptance includes disposable-shell GUI checks, narrow help, light/dark
-focus, and stop/recovery guards. Native Mac focus, modifier/non-US/IME behavior
-and accessibility review remain open before the UX gate is complete.
+focus, and stop/recovery guards. The owner confirmed basic Mac focus navigation.
+Broader modifier/non-US/IME behavior and accessibility review remain open before the UX gate is complete.
+
+## Typography and surface polish slice
+
+The prototype now separates a bundled sans-serif interface face from monospace
+terminal content. Shared text roles improve captions, fields and dialog titles;
+consistent corner radii and hover/pressed/disabled/action treatments refine
+existing surfaces. Pane/navigation/help backing textures now render at display
+resolution to address the owner's soft Mac terminal text report.
+See [the typography slice](interface-typography.md).
+
+Owner review of dark/light readability, native Mac text sharpness, Retina and
+mixed-DPI monitors remains part of the UX gate. Complex shaping and native
+accessibility remain toolkit requirements.
 
 ## UX spike: a product-quality gate
 

@@ -28,12 +28,13 @@ static void draw_header_button(Font font, Rectangle bounds, const char *label,
 {
     bool hovered = enabled && CheckCollisionPointRec(GetMousePosition(), bounds);
     bool pressed = hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
-    Color fill = pressed ? ui.selected : hovered ? ui.hover : ui.raised;
-    DrawRectangleRounded(bounds, .28f, 8, fill);
-    Vector2 text = MeasureTextEx(font, label, 13, 0);
+    Color fill = !enabled ? ui.surface : pressed ? ui.selected : hovered ? ui.hover : ui.raised;
+    DrawRectangleRounded(bounds,ui_roundness(bounds,6),8,fill);
+    if (hovered) DrawRectangleRoundedLinesEx(bounds,ui_roundness(bounds,6),8,1,pressed ? ui.accent : ui.border);
+    Vector2 text = MeasureTextEx(font, label, 14, 0);
     DrawTextEx(font, label,
                (Vector2){bounds.x + (bounds.width - text.x) / 2, bounds.y + (bounds.height - text.y) / 2},
-               13, 0, enabled ? ui.text : ui.muted);
+               14,0,enabled ? ui.text : ui_mix(ui.background,ui.text,.38f));
 }
 
 static void draw_window_controls(Font font, bool can_copy, bool can_paste,

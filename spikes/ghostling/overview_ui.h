@@ -279,21 +279,21 @@ static void overview_draw(WorkspaceClient *client)
     Rectangle bounds = overview_bounds(client);
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 160});
     ui_panel(bounds, ui.surface, true);
-    DrawTextEx(client->font, client->overview_list ? "Terminal overview" : "Workspace overview", (Vector2){bounds.x + 24, bounds.y + 20}, 16, 0, ui.text);
-    DrawTextEx(client->font, client->overview_list ? "All workspaces / click a terminal to jump" : "Live previews / click to enter / scroll workspaces / swipe sideways or Shift+scroll terminals", (Vector2){bounds.x + 24, bounds.y + 47}, 12, 0, ui.muted);
-    ui_focus_button(client->font,client->overview_focus,2, overview_theme_button(client), "Theme", true);
-    ui_focus_button(client->font,client->overview_focus,3, overview_view_button(client), client->overview_list ? "Spatial" : "List", true);
-    ui_focus_button(client->font,client->overview_focus,4, overview_waiting_button(client), client->overview_waiting ? "All states" : "Needs input", true);
-    ui_focus_button(client->font,client->overview_focus,5, overview_agents_button(client), client->overview_agents ? "All terminals" : "Agents", true);
-    ui_focus_button(client->font,client->overview_focus,6, (Rectangle){bounds.x + bounds.width - 80, bounds.y + 14, 64, 24}, "Done", true);
+    DrawTextEx(client->ui_font, client->overview_list ? "Terminal overview" : "Workspace overview", (Vector2){bounds.x + 24, bounds.y + 20},UI_TEXT_TITLE,0,ui.text);
+    DrawTextEx(client->ui_font, client->overview_list ? "All workspaces / click a terminal to jump" : "Live previews / click to enter / scroll workspaces / swipe sideways or Shift+scroll terminals", (Vector2){bounds.x + 24, bounds.y + 47},UI_TEXT_CAPTION, 0, ui.muted);
+    ui_focus_button(client->ui_font,client->overview_focus,2, overview_theme_button(client), "Theme", true);
+    ui_focus_button(client->ui_font,client->overview_focus,3, overview_view_button(client), client->overview_list ? "Spatial" : "List", true);
+    ui_focus_button(client->ui_font,client->overview_focus,4, overview_waiting_button(client), client->overview_waiting ? "All states" : "Needs input", true);
+    ui_focus_button(client->ui_font,client->overview_focus,5, overview_agents_button(client), client->overview_agents ? "All terminals" : "Agents", true);
+    ui_focus_button(client->ui_font,client->overview_focus,6, (Rectangle){bounds.x + bounds.width - 80, bounds.y + 14, 64, 24}, "Done", true);
     Rectangle field = {bounds.x + 24, bounds.y + 70, bounds.width - 48, 30};
     DrawRectangleRounded(field,.22f,8,client->overview_focus.item==0 && client->overview_all ? ui.selected : ui.background);
     ui_focus_ring(client->overview_focus,0,field);
     BeginScissorMode((int)field.x + 8, (int)field.y, (int)field.width - 16, (int)field.height);
-    DrawTextEx(client->font, client->overview_query[0] ? client->overview_query : "Filter by workspace or terminal name...",
-        (Vector2){field.x + 8, field.y + 8}, 14, 0, client->overview_query[0] ? ui.text : ui.muted);
+    DrawTextEx(client->ui_font, client->overview_query[0] ? client->overview_query : "Filter by workspace or terminal name...",
+        (Vector2){field.x + 8, field.y + 8},UI_TEXT_BODY, 0, client->overview_query[0] ? ui.text : ui.muted);
     if (client->overview_focus.item==0 && ((int)(GetTime() * 2) % 2 == 0) && !client->overview_all) {
-        Vector2 width = MeasureTextEx(client->font, client->overview_query, 14, 0);
+        Vector2 width = MeasureTextEx(client->ui_font, client->overview_query,UI_TEXT_BODY, 0);
         DrawLine((int)(field.x + 8 + width.x), (int)field.y + 7, (int)(field.x + 8 + width.x), (int)field.y + 23, ui.text);
     }
     EndScissorMode();
@@ -310,26 +310,26 @@ static void overview_draw(WorkspaceClient *client)
         DrawRectangleRec(row, selected ? ui.selected : ui.raised);
         EndScissorMode();
         overview_clip(client,(Rectangle){row.x+8,row.y,row.width-164,row.height});
-        DrawTextEx(client->font, pane->name, (Vector2){row.x + 10, row.y + 5}, 14, 0, ui.text);
+        DrawTextEx(client->ui_font, pane->name, (Vector2){row.x + 10, row.y + 5},UI_TEXT_BODY, 0, ui.text);
         char detail[128];
         const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
         snprintf(detail, sizeof(detail), "%s%s%s", workspace->name, agent[0] ? " / " : "", agent);
-        DrawTextEx(client->font, detail, (Vector2){row.x + 10, row.y + 23}, 12, 0, ui.muted);
+        DrawTextEx(client->ui_font, detail, (Vector2){row.x + 10, row.y + 23},UI_TEXT_CAPTION, 0, ui.muted);
         EndScissorMode();
         overview_clip(client,overview_content(client));
         if (pane->unread) DrawCircle((int)(row.x + row.width - 146), (int)(row.y + 19), 3, ui.waiting);
-        DrawTextEx(client->font, pane->closed ? (pane->transport.attached_elsewhere ? "Open elsewhere" : "Disconnected") : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected",
-            (Vector2){row.x + row.width - 130, row.y + 12}, 12, 0, agent[0] ? remote_attention_color(pane->transport.attention) : ui.muted);
+        DrawTextEx(client->ui_font, pane->closed ? (pane->transport.attached_elsewhere ? "Open elsewhere" : "Disconnected") : pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "Connected",
+            (Vector2){row.x + row.width - 130, row.y + 12},UI_TEXT_CAPTION, 0, agent[0] ? remote_attention_color(pane->transport.attention) : ui.muted);
         EndScissorMode();
     }
     if (!client->overview_list) overview_drag_draw(client, items, count);
-    if (!count && (client->overview_list || !client->overview_group_count)) DrawTextEx(client->font, client->overview_waiting ? "No agents need input" : client->overview_agents ? "No identified agents" : client->overview_query[0] ? "No matching terminals" : "No terminals yet",
-        (Vector2){bounds.x + 24, bounds.y + 124}, 14, 0, ui.muted);
+    if (!count && (client->overview_list || !client->overview_group_count)) DrawTextEx(client->ui_font, client->overview_waiting ? "No agents need input" : client->overview_agents ? "No identified agents" : client->overview_query[0] ? "No matching terminals" : "No terminals yet",
+        (Vector2){bounds.x + 24, bounds.y + 124},UI_TEXT_BODY, 0, ui.muted);
     char footer[256];
     snprintf(footer, sizeof(footer), "%d terminals / %s + Enter / Esc / dot: unseen output", count, client->overview_list ? "arrows" : "Left/Right: terminal / Up/Down: workspace");
     if (client->management_busy && client->dialog_kind == DIALOG_TERMINAL_MOVE)
         snprintf(footer, sizeof(footer), "Moving terminal...");
     else if (client->overview_notice_until > GetTime())
         snprintf(footer, sizeof(footer), "%.*s", (int)sizeof(footer) - 1, client->overview_notice);
-    DrawTextEx(client->font, footer, (Vector2){bounds.x + 24, bounds.y + bounds.height - 26}, 12, 0, ui.muted);
+    DrawTextEx(client->ui_font, footer, (Vector2){bounds.x + 24, bounds.y + bounds.height - 26},UI_TEXT_CAPTION, 0, ui.muted);
 }
