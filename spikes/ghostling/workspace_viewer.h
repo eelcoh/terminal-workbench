@@ -353,6 +353,8 @@ static void pane_focus_event(WorkbenchPane *pane, bool focused)
     pane_unbind();
 }
 
+#include "chrome_ui.h"
+
 static Rectangle workspace_row(int index)
 {
     return (Rectangle){8, 88 + index * 44, WORKBENCH_SIDEBAR - 16, 36};
@@ -361,7 +363,9 @@ static Rectangle workspace_row(int index)
 static void workspace_chrome(WorkspaceClient *client)
 {
     DrawRectangle(0, 32, WORKBENCH_SIDEBAR, GetScreenHeight() - 32, ui.surface);
-    DrawTextEx(client->ui_font, "WORKSPACES", (Vector2){16, 56},UI_TEXT_BODY, 0, ui.muted);
+    DrawTextEx(client->ui_font, "Workspaces", (Vector2){16, 56},UI_TEXT_CAPTION, 0, ui.muted);
+    DrawLine(WORKBENCH_SIDEBAR-1,32,WORKBENCH_SIDEBAR-1,GetScreenHeight(),ui_mix(ui.surface,ui.border,.45f));
+    DrawLine(16,(int)fmaxf(126,GetScreenHeight()-184),WORKBENCH_SIDEBAR-16,(int)fmaxf(126,GetScreenHeight()-184),ui_mix(ui.surface,ui.border,.5f));
     int visible_rows = (GetScreenHeight() - 268) / 44;
     if (visible_rows < 1) visible_rows = 1;
     for (int w = client->sidebar_first; w < client->count && w < client->sidebar_first + visible_rows; w++) {
@@ -370,16 +374,16 @@ static void workspace_chrome(WorkspaceClient *client)
         bool unread = false;
         for (int p = 0; p < client->workspaces[w].count; p++) unread |= client->workspaces[w].panes[p]->unread;
         bool hovered=CheckCollisionPointRec(GetMousePosition(),row);
-        DrawRectangleRounded(row,.22f,8,active ? ui.selected : hovered ? ui.hover : ui.surface);
-        if (active) DrawRectangleRounded((Rectangle){row.x+2,row.y+10,3,row.height-20},.5f,6,ui.accent);
-        BeginScissorMode((int)row.x + 8, (int)row.y, (int)row.width - 32, (int)row.height);
-        DrawTextEx(client->ui_font, client->workspaces[w].name, (Vector2){row.x + 10, row.y + 10},UI_TEXT_BODY, 0,
-                   active ? ui.text : ui.muted);
-        EndScissorMode();
+        DrawRectangleRounded(row,ui_roundness(row,8),8,active ? ui.selected : hovered ? ui.hover : ui.surface);
+        if (active) DrawRectangleRounded((Rectangle){row.x+4,row.y+10,3,row.height-20},.5f,6,ui.accent);
+        chrome_name(client->ui_font,client->workspaces[w].name,(Rectangle){row.x+14,row.y+11,row.width-50,20},UI_TEXT_BODY,
+            active ? ui.text : ui_mix(ui.surface,ui.text,.85f));
+        char terminals[8];snprintf(terminals,sizeof(terminals),"%d",client->workspaces[w].count);
+        DrawTextEx(client->ui_font,terminals,(Vector2){row.x+row.width-28,row.y+12},UI_TEXT_CAPTION,0,active ? ui.accent : ui.muted);
         if (unread) DrawCircle((int)(row.x + row.width - 12), (int)(row.y + 18), 3, ui.waiting);
     }
-    draw_header_button(client->ui_font, theme_button(), "Appearance", !client->dialog_open);
-    draw_header_button(client->ui_font,command_button(),"Commands",!client->dialog_open && !client->theme_open && !client->overview_open && !client->management_busy);
+    draw_quiet_button(client->ui_font,theme_button(),"Appearance",!client->dialog_open,UI_TEXT_BODY);
+    draw_quiet_button(client->ui_font,command_button(),"Commands",!client->dialog_open && !client->theme_open && !client->overview_open && !client->management_busy,UI_TEXT_BODY);
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     WorkbenchPane *focused = workspace->panes[workspace->focused];
     bool can_copy = focused && selection_active(focused->terminal);
@@ -425,30 +429,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
         DrawTextEx(client->ui_font,hint,(Vector2){10,footer.y+10},UI_TEXT_CAPTION,0,ui.muted);
         EndScissorMode();
     }
-    DrawRectangle(0, 0, (int)bounds.width, 32, ui.surface);
-    char label[128];
-    const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
-    snprintf(label, sizeof(label), "%s%s%s%s%s%s", pane->name, agent[0] ? " / " : "", agent,
-             agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
-             pane->closed ? (client->managed && pane->runtime_state==RUNTIME_STOPPED ? "  /  shell stopped" : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "  /  status unavailable" : pane->transport.attached_elsewhere ? "  /  open in another window" : "  /  disconnected") : pane->transport.replaying ? "  /  connecting" : "");
-    int reserve=bounds.width<300 ? (pane->closed ? 142 : 16) : (pane->closed ? (pane->runtime_state==RUNTIME_STOPPED ? 282 : 242) : 150);
-    BeginScissorMode((int)(8*client->raster_scale),0,(int)(fmaxf(1,bounds.width-reserve)*client->raster_scale),(int)(32*client->raster_scale));
-    DrawTextEx(client->ui_font, label, (Vector2){10, 8},UI_TEXT_BODY, 0, ui.text);
-    EndScissorMode();
-    if (pane->unread && !pane->closed) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
-    if (pane->closed) {
-        Rectangle action=pane->runtime_state==RUNTIME_STOPPED ? (Rectangle){bounds.width-(bounds.width<300 ? 134 : 264),6,126,20}
-            : terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height});
-        const char *label=client->managed && pane->runtime_state==RUNTIME_STOPPED ? "Start new shell"
-            : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "Check again"
-            : client->managed && pane->runtime_state==RUNTIME_CHECKING ? "Checking..."
-            : pane->transport.takeover_unsupported ? "Reconnect" : "Move here";
-        draw_header_button(client->ui_font,action,label,!client->managed || pane->runtime_state!=RUNTIME_CHECKING);
-    }
-    if (client->managed && bounds.width>=300) {
-        draw_header_button(client->ui_font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
-        draw_header_button(client->ui_font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);
-    }
+    pane_header(client,pane,bounds);
     EndMode2D();
     EndTextureMode();
     pane_unbind();

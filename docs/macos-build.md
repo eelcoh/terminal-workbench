@@ -338,3 +338,16 @@ keyboard focus and hovered/pressed/disabled controls. Try mixed third/two-third
 widths and full width; selecting/copying text should still follow the same grid.
 Also review a non-Retina display and moving the window between different-DPI
 monitors. This slice's native typography/sharpness acceptance is pending.
+
+### Pane-header and sidebar review
+
+Rebuild with `just spike`. Check the active workspace marker, terminal counts and
+unread dots, then focus neighboring terminals with Command+Option+Left/Right.
+The active pane should have a quiet header tint and marker; Stop/Rename should
+still be visible and show hover/pressed feedback.
+
+Try long terminal/workspace names, mixed thirds/two-thirds widths and a narrow
+window. Agent identity and Working/Ready/Needs input should read separately from
+the name; long names should end cleanly with an ellipsis. Move here, reconnect
+and stopped-terminal recovery should stay in the header with their existing
+confirmation behavior. Native acceptance of this refinement is pending.

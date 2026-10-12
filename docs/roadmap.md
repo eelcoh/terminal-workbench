@@ -182,6 +182,15 @@ Owner review of dark/light readability, native Mac text sharpness, Retina and
 mixed-DPI monitors remains part of the UX gate. Complex shaping and native
 accessibility remain toolkit requirements.
 
+## Pane-header and sidebar refinement
+
+The owner reports that the typography/sharpness pass is much better. The next
+prototype slice adds quiet secondary controls, clearer selected workspace/pane
+surfaces, workspace terminal counts and separate semantic agent status labels.
+Long UTF-8 names use ellipses; pane geometry, action targets, terminal input and
+keyboard bindings stay unchanged. See [the chrome refinement](interface-typography.md#pane-headers-and-workspace-sidebar).
+Native Mac and owner visual review of this slice remain open.
+
 ## UX spike: a product-quality gate
 
 The UX spike is a dedicated milestone, not a final cosmetic pass. Build a runnable

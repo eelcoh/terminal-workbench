@@ -37,6 +37,20 @@ static void draw_header_button(Font font, Rectangle bounds, const char *label,
                14,0,enabled ? ui.text : ui_mix(ui.background,ui.text,.38f));
 }
 
+/* Quiet chrome actions keep their labels/hit areas; hover supplies the surface. */
+static void draw_quiet_button(Font font, Rectangle bounds, const char *label, bool enabled, int size)
+{
+    bool hover=enabled && CheckCollisionPointRec(GetMousePosition(),bounds);
+    bool pressed=hover && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+    if (hover) {
+        DrawRectangleRounded(bounds,ui_roundness(bounds,6),8,pressed ? ui.selected : ui.hover);
+        DrawRectangleRoundedLinesEx(bounds,ui_roundness(bounds,6),8,1,pressed ? ui.accent : ui.border);
+    }
+    Vector2 text=MeasureTextEx(font,label,size,0);
+    DrawTextEx(font,label,(Vector2){bounds.x+(bounds.width-text.x)/2,bounds.y+(bounds.height-text.y)/2},size,0,
+        !enabled ? ui_mix(ui.surface,ui.text,.38f) : hover ? ui.text : ui.muted);
+}
+
 static void draw_window_controls(Font font, bool can_copy, bool can_paste,
                                  const char *notice)
 {

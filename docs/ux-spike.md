@@ -454,3 +454,35 @@ native GPU/frame-pacing acceptance. Backing textures cost four times the pixels
 at 2x, while fixed overview previews stay bounded. Interface font atlases load
 once per window; the new draw helpers do not add filesystem/process inspection
 or terminal-state aggregation to pane loops.
+
+## Pane-header and sidebar refinement
+
+The owner reported the typography/sharpness pass was much better and requested
+continued chrome polish. This slice adds clearer active workspace/pane markers,
+quiet secondary actions, workspace saved-terminal counts, separate agent status
+pills and bounded UTF-8 ellipses. It retains terminal geometry, action targets,
+input routing and all navigation shortcuts. Details and review steps are in
+[interface typography](interface-typography.md#pane-headers-and-workspace-sidebar).
+
+The Linux build and `just check` pass. Management regressions cover creation,
+rename, capacity, empty states, agent lifecycle/attention and explicit stop/recovery.
+Multiwindow regressions retain bidirectional ownership transfer and same shell
+PID/state/socket. `just retina-gui-test` keeps the fixed 7×16 grid at 1x/2x and
+exercises 15 populated terminals at doubled backing resolution. Normal/reduced
+motion navigation also passes.
+
+Disposable review captures cover dark/light chrome, long Unicode names, focus
+changes and the minimum window: `.local/test-results/chrome-{dark,light,small}.png`.
+Working, Needs input and Ready header captures use an isolated named-process
+fixture with real runtime hook reports, not a real coding CLI. These and the
+narrow agent header are `.local/test-results/chrome-agent-*.png`.
+Native Mac and owner visual acceptance of the new chrome remain open.
+
+The final fixed 1240×760 help/working-view samples measured 252.9% CPU with one
+populated terminal and 277.0% with fifteen (+9.5%; 100% is one core). The same
+fixture before this refinement sampled 250.9% / 278.4%. Each two-second
+llvmpipe run retained PID/socket/geometry and one help-body allocation through
+idle. These short samples show no clear scaling change and do not establish
+native frame pacing. Label fitting adds bounded work per visible row/header,
+not per PTY byte or hidden terminal output, and introduces no heap allocation
+or runtime inspection in those loops.

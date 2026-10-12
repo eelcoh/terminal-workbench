@@ -44,3 +44,35 @@ checks actual backing allocations and font loading, then exercises 15-terminal
 navigation at 2x. This checks the rendering contract; it does not establish
 native Retina appearance or physical trackpad behavior. Native Mac sharpness
 and mixed-DPI monitor transitions remain part of owner acceptance.
+
+## Pane headers and workspace sidebar
+
+The owner reported that the typography/sharpness pass was much better. The next
+chrome refinement keeps the same pane dimensions, sidebar rows and action hit
+areas, while giving selection and metadata a clearer hierarchy.
+
+Workspace rows use a rounded selected surface, an inset accent marker and more
+readable inactive names. A small number shows the saved terminal count, including
+stopped or elsewhere-owned terminals. The existing unread dot remains separate.
+A quiet divider groups workspace actions below the list. Rename, Folder,
+Appearance and Commands keep visible text labels with a hover/pressed surface;
+New workspace and New terminal retain their filled controls.
+
+Pane headers give the terminal name primary emphasis and agent identity a
+secondary caption. Working, Needs input, Ready and Unknown use separate semantic
+status pills when space permits. Closed/connecting states retain honest feedback
+and the existing Move here, Reconnect, Check again and Start new shell actions.
+A subtly tinted header and accent marker identify the focused pane. Stop and
+Rename stay visible as quiet text controls, with their original hit areas.
+
+Long names end with an ellipsis at a complete UTF-8 character boundary. Status
+gets space first, then agent identity where it fits, and the terminal name uses
+the remainder. Tiny closed headers can omit the status pill; recovery controls
+and the existing explanatory footer stay available. Full names remain stored
+and appear in name editors. No navigation bindings or input routes change.
+
+The ellipsis helper uses one bounded pass over a short label, with narrow font
+metrics, a stack buffer and no heap allocation. Chrome uses metadata already
+present in the client; it adds no process, filesystem or terminal-snapshot work
+to render loops. The shared session protocol and persisted view format are
+unchanged. Native Mac review of this chrome slice remains pending.

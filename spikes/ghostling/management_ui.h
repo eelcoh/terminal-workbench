@@ -274,7 +274,8 @@ static void management_controls(WorkspaceClient *client)
         char limit_label[48];
         snprintf(limit_label,sizeof(limit_label),"Workspace limit (%d)",WORKBENCH_MAX_WORKSPACES);
         const char *label=i==0 && client->count>=WORKBENCH_MAX_WORKSPACES ? limit_label : labels[i];
-        draw_header_button(client->ui_font, button, label, enabled);
+        if (i==1 || i==3) draw_quiet_button(client->ui_font,button,label,enabled,UI_TEXT_BODY);
+        else draw_header_button(client->ui_font,button,label,enabled);
     }
     if (client->managed && client->count>=WORKBENCH_MAX_WORKSPACES &&
         !client->command_open && !client->dialog_open && !client->theme_open && !client->overview_open &&
@@ -286,7 +287,7 @@ static void management_controls(WorkspaceClient *client)
         DrawRectangleRounded(tip,.25f,6,ui.raised);
         DrawTextEx(client->ui_font,hint,(Vector2){tip.x+8,tip.y+6},UI_TEXT_CAPTION,0,ui.text);
     }
-    draw_header_button(client->ui_font, workspace_stop(), "x", client->managed && client->count > 0);
+    draw_quiet_button(client->ui_font,workspace_stop(),"×",client->managed && client->count>0,UI_TEXT_BODY);
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     DrawRectangle(188, 0, 280, 32, ui.surface);
     draw_header_button(client->ui_font, terminal_navigation(0), "Prev", workspace->focused > 0);
