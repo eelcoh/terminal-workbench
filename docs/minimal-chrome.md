@@ -10,6 +10,10 @@ It runs locally without a server or network requests. The review buttons switch
 light/dark chrome, compact/expanded navigation, sample agent state and platform
 shortcut labels. User screenshots stay in the private debug folder.
 
+The owner approved the overall visual direction and requested a small increase
+in pane corner radius. The sketch now uses 4px corners, clipping header and
+terminal backgrounds to the same outline. Native implementation remains next.
+
 ## Proposed hierarchy
 
 | Surface | Purpose | Visible controls |
