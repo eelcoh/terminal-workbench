@@ -16,11 +16,17 @@ saved binding. Commands displays the active binding beside each action.
 | New workspace | Ctrl+Shift+N | Command+N |
 | Previous / next terminal | Ctrl+Shift+Left / Right | Command+Option+Left / Right |
 | Previous / next workspace | Ctrl+Shift+Up / Down | Command+Option+Up / Down |
+| Cycle focused terminal width | Ctrl+Shift+R | Command+Shift+R |
+| Toggle focused terminal full width | Ctrl+Shift+F | Command+Shift+F |
 | Copy selection | Ctrl+Shift+C | Command+C |
 | Paste clipboard | Ctrl+Shift+V | Command+V |
 
 Remaining actions start unbound and are configurable, including rename, folder,
 appearance, confirmed stops/recovery, settings, and **Send next key to terminal**.
+Explicit third/half/two-thirds width actions start unbound. Width cycling runs
+half → two thirds → third → half. Full width fills the terminal area and a second
+press restores the preferred width. It does not change native window fullscreen.
+
 Navigation stops at the first/last item; it does not wrap. Terminal navigation
 uses the existing scrolling transition, and workspace navigation retains each
 workspace's focused terminal. Holding a navigation chord permits key repeat.
@@ -78,7 +84,9 @@ The file is client presentation configuration, with no session/service protocol
 change. It is not checked from pane rendering or read on every keyboard event.
 
 The format has a version header and one action per line, with no spaces around
-`=`. Omitted actions retain platform defaults, and `none` unbinds an action:
+`=`. Omitted actions retain platform defaults. When an older file assigns a new width
+shortcut to an existing action, that new width action starts unbound rather than
+invalidating the existing customization. Use `none` to unbind an action:
 
 ```text
 workbench-shortcuts-v1

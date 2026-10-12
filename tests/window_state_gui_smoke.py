@@ -34,8 +34,8 @@ def main():
                 read_fd,write_fd=os.pipe()
                 xvfb=subprocess.Popen(['Xvfb','-displayfd',str(write_fd),'-screen','0','1600x1000x24','-noreset','-nolisten','tcp'],pass_fds=(write_fd,),stdout=log,stderr=log)
                 processes.append(xvfb);os.close(write_fd);assert select.select([read_fd],[],[],5)[0]
-                env=dict(os.environ,DISPLAY=':'+os.read(read_fd,32).decode().strip(),LIBGL_ALWAYS_SOFTWARE='1',WORKBENCH_WORKSPACES=str(catalog))
-                os.close(read_fd)
+                with os.fdopen(read_fd) as ready: display=ready.readline().strip()
+                env=dict(os.environ,DISPLAY=':'+display,LIBGL_ALWAYS_SOFTWARE='1',WORKBENCH_WORKSPACES=str(catalog))
                 for name in ('WAYLAND_DISPLAY','WORKBENCH_SOCKET','WORKBENCH_CATALOG_SCRIPT','WORKBENCH_STATE_DIR','WORKBENCH_WINDOW_STATE','WORKBENCH_WINDOW_SLOT_FD'):env.pop(name,None)
                 def cmd(*args):
                     result=subprocess.run(['xdotool',*map(str,args)],env=env,capture_output=True,text=True,timeout=5)
@@ -67,7 +67,8 @@ def main():
                 cmd('windowsize',a,1360,820);time.sleep(.3)
                 cmd('mousemove','--window',a,777,400);cmd('mousedown',1);time.sleep(.08)
                 cmd('mousemove','--window',a,650,400);time.sleep(.1);cmd('mouseup',1)
-                before=saved(1,lambda s:'V 1360 820 ' in s and 'W main p3 p2 ' in s)
+                key(a,'ctrl+shift+r')
+                before=saved(1,lambda s:'V 1360 820 ' in s and 'W main p3 ' in s and 'T p3 1 0' in s)
                 second,b=opened(2);click(b,70,150)
                 second_view=saved(2,lambda s:' empty ' in s.splitlines()[1]);assert ' main ' in read(1).splitlines()[1]
                 closed(first,a)
@@ -75,15 +76,16 @@ def main():
                 reordered=[rows[0],rows[6],rows[7],rows[8],rows[1],rows[3],rows[2],rows[4],rows[5]]
                 replacement=root/'replacement.tsv';replacement.write_text('\n'.join(reordered)+'\n');replacement.replace(catalog)
                 first,a=opened(1)
-                restored=saved(1,lambda s:'W main p3 p2 ' in s and 'V 1360 820 ' in s)
-                assert restored.splitlines()[1].split()[3]==before.splitlines()[1].split()[3]
+                restored=saved(1,lambda s:'W main p3 ' in s and 'V 1360 820 ' in s)
+                assert sorted(line for line in restored.splitlines() if line.startswith('T '))==sorted(line for line in before.splitlines() if line.startswith('T '))
+                assert 'T p3 0 0' in read(2)
                 cmd('type','--clearmodifiers','--window',a,'--delay',5,'--','printf "%s:%s" "$$" "$keep" > restored');key(a,'Return')
                 assert wait_until(lambda:(root/'restored').exists() and (root/'restored').read_text())==pids[3]+':p3'
                 assert read(2).splitlines()[1].split()[1:5]==second_view.splitlines()[1].split()[1:5]
                 # Smaller geometry makes both overview axes nonzero.
                 cmd('windowsize',a,900,500);time.sleep(.3);click(a,518,16)
                 spatial=saved(1,lambda s:s.splitlines()[1].split()[6]=='1' and float(s.splitlines()[1].split()[10])>0
-                    and any(line.startswith('W main ') and float(line.split()[-1])>0 for line in s.splitlines()))
+                    and any(line.startswith('W main ') and float(line.split()[4])>0 for line in s.splitlines()))
                 closed(first,a);first,a=opened(1)
                 restored_spatial=saved(1,lambda s:s.splitlines()[1].split()[6]=='1')
                 assert restored_spatial.splitlines()[1].split()[10]==spatial.splitlines()[1].split()[10]
@@ -101,7 +103,7 @@ def main():
                 catalog.write_text('workbench-catalog-v3\nW\tempty\tEmpty\n')
                 first,a=opened(1);saved(1,lambda s:' empty ' in s.splitlines()[1]);closed(first,a)
                 (root/'windows/1.view').write_text('workbench-window-v999\nbroken\n')
-                first,a=opened(1);saved(1,lambda s:s.startswith('workbench-window-v1\n'));closed(first,a)
+                first,a=opened(1);saved(1,lambda s:s.startswith('workbench-window-v2\n'));closed(first,a)
                 closed(second,b)
                 for p in range(5):os.kill(int(pids[p]),0);assert (root/f'p{p}.sock').stat().st_ino==inodes[p]
             finally:

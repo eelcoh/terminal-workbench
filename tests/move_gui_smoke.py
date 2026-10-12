@@ -43,7 +43,8 @@ def main():
                 xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
                 processes.append(xvfb); os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
-                env['DISPLAY'] = ':' + os.read(read_fd,32).decode().strip(); os.close(read_fd)
+                with os.fdopen(read_fd) as ready: display=ready.readline().strip()
+                env['DISPLAY'] = ':' + display
                 def start():
                     viewer = subprocess.Popen([binary], env=env, cwd=root, stdout=log, stderr=log); processes.append(viewer)
                     def find():

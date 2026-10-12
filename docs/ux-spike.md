@@ -10,6 +10,89 @@ interactions; its current appearance is a starting point.
 The spike produces a runnable slice and informs the final UI toolkit decision.
 No toolkit is selected solely because it can reproduce a static screenshot.
 
+## Niri reference and next layout slice
+
+[Niri](https://niri-wm.github.io/niri/) is an explicit interaction reference:
+scrollable tiling, focus/reveal behavior, polished overview entry/exit and simple
+controls. The owner considers current scrolling/navigation close to the desired
+feel. Preserve that progress while improving variable-width navigation and the
+overview's continuity. The owner's impression of Material-inspired widgets is
+a visual direction, not a claim about Niri's widget implementation. Dank Linux
+remains the visual quality reference; Foot remains the simplicity reference.
+
+### Problem in the current prototype
+
+The working view shows at most two terminals. `WorkspaceClient.divider` stores
+one arbitrary left/right ratio for the whole window, persisted in its view slot.
+Dragging it changes every workspace's layout and every subsequent terminal pair:
+the left position stays narrow even when a different terminal occupies it.
+This does not support three equal terminals or independently sized columns.
+
+### Required behavior
+
+- Each terminal has its own preferred width in the scrolling workspace strip.
+  Width belongs to terminal identity, not a left/right slot or a particular pair.
+  New terminals start at 1/2 width. The focused-terminal cycle is
+  **1/2 → 2/3 → 1/3 → 1/2**; cycling one terminal does not rewrite another's width.
+- Presets refer to the available terminal area, excluding sidebar/header chrome.
+  Account for inter-terminal gaps so **1/3 + 1/3 + 1/3**, **1/2 + 1/2** and
+  **1/3 + 2/3** fit cleanly. Remove the fixed two-visible-terminal assumption.
+  Render whichever columns intersect the viewport, including partial edge columns.
+- Each workspace retains its own terminal widths and horizontal view position.
+  Switching workspaces, scrolling, changing focus and reordering must preserve
+  them. Resizing terminal A cannot make terminal B narrow later merely because
+  B occupies the left side. Width preferences persist across close/reopen.
+- Mouse resizing previews the focused edge's change and snaps to the same presets
+  on release. It changes that terminal's width; neighboring columns retain their
+  preferences and move with the strip. Mouse and keyboard reach the same layouts.
+  Arbitrary widths are outside the first slice, rather than the default behavior.
+- A separate **Toggle terminal full width** action expands the focused terminal
+  to the whole terminal area, then restores its previous preset when toggled back.
+  Other terminals retain their widths and order. Navigation and Overview remain
+  available, and focus/reveal continues through the scrolling strip.
+- Width cycling, full width and explicit preset selection appear in Commands and
+  Shortcut settings, with discoverable mouse access. Niri's Super bindings are
+  inspiration, not Workbench defaults: Niri can consume those keys on Linux.
+  Choose editable Workbench bindings consistent with its fresh keyboard model
+  and macOS conventions; preserve shell controls and key forwarding.
+
+Niri distinguishes column maximization from native window fullscreen; see its
+[fullscreen/maximize reference](https://niri-wm.github.io/niri/Fullscreen-and-Maximize.html)
+and [preset widths](https://niri-wm.github.io/niri/Configuration%3A-Layout.html).
+Workbench's first action means one terminal uses the available application
+terminal area. Native whole-window fullscreen is a separate action/decision.
+
+### State and motion constraints
+
+These widths are client presentation preferences, stored per workspace and
+stable terminal ID in each independent window view. They are not shared runtime
+facts; two windows can choose different layouts without a catalog mutation or
+ownership transfer. Reordering keeps a terminal's width. Moving it between
+workspaces in the same window carries its width, leaving destination siblings
+unchanged. A previously unseen terminal in another window gets that view's default.
+Existing view files need a documented migration; an old global divider must not
+become a permanent left/right constraint in the new layout.
+
+Variable widths require cumulative column positions for focus/reveal, hit testing,
+visible-range calculation and animation. Preserve immediate typing, interruptible
+motion, reduced motion and continuous travel through intermediate terminals.
+Apply each intended PTY geometry change once for the committed layout; animating
+visual positions must not repeatedly resize live PTYs. Opening Overview continues
+to preserve PTY geometry and processes. Keep parsing hidden terminals while
+restricting rendering/preview updates to visible columns.
+
+### Review and validation
+
+Exercise the three exact-fit combinations above, eight mixed-width terminals,
+first/last jumps, retargeting during resize/navigation, full width/restore, narrow
+windows, long names and mixed dark/light themes. Verify workspace isolation,
+reorder/move identity, close/reopen persistence and independent window layouts.
+Test mouse, trackpad and editable shortcuts on Linux and Mac. Include real terminal
+output and live agents; verify typing, selection, scrollback and retained PIDs.
+Review motion and visual clarity with the owner and profile 1 and at least 15
+populated terminals before accepting the slice. This layout work precedes packaging
+and informs the final toolkit decision.
+
 ## Reference flows
 
 1. Work in a terminal, change focus, resize panes and navigate a wider workspace.
@@ -142,7 +225,7 @@ frame smoothness. No final toolkit or UX acceptance decision is implied.
 ## Working-view navigation slice
 
 The header now combines Prev/Next, a compact focused-position count and clickable
-numbered positions. The focused position uses an accent mark; the two visible
+numbered positions. The focused position uses an accent mark; visible
 positions use stronger surfaces/text than offscreen positions. Hover shows terminal
 names or the scrolling affordance. The working area stays the same size.
 
@@ -154,18 +237,17 @@ panes rather than swapping source/destination pairs. Retargeting begins at the
 current fractional position. Only intersecting tiles perform presentation work;
 tiles render on entry once per navigation and retain their terminal backgrounds
 and titles. Up to eight reusable tile textures are retained for the active strip;
-steady frames keep the normal two-canvas path. At the standard equal divider,
-only two or three tiles intersect the working area; asymmetric layouts can show
-more. No background workspace is rendered for navigation.
+steady frames render only visible pane canvases. Half-width panes show two full
+columns; thirds show three, with partial columns allowed at the viewport edges. No background workspace is rendered for navigation.
 Target layout and focus commit normally; intermediate presentation never resizes
-PTYs. The right destination expands/contracts into an asymmetric divider slot
-as it arrives, covering subsequent strip tiles at rest.
+PTYs. Column positions and clipping now follow each terminal's preferred width,
+without special left/right destination slots.
 Reduced motion, window resize, modals and terminal pointer interaction settle it.
 
 Linux/Xvfb checks use populated one- and fifteen-terminal fixtures at 1240×760.
 They cover position selection, rapid retargeting, immediate typing, header-only
 vertical/horizontal wheel input, terminal scroll preservation, transition-time
-pointer routing, boundaries, asymmetric dividers, narrow/empty workspaces,
+pointer routing, boundaries, independent snapped widths, narrow/empty workspaces,
 overview handoff and retained
 PID/socket identity. Once terminals have visited their normal layout, sampled PTY
 geometry remains unchanged throughout navigation. Pixel checks cover start, an
@@ -212,3 +294,43 @@ For terminals owned by another window, Move here lives in the terminal header
 alongside Stop and Rename. Its explanation uses an opaque footer; neither the
 action nor its text floats over the retained terminal screen. Drawing and hit
 testing share the same button rectangle, including during pane navigation.
+
+## Independent-width prototype
+
+The prototype now cycles half → two thirds → third for the focused terminal,
+selects explicit presets through Commands, and toggles full terminal-area width
+without losing its preferred preset. Linux defaults are Ctrl+Shift+R/F; Mac
+uses Command+Shift+R/F. Shortcut settings can edit or clear these bindings.
+A right-gap drag displays a snapped guide and commits on release. Other terminal
+preferences stay unchanged. A lone terminal starts at half width too.
+
+Version 2 window views persist width/full-width preferences by stable terminal ID
+and normalized working-view positions per workspace. Version 1 restores existing
+focus and overview while retiring its positional divider. See [view migration](window-state.md#independent-terminal-widths).
+Hidden workspaces retain runtime geometry; entering them applies their preferred
+visible geometry. Window resizing rescales their client scroll coordinates without
+resizing hidden PTYs. Widths stay with live pane objects on in-window moves.
+
+Pure checks cover exact half/half, third/third/third and third/two-thirds fits,
+mixed eight-column reveal and continuous visibility, snap thresholds, full width,
+empty strips, transactional view migration, width record validation, and old
+shortcut overrides that conflict with newly introduced defaults. The live
+navigation harness covers shortcut/palette cycling, full width/restore, three
+thirds, a two-thirds/third pair, content clicks in the third terminal, snapped
+resize-on-release, unchanged siblings, workspace isolation, and retained shell
+PID/socket state. It also exercises ordinary and reduced-motion navigation.
+`just check` and the Linux viewer build pass. Window-view checks cover width
+restoration across reorder/reopen and independent window preferences; Commands,
+management/recovery, bidirectional ownership transfer, workspace moves and animated
+overview checks pass with live shells. Native acceptance remains separate.
+Screenshots use `nav-15-{animated,reduced}-{three-thirds,two-thirds-and-third}.png`
+under `.local/test-results/`.
+
+Completed sequential 1240×760 Linux/Xvfb/llvmpipe navigation runs sampled two-second
+idle CPU at 79.0% with one terminal and 78.5% with fifteen (-0.6%). One terminal
+renders its half-width column; the fifteen-terminal fixture has eight in the
+active workspace and seven hidden, with two half-width columns visible at rest.
+These short software-rendered samples are noisy and show no reliable scaling
+regression; they do not establish native frame pacing or GPU performance.
+Native Linux/Wayland and Mac width gestures, editable shortcuts, visual motion,
+and mixed-theme agent layouts still require owner review. The UX gate remains open.

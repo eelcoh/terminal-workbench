@@ -133,9 +133,7 @@ static void overview_apply_jump(WorkspaceClient *client, int workspace_index, in
 {
     client->active = workspace_index;
     WorkbenchWorkspace *workspace = &client->workspaces[workspace_index];
-    workspace->focused = pane_index;
-    if (pane_index < workspace->first) workspace->first = pane_index;
-    if (pane_index >= workspace->first + 2) workspace->first = pane_index - 1;
+    workspace_focus(workspace,pane_index);
     int visible = (GetScreenHeight() - 268) / 44;
     if (visible < 1) visible = 1;
     if (client->active < client->sidebar_first) client->sidebar_first = client->active;

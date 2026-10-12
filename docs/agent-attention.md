@@ -58,9 +58,13 @@ are rejected. Hook start order is used for concurrent callbacks; this is not a
 global event clock. Metadata survives viewer detach/reconnect; it is not persisted
 as organization or appended to terminal history.
 
-Titles and Overview show the state. The Needs input button filters across all
-workspaces; select a row or press Enter to jump to that terminal. Unseen-output
-dots and connection labels remain independent.
+The terminal header and each Overview entry show that terminal's state.
+Spatial cards show it at the bottom, for example `Copilot / Ready`; list rows show
+it at the right. The Overview button switches between **All states** and
+**Needs input**. These are filter choices, not the focused agent's status: the
+button is always available, including when no agent needs input. Needs input
+filters across all workspaces; select a row or press Enter to jump to that
+terminal. Unseen-output dots and connection labels remain independent.
 
 Validated on Linux using named native-process fixtures, real runtime sockets,
 hook payloads and isolated GUI tests. Launcher argument capture verifies generated

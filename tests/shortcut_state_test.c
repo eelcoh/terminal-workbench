@@ -25,6 +25,10 @@ int main(void)
     for (size_t i=0;i<sizeof(invalid)/sizeof(invalid[0]);i++) { FILE *file=fopen(path,"w");assert(file);fputs(invalid[i],file);fclose(file);assert(!shortcut_read(path,false,&loaded,error,sizeof(error)));assert(!memcmp(&loaded,&linux_state,sizeof(loaded))); }
     FILE *file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\n# partial overrides\ncommands=none\ncopy=Ctrl+Shift+P\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)));assert(!loaded.bindings[COMMAND_PALETTE].key && loaded.bindings[COMMAND_COPY].key=='P');
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncopy=Ctrl+Shift+R\n",file);fclose(file);
+    assert(shortcut_read(path,false,&loaded,error,sizeof(error)));
+    assert(loaded.bindings[COMMAND_COPY].key=='R' && !loaded.bindings[COMMAND_WIDTH_CYCLE].key);
+    assert(loaded.bindings[COMMAND_WIDTH_FULL].key=='F');
     assert(!shortcut_read(getenv("WB_TEST_DIRECTORY"),false,&loaded,error,sizeof(error)));
     unlink(path);assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && !memcmp(&loaded,&mac,sizeof(mac)));
     puts("PASS: platform navigation defaults, shortcut roundtrip, reserved controls, unknown/duplicate/version/truncated rejection, atomic private save, collisions, partial overrides, unbinding and transactional fallback");return 0;

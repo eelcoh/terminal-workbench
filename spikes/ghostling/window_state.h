@@ -8,9 +8,12 @@
 #include <unistd.h>
 #include <stdlib.h>
 #define WINDOW_STATE_WORKSPACES 8
+typedef struct { char id[41]; int preset; bool full; } WindowTerminalState;
 typedef struct {
     char id[41], focused[41], first[41];
-    float horizontal;
+    float horizontal, scroll;
+    int terminals;
+    WindowTerminalState widths[8];
 } WindowWorkspaceState;
 typedef struct {
     int width, height, count;
@@ -44,7 +47,9 @@ static bool window_state_read(WindowState *state, const char *path)
     if (!file) return false;
     WindowState next={0}; char line[512], query[128]; int end=0, overview,list,agents,waiting,context;
     bool valid=false;
-    if (!fgets(line,sizeof(line),file) || strcmp(line,"workbench-window-v1\n")) goto done;
+    if (!fgets(line,sizeof(line),file)) goto done;
+    bool v2=!strcmp(line,"workbench-window-v2\n");
+    if (!v2 && strcmp(line,"workbench-window-v1\n")) goto done;
     if (!fgets(line,sizeof(line),file) || sscanf(line,"V %d %d %f %40s %40s %d %d %d %d %f %40s %127s %d%n",
         &next.width,&next.height,&next.divider,next.active,next.sidebar,&overview,&list,&agents,&waiting,
         &next.vertical,next.selected,query,&context,&end)!=13 || strcmp(line+end,"\n")) goto done;
@@ -66,12 +71,27 @@ static bool window_state_read(WindowState *state, const char *path)
         }
     }
     while (fgets(line,sizeof(line),file)) {
+        if (v2 && line[0]=='T') {
+            if (!next.count) goto done;
+            WindowWorkspaceState *workspace=&next.workspaces[next.count-1];
+            if (workspace->terminals==8) goto done;
+            WindowTerminalState *width=&workspace->widths[workspace->terminals];
+            int full;
+            if (sscanf(line,"T %40s %d %d%n",width->id,&width->preset,&full,&end)!=3 || strcmp(line+end,"\n")
+                || !window_state_id(width->id) || width->preset<0 || width->preset>2 || full<0 || full>1) goto done;
+            for (int w=0;w<next.count;w++) for (int p=0;p<next.workspaces[w].terminals;p++)
+                if (!strcmp(next.workspaces[w].widths[p].id,width->id)) goto done;
+            width->full=full;workspace->terminals++;continue;
+        }
         if (next.count==WINDOW_STATE_WORKSPACES) goto done;
         WindowWorkspaceState *workspace=&next.workspaces[next.count];
-        if (sscanf(line,"W %40s %40s %40s %f%n",workspace->id,workspace->focused,workspace->first,
-            &workspace->horizontal,&end)!=4 || strcmp(line+end,"\n") || !window_state_id(workspace->id)
+        int fields=v2 ? sscanf(line,"W %40s %40s %40s %f %f%n",workspace->id,workspace->focused,workspace->first,
+            &workspace->horizontal,&workspace->scroll,&end) :
+            sscanf(line,"W %40s %40s %40s %f%n",workspace->id,workspace->focused,workspace->first,&workspace->horizontal,&end);
+        if (fields!=(v2 ? 5 : 4) || strcmp(line+end,"\n") || !window_state_id(workspace->id)
             || !window_state_decode_id(workspace->focused) || !window_state_decode_id(workspace->first)
-            || !isfinite(workspace->horizontal) || workspace->horizontal<0 || workspace->horizontal>8) goto done;
+            || !isfinite(workspace->horizontal) || workspace->horizontal<0 || workspace->horizontal>8
+            || !isfinite(workspace->scroll) || workspace->scroll<0 || workspace->scroll>8) goto done;
         for (int i=0;i<next.count;i++) if (!strcmp(next.workspaces[i].id,workspace->id)) goto done;
         next.count++;
     }
@@ -90,14 +110,18 @@ static bool window_state_write(const WindowState *state, const char *path)
     if (!file) { close(fd); unlink(temporary); return false; }
     char query[128]={0};
     for (size_t i=0;i<strlen(state->query);i++) snprintf(query+i*2,3,"%02x",(unsigned char)state->query[i]);
-    bool valid=fprintf(file,"workbench-window-v1\nV %d %d %.9g %s %s %d %d %d %d %.9g %s %s %d\n",
+    bool valid=fprintf(file,"workbench-window-v2\nV %d %d %.9g %s %s %d %d %d %d %.9g %s %s %d\n",
         state->width,state->height,state->divider,window_state_token(state->active),window_state_token(state->sidebar),
         state->overview,state->list,state->agents,state->waiting,state->vertical,window_state_token(state->selected),
         *query ? query : "-",state->context)>0;
     for (int i=0;i<state->count;i++) {
         const WindowWorkspaceState *workspace=&state->workspaces[i];
-        if (fprintf(file,"W %s %s %s %.9g\n",workspace->id,window_state_token(workspace->focused),
-            window_state_token(workspace->first),workspace->horizontal)<0) valid=false;
+        if (fprintf(file,"W %s %s %s %.9g %.9g\n",workspace->id,window_state_token(workspace->focused),
+            window_state_token(workspace->first),workspace->horizontal,workspace->scroll)<0) valid=false;
+        for (int p=0;p<workspace->terminals;p++) {
+            const WindowTerminalState *width=&workspace->widths[p];
+            if (fprintf(file,"T %s %d %d\n",width->id,width->preset,width->full)<0) valid=false;
+        }
     }
     if (fflush(file) || fsync(fd)) valid=false;
     if (fclose(file)) valid=false;

@@ -109,14 +109,19 @@ dialog supports Enter to save, Escape/Cancel, select-all, Backspace, and desktop
 clipboard paste (Ctrl+V on Linux; Command+V on macOS, unverified). Names are
 single-line UTF-8 strings of at most 63 bytes. New workspaces start with one shell.
 Renaming preserves the session and running process. Prev/Next focuses terminals
-and reveals those outside the two visible columns. Click a numbered position to
+and reveals those outside the visible variable-width strip. Click a numbered position to
 jump, or scroll over the top navigation strip. Pane slides retain immediate focus
 and typing; reduced motion skips them. Terminal-content scrolling is unchanged.
 `just navigation-gui-test` validates this with one/fifteen populated terminals.
 Scroll the workspace list if
 the window is too short to show every row.
 
-Click a pane/title to focus it and drag the divider to resize two visible panes.
+Click a pane/title to focus it. Each terminal starts at half width. Ctrl+Shift+R
+(Linux) / Command+Shift+R (Mac) cycles half → two thirds → third; Ctrl+Shift+F /
+Command+Shift+F toggles full terminal-area width and restores the preset on a second
+press. Drag a right gap for a snapped guide and release to apply that terminal's
+width. Commands also offers explicit presets. Widths and strip positions are
+saved independently in each window view.
 The blue border marks selection; global Copy/Paste follows it. Gold dots mark live
 output in unfocused terminals. Closing the window detaches all sessions; restarting
 the launcher reconnects them. Typing `exit` closes only that shell. Renaming leaves

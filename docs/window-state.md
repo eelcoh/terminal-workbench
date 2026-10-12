@@ -8,7 +8,7 @@ its lease; reopening reuses the first available slot and its saved view. Slots
 are reusable view profiles, not saved groups of terminal owners. The spike caps
 simultaneously open windows at 64.
 
-The view records window size, split width, active workspace, sidebar position,
+The view records window size, independent terminal widths, active workspace, sidebar position,
 focused and first visible terminal in each workspace, overview visibility,
 search and filters, selected terminal, and fractional vertical/horizontal
 positions. Workspace and terminal selections use stable identities. Deleted
@@ -42,7 +42,7 @@ Both macOS and Linux provide the same Python/Unix implementation.
 `just check` covers private state roundtrips, Unicode search, invalid file
 rejection, detached lease lifetime, concurrent allocators, crash release and
 stable slot reuse. `just window-state-gui-test` exercises two real Linux windows,
-close/reopen, size/split/focus, catalog reorder, input reaching the original live
+close/reopen, size/width/focus, catalog reorder, input reaching the original live
 shell, both overview scroll axes, query restoration, crash checkpoints, deleted
 identities and corrupt-state fallback. Existing launch and multiwindow tests
 cover diagnostics and ownership handoff. The owner confirmed native macOS view restoration on 2026-10-11.
@@ -52,3 +52,25 @@ terminals, resize each, and close/reopen one while the other stays open. Confirm
 the printed slot and restored view. Open the overview, scroll both axes, close
 and reopen again. Shell variables should survive; terminals owned by the other
 window must still require Move here.
+
+## Independent terminal widths
+
+Version 2 stores each terminal's third/half/two-thirds preset and reversible full
+width by stable ID, plus each workspace's working-view scroll position normalized
+to the available estate. Reordering and in-window workspace moves preserve the
+terminal preference; independent windows keep their own widths. New terminals
+start at half width, including a workspace with just one terminal.
+
+Version 1 files still restore window size, focus, overview and selections. Their
+global split is retired: terminals start at half width, and focus is revealed in
+the new strip. A subsequent save writes version 2. The old V-line divider field
+is retained as a reserved compatibility field; T lines record terminal widths.
+Corrupt version 2 records are rejected transactionally. Width restoration never
+claims a terminal or changes a session identity.
+
+Drag a terminal's right gap to preview a snapped guide. Release commits only that
+terminal's preset; other preferences stay unchanged. Rounding can distribute a
+one-pixel difference between columns to make fractional combinations fit exactly.
+PTY resize requests occur at committed visible geometry, never for guide motion
+or scrolling animation. Narrow columns offer rename/stop through Commands; closed
+terminals retain their connection/recovery control. See [the UX brief](ux-spike.md#niri-reference-and-next-layout-slice).

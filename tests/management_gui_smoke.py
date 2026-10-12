@@ -311,7 +311,7 @@ def main():
                 click(761, 452)
                 wait_until(lambda: len(metadata()["workspaces"][0]["terminals"]) == 1)
                 time.sleep(0.3)
-                click(1125, 58)
+                click(602, 58)
                 click(761, 452)
                 wait_until(lambda: len(metadata()["workspaces"][0]["terminals"]) == 0)
                 time.sleep(0.3)
@@ -351,10 +351,10 @@ def main():
                 assert viewer.poll() is None and not recovered_path.exists()
                 time.sleep(.6)
                 before_recovery=metadata()
-                click(1030,58)  # Start new shell in the terminal header.
+                click(535,58)  # Start new shell in the terminal header.
                 key("Escape")
                 assert not recovered_path.exists() and metadata()==before_recovery
-                click(1030,58)
+                click(535,58)
                 click(755,452)  # Explicit confirmation, no keyboard auto-accept.
                 wait_until(recovered_path.exists,timeout=10)
                 time.sleep(.6)
@@ -364,14 +364,14 @@ def main():
                 line('keep=fresh; echo $$ > recovered.pid')
                 recovered_pid=read('recovered.pid')
                 line('exit');wait_until(lambda:not recovered_path.exists())
-                time.sleep(.6);click(1030,58)
+                time.sleep(.6);click(535,58)
                 # Other caller recovers while this confirmation is open.
                 subprocess.run(bootstrap+["--command","terminal.recover","--id",recovered_id],env=environment,check=True,stdout=log,stderr=log,timeout=10)
                 recovered_inode=recovered_path.stat().st_ino
                 click(755,452);time.sleep(.5)
                 assert recovered_path.stat().st_ino==recovered_inode and viewer.poll() is None
                 log.flush();assert 'Terminal recovery failed: Terminal is still running' in (root/'test.log').read_text()
-                key('Escape');time.sleep(.4);click(1050,58);time.sleep(.6)
+                key('Escape');time.sleep(.4);click(535,58);time.sleep(.6)
                 line('echo $$ > raced.pid');assert read('raced.pid')!=recovered_pid
                 assert recovered_path.stat().st_ino==recovered_inode
                 # Service unavailable: status check stays local, does not restart it.
@@ -379,10 +379,10 @@ def main():
                 subprocess.run(['python3',str(ROOT/'scripts/session_service.py'),'stop','--state-dir',str(state),'--runtime',runtime,'--cwd',str(root)],env=environment,check=True,stdout=log,stderr=log,timeout=10)
                 close_window(window,environment);assert viewer.wait(timeout=5)==0
                 viewer,window=launch();time.sleep(.5)
-                click(1050,58);time.sleep(.3)
+                click(535,58);time.sleep(.3)
                 assert not recovered_path.exists() and not (state/'service.rpc').exists()
                 subprocess.run(bootstrap,env=environment,check=True,stdout=log,stderr=log,timeout=10)
-                click(1050,58);time.sleep(.5);click(1030,58);click(755,452)
+                click(535,58);time.sleep(.5);click(535,58);click(755,452)
                 wait_until(recovered_path.exists);time.sleep(.5)
                 line('printf resumed > status-recovery');assert read('status-recovery')=='resumed'
                 close_window(window, environment)

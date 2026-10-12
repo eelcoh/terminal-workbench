@@ -9,6 +9,8 @@ int main(void)
     strcpy(original.active,"-"); strcpy(original.sidebar,"empty"); strcpy(original.selected,"pane-7");
     strcpy(original.query,"two words \t café");
     original.workspaces[0]=(WindowWorkspaceState){.id="project",.focused="pane-7",.first="pane-6",.horizontal=3.125f};
+    original.workspaces[0].scroll=2.5f;original.workspaces[0].terminals=1;
+    original.workspaces[0].widths[0]=(WindowTerminalState){.id="pane-7",.preset=1,.full=true};
     original.workspaces[1]=(WindowWorkspaceState){.id="empty"};
     assert(window_state_write(&original,path));
     WindowState read={0}; assert(window_state_read(&read,path));
@@ -26,6 +28,16 @@ int main(void)
     for (size_t i=0;i<sizeof(bad)/sizeof(*bad);i++) {
         FILE *file=fopen(path,"w"); assert(file); fputs(bad[i],file); fclose(file);
         read=original; assert(!window_state_read(&read,path)); assert(!memcmp(&read,&original,sizeof(read)));
+    }
+    FILE *legacy=fopen(path,"w");assert(legacy);
+    fputs("workbench-window-v1\nV 1360 820 .25 project . 0 0 0 0 0 . - 0\nW project pane-7 pane-6 0\n",legacy);fclose(legacy);
+    assert(window_state_read(&read,path) && read.workspaces[0].terminals==0 && read.workspaces[0].scroll==0);
+    const char *invalid_widths[]={"T pane-7 3 0\n", "T pane-7 0 2\n", "T pane-7 0 0\nT pane-7 1 0\n"};
+    for (size_t i=0;i<sizeof(invalid_widths)/sizeof(*invalid_widths);i++) {
+        FILE *file=fopen(path,"w");assert(file);
+        fputs("workbench-window-v2\nV 1360 820 .5 project . 0 0 0 0 0 . - 0\nW project pane-7 pane-7 0 0\n",file);
+        fputs(invalid_widths[i],file);fclose(file);
+        read=original;assert(!window_state_read(&read,path) && !memcmp(&read,&original,sizeof(read)));
     }
     assert(!window_state_write(&original,"/missing-workbench-dir/window.view"));
     unlink(path); puts("PASS: window state roundtrip, private atomic files, Unicode query, invalid/truncated/versioned state rejection");

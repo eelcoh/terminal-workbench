@@ -69,7 +69,7 @@ Detailed exit reasons, creation/close journaling and installation lifecycle rema
 [the session service slice](session-service.md).
 Session-service startup, shared PID, stop and live adoption are also confirmed
 on macOS; graphical stopped-terminal recovery is also owner-confirmed.
-Per-window view persistence now saves size, split width, stable workspace/terminal
+Per-window view persistence now saves size, independent terminal widths, stable workspace/terminal
 focus and overview context in independently leased client slots. The owner has also confirmed native macOS
 view restoration. See [window state](window-state.md).
 Workspace project folders now support first/new/replacement shell startup,
@@ -98,7 +98,9 @@ and untrusted Unknown fallback were observed. Permission-prompt behavior,
 graphical background-workspace flows and native Mac integration remain open.
 GitHub Copilot CLI is the owner's only permitted agent on the Mac and is a
 required integration target. Native/npm identification and invocation-local hooks
-are implemented; native Mac acceptance is pending. See [Copilot testing](copilot.md).
+are implemented. The owner confirmed native Mac identity in a new runtime;
+The owner also confirmed the Mac Needs input filter tracks waiting agents;
+Working/Ready and the complete native lifecycle sequence remain pending. See [Copilot testing](copilot.md).
 Additional Linux agents can follow after this core matrix is reliable.
 See [the live validation record](agent-validation.md).
 
@@ -107,6 +109,19 @@ status symbols using embedded primary/fallback glyphs; Linux screenshot coverage
 passes. The owner confirmed glyphs on Linux and native macOS in Copilot.
 Specific Retina scaling coverage, full shaping and broader font preferences
 remain open. See [terminal fonts](terminal-fonts.md).
+
+## Current UX slice: Niri-style terminal widths
+
+The owner added Niri as an explicit reference for scrollable navigation, overview
+polish and simple widgets. The prototype replaces the working view's window-wide
+divider and fixed visible pair with independent terminal widths in each workspace's
+scrolling strip: 1/2 → 2/3 → 1/3 cycling, snapped mouse resizing, three equal thirds,
+mixed thirds/two-thirds and reversible focused-terminal full width. Widths follow
+stable terminal identity rather than left/right positions and persist in each
+window's workspace layout. Configurable actions use the existing Commands
+and Shortcut settings surfaces. Review variable-width motion and native input on
+both platforms before the toolkit/installable-build decision.
+See [the detailed layout requirements](ux-spike.md#niri-reference-and-next-layout-slice).
 
 ## UX spike: a product-quality gate
 

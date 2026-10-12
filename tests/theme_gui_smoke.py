@@ -15,7 +15,10 @@ import zlib
 from session_smoke import attach, send, wait_until
 ROOT = Path(__file__).resolve().parent.parent
 
-def pixel(path, px, py):
+from functools import lru_cache
+
+@lru_cache(maxsize=32)
+def _png_row(path, py):
     # Decode Raylib's PNG screenshots with stdlib only; no imaging dependency.
     data = path.read_bytes()
     assert data[:8] == b'\x89PNG\r\n\x1a\n'
@@ -49,9 +52,13 @@ def pixel(path, px, py):
                 assert filter_kind == 0
                 predictor = 0
             row[index] = (row[index] + predictor) & 255
-        if y == py: return tuple(row[px*channels:px*channels+3])
+        if y == py: return bytes(row),channels
         prior=row
     raise AssertionError('Pixel outside screenshot')
+
+def pixel(path, px, py):
+    row,channels=_png_row(path,py)
+    return tuple(row[px*channels:px*channels+3])
 
 def main():
     runtime, binary = [str(Path(a).resolve()) for a in sys.argv[1:3]]

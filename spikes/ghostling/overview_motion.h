@@ -96,10 +96,9 @@ static void overview_present(WorkspaceClient *client)
         int w = client->overview_jump_workspace >= 0 ? client->overview_jump_workspace : client->active;
         WorkbenchWorkspace *workspace = &client->workspaces[w];
         int p = client->overview_jump_pane >= 0 ? client->overview_jump_pane : workspace->focused;
-        int first = workspace->first;
-        if (p < first) first = p;
-        if (p >= first + 2) first = p - 1;
-        Rectangle normal = workspace_pane_bounds(client, workspace->count, first, p);
+        WorkbenchWorkspace destination=*workspace;
+        workspace_focus(&destination,p);
+        Rectangle normal=workspace_pane_bounds(&destination,p);
         Rectangle card = client->overview_exit_card;
         Rectangle source = {card.x, height - card.y - card.height, card.width, -card.height};
         DrawTexturePro(client->overview_stage.texture, source, overview_motion_rect(card, normal, 1 - value), (Vector2){0, 0}, 0, Fade(WHITE, 1 - value));
@@ -109,7 +108,7 @@ static void overview_present(WorkspaceClient *client)
         WorkbenchWorkspace *workspace = &client->workspaces[client->active];
         for (int i = 0; i < count; i++) {
             int p = items[i].pane;
-            if (items[i].workspace != client->active || p < workspace->first || p >= workspace->first + 2
+            if (items[i].workspace != client->active || !workspace_visible(workspace,p)
                 || !overview_card_visible(client, items, i)) continue;
             WorkbenchPane *pane = workspace->panes[p];
             if (!pane->canvas.id) continue;

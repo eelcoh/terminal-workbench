@@ -9,6 +9,7 @@
 
 #include "overview_animation.h"
 #include "pane_navigation.h"
+#include "pane_width.h"
 #include "overview_scroll.h"
 #include "window_state.h"
 #include "shortcut_state.h"
@@ -45,12 +46,14 @@ typedef struct {
     int fd;
     bool closed, scrollbar_dragging, unread, focused, status_checked;
     int runtime_state;
+    PaneWidth width;
 } WorkbenchPane;
 
 typedef struct {
     char id[41], name[64], directory[1024];
     WorkbenchPane *panes[WORKBENCH_PANES];
     int focused, first, count;
+    float scroll, estate;
 } WorkbenchWorkspace;
 
 typedef struct { RenderTexture2D canvas; uint64_t epoch; } NavigationTile;
@@ -62,7 +65,8 @@ typedef struct {
     WindowState saved_view;
     double view_checked;
     bool view_loaded, view_restore_overview, view_has_overview;
-    float divider;
+    int divider_pane, divider_preset;
+    float divider_preview;
     bool divider_dragging;
     int cell_width, cell_height;
     Font font;
@@ -103,6 +107,7 @@ typedef struct {
     bool navigation_valid, navigation_reset;
     char navigation_workspace[41];
     int navigation_first, navigation_focused, navigation_width, navigation_height;
+    float navigation_scroll;
     uint64_t navigation_epoch;
     NavigationTile navigation_tiles[WORKBENCH_PANES];
     OverviewAnimation navigation_animation;
@@ -234,22 +239,47 @@ static bool pane_init(WorkspaceClient *client, WorkbenchPane *pane)
     return result == GHOSTTY_SUCCESS;
 }
 
+static float workspace_estate(void) { return GetScreenWidth()-WORKBENCH_SIDEBAR-WORKBENCH_GAP*2; }
+static void workspace_widths(const WorkbenchWorkspace *workspace, PaneWidth *widths)
+{ for (int p=0;p<workspace->count;p++) widths[p]=workspace->panes[p]->width; }
+static float workspace_offset(WorkbenchWorkspace *workspace, int pane)
+{
+    PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
+    return pane_width_start(widths,pane,workspace_estate(),WORKBENCH_GAP);
+}
+static bool workspace_visible(WorkbenchWorkspace *workspace, int pane)
+{
+    PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
+    return pane_width_visible(widths,pane,workspace->scroll,workspace_estate(),WORKBENCH_GAP);
+}
+static void workspace_focus(WorkbenchWorkspace *workspace, int requested)
+{
+    if (!workspace->count) { workspace->focused=workspace->first=0; workspace->scroll=0; return; }
+    if (requested<0) requested=0;
+    if (requested>=workspace->count) requested=workspace->count-1;
+    workspace->focused=requested;
+    float estate=workspace_estate();
+    if (workspace->estate>0 && workspace->estate!=estate)
+        workspace->scroll*=(estate+WORKBENCH_GAP)/(workspace->estate+WORKBENCH_GAP);
+    workspace->estate=estate;
+    PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
+    workspace->scroll=pane_width_reveal(widths,workspace->count,requested,workspace->scroll,workspace_estate(),WORKBENCH_GAP);
+    workspace->first=0;
+    while (workspace->first<workspace->count-1 && !workspace_visible(workspace,workspace->first)) workspace->first++;
+}
+static Rectangle workspace_pane_bounds(WorkbenchWorkspace *workspace, int pane)
+{
+    PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
+    return (Rectangle){WORKBENCH_SIDEBAR+WORKBENCH_GAP+workspace_offset(workspace,pane)-workspace->scroll,42,
+        pane_width_pixels(widths,pane,workspace_estate(),WORKBENCH_GAP),GetScreenHeight()-52};
+}
+
 #include "catalog_view.h"
 static void overview_move_saved(WorkspaceClient *client);
 static void navigation_finish(WorkspaceClient *client);
 static bool navigation_moving(WorkspaceClient *client);
 #include "management_ui.h"
 #include <ctype.h>
-static Rectangle workspace_pane_bounds(WorkspaceClient *client, int count, int first, int pane)
-{
-    int left = WORKBENCH_SIDEBAR + WORKBENCH_GAP;
-    int available = GetScreenWidth() - left - WORKBENCH_GAP * 2;
-    int width = (int)(available * client->divider);
-    int height = GetScreenHeight() - WORKBENCH_HEADER_HEIGHT - WORKBENCH_GAP * 2;
-    if (count - first == 1) return (Rectangle){left, 42, available + WORKBENCH_GAP, height};
-    if (pane == first) return (Rectangle){left, 42, width, height};
-    return (Rectangle){left + width + WORKBENCH_GAP, 42, available - width, height};
-}
 static void pane_preview_refresh(WorkspaceClient *client, WorkbenchPane *pane);
 static void pane_preview_draw(WorkspaceClient *client, WorkbenchPane *pane, Rectangle target);
 static void window_view_restore_overview(WorkspaceClient *client);
@@ -266,11 +296,11 @@ static bool workspace_layout(WorkspaceClient *client)
     /* Hidden workspaces retain their geometry until entry. */
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     if (!workspace->count) return true;
-    int visible = workspace->count - workspace->first;
-    if (visible > 2) visible = 2;
-    for (int p = workspace->first; p < workspace->first + visible; p++)
-        workspace->panes[p]->bounds = workspace_pane_bounds(client, workspace->count, workspace->first, p);
-    for (int p = workspace->first; p < workspace->first + visible; p++) {
+    workspace_focus(workspace,workspace->focused);
+    for (int p=0;p<workspace->count;p++)
+        workspace->panes[p]->bounds=workspace_pane_bounds(workspace,p);
+    for (int p=0;p<workspace->count;p++) {
+        if (!workspace_visible(workspace,p)) continue;
         WorkbenchPane *pane = workspace->panes[p];
         pane_bind(pane);
         int cols = ((int)pane->bounds.width - 8) / client->cell_width;
@@ -388,12 +418,13 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     snprintf(label, sizeof(label), "%s%s%s%s%s%s", pane->name, agent[0] ? " / " : "", agent,
              agent[0] ? " / " : "", agent[0] ? remote_attention_name(pane->transport.attention) : "",
              pane->closed ? (client->managed && pane->runtime_state==RUNTIME_STOPPED ? "  /  shell stopped" : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "  /  status unavailable" : pane->transport.attached_elsewhere ? "  /  open in another window" : "  /  disconnected") : pane->transport.replaying ? "  /  connecting" : "");
-    BeginScissorMode(8, 0, (int)bounds.width - (pane->closed ? (pane->runtime_state==RUNTIME_STOPPED ? 282 : 242) : 150), 32);
+    int reserve=bounds.width<300 ? (pane->closed ? 142 : 16) : (pane->closed ? (pane->runtime_state==RUNTIME_STOPPED ? 282 : 242) : 150);
+    BeginScissorMode(8,0,(int)fmaxf(1,bounds.width-reserve),32);
     DrawTextEx(client->font, label, (Vector2){10, 8}, 14, 0, ui.text);
     EndScissorMode();
     if (pane->unread && !pane->closed) DrawCircle((int)bounds.width - 144, 16, 3, ui.waiting);
     if (pane->closed) {
-        Rectangle action=pane->runtime_state==RUNTIME_STOPPED ? (Rectangle){bounds.width-264,6,126,20}
+        Rectangle action=pane->runtime_state==RUNTIME_STOPPED ? (Rectangle){bounds.width-(bounds.width<300 ? 134 : 264),6,126,20}
             : terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height});
         const char *label=client->managed && pane->runtime_state==RUNTIME_STOPPED ? "Start new shell"
             : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "Check again"
@@ -401,7 +432,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
             : pane->transport.takeover_unsupported ? "Reconnect" : "Move here";
         draw_header_button(client->font,action,label,!client->managed || pane->runtime_state!=RUNTIME_CHECKING);
     }
-    if (client->managed) {
+    if (client->managed && bounds.width>=300) {
         draw_header_button(client->font, (Rectangle){bounds.width - 132, 6, 54, 20}, "Stop", true);
         draw_header_button(client->font, (Rectangle){bounds.width - 72, 6, 64, 20}, "Rename", true);
     }
@@ -492,7 +523,7 @@ static int workspace_main(const char *catalog)
     client->shortcut_path=getenv("WORKBENCH_SHORTCUTS");shortcut_load(client);
     client->management_fd = -1;
     client->management_pid = -1;
-    client->divider = 0.5f;
+
     const char *reduced_motion = getenv("WORKBENCH_REDUCED_MOTION");
     client->overview_animation_enabled = !reduced_motion || strcmp(reduced_motion, "1");
     client->overview_jump_workspace = client->overview_jump_pane = -1;
@@ -582,7 +613,7 @@ static int workspace_main(const char *catalog)
             Vector2 wheel=GetMouseWheelMoveV();
             float delta=wheel.x!=0 ? -wheel.x : -wheel.y;
             int step=pane_navigation_wheel(&client->navigation_wheel,delta,GetTime());
-            if (step) pane_navigation_focus(workspace->count,workspace->focused+step,&workspace->focused,&workspace->first);
+            if (step) workspace_focus(workspace,workspace->focused+step);
         } else client->navigation_wheel=(PaneNavigationWheel){0};
         if (navigation_moving(client) && CheckCollisionPointRec(pointer,navigation_area())
             && (pressed || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
@@ -594,22 +625,38 @@ static int workspace_main(const char *catalog)
                 if (CheckCollisionPointRec(pointer, workspace_row(w - client->sidebar_first))) client->active = w;
             }
             workspace = &client->workspaces[client->active];
-            for (int p = workspace->first; p < workspace->count && p < workspace->first + 2; p++)
+            for (int p = 0; p < workspace->count; p++)
+                if (workspace_visible(workspace,p) && pointer.x>=WORKBENCH_SIDEBAR+WORKBENCH_GAP
+                    && pointer.x<GetScreenWidth()-WORKBENCH_GAP)
                 if (CheckCollisionPointRec(pointer, workspace->panes[p]->bounds)) workspace->focused = p;
             if (management_click(client, pointer)) modal_frame=true;
             if (client->dialog_open) modal_frame = true;
         }
-        Rectangle divider = {workspace->count ? workspace->panes[workspace->first]->bounds.x + workspace->panes[workspace->first]->bounds.width : 0,
-                             42, WORKBENCH_GAP, GetScreenHeight() - 52};
-        if (pressed && !gesture_active && !modal_frame && workspace->count - workspace->first > 1 && CheckCollisionPointRec(pointer, divider)) client->divider_dragging = true;
-        if (client->divider_dragging && IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-            float width = GetScreenWidth() - WORKBENCH_SIDEBAR - WORKBENCH_GAP * 3;
-            client->divider = (pointer.x - WORKBENCH_SIDEBAR - WORKBENCH_GAP) / width;
-            if (client->divider < 0.25f) client->divider = 0.25f;
-            if (client->divider > 0.75f) client->divider = 0.75f;
+        if (pressed && !gesture_active && !modal_frame && !shortcut_bypass) {
+            for (int p=0;p<workspace->count;p++) {
+                Rectangle b=workspace_pane_bounds(workspace,p);
+                Rectangle edge={b.x+b.width,42,WORKBENCH_GAP,b.height};
+                if (workspace_visible(workspace,p) && CheckCollisionPointRec(pointer,edge)) {
+                    navigation_finish(client); client->divider_dragging=true;client->divider_pane=p;
+                    client->divider_preset=workspace->panes[p]->width.preset;
+                    client->divider_preview=b.x+b.width;
+                    break;
+                }
+            }
         }
-        bool divider_consumed = client->divider_dragging;
-        if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) client->divider_dragging = false;
+        bool divider_consumed=client->divider_dragging;
+        if (client->divider_dragging) {
+            int p=client->divider_pane;
+            Rectangle b=workspace_pane_bounds(workspace,p);
+            client->divider_preset=pane_width_snap((pointer.x-b.x+WORKBENCH_GAP)/(workspace_estate()+WORKBENCH_GAP));
+            PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
+            widths[p]=(PaneWidth){.preset=client->divider_preset};
+            client->divider_preview=b.x+pane_width_pixels(widths,p,workspace_estate(),WORKBENCH_GAP);
+            if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+                workspace->panes[p]->width=(PaneWidth){.preset=client->divider_preset};
+                workspace_focus(workspace,workspace->focused);client->navigation_reset=true;client->divider_dragging=false;
+            }
+        }
         theme_sync(client);
         navigation_prepare(client);
         bool layout_deferred = client->theme_open || (client->overview_open && !client->overview_list);
@@ -682,6 +729,11 @@ static int workspace_main(const char *catalog)
         ClearBackground(ui.background);
         if (!client->overview_open || client->overview_list) {
             navigation_present(client,workspace,workspace->first);
+            if (client->divider_dragging) {
+                DrawRectangle((int)client->divider_preview,42,2,GetScreenHeight()-52,ui.accent);
+                const char *label=client->divider_preset==1 ? "2/3" : client->divider_preset==2 ? "1/3" : "1/2";
+                DrawText(label,(int)client->divider_preview-32,48,18,ui.accent);
+            }
         }
         if (!workspace->count) DrawTextEx(client->font, "Create a terminal to start working", (Vector2){224, 110}, 16, 0, ui.muted);
         workspace_chrome(client);

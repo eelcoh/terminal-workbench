@@ -47,3 +47,8 @@ clipboard shortcuts, minimum window geometry and ordinary Ctrl-C. Native macOS
 shortcut input, palette
 visuals and interaction remain pending. The Raylib input backend still does not
 establish full IME, alternate-layout or native Wayland acceptance.
+
+Terminal layout actions cycle the focused terminal between half, two thirds and
+one third, toggle reversible full terminal-area width, or select an explicit
+preset. They are client-only and work without session management or ownership.
+Use Shortcut settings to change their bindings.

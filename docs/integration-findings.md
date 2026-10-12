@@ -223,10 +223,11 @@ Intermediate tiles never request a PTY resize or receive keyboard/pointer input.
 The selected destination keeps normal layout/input ownership immediately.
 
 Only intersecting tiles update the render state, so hidden background workspaces
-remain outside the presentation path. At an equal divider this is at most three
-tiles; the eight-pane limit bounds texture retention. Steady frames use the
-existing two canvases. Target layout can resize a pane when its normal slot size
-changes, including an asymmetric divider. Pointer interactions settle motion
+remain outside the presentation path. At half width this is at most three
+tiles; thirds can show three full columns and partial columns during motion.
+The eight-pane limit bounds texture retention. Steady frames render only
+intersecting pane canvases. Target layout can resize a visible pane when its
+preferred width changes; mouse guides and animated positions never resize PTYs. Pointer interactions settle motion
 before using target geometry. Dialogs, themes, overview entry/exit, catalog reload,
 workspace switches and resize also settle it. A live pixel-sampling regression
 checks every intermediate pane during an eight-to-one jump, with distinct

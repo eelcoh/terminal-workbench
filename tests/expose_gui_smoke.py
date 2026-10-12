@@ -91,7 +91,8 @@ def main():
                 xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
                 processes.append(xvfb); os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
-                environment['DISPLAY'] = ':' + os.read(read_fd, 32).decode().strip(); os.close(read_fd)
+                with os.fdopen(read_fd) as ready: display=ready.readline().strip()
+                environment['DISPLAY'] = ':' + display
                 viewer = subprocess.Popen([viewer_binary], env=environment, cwd=root, stdout=log, stderr=log)
                 processes.append(viewer)
                 def command(*args):
@@ -103,14 +104,14 @@ def main():
                     return result.stdout.strip().splitlines()[-1] if result.returncode == 0 else None
                 window = wait_until(find, timeout=10); command('windowfocus', window); time.sleep(0.6)
                 def key(name):
-                    command('keydown', '--window', window, name); time.sleep(.06)
+                    command('keydown', '--window', window, name); time.sleep(.12 if name=='F12' else .06)
                     command('keyup', '--window', window, name); time.sleep(.08)
                 def click(x, y):
                     command('mousemove', '--window', window, x, y); command('mousedown', 1); time.sleep(.06)
                     command('mouseup', 1); time.sleep(.08)
                 def fast_key(name):
-                    command('keydown', '--window', window, name); time.sleep(.025)
-                    command('keyup', '--window', window, name); time.sleep(.025)
+                    command('keydown', '--window', window, name); time.sleep(.12 if name=='F12' else .025)
+                    command('keyup', '--window', window, name); time.sleep(.12 if name=='F12' else .025)
                 def fast_click(x, y):
                     command('mousemove', '--window', window, x, y); command('mousedown', 1); time.sleep(.025)
                     command('mouseup', 1); time.sleep(.025)
@@ -128,14 +129,15 @@ def main():
                     return result
                 artifacts = ROOT / '.local/test-results'; artifacts.mkdir(parents=True, exist_ok=True)
                 def capture(name):
-                    key('F12'); time.sleep(.15)
-                    path = sorted(root.glob('screenshot*.png'))[-1]
+                    started=time.time_ns();key('F12')
+                    path=wait_until(lambda:next((p for p in root.glob('screenshot*.png') if p.stat().st_mtime_ns>=started),None))
                     destination = artifacts / name; shutil.copyfile(path, destination); return destination
                 before = geometry()
                 fast_click(522, 16)
                 fast_key('F12')
                 time.sleep(.05)
-                shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1], artifacts / 'overview-opening.png')
+                opening=wait_until(lambda:next(root.glob('screenshot*.png'),None))
+                shutil.copyfile(opening, artifacts / 'overview-opening.png')
                 time.sleep(.2)
                 first = capture('expose-before.png')
                 (root / 'reveal').touch(); wait_until(lambda: (root / 'changed').exists()); time.sleep(.3)
@@ -169,7 +171,8 @@ def main():
                     time.sleep(.05)
                     shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1], artifacts / 'overview-closing.png')
                     time.sleep(.2)
-                    verify('w0p0', 'after-zoom')
+                    # F12 is also forwarded by the upstream screenshot hook.
+                    key('ctrl+u');verify('w0p0', 'after-zoom')
                 else:
                     text('missing-terminal'); key('Return'); key('Escape')
                     verify('w0p0', 'cancel-safe')

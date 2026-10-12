@@ -74,6 +74,8 @@ static ShortcutState shortcut_defaults(bool apple)
     state.bindings[COMMAND_COPY]=(ShortcutChord){'C',base}; state.bindings[COMMAND_PASTE]=(ShortcutChord){'V',base};
     state.bindings[COMMAND_TERMINAL_CREATE]=(ShortcutChord){'T',base};
     state.bindings[COMMAND_WORKSPACE_CREATE]=(ShortcutChord){'N',base};
+    state.bindings[COMMAND_WIDTH_CYCLE]=(ShortcutChord){'R',base|SHORTCUT_SHIFT};
+    state.bindings[COMMAND_WIDTH_FULL]=(ShortcutChord){'F',base|SHORTCUT_SHIFT};
     unsigned navigation=apple ? SHORTCUT_SUPER|SHORTCUT_ALT : SHORTCUT_CTRL|SHORTCUT_SHIFT;
     state.bindings[COMMAND_TERMINAL_PREVIOUS]=(ShortcutChord){263,navigation};state.bindings[COMMAND_TERMINAL_NEXT]=(ShortcutChord){262,navigation};
     state.bindings[COMMAND_WORKSPACE_PREVIOUS]=(ShortcutChord){265,navigation};state.bindings[COMMAND_WORKSPACE_NEXT]=(ShortcutChord){264,navigation};
@@ -107,6 +109,10 @@ static bool shortcut_read(const char *path, bool apple, ShortcutState *out, char
     if (ferror(file)) valid=false;
     fclose(file);
     if (!valid) { snprintf(error,capacity,"Invalid shortcut file; existing bindings kept"); return false; }
+    /* New defaults must not invalidate a previously customized old binding. */
+    for (int i=COMMAND_WIDTH_CYCLE;i<COMMAND_COUNT;i++) if (!seen[i])
+        for (int j=0;j<COMMAND_COUNT;j++) if (seen[j] && next.bindings[i].key==next.bindings[j].key
+            && next.bindings[i].mods==next.bindings[j].mods) next.bindings[i]=(ShortcutChord){0};
     if (!shortcut_valid(&next,error,capacity)) return false;
     *out=next; return true;
 }

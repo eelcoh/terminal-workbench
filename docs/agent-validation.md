@@ -74,10 +74,29 @@ hooks against policy. Interrupt/resume paths remain an open validation item.
 `just check` and `just copilot-gui-test` pass. GUI checks use a named executable
 fixture and supplied hook events, not a live CLI; live permission prompts and
 graphical/background acceptance remain pending. The owner reports Copilot
-**1.0.96-2** on macOS; native identity and lifecycle acceptance for that version
-are pending. The Mac adapter also recognizes the npm Node launcher layout through
+**1.0.96-2** on macOS; native identity is now confirmed and lifecycle acceptance
+remains pending. The Mac adapter also recognizes the npm Node launcher layout through
 a bounded process-argument prefix, with decoder tests on Linux.
 
+## macOS identification — 2026-10-11
+
+The owner confirmed Copilot appears under Agents when launched in a terminal
++whose runtime was created after the Copilot build. Native Homebrew Copilot
++1.0.96-2 had a `copilot` executable name and a foreground group matching its PID.
++Read-only diagnostics recorded `identity.agent: copilot` and viewer metadata
++`agent_tag: 6` for the same running runtime, PID 33412. Its snapshot still reported
++Unknown lifecycle status, so this confirms identity and delivery to the viewer,
++not Working/Ready or Needs input hooks on macOS. In subsequent manual testing,
+the owner confirmed the Needs input filter retains Copilot while it is waiting
+and is empty otherwise. This validates native waiting-state delivery and
+filtering. Working/Ready labels and the complete answer/exit sequence remain
+unconfirmed on Mac.
++
+Older saved terminals retain their running code after rebuilding the viewer.
++Creating a new terminal obtains the new runtime; restarting an agent inside an
++older terminal does not update that runtime. The owner separately confirmed
++plain Claude and Codex labels on Linux; their labels do not require `wb-*`.
++
 ## Manual acceptance sequence
 
 1. Build with `just spike`; create a new terminal so it has current launchers.

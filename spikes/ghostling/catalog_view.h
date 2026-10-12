@@ -160,8 +160,9 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
             if (!retained_focus) next->focused = old->focused < next->count ? old->focused : next->count - 1;
         }
         next->first=old ? old->first : 0;
-        if (next->first>next->focused) next->first=next->focused;
-        if (next->focused>=next->first+2) next->first=next->focused-1;
+        next->scroll=old ? old->scroll : 0;
+        next->estate=old ? old->estate : 0;
+        if (next->first>=next->count) next->first=0;
     }
     /* Free only resources not retained in the chosen state. Heap addresses never
      * change, including userdata referenced by terminal effects callbacks. */

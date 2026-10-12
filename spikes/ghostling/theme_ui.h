@@ -57,7 +57,7 @@ static void theme_prepare_gallery(WorkspaceClient *client)
 }
 static void theme_open(WorkspaceClient *client)
 {
-    theme_sync(client);
+    theme_sync(client);client->divider_dragging=false;
     client->theme_open=true; client->appearance_before=client->appearance; client->theme_scope=0;
     theme_prepare_gallery(client);
     if (client->overview_open) overview_animation_target(&client->overview_animation,1,GetTime(),0);

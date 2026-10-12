@@ -7,6 +7,7 @@ typedef enum {
     COMMAND_TERMINAL_PREVIOUS, COMMAND_TERMINAL_NEXT,
     COMMAND_WORKSPACE_PREVIOUS, COMMAND_WORKSPACE_NEXT, COMMAND_TERMINAL_RECOVER,
     COMMAND_PALETTE, COMMAND_COPY, COMMAND_PASTE, COMMAND_FORWARD, COMMAND_SHORTCUTS,
+    COMMAND_WIDTH_CYCLE, COMMAND_WIDTH_FULL, COMMAND_WIDTH_THIRD, COMMAND_WIDTH_HALF, COMMAND_WIDTH_TWO_THIRDS,
     COMMAND_COUNT
 } WorkbenchCommand;
 typedef struct { const char *title, *detail; } CommandDefinition;
@@ -29,11 +30,16 @@ static const CommandDefinition command_definitions[COMMAND_COUNT]={
     {"Copy selection","Copy text from the focused terminal"},
     {"Paste clipboard","Paste into the focused terminal"},
     {"Send next key to terminal","Bypass application shortcuts once"},
-    {"Shortcut settings","Change bindings and navigation shortcuts"}
+    {"Shortcut settings","Change bindings and navigation shortcuts"},
+    {"Cycle terminal width","Half, two thirds, one third"},
+    {"Toggle terminal full width","Fill the terminal area; toggle again to restore"},
+    {"Terminal width: one third","Fit three terminals side by side"},
+    {"Terminal width: one half","Fit two terminals side by side"},
+    {"Terminal width: two thirds","Pair with a one-third terminal"}
 };
 static const char *command_ids[COMMAND_COUNT]={
     "overview", "appearance", "workspace.new", "workspace.rename", "workspace.folder", "workspace.stop",
     "terminal.new", "terminal.rename", "terminal.stop", "terminal.previous", "terminal.next",
-    "workspace.previous", "workspace.next", "terminal.recover", "commands", "copy", "paste", "forward", "shortcuts"
+    "workspace.previous", "workspace.next", "terminal.recover", "commands", "copy", "paste", "forward", "shortcuts", "terminal.width.cycle", "terminal.width.full", "terminal.width.third", "terminal.width.half", "terminal.width.two-thirds"
 };
 #endif

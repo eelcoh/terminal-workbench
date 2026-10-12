@@ -26,6 +26,8 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
     if (client->management_busy) return "A session change is still being saved";
     switch (command) {
     case COMMAND_OVERVIEW: case COMMAND_APPEARANCE: case COMMAND_PALETTE: case COMMAND_SHORTCUTS: return NULL;
+    case COMMAND_WIDTH_CYCLE: case COMMAND_WIDTH_FULL: case COMMAND_WIDTH_THIRD: case COMMAND_WIDTH_HALF: case COMMAND_WIDTH_TWO_THIRDS:
+        return pane ? NULL : "This workspace has no terminals";
     case COMMAND_COPY: return pane && selection_active(pane->terminal) ? NULL : "Select terminal text to copy";
     case COMMAND_PASTE: case COMMAND_FORWARD: return pane && !pane->closed && !pane->transport.replaying ? NULL : "Focused terminal is not available for input";
     case COMMAND_TERMINAL_PREVIOUS: return workspace->focused>0 ? NULL : "Already at the first terminal";
@@ -65,9 +67,19 @@ static void command_open(WorkspaceClient *client)
 static void command_dispatch(WorkspaceClient *client, int command)
 {
     if (command_unavailable(client,command)) return;
-    client->command_open=false;
+    client->command_open=false;client->divider_dragging=false;
     WorkbenchWorkspace *workspace=&client->workspaces[client->active];
     switch (command) {
+    case COMMAND_WIDTH_CYCLE: case COMMAND_WIDTH_FULL: case COMMAND_WIDTH_THIRD: case COMMAND_WIDTH_HALF: case COMMAND_WIDTH_TWO_THIRDS: {
+        PaneWidth *width=&workspace->panes[workspace->focused]->width;
+        if (command==COMMAND_WIDTH_FULL) width->full=!width->full;
+        else {
+            width->preset=command==COMMAND_WIDTH_CYCLE ? (width->preset+1)%3 :
+                command==COMMAND_WIDTH_THIRD ? 2 : command==COMMAND_WIDTH_HALF ? 0 : 1;
+            width->full=false;
+        }
+        workspace_focus(workspace,workspace->focused);client->navigation_reset=true;break;
+    }
     case COMMAND_PALETTE: command_open(client);break;
     case COMMAND_SHORTCUTS: command_open(client);shortcut_load(client);client->command_settings=true;break;
     case COMMAND_COPY: {
@@ -89,7 +101,7 @@ static void command_dispatch(WorkspaceClient *client, int command)
     case COMMAND_TERMINAL_STOP: dialog_open(client,DIALOG_TERMINAL_CLOSE); break;
     case COMMAND_TERMINAL_RECOVER: dialog_open(client,DIALOG_TERMINAL_RECOVER); break;
     case COMMAND_TERMINAL_PREVIOUS: case COMMAND_TERMINAL_NEXT:
-        pane_navigation_focus(workspace->count,workspace->focused+(command==COMMAND_TERMINAL_NEXT ? 1 : -1),&workspace->focused,&workspace->first);
+        workspace_focus(workspace,workspace->focused+(command==COMMAND_TERMINAL_NEXT ? 1 : -1));
         break;
     case COMMAND_WORKSPACE_PREVIOUS: case COMMAND_WORKSPACE_NEXT: {
         client->active+=command==COMMAND_WORKSPACE_NEXT ? 1 : -1;

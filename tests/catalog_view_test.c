@@ -11,12 +11,14 @@ typedef struct {
     char id[41], name[64], socket_path[108];
     int fd;
     struct { int agent_fd; bool replaying; } transport;
-    int retained_parser_marker;
+    int retained_parser_marker, width_preset;
+    bool full;
 } WorkbenchPane;
 typedef struct {
     char id[41], name[64], directory[1024];
     WorkbenchPane *panes[8];
     int count, focused, first;
+    float scroll, estate;
 } WorkbenchWorkspace;
 typedef struct {
     WorkbenchWorkspace workspaces[8];
@@ -35,7 +37,7 @@ static void terminal(CatalogSnapshot *s, int w, int p, WorkbenchPane *pane) {
     s->workspaces[w].count++;
 }
 int main(void) {
-    WorkbenchPane one = {.id="one",.name="One",.socket_path="/tmp/one.sock",.fd=77,.retained_parser_marker=123},
+    WorkbenchPane one = {.id="one",.name="One",.socket_path="/tmp/one.sock",.fd=77,.retained_parser_marker=123,.width_preset=1,.full=true},
         two = {.id="two",.name="Two",.socket_path="/tmp/two.sock",.fd=88,.retained_parser_marker=456},
         three = {.id="three",.name="Three",.socket_path="/tmp/three.sock",.fd=99};
     WorkspaceClient client = {.count=2,.active=0};
@@ -51,6 +53,7 @@ int main(void) {
     assert(client.workspaces[0].panes[0]==&two && client.workspaces[0].focused==0);
     assert(client.workspaces[1].panes[0]==&one && client.workspaces[1].focused==1);
     assert(one.fd==77 && one.retained_parser_marker==123 && two.fd==88);
+    assert(one.width_preset==1 && one.full);
     assert(initializations==0 && frees==0 && client.active==0);
     s.workspaces[0].count=0; s.workspaces[1].count=0;
     terminal(&s,1,0,&two); terminal(&s,1,1,&one); terminal(&s,1,2,&three);

@@ -51,7 +51,8 @@ def main():
                 xvfb=subprocess.Popen(['Xvfb','-displayfd',str(write_fd),'-screen','0','1440x1000x24','-noreset','-nolisten','tcp'],pass_fds=(write_fd,),stdout=log,stderr=log)
                 processes.append(xvfb);os.close(write_fd)
                 assert select.select([read_fd],[],[],5)[0]
-                env['DISPLAY']=':'+os.read(read_fd,32).decode().strip();os.close(read_fd)
+                with os.fdopen(read_fd) as ready: display=ready.readline().strip()
+                env['DISPLAY']=':'+display
                 def cmd(*args):
                     result=subprocess.run(['xdotool',*map(str,args)],env=env,capture_output=True,text=True,timeout=5)
                     result.check_returncode();return result.stdout.strip()
@@ -68,7 +69,9 @@ def main():
                 def key(window,value):
                     cmd('keydown','--window',window,value);time.sleep(.06);cmd('keyup','--window',window,value);time.sleep(.1)
                 def click(window,x,y):
-                    focus(window);cmd('mousemove','--window',window,x,y);cmd('mousedown',1);time.sleep(.06);cmd('mouseup',1);time.sleep(.15)
+                    focus(window);cmd('mousemove','--window',window,0,0)
+                    cmd('mousemove','--window',window,x,y);time.sleep(.05)
+                    cmd('mousedown',1);time.sleep(.08);cmd('mouseup',1);time.sleep(.25)
                 def type_text(window,value):cmd('type','--clearmodifiers','--window',window,'--delay',12,'--',value)
                 def line(window,value):
                     # Test markers stay in the fixture root regardless of shell cwd.
@@ -86,7 +89,14 @@ def main():
                 second,b=launch(dict(env,WORKBENCH_CATALOG_SCRIPT=str(wrapper)))
                 # Set a folder in B, then inspect A's shared editor and keep live shell cwd.
                 click(b,147,641);type_text(b,str(project));key(b,'Return')
-                wait_until(lambda:metadata()['workspaces'][0].get('directory')==str(project));time.sleep(.65)
+                try: wait_until(lambda:metadata()['workspaces'][0].get('directory')==str(project));time.sleep(.65)
+                except AssertionError:
+                    key(b,'F12');time.sleep(.3)
+                    images=list(root.glob('screenshot*.png'))
+                    if images:
+                        destination=ROOT/'.local/test-results/width-directory-failure.png';destination.parent.mkdir(exist_ok=True)
+                        shutil.copyfile(max(images,key=lambda p:p.stat().st_mtime_ns),destination)
+                    print('Directory failure metadata:',metadata());raise
                 click(a,147,641);key(a,'Escape')
                 assert (state/'workspaces.tsv').read_text().startswith('workbench-catalog-v4\n')
                 line(a,'printf "%s" "$PWD" > unchanged-cwd');assert read('unchanged-cwd')==str(root)
@@ -115,15 +125,15 @@ def main():
                 click(a,84,238);line(a,'echo $$ > concurrent.pid')
                 assert read('concurrent.pid')!=new_pid
                 # Clicking the new row in A proves it appeared without relaunch.
-                click(a,84,194);click(a,1050,58);time.sleep(.5)
+                click(a,84,194);click(a,535,58);time.sleep(.5)
                 line(a,'printf "%s:%s" "$$" "$keep" > synchronized')
                 assert read('synchronized')==new_pid+':new'
                 # Saving an untouched rename dialog uses the refreshed name.
                 edit(b,84,641,'Shared rename',lambda d:d['workspaces'][2]['name']=='Shared rename')
                 click(a,84,641);key(a,'Return');time.sleep(.5)
                 assert metadata()['workspaces'][2]['name']=='Shared rename'
-                edit(b,1180,58,'Shared terminal',lambda d:d['workspaces'][2]['terminals'][0]['name']=='Shared terminal')
-                click(a,1180,58);key(a,'Return');time.sleep(.5)
+                edit(b,667,58,'Shared terminal',lambda d:d['workspaces'][2]['terminals'][0]['name']=='Shared terminal')
+                click(a,667,58);key(a,'Return');time.sleep(.5)
                 assert metadata()['workspaces'][2]['terminals'][0]['name']=='Shared terminal'
                 # New terminal creation also synchronizes while keeping local focus.
                 click(b,84,679);key(b,'Return')
@@ -188,12 +198,12 @@ def main():
                 older_catalog=root/'old.tsv'
                 older_catalog.write_text(f'workbench-catalog-v3\nW\told\tEarlier runtime\nT\told\tone\tOne\t{alias}\n')
                 older,c=launch(dict(env,WORKBENCH_WORKSPACES=str(older_catalog)))
-                click(c,1050,58);time.sleep(.6)
+                click(c,535,58);time.sleep(.6)
                 log.flush();assert 'Earlier runtime: retrying ordinary attachment' in (root/'test.log').read_text()
                 line(b,'printf "%s:%s" "$$" "$keep" > old-owner-preserved')
                 assert read('old-owner-preserved')==pid+':original'
                 focus(b);close_window(b,env);assert second.wait(timeout=5)==0;time.sleep(.3)
-                click(c,1050,58);time.sleep(.6)
+                click(c,535,58);time.sleep(.6)
                 line(c,'printf "%s:%s" "$$" "$keep" > old-reconnect')
                 assert read('old-reconnect')==pid+':original'
                 focus(c);close_window(c,env);assert older.wait(timeout=5)==0
@@ -203,12 +213,12 @@ def main():
                 replay_owner,f=launch()
                 replay_client,g=launch(dict(env,WORKBENCH_WORKSPACES=str(older_catalog)))
                 transfer_requests=attachment_methods.count(b'ATM1\n')
-                click(g,1050,58);time.sleep(.6)
+                click(g,535,58);time.sleep(.6)
                 assert attachment_methods.count(b'ATM1\n')==transfer_requests
                 line(f,'printf "%s:%s" "$$" "$keep" > replay-owner-preserved')
                 assert read('replay-owner-preserved')==pid+':original'
                 focus(f);close_window(f,env);assert replay_owner.wait(timeout=5)==0;time.sleep(.3)
-                click(g,1050,58);time.sleep(.6)
+                click(g,535,58);time.sleep(.6)
                 line(g,'printf "%s:%s" "$$" "$keep" > replay-reconnect')
                 assert read('replay-reconnect')==pid+':original'
                 focus(g);close_window(g,env);assert replay_client.wait(timeout=5)==0

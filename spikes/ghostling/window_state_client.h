@@ -6,20 +6,26 @@ static void window_view_restore_layout(WorkspaceClient *client)
         WorkbenchWorkspace *workspace=&client->workspaces[w];
         if (!strcmp(workspace->id,view->active)) client->active=w;
         if (!strcmp(workspace->id,view->sidebar)) client->sidebar_first=w;
+        for (int p=0;p<workspace->count;p++)
+            for (int i=0;i<view->count;i++) for (int t=0;t<view->workspaces[i].terminals;t++) {
+                const WindowTerminalState *width=&view->workspaces[i].widths[t];
+                if (!strcmp(width->id,workspace->panes[p]->id))
+                    workspace->panes[p]->width=(PaneWidth){.preset=width->preset,.full=width->full};
+            }
         for (int i=0;i<view->count;i++) if (!strcmp(workspace->id,view->workspaces[i].id)) {
             const WindowWorkspaceState *saved=&view->workspaces[i];
             for (int p=0;p<workspace->count;p++) {
                 if (!strcmp(workspace->panes[p]->id,saved->focused)) workspace->focused=p;
                 if (!strcmp(workspace->panes[p]->id,saved->first)) workspace->first=p;
             }
-            if (workspace->first>workspace->focused) workspace->first=workspace->focused;
-            if (workspace->focused>=workspace->first+2) workspace->first=workspace->focused-1;
+            workspace->scroll=saved->terminals ? saved->scroll*(workspace_estate()+WORKBENCH_GAP) : workspace_offset(workspace,workspace->first);
+            workspace->estate=workspace_estate();
+            workspace_focus(workspace,workspace->focused);
             client->overview_columns[w]=(int)floorf(saved->horizontal+.5f);
             client->overview_horizontal[w]=(OverviewScroll){.position=saved->horizontal,.target=saved->horizontal,
                 .command=client->overview_columns[w]};
         }
     }
-    client->divider=view->divider;
 }
 static void window_view_restore_overview(WorkspaceClient *client)
 {
@@ -53,7 +59,7 @@ static void window_view_save(WorkspaceClient *client, bool force)
     WindowState view={0};
     view.width=GetScreenWidth(); view.height=GetScreenHeight();
     if (view.width<800 || view.height<300) return; /* Ignore minimized dimensions. */
-    view.divider=client->divider; view.count=client->count;
+    view.divider=.5f; view.count=client->count;
     strcpy(view.active,client->workspaces[client->active].id);
     if (client->sidebar_first>=0 && client->sidebar_first<client->count)
         strcpy(view.sidebar,client->workspaces[client->sidebar_first].id);
@@ -80,6 +86,12 @@ static void window_view_save(WorkspaceClient *client, bool force)
             strcpy(saved->first,workspace->panes[workspace->first]->id);
         }
         saved->horizontal=client->overview_horizontal[w].target;
+        saved->scroll=workspace->scroll/((workspace->estate>0 ? workspace->estate : workspace_estate())+WORKBENCH_GAP);
+        saved->terminals=workspace->count;
+        for (int p=0;p<workspace->count;p++) {
+            WindowTerminalState *width=&saved->widths[p];strcpy(width->id,workspace->panes[p]->id);
+            width->preset=workspace->panes[p]->width.preset;width->full=workspace->panes[p]->width.full;
+        }
     }
     if (client->view_loaded && !memcmp(&view,&client->saved_view,sizeof(view))) return;
     if (window_state_write(&view,client->window_state_path)) { client->saved_view=view; client->view_loaded=true; }

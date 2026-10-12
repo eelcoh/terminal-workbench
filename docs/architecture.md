@@ -206,7 +206,8 @@ preview texture and performs no runtime work or additional texture allocation.
 ## Client view persistence
 
 The launcher leases one reusable window slot, separate from the organization
-service. Its viewer saves size, split width, stable identity selections and
+service. Its viewer saves size, per-terminal width presets/full-width state, normalized
+working-view positions, stable identity selections and
 overview context in a private versioned client file. Closing releases the slot
 and preserves live terminals. Restoring a view never claims another window's
 terminal or recovers a stopped process. See [window state](window-state.md).
