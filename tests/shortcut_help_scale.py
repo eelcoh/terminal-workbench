@@ -81,7 +81,7 @@ def main():
                 verify(0,'initial')
                 # Equal terminal estate: one full column versus two half columns.
                 if active==1: key('ctrl+shift+f');time.sleep(.3)
-                baseline=geometry();key('ctrl+shift+slash');time.sleep(.3);capture('help-scale')
+                baseline=geometry();key('ctrl+shift+slash');key('Tab');time.sleep(.3);capture('help-scale')
                 ticks_per_second=os.sysconf('SC_CLK_TCK')
                 def ticks():return sum(map(int,Path(f'/proc/{viewer.pid}/stat').read_text().split(') ',1)[1].split()[11:13]))
                 started=time.monotonic();start=ticks();time.sleep(2)

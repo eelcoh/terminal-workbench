@@ -1,7 +1,7 @@
 # Workspace project folders
 
 A workspace can save a project folder shared by all windows. In **New workspace**,
-enter a name and a Project folder; Tab switches between the fields. For an
+enter a name and a Project folder; Tab visits the fields, Cancel and Create; Shift+Tab moves backward. For an
 existing workspace, use **Folder** beside Rename in the sidebar. Type or paste an
 absolute path, `~/...`, or a path relative to the Workbench project directory.
 The focused field has an outline; selected text uses the theme's selection colors.

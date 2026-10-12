@@ -86,7 +86,7 @@ def main():
                         sockets[identity] = (state/f'{identity}.sock').stat().st_ino
                         connection.close()
                 read_fd, write_fd = os.pipe()
-                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
+                xvfb = subprocess.Popen(['Xvfb', '-displayfd', str(write_fd), '-screen', '0', '1440x1000x24', '-noreset', '-nolisten', 'tcp'], pass_fds=(write_fd,), stdout=log, stderr=log)
                 processes.append(xvfb); os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
                 with os.fdopen(read_fd) as display_pipe: env['DISPLAY'] = ':' + display_pipe.readline().strip()
@@ -137,7 +137,7 @@ def main():
                 def choose(scope, name, apply=True):
                     click(84,720)
                     click([250,350,466,570][scope],156)
-                    cmd('type','--window',window,'--delay',20,'--',name)
+                    click(640,192); cmd('type','--window',window,'--delay',20,'--',name)
                     if apply: key('Return')
                 def cpu_sample():
                     begin=time.monotonic()
@@ -150,7 +150,7 @@ def main():
                 # Background swatch lives inside the appearance dialog in both themes.
                 assert pixel(light,200,180)[0]>200
                 assert geometry()==before; alive()
-                cmd('type','--window',window,'--delay',20,'--','modal-text-must-not-reach-shell')
+                click(640,192); cmd('type','--window',window,'--delay',20,'--','modal-text-must-not-reach-shell')
                 capture('gallery-no-match'); key('Return')
                 assert not (state/'appearance.state').exists()
                 key('ctrl+a'); click(615,280)
@@ -185,12 +185,12 @@ def main():
                 viewer,window=start(); before=geometry(); click(84,720)
                 click(380,192); capture('gallery-light'); assert geometry()==before; alive()
                 click(308,192); capture('gallery-dark')
-                cmd('type','--window',window,'--delay',20,'--','Dracula')
+                click(640,192); cmd('type','--window',window,'--delay',20,'--','Dracula')
                 capture('gallery-dracula'); key('Return')
                 assert preferences()['application']['background']=='#282a36'
                 assert geometry()==before; alive()
                 click(84,720); click(380,192)
-                cmd('type','--window',window,'--delay',20,'--','Latte')
+                click(640,192); cmd('type','--window',window,'--delay',20,'--','Latte')
                 capture('gallery-latte'); key('Return')
                 assert preferences()['application']['background']=='#eff1f5'
                 assert geometry()==before; alive()
@@ -225,7 +225,7 @@ def main():
                 assert preferences()['terminal\tw0p0']['background']=='#eff1f5'
                 # Cancelling edits across scopes restores the whole dialog transaction.
                 choose(1,'Workbench Dawn',apply=False)
-                click(466,156); cmd('type','--window',window,'--delay',20,'--','Mocha')
+                click(466,156); click(640,192); cmd('type','--window',window,'--delay',20,'--','Mocha')
                 key('Escape')
                 assert preferences()['workspace\tw0']['background']=='#282a36'
                 key('ctrl+shift+o'); time.sleep(.25)
@@ -239,7 +239,7 @@ def main():
                     click(80,148); choose(1,'Mocha'); click(80,104)
                     before=geometry() # Entering a never-opened workspace legitimately lays out its PTYs.
                 # Following uses the workspace palette even with a different terminal override.
-                click(84,720); click(920,156); key('Return')
+                click(84,720); click(920,156); click(950,667)
                 assert 'follow\t1\n' in (state/'appearance.state').read_text()
                 key('ctrl+shift+o'); time.sleep(.25)
                 assert 45<pixel(capture('mixed-follow'),28,160)[0]<55

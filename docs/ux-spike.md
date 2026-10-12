@@ -370,3 +370,45 @@ through idle frames and retained terminal geometry/processes.
 Native Mac slash/Option behavior, non-US layouts, physical trackpad gestures,
 accessibility and owner review of the sheet remain open. This completes the runnable
 help slice's Linux functional proof, not the wider UX/toolkit gate.
+
+## Keyboard focus prototype
+
+Tab/Shift+Tab now traverses management dialogs, Commands, help/settings/recording,
+Overview and Appearance. A two-pixel accent outline marks keyboard focus without
+adding permanent chrome. Enter/Space activates focused buttons. Text, paste and
+select-all reach only the focused field; search/grid Enter retains the existing
+quick action. Shortcut capture has a separate field, so traversing or activating
+its buttons does not record those keys.
+
+Stop and recovery start with no confirmation selected. Initial Enter/Space cannot
+terminate or replace a shell; Tab first selects Cancel, then the confirmation.
+Escape returns to the underlying view/focus. Help preserves Overview's focused
+filter as well as its query/selection. Appearance cancellation restores the whole
+transaction. Busy management disables activation and retains field focus for
+correction after an error. Disabled Appearance controls are skipped.
+
+The full `just check` suite, Linux viewer build and Commands/management/Appearance
+GUI regressions pass. Appearance was exercised with 1 and 15 populated panes.
+Help and Overview pass ordinary/reduced-motion regressions. `just focus-gui-test`
+checks forward/reverse traversal, field/button input isolation, workspace folder
+creation, settings/recorder cancellation, layered focus restoration, appearance
+scopes/follow/apply/cancel, explicit stop and fresh-shell recovery, narrow help,
+and retained live-shell state. Dark/light captures are under
+`.local/test-results/focus-*.png` and were visually reviewed.
+
+Traversal checks at most 32 client controls per Tab press. Focus drawing adds
+only a ring for the selected visible control; no filesystem/process queries or
+runtime-state aggregation occur in pane rendering. Appearance reuses its existing
+match array and rescans only after query/filter changes, avoiding an added full
+catalog scan on every frame. Help's retained body texture stays reusable while
+button focus changes.
+
+`just shortcuts-scale-gui-test` keeps the Edit shortcuts focus outline visible
+at fixed 1240×760 geometry. Sequential two-second llvmpipe samples measured
+242.3% CPU with one populated terminal and 258.3% with fifteen (+6.6%; 100% is
+one core). Both checks retained PID/socket/geometry and one help-body allocation.
+These short samples do not establish native frame pacing or a performance gain.
+
+Native Mac focus, Option/slash handling, non-US layouts, IME, physical trackpad
+interaction, Retina and accessibility acceptance remain open. The UI gate is
+not yet complete. See [Mac focus checks](macos-build.md#keyboard-focus-acceptance).

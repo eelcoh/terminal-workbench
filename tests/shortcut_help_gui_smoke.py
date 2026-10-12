@@ -93,7 +93,7 @@ def main():
                 assert 'terminal.next=Ctrl+Alt+/' in (root/'shortcuts.conf').read_text()
                 palette('Shortcut settings');text('Show shortcuts');key('Return');key('ctrl+shift+h');key('Return');key('Escape')
                 assert 'shortcuts.help=Ctrl+Shift+H' in (root/'shortcuts.conf').read_text()
-                palette('Shortcut settings');text('New workspace');key('Return');click(470,452);key('Return');key('Escape')
+                palette('Shortcut settings');text('New workspace');key('Return');click(470,452);click(761,452);key('Escape')
                 assert 'workspace.new=none' in (root/'shortcuts.conf').read_text()
                 key('ctrl+shift+h');capture('shortcut-help-custom.png')
                 # Enter leads to settings and does not also select/save an action.

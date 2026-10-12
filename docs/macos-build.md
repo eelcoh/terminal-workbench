@@ -313,3 +313,14 @@ the narrow list with keyboard and trackpad, and review dark/light readability.
 Live output should continue parsing, shell variables/PIDs should survive, and
 normal terminal sizing resumes when returning to the working view. Native results
 for this slice are pending.
+
+### Keyboard focus acceptance
+
+Run `just spike`, open Commands (Command+Option+P), and use Tab/Shift+Tab to
+reach search, results and Done. Test Enter/Space on buttons. In New workspace,
+visit name, folder, Cancel and Create. In Stop terminal or Start new shell,
+initial Enter/Space must do nothing; Tab selects Cancel, then the confirmation.
+Open help with Command+Option+/, focus Edit shortcuts or Done, and verify Escape
+returns to the previous Overview filter and focus. In Appearance, visit scope,
+follow, filters, inheritance and Cancel/Apply; Escape must restore prior colors.
+Native focus and keyboard-layout acceptance of this slice is pending.

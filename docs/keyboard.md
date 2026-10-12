@@ -73,7 +73,7 @@ until release; divider gestures are handled by the client and never forwarded
 to terminal applications. No Herdr workspace or pane bindings were imported.
 
 Name dialogs consume text/key input while terminals continue parsing output.
-Enter saves, Escape/Cancel dismisses without a mutation, and Ctrl+A/V (Linux) or
+Enter saves while a text field is focused; on a button, Enter/Space activates it. Escape/Cancel dismisses without a mutation, and Ctrl+A/V (Linux) or
 Command+A/V (macOS, unverified) follow text-field conventions. Saving runs
 asynchronously and disables editing until completion. No dialog input reaches the
 focused terminal. Workspace/terminal creation and rename remain available through
@@ -81,7 +81,8 @@ visible controls and Commands. Navigation now has editable platform defaults;
 see [shortcut settings](shortcuts.md).
 
 Stop confirmations consume all terminal input. Escape/Cancel dismisses them;
-termination requires clicking Stop. Enter cannot confirm. Window Close continues
+termination requires clicking Stop or explicitly focusing it with Tab/Shift+Tab
+and pressing Enter/Space. Opening Enter and Space do nothing. Window Close continues
 to detach without stopping any shell. No workspace close shortcut is frozen yet.
 
 ## Overview prototype
@@ -94,7 +95,7 @@ workspace, Up/Down moves between workspaces while retaining the nearest column,
 and Enter jumps. Wheel scrolls workspace rows; Shift+wheel scrolls the row under
 the pointer horizontally. Visible row arrows provide the same horizontal action.
 The List button selects the original compact view with Up/Down navigation.
-Typing filters names in both modes; Escape/Done dismisses. Text-field select-all and paste use Ctrl+A/V or Command+A/V. A no-match
+Typing in the search field filters names in both modes; Escape/Done dismisses. Text-field select-all and paste use Ctrl+A/V or Command+A/V. A no-match
 Enter does nothing. All overlay input is consumed, including paste and shortcuts,
 while terminal output continues. Existing name/stop dialogs take precedence.
 
@@ -135,7 +136,7 @@ transitions. No new terminal-intercepting keyboard chord is added by this slice.
 Commands in the sidebar opens a searchable action list. Ctrl+Shift+P (Linux) and
 Command+Option+P (macOS, native acceptance pending) are editable default chords.
 Up/Down or wheel selects, Enter/click runs, and Escape/Done closes. Disabled actions
-explain their state; stop/replacement actions open the existing mouse confirmations.
+explain their state; stop/replacement actions open the explicit confirmation dialogs.
 The dispatch frame remains modal, so a key cannot also save a newly opened dialog
 or reach a shell. Existing dialogs, overview and appearance retain precedence.
 The palette opens from the working view only. Queries and disabled commands are
@@ -158,3 +159,30 @@ underlying view, and Enter/Edit shortcuts leads to settings. All help input is
 consumed locally. Mac application defaults now share Command+Option, including
 new terminal/workspace; copy/paste keep Command+C/V. Saved overrides are preserved.
 See [shortcut help and validation](shortcuts.md#shortcut-help-overlay).
+
+## Dialog and overlay focus
+
+Tab and Shift+Tab cycle through available controls in Commands, shortcut help,
+Shortcut settings/recording, Overview, Appearance and management dialogs. An accent
+outline marks keyboard focus. Enter/Space activates the focused button; typing,
+select-all and paste affect only a focused text field. Clicking a field returns
+text focus to it. Arrow keys choose results/terminals/palettes while search or the
+content area is focused. Help scroll keys work while its body is focused.
+
+Opening a name/path editor focuses its first field. Enter there retains the quick
+Save/Create action. Commands search retains Enter to run the selected result;
+Appearance search/grid retains Enter to Apply. Help's body retains Enter to Edit
+shortcuts. In a shortcut recorder, the capture field records chords and Enter
+saves; Tab moves to Clear, Default, Cancel and Save without recording those keys.
+
+Stop and Start new shell open with no confirmation button focused. Tab first
+selects Cancel, then the confirmation; reverse traversal explicitly selects the
+confirmation. Enter/Space without that selection never stops/replaces a shell.
+Busy management disables traversal and activation. Escape cancels an editable
+overlay, restoring the underlying view and focus; Appearance restores its entire
+previous transaction. Closing a recorder returns to its settings result. Help
+over Overview preserves the exact query, selection and focused control.
+
+`just focus-gui-test` checks these flows with disposable Linux/Xvfb sessions.
+Native Mac focus, Option input, non-US layouts, IME and accessibility remain
+part of platform acceptance.

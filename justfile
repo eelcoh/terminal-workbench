@@ -141,3 +141,7 @@ shortcuts-gui-test: spike-build
 shortcuts-scale-gui-test: spike-build
     python3 tests/shortcut_help_scale.py target/debug/workbench-session .local/build/viewer/ghostling 1
     python3 tests/shortcut_help_scale.py target/debug/workbench-session .local/build/viewer/ghostling 15
+
+# Keyboard focus traversal, explicit confirmations and overlay restoration.
+focus-gui-test: spike-build
+    python3 tests/ui_focus_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

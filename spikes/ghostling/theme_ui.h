@@ -1,4 +1,5 @@
 /* A client-only live appearance preview. Cancel restores the exact prior theme. */
+/* Focus order: search, palette grid, four scopes, follow, three filters, clear, inherit, Cancel, Apply. */
 static Rectangle theme_button(void) { return (Rectangle){8,GetScreenHeight()-52,168,22}; }
 static Rectangle overview_theme_button(WorkspaceClient *client)
 {
@@ -58,6 +59,7 @@ static void theme_prepare_gallery(WorkspaceClient *client)
 static void theme_open(WorkspaceClient *client)
 {
     theme_sync(client);client->divider_dragging=false;
+    client->theme_focus=(UiFocus){.item=0};
     client->theme_open=true; client->appearance_before=client->appearance; client->theme_scope=0;
     theme_prepare_gallery(client);
     if (client->overview_open) overview_animation_target(&client->overview_animation,1,GetTime(),0);
@@ -85,41 +87,55 @@ static Rectangle theme_follow_button(void)
 }
 static void theme_input(WorkspaceClient *client)
 {
+    Rectangle focus_bounds=theme_bounds();
+    int indices[THEME_CATALOG_COUNT+2],count=theme_matches(client,indices);
+    uint32_t enabled=0x3fff;
+    if (!theme_focused(client)) enabled&=~ui_focus_bit(4);
+    if (!client->count) enabled&=~ui_focus_bit(3);
+    if (!client->theme_query[0]) enabled&=~ui_focus_bit(10);
+    if (client->theme_scope!=1 && client->theme_scope!=2) enabled&=~ui_focus_bit(11);
+    if (!count) enabled&=~(ui_focus_bit(1)|ui_focus_bit(13));
+    ui_focus_begin(&client->theme_focus,enabled,enabled&~3u);
+    ui_focus_hit(&client->theme_focus,0,(Rectangle){focus_bounds.x+252,focus_bounds.y+118,focus_bounds.width-310,28});
+    ui_focus_hit(&client->theme_focus,1,theme_grid());
     bool escape=false,enter=false,changed=false; int direction=0,key;
     while ((key=GetKeyPressed())!=0) {
+        if (ui_focus_key(&client->theme_focus,key)) continue;
         escape|=key==KEY_ESCAPE; enter|=key==KEY_ENTER;
         if (key==KEY_LEFT) direction--;
         if (key==KEY_RIGHT) direction++;
         if (key==KEY_UP) direction-=theme_columns();
         if (key==KEY_DOWN) direction+=theme_columns();
-        if (key==KEY_BACKSPACE && client->theme_query[0]) { client->theme_query[strlen(client->theme_query)-1]='\0'; changed=true; }
-        if (key==KEY_A && text_edit_modifier_down()) { client->theme_query[0]='\0'; changed=true; }
+        if (client->theme_focus.item==0 && key==KEY_BACKSPACE && client->theme_query[0]) { client->theme_query[strlen(client->theme_query)-1]='\0'; changed=true; }
+        if (client->theme_focus.item==0 && key==KEY_A && text_edit_modifier_down()) { client->theme_query[0]='\0'; changed=true; }
     }
     int ch;
     while ((ch=GetCharPressed())!=0) {
         size_t length=strlen(client->theme_query);
-        if (!text_edit_modifier_down() && ch>=32 && ch<127 && length+1<sizeof(client->theme_query)) {
+        if (client->theme_focus.item==0 && !text_edit_modifier_down() && ch>=32 && ch<127 && length+1<sizeof(client->theme_query)) {
             client->theme_query[length]=(char)ch; client->theme_query[length+1]='\0'; changed=true;
         }
     }
+    if (client->theme_focus.item>1) direction=0;
     Rectangle bounds=theme_bounds(),grid=theme_grid(); Vector2 pointer=GetMousePosition();
     bool click=IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     for (int i=0;i<4;i++) {
         bool enabled=i!=1 && i!=2 ? true : i==1 ? client->count>0 : theme_focused(client)!=NULL;
-        if (click && enabled && CheckCollisionPointRec(pointer,theme_scope_button(i))) { client->theme_scope=i; theme_prepare_gallery(client); changed=true; }
+        if (enabled && ui_focus_hit(&client->theme_focus,i+2,theme_scope_button(i))) { client->theme_scope=i; theme_prepare_gallery(client); changed=true; }
     }
-    if (click && CheckCollisionPointRec(pointer,theme_follow_button())) {
+    if (ui_focus_hit(&client->theme_focus,6,theme_follow_button())) {
         client->appearance.follow=!client->appearance.follow; client->appearance_dirty=true; theme_sync(client);
     }
     Rectangle inherit={bounds.x+24,bounds.y+bounds.height-48,150,30};
-    if (click && (client->theme_scope==1 || client->theme_scope==2) && CheckCollisionPointRec(pointer,inherit)) { theme_inherit(client); changed=true; }
+    if ((client->theme_scope==1 || client->theme_scope==2) && ui_focus_hit(&client->theme_focus,11,inherit)) { theme_inherit(client); changed=true; }
     for (int i=0;i<3;i++) {
         Rectangle tab={bounds.x+24+i*72,bounds.y+118,64,28};
-        if (click && CheckCollisionPointRec(pointer,tab) && i!=client->theme_filter) { client->theme_filter=i; changed=true; }
+        if (ui_focus_hit(&client->theme_focus,i+7,tab) && i!=client->theme_filter) { client->theme_filter=i; changed=true; }
     }
     Rectangle clear={bounds.x+bounds.width-52,bounds.y+118,28,28};
-    if (click && CheckCollisionPointRec(pointer,clear)) { client->theme_query[0]='\0'; changed=true; }
-    int indices[THEME_CATALOG_COUNT+2], count=theme_matches(client,indices), position=-1;
+    if (ui_focus_hit(&client->theme_focus,10,clear)) { client->theme_query[0]='\0'; changed=true; }
+    if (changed) count=theme_matches(client,indices);
+    int position=-1;
     for (int i=0;i<count;i++) if (indices[i]==client->theme_selected) position=i;
     if (changed) { client->theme_first=0; if (count && position<0) { theme_select(client,indices[0]); position=0; } }
     if (direction && count) {
@@ -147,9 +163,9 @@ static void theme_input(WorkspaceClient *client)
     }
     Rectangle cancel={bounds.x+bounds.width-208,bounds.y+bounds.height-48,80,30};
     Rectangle apply={bounds.x+bounds.width-118,bounds.y+bounds.height-48,94,30};
-    if (escape || (click && CheckCollisionPointRec(pointer,cancel))) {
+    if (escape || ui_focus_hit(&client->theme_focus,12,cancel)) {
         client->appearance=client->appearance_before; client->appearance_dirty=true; theme_sync(client); client->theme_open=false;
-    } else if (count && (enter || (click && CheckCollisionPointRec(pointer,apply)))) {
+    } else if (count && ((enter && client->theme_focus.item<=1) || ui_focus_hit(&client->theme_focus,13,apply))) {
         if (theme_save(client)) { client->theme_open=false; clipboard_notice("Appearance saved"); }
     }
 }
@@ -168,25 +184,26 @@ static void theme_draw(WorkspaceClient *client)
     const char *scopes[]={"Application","Workspace","Terminal","Defaults"};
     for (int i=0;i<4;i++) {
         bool enabled=i!=1 && i!=2 ? true : i==1 ? client->count>0 : focused!=NULL;
-        Rectangle tab=theme_scope_button(i); draw_header_button(client->font,tab,scopes[i],enabled);
+        Rectangle tab=theme_scope_button(i); ui_focus_button(client->font,client->theme_focus,i+2,tab,scopes[i],enabled);
         if (client->theme_scope==i) DrawRectangleRoundedLinesEx(tab,.2f,8,1,ui.accent);
     }
     Rectangle follow=theme_follow_button();
-    draw_header_button(client->font,follow,client->appearance.follow ? "[x] Follow active workspace" : "[ ] Follow active workspace",true);
+    ui_focus_button(client->font,client->theme_focus,6,follow,client->appearance.follow ? "[x] Follow active workspace" : "[ ] Follow active workspace",true);
     if (client->appearance.follow) DrawRectangleRoundedLinesEx(follow,.2f,8,1,ui.accent);
     const char *filters[]={"All","Dark","Light"};
     for (int i=0;i<3;i++) {
         Rectangle tab={bounds.x+24+i*72,bounds.y+118,64,28};
-        draw_header_button(client->font,tab,filters[i],true);
+        ui_focus_button(client->font,client->theme_focus,i+7,tab,filters[i],true);
         if (client->theme_filter==i) DrawRectangleRoundedLinesEx(tab,.2f,8,1,ui.accent);
     }
     Rectangle search={bounds.x+252,bounds.y+118,bounds.width-276,28};
     DrawRectangleRounded(search,.22f,8,ui.background);
     DrawRectangleRoundedLinesEx(search,.22f,8,1,ui.border);
+    ui_focus_ring(client->theme_focus,0,search);
     BeginScissorMode((int)search.x+8,(int)search.y,(int)search.width-42,(int)search.height);
     DrawTextEx(client->font,client->theme_query[0] ? client->theme_query : "Type to search palettes...",(Vector2){search.x+8,search.y+7},12,0,client->theme_query[0] ? ui.text : ui.muted);
     EndScissorMode();
-    if (client->theme_query[0]) draw_header_button(client->font,(Rectangle){bounds.x+bounds.width-52,bounds.y+118,28,28},"x",true);
+    if (client->theme_query[0]) ui_focus_button(client->font,client->theme_focus,10,(Rectangle){bounds.x+bounds.width-52,bounds.y+118,28,28},"x",true);
     int indices[THEME_CATALOG_COUNT+2],count=theme_matches(client,indices);
     BeginScissorMode((int)grid.x,(int)grid.y,(int)grid.width,(int)grid.height);
     if (!count) DrawTextEx(client->font,"No palettes match / change the search or filter",(Vector2){grid.x+16,grid.y+24},13,0,ui.muted);
@@ -207,6 +224,7 @@ static void theme_draw(WorkspaceClient *client)
         float swatch=(sample.width-20)/16;
         if (sample.height>=50) for (int c=0;c<16;c++) DrawRectangleRounded((Rectangle){sample.x+10+c*swatch,sample.y+sample.height-20,swatch-2,10},.2f,4,ui_color(theme->palette[c]));
         }
+        if (selected) ui_focus_ring(client->theme_focus,1,card);
         if (selected) DrawRectangleRoundedLinesEx(card,.06f,8,2,ui.accent);
     }
     EndScissorMode();
@@ -216,14 +234,14 @@ static void theme_draw(WorkspaceClient *client)
         DrawRectangleRounded((Rectangle){grid.x+grid.width+8,grid.y+client->theme_first*(grid.height-thumb)/(rows-theme_rows_visible()),3,thumb},.5f,4,ui.muted);
     }
     int ignored=client->theme_selected<THEME_CATALOG_COUNT ? client->theme_catalog_ignored[client->theme_selected] : client->theme_selected==THEME_CATALOG_COUNT+1 || (client->theme_has_import && !memcmp(theme_choice(client,client->theme_selected),&client->theme_imported,sizeof(Theme))) ? client->theme_ignored : 0;
-    const char *notice=client->theme_error[0] ? client->theme_error : ignored ? "Color fields applied / other Ghostty options ignored" : "Arrows preview / Enter applies / Esc restores";
+    const char *notice=client->theme_error[0] ? client->theme_error : ignored ? "Color fields applied / other Ghostty options ignored" : "Tab focuses / Arrows preview / Enter applies / Esc restores";
     DrawTextEx(client->font,notice,(Vector2){bounds.x+24,bounds.y+bounds.height-64},11,0,client->theme_error[0] ? ui.danger : ui.muted);
     char label[64]; snprintf(label,sizeof(label),"%d palette%s",count,count==1 ? "" : "s");
     bool inherits=client->theme_scope==1 || client->theme_scope==2;
-    if (inherits) draw_header_button(client->font,(Rectangle){bounds.x+24,bounds.y+bounds.height-48,150,30},client->theme_scope==1 ? "Use defaults" : "Use workspace",true);
+    if (inherits) ui_focus_button(client->font,client->theme_focus,11,(Rectangle){bounds.x+24,bounds.y+bounds.height-48,150,30},client->theme_scope==1 ? "Use defaults" : "Use workspace",true);
     DrawTextEx(client->font,label,(Vector2){bounds.x+(inherits ? 186 : 24),bounds.y+bounds.height-35},12,0,ui.muted);
     Rectangle cancel={bounds.x+bounds.width-208,bounds.y+bounds.height-48,80,30};
     Rectangle apply={bounds.x+bounds.width-118,bounds.y+bounds.height-48,94,30};
-    draw_header_button(client->font,cancel,"Cancel",true);
-    draw_header_button(client->font,apply,"Apply",count>0);
+    ui_focus_button(client->font,client->theme_focus,12,cancel,"Cancel",true);
+    ui_focus_button(client->font,client->theme_focus,13,apply,"Apply",count>0);
 }

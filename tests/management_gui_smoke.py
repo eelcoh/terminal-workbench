@@ -26,7 +26,7 @@ def main():
         with (root / "test.log").open("w+") as log:
             try:
                 read_fd, write_fd = os.pipe()
-                xvfb = subprocess.Popen(["Xvfb", "-displayfd", str(write_fd), "-screen", "0", "1440x1000x24", "-nolisten", "tcp"], pass_fds=(write_fd,), stdout=log, stderr=log)
+                xvfb = subprocess.Popen(["Xvfb", "-displayfd", str(write_fd), "-screen", "0", "1440x1000x24", "-noreset", "-nolisten", "tcp"], pass_fds=(write_fd,), stdout=log, stderr=log)
                 processes.append(xvfb)
                 os.close(write_fd)
                 assert select.select([read_fd], [], [], 5)[0]
@@ -43,6 +43,7 @@ def main():
                     result = subprocess.run(["xdotool", *map(str, args)], env=environment, capture_output=True, text=True, timeout=5)
                     result.check_returncode()
                     return result.stdout.strip()
+                wait_until(lambda:subprocess.run(["xdotool","getdisplaygeometry"],env=environment,capture_output=True).returncode==0)
                 def launch():
                     viewer = subprocess.Popen([viewer_binary], env=environment, cwd=root, stdout=log, stderr=log)
                     processes.append(viewer)
@@ -160,6 +161,7 @@ def main():
                 # Keep the existing list-specific navigation/geometry coverage.
                 click(522, 16)
                 click(872, 74)  # List
+                click(500, 133)  # Return text focus to the overview search.
                 # Overview filtering and cancellation cannot feed text to the shell.
                 type_text("no-matching-terminal")
                 key("Return")
@@ -247,6 +249,7 @@ def main():
                 screenshots = sorted(root.glob("screenshot*.png"))
                 shutil.copyfile(screenshots[-1], artifacts / "agents.png")
                 click(740, 74)  # Needs input filter excludes Working.
+                click(500, 133)  # Enter now targets results, rather than toggling this button.
                 key("Return")  # Empty results keep the overview open.
                 report("PermissionRequest", "waiting")
                 key("F12")

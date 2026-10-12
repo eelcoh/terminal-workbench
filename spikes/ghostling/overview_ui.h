@@ -1,4 +1,5 @@
 /* Client-only spatial overview and searchable list. */
+/* Focus order: search, terminals, Theme, layout, states, agents, Done. */
 typedef struct { int workspace, pane; } OverviewItem;
 
 static Rectangle overview_button(void) { return (Rectangle){482, 4, 80, 24}; }
@@ -90,12 +91,14 @@ static bool overview_requested(void);
 static void overview_draw(WorkspaceClient *client);
 static void overview_jump(WorkspaceClient *client, OverviewItem item);
 static Rectangle overview_theme_button(WorkspaceClient *client);
+static void theme_open(WorkspaceClient *client);
 #include "overview_motion.h"
 #include "overview_drag.h"
 
 static void overview_open(WorkspaceClient *client)
 {
     overview_animation_target(&client->overview_animation, 1, GetTime(), client->overview_animation_enabled && !client->overview_list ? 0.18 : 0);
+    client->overview_focus=(UiFocus){.item=0};
     client->overview_open = true;
     client->view_has_overview = true;
     client->overview_closing = false;
@@ -154,9 +157,14 @@ static bool overview_input(WorkspaceClient *client)
         return false;
     }
     if (client->overview_drag_armed) return overview_drag_input(client);
+    Rectangle focus_bounds=overview_bounds(client);
+    ui_focus_begin(&client->overview_focus,127,126);
+    ui_focus_hit(&client->overview_focus,0,(Rectangle){focus_bounds.x+24,focus_bounds.y+70,focus_bounds.width-48,30});
+    ui_focus_hit(&client->overview_focus,1,overview_content(client));
     bool escape = false, enter = false, backspace = false;
     int direction = 0, horizontal = 0, key;
     while ((key = GetKeyPressed()) != 0) {
+        if (ui_focus_key(&client->overview_focus,key)) continue;
         escape |= key == KEY_ESCAPE;
         enter |= key == KEY_ENTER;
         backspace |= key == KEY_BACKSPACE;
@@ -169,9 +177,11 @@ static bool overview_input(WorkspaceClient *client)
     if (IsKeyPressedRepeat(KEY_DOWN)) direction++;
     if (IsKeyPressedRepeat(KEY_LEFT)) horizontal--;
     if (IsKeyPressedRepeat(KEY_RIGHT)) horizontal++;
+    if (client->overview_focus.item>1) direction=horizontal=0;
+    bool editing=client->overview_focus.item==0;
     bool modifier = text_edit_modifier_down(), changed = false;
-    if (modifier && IsKeyPressed(KEY_A)) client->overview_all = true;
-    if (modifier && IsKeyPressed(KEY_V)) {
+    if (editing && modifier && IsKeyPressed(KEY_A)) client->overview_all = true;
+    if (editing && modifier && IsKeyPressed(KEY_V)) {
         const char *text = GetClipboardText();
         if (text) {
             size_t length = strnlen(text, sizeof(client->overview_query));
@@ -187,7 +197,7 @@ static bool overview_input(WorkspaceClient *client)
     }
     int character;
     while ((character = GetCharPressed()) != 0) {
-        if (modifier || character < 32 || character == 127) continue;
+        if (!editing || modifier || character < 32 || character == 127) continue;
         char bytes[4]; int size = utf8_encode((uint32_t)character, bytes);
         size_t length = client->overview_all ? 0 : strlen(client->overview_query);
         if (length + (size_t)size < sizeof(client->overview_query)) {
@@ -196,7 +206,7 @@ static bool overview_input(WorkspaceClient *client)
             changed = true; client->overview_all = false;
         }
     }
-    if (backspace || IsKeyPressedRepeat(KEY_BACKSPACE)) {
+    if (editing && (backspace || IsKeyPressedRepeat(KEY_BACKSPACE))) {
         size_t length = strlen(client->overview_query);
         if (client->overview_all) length = 0;
         else if (length) {
@@ -207,18 +217,19 @@ static bool overview_input(WorkspaceClient *client)
         changed = true; client->overview_all = false;
     }
     OverviewItem items[WORKBENCH_MAX_WORKSPACES * WORKBENCH_PANES];
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), overview_agents_button(client))) {
+    if (ui_focus_hit(&client->overview_focus,5,overview_agents_button(client))) {
         client->overview_agents = !client->overview_agents; changed = true;
     }
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), overview_waiting_button(client))) {
+    if (ui_focus_hit(&client->overview_focus,4,overview_waiting_button(client))) {
         client->overview_waiting = !client->overview_waiting; changed = true;
     }
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(GetMousePosition(), overview_view_button(client))) {
+    if (ui_focus_hit(&client->overview_focus,3,overview_view_button(client))) {
         client->overview_list = !client->overview_list;
         overview_animation_target(&client->overview_animation, 1, GetTime(), 0);
         client->overview_first = 0;
         client->overview_scroll = (OverviewScroll){0};
     }
+    if (ui_focus_hit(&client->overview_focus,2,overview_theme_button(client))) { theme_open(client);return false; }
     int count = overview_items(client, items), rows = overview_visible_rows(client);
     if (changed) { client->overview_selected = client->overview_first = 0; client->overview_scroll = (OverviewScroll){0}; }
     if (client->overview_list) client->overview_selected += direction;
@@ -239,8 +250,8 @@ static bool overview_input(WorkspaceClient *client)
     } else overview_spatial_clamp(client, items, count);
     bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     Rectangle dismiss = {bounds.x + bounds.width - 80, bounds.y + 14, 64, 24};
-    if (escape || (click && CheckCollisionPointRec(pointer, dismiss))) overview_close(client, -1, -1);
-    else if (enter && count) { overview_jump(client, items[client->overview_selected]); return true; }
+    if (escape || ui_focus_hit(&client->overview_focus,6,dismiss)) overview_close(client, -1, -1);
+    else if (((enter && client->overview_focus.item<=1) || client->overview_focus.activated==1) && count) { overview_jump(client, items[client->overview_selected]); return true; }
     else if (click && !client->overview_list) {
         for (int i = 0; i < count; i++) {
             int group = overview_group(client, items, i);
@@ -270,21 +281,23 @@ static void overview_draw(WorkspaceClient *client)
     ui_panel(bounds, ui.surface, true);
     DrawTextEx(client->font, client->overview_list ? "Terminal overview" : "Workspace overview", (Vector2){bounds.x + 24, bounds.y + 20}, 16, 0, ui.text);
     DrawTextEx(client->font, client->overview_list ? "All workspaces / click a terminal to jump" : "Live previews / click to enter / scroll workspaces / swipe sideways or Shift+scroll terminals", (Vector2){bounds.x + 24, bounds.y + 47}, 12, 0, ui.muted);
-    draw_header_button(client->font, overview_theme_button(client), "Theme", true);
-    draw_header_button(client->font, overview_view_button(client), client->overview_list ? "Spatial" : "List", true);
-    draw_header_button(client->font, overview_waiting_button(client), client->overview_waiting ? "All states" : "Needs input", true);
-    draw_header_button(client->font, overview_agents_button(client), client->overview_agents ? "All terminals" : "Agents", true);
-    draw_header_button(client->font, (Rectangle){bounds.x + bounds.width - 80, bounds.y + 14, 64, 24}, "Done", true);
+    ui_focus_button(client->font,client->overview_focus,2, overview_theme_button(client), "Theme", true);
+    ui_focus_button(client->font,client->overview_focus,3, overview_view_button(client), client->overview_list ? "Spatial" : "List", true);
+    ui_focus_button(client->font,client->overview_focus,4, overview_waiting_button(client), client->overview_waiting ? "All states" : "Needs input", true);
+    ui_focus_button(client->font,client->overview_focus,5, overview_agents_button(client), client->overview_agents ? "All terminals" : "Agents", true);
+    ui_focus_button(client->font,client->overview_focus,6, (Rectangle){bounds.x + bounds.width - 80, bounds.y + 14, 64, 24}, "Done", true);
     Rectangle field = {bounds.x + 24, bounds.y + 70, bounds.width - 48, 30};
-    DrawRectangleRounded(field,.22f,8,client->overview_all ? ui.selected : ui.background);
+    DrawRectangleRounded(field,.22f,8,client->overview_focus.item==0 && client->overview_all ? ui.selected : ui.background);
+    ui_focus_ring(client->overview_focus,0,field);
     BeginScissorMode((int)field.x + 8, (int)field.y, (int)field.width - 16, (int)field.height);
     DrawTextEx(client->font, client->overview_query[0] ? client->overview_query : "Filter by workspace or terminal name...",
         (Vector2){field.x + 8, field.y + 8}, 14, 0, client->overview_query[0] ? ui.text : ui.muted);
-    if (((int)(GetTime() * 2) % 2 == 0) && !client->overview_all) {
+    if (client->overview_focus.item==0 && ((int)(GetTime() * 2) % 2 == 0) && !client->overview_all) {
         Vector2 width = MeasureTextEx(client->font, client->overview_query, 14, 0);
         DrawLine((int)(field.x + 8 + width.x), (int)field.y + 7, (int)(field.x + 8 + width.x), (int)field.y + 23, ui.text);
     }
     EndScissorMode();
+    ui_focus_ring(client->overview_focus,1,overview_content(client));
     OverviewItem items[WORKBENCH_MAX_WORKSPACES * WORKBENCH_PANES];
     int count = overview_items(client, items), rows = overview_visible_rows(client);
     if (!client->overview_list) overview_spatial_draw(client, items, count);

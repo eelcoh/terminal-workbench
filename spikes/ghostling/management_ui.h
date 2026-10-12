@@ -1,4 +1,5 @@
 /* Client dialogs call a neutral local management CLI. No shell interpolation. */
+/* Focus order: name/path, optional project folder, Cancel, Save/Create. Confirmations start unfocused. */
 #include <spawn.h>
 extern char **environ;
 
@@ -11,6 +12,7 @@ static void dialog_open(WorkspaceClient *client, int kind)
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     client->dialog_open = true;
     client->dialog_kind = kind;
+    client->dialog_focus=(UiFocus){.item=kind>=DIALOG_TERMINAL_CLOSE && kind!=DIALOG_WORKSPACE_DIRECTORY ? -1 : 0};
     client->dialog_error[0] = '\0';
     client->dialog_all = true;
     client->edit_folder=kind==DIALOG_WORKSPACE_DIRECTORY;
@@ -370,38 +372,40 @@ static Rectangle dialog_bounds(void)
 
 static void dialog_input(WorkspaceClient *client)
 {
-    if (client->dialog_kind >= DIALOG_TERMINAL_CLOSE && client->dialog_kind!=DIALOG_WORKSPACE_DIRECTORY) {
+    bool destructive=client->dialog_kind>=DIALOG_TERMINAL_CLOSE && client->dialog_kind!=DIALOG_WORKSPACE_DIRECTORY;
+    ui_focus_begin(&client->dialog_focus,client->management_busy ? 0 : destructive ? 12 : client->dialog_kind==DIALOG_WORKSPACE_CREATE ? 15 : 13,12);
+    if (destructive) {
         bool escape = false;
         int key;
-        while ((key = GetKeyPressed()) != 0) escape |= key == KEY_ESCAPE;
+        while ((key = GetKeyPressed()) != 0) { if (ui_focus_key(&client->dialog_focus,key)) continue; escape |= key == KEY_ESCAPE; }
         while (GetCharPressed() != 0) { }
         if (client->management_busy) return;
         Rectangle bounds = dialog_bounds();
-        bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-        Vector2 pointer = GetMousePosition();
-        if (escape || (click && CheckCollisionPointRec(pointer, (Rectangle){bounds.x + (client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 180 : 216), bounds.y + 162, 80, 30}))) client->dialog_open = false;
-        else if (click && CheckCollisionPointRec(pointer, (Rectangle){bounds.x + (client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 270 : 306), bounds.y + 162, client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 126 : 90, 30})) management_start(client);
+        if (escape || ui_focus_hit(&client->dialog_focus,2,(Rectangle){bounds.x + (client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 180 : 216), bounds.y + 162, 80, 30})) client->dialog_open = false;
+        else if (ui_focus_hit(&client->dialog_focus,3,(Rectangle){bounds.x + (client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 270 : 306), bounds.y + 162, client->dialog_kind==DIALOG_TERMINAL_RECOVER ? 126 : 90, 30})) management_start(client);
         return;
     }
     bool dual=client->dialog_kind==DIALOG_WORKSPACE_CREATE;
     Rectangle bounds=dialog_bounds();
-    if (!client->management_busy && dual && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-        bool folder=CheckCollisionPointRec(GetMousePosition(),(Rectangle){bounds.x+24,bounds.y+116,372,28});
+    if (!client->management_busy && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        bool folder=dual && CheckCollisionPointRec(GetMousePosition(),(Rectangle){bounds.x+24,bounds.y+116,372,28});
         bool name=CheckCollisionPointRec(GetMousePosition(),(Rectangle){bounds.x+24,bounds.y+64,372,36});
-        if (folder || name) { client->edit_folder=folder; client->dialog_all=true; }
+        if (folder || name) { client->dialog_focus.item=folder ? 1 : 0;client->dialog_focus.visible=false;client->dialog_all=true; }
     }
     int key;
     bool enter = false, escape = false, backspace = false;
     while ((key = GetKeyPressed()) != 0) {
-        if (key==KEY_TAB && dual && !client->management_busy) { client->edit_folder=!client->edit_folder; client->dialog_all=true; }
+        if (ui_focus_key(&client->dialog_focus,key)) { if (key==KEY_TAB) client->dialog_all=true;continue; }
         enter |= key == KEY_ENTER;
         escape |= key == KEY_ESCAPE;
         backspace |= key == KEY_BACKSPACE;
     }
+    client->edit_folder=client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY || client->dialog_focus.item==1;
+    bool editing=client->dialog_focus.item==0 || client->dialog_focus.item==1;
     char *edit=client->edit_folder ? client->edit_directory : client->edit_name;
     size_t capacity=client->edit_folder ? sizeof(client->edit_directory) : sizeof(client->edit_name);
     bool text_modifier = text_edit_modifier_down();
-    bool paste = !client->management_busy && text_modifier && IsKeyPressed(KEY_V);
+    bool paste = editing && !client->management_busy && text_modifier && IsKeyPressed(KEY_V);
     if (paste) {
         const char *clipboard = GetClipboardText();
         if (clipboard && clipboard[0]) {
@@ -419,7 +423,7 @@ static void dialog_input(WorkspaceClient *client)
     }
     int character;
     while ((character = GetCharPressed()) != 0) {
-        if (client->management_busy || text_modifier || character < 32 || character == 127) continue;
+        if (!editing || client->management_busy || text_modifier || character < 32 || character == 127) continue;
         char bytes[4]; int count = utf8_encode((uint32_t)character, bytes);
         size_t length = client->dialog_all ? 0 : strlen(edit);
         if (length + (size_t)count < capacity) {
@@ -429,8 +433,8 @@ static void dialog_input(WorkspaceClient *client)
         }
     }
     if (client->management_busy) return;
-    if (text_modifier && IsKeyPressed(KEY_A)) client->dialog_all = true;
-    if (backspace || IsKeyPressedRepeat(KEY_BACKSPACE)) {
+    if (editing && text_modifier && IsKeyPressed(KEY_A)) client->dialog_all = true;
+    if (editing && (backspace || IsKeyPressedRepeat(KEY_BACKSPACE))) {
         size_t length = strlen(edit);
         if (client->dialog_all) length = 0;
         else if (length) {
@@ -440,12 +444,10 @@ static void dialog_input(WorkspaceClient *client)
         edit[length] = '\0';
         client->dialog_all = false;
     }
-    Vector2 pointer = GetMousePosition();
-    bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     Rectangle cancel = {bounds.x + 216, bounds.y + 162, 80, 30};
     Rectangle save = {bounds.x + 306, bounds.y + 162, 90, 30};
-    if (escape || (click && CheckCollisionPointRec(pointer, cancel))) client->dialog_open = false;
-    else if (enter || (click && CheckCollisionPointRec(pointer, save))) management_start(client);
+    if (escape || ui_focus_hit(&client->dialog_focus,2,cancel)) client->dialog_open = false;
+    else if ((enter && editing) || ui_focus_hit(&client->dialog_focus,3,save)) management_start(client);
 }
 
 static void dialog_field(WorkspaceClient *client, Rectangle field, const char *value, bool active)
@@ -481,32 +483,34 @@ static void dialog_draw(WorkspaceClient *client)
         if (client->dialog_kind==DIALOG_TERMINAL_RECOVER) {
             DrawTextEx(client->font,"Previous shell has stopped. Starts a fresh shell.",(Vector2){bounds.x+24,bounds.y+86},12,0,ui.muted);
             DrawTextEx(client->font,"Keeps its name and theme; prior jobs do not resume.",(Vector2){bounds.x+24,bounds.y+104},12,0,ui.muted);
-            DrawTextEx(client->font,client->management_busy ? "Starting..." : client->dialog_error,
+            DrawTextEx(client->font,client->management_busy ? "Starting..." : client->dialog_error[0] ? client->dialog_error : "Tab selects a button; Enter / Space confirms.",
                 (Vector2){bounds.x+24,bounds.y+128},12,0,ui.waiting);
             EndScissorMode();
-            draw_header_button(client->font,(Rectangle){bounds.x+180,bounds.y+162,80,30},"Cancel",!client->management_busy);
-            draw_header_button(client->font,(Rectangle){bounds.x+270,bounds.y+162,126,30},"Start new shell",!client->management_busy);
+            ui_focus_button(client->font,client->dialog_focus,2,(Rectangle){bounds.x+180,bounds.y+162,80,30},"Cancel",!client->management_busy);
+            ui_focus_button(client->font,client->dialog_focus,3,(Rectangle){bounds.x+270,bounds.y+162,126,30},"Start new shell",!client->management_busy);
             return;
         }
         snprintf(message, sizeof(message), "Removes %d shell%s; stops foreground jobs.",
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE ? workspace->count : 1,
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE && workspace->count != 1 ? "s" : "");
         DrawTextEx(client->font, message, (Vector2){bounds.x + 24, bounds.y + 86}, 12, 0, ui.muted);
-        DrawTextEx(client->font, client->management_busy ? "Stopping..." : client->dialog_error,
+        DrawTextEx(client->font, client->management_busy ? "Stopping..." : client->dialog_error[0] ? client->dialog_error : "Tab selects a button; Enter / Space confirms.",
             (Vector2){bounds.x + 24, bounds.y + 116}, 12, 0, ui.waiting);
         EndScissorMode();
-        draw_header_button(client->font, (Rectangle){bounds.x + 216, bounds.y + 162, 80, 30}, "Cancel", !client->management_busy);
-        draw_header_button(client->font, (Rectangle){bounds.x + 306, bounds.y + 162, 90, 30}, "Stop", !client->management_busy);
+        ui_focus_button(client->font,client->dialog_focus,2,(Rectangle){bounds.x + 216, bounds.y + 162, 80, 30},"Cancel", !client->management_busy);
+        ui_focus_button(client->font,client->dialog_focus,3,(Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},"Stop", !client->management_busy);
         return;
     }
     bool dual=client->dialog_kind==DIALOG_WORKSPACE_CREATE;
     bool directory=client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY;
     dialog_field(client,(Rectangle){bounds.x+24,bounds.y+64,372,36},directory ? client->edit_directory : client->edit_name,
-        directory || !client->edit_folder);
+        client->dialog_focus.item==0);
+    ui_focus_ring(client->dialog_focus,0,(Rectangle){bounds.x+24,bounds.y+64,372,36});
     if (dual) {
         DrawTextEx(client->font,client->edit_folder && client->dialog_all ? "Project folder (selected; typing replaces it)" : "Project folder",
             (Vector2){bounds.x+24,bounds.y+104},10,0,ui.muted);
-        dialog_field(client,(Rectangle){bounds.x+24,bounds.y+116,372,28},client->edit_directory,client->edit_folder);
+        dialog_field(client,(Rectangle){bounds.x+24,bounds.y+116,372,28},client->edit_directory,client->dialog_focus.item==1);
+        ui_focus_ring(client->dialog_focus,1,(Rectangle){bounds.x+24,bounds.y+116,372,28});
     } else if (directory)
         DrawTextEx(client->font,client->dialog_all ? "Path selected; typing replaces it." : "New and replacement shells start here.",
             (Vector2){bounds.x+24,bounds.y+104},12,0,ui.muted);
@@ -514,7 +518,7 @@ static void dialog_draw(WorkspaceClient *client)
     DrawTextEx(client->font,client->management_busy ? "Saving..." : client->dialog_error,
         (Vector2){bounds.x+24,bounds.y+(dual ? 146 : 128)},12,0,ui.waiting);
     EndScissorMode();
-    draw_header_button(client->font, (Rectangle){bounds.x + 216, bounds.y + 162, 80, 30}, "Cancel", !client->management_busy);
-    draw_header_button(client->font, (Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},
+    ui_focus_button(client->font,client->dialog_focus,2,(Rectangle){bounds.x + 216, bounds.y + 162, 80, 30},"Cancel", !client->management_busy);
+    ui_focus_button(client->font,client->dialog_focus,3,(Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},
         client->dialog_kind == DIALOG_WORKSPACE_CREATE || client->dialog_kind == DIALOG_TERMINAL_CREATE ? "Create" : "Save", !client->management_busy);
 }

@@ -37,7 +37,8 @@ existing dialogs, palette, settings and appearance own their input first.
 Overview additionally accepts its toggle and shortcut-help bindings. Help captures
 its own input; other application bindings do not run underneath it. Global navigation is not active
 inside an overlay. Stop/recovery chords only open the existing confirmation:
-Enter cannot terminate or replace a shell. An unavailable bound action is consumed
+Opening Enter cannot terminate or replace a shell; explicitly focus the
+confirmation with Tab/Shift+Tab before Enter/Space. An unavailable bound action is consumed
 and reports why; it is not silently sent to a shell.
 
 The recorder supports letters, digits, slash, arrows, navigation/edit keys and F1–F11.
@@ -111,7 +112,8 @@ Open help with **Command+Option+/** on Mac or **Ctrl+Shift+/** on Linux, or choo
 widths, appearance, clipboard and help, showing current bindings and **Unbound**
 for actions without a chord. The normal window uses two columns; narrow windows
 use one scrollable column. Arrows, Page Up/Down, Home/End or vertical wheel/trackpad
-scroll the list. Escape, Done or the help binding closes it. Enter or **Edit
+scroll the list while its body is focused. Tab/Shift+Tab visits the body, Edit
+shortcuts and Done; Enter/Space activates a focused button. Escape, Done or the help binding closes it. Enter or **Edit
 shortcuts** opens Shortcut settings. Read-only help rows never dispatch actions.
 
 Help can sit over the working view or Overview, preserving the underlying focus,

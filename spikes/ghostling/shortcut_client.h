@@ -1,4 +1,5 @@
 /* Desktop shortcut routing and the client-owned binding editor. */
+/* Focus order: capture, Clear, Default, Cancel, Save. */
 static char shortcut_copy_hint[128],shortcut_paste_hint[128];
 static void shortcut_refresh_hints(WorkspaceClient *client)
 {
@@ -19,6 +20,7 @@ static void shortcut_load(WorkspaceClient *client)
 }
 static void shortcut_edit_open(WorkspaceClient *client, int action)
 {
+    client->shortcut_focus=(UiFocus){.item=0};
     client->shortcut_edit=action;client->shortcut_recording=true;client->shortcut_capture_valid=true;
     client->shortcut_candidate=client->shortcuts.bindings[action];client->shortcut_error[0]=0;
 }
@@ -34,11 +36,16 @@ static void shortcut_edit_save(WorkspaceClient *client)
 }
 static void shortcut_record_input(WorkspaceClient *client)
 {
+    ui_focus_begin(&client->shortcut_focus,31,30);
+    Rectangle capture_bounds=dialog_bounds();
+    ui_focus_hit(&client->shortcut_focus,0,(Rectangle){capture_bounds.x+24,capture_bounds.y+72,372,32});
     int key;bool escape=false,save=false;
     while ((key=GetKeyPressed())!=0) {
+        if (ui_focus_key(&client->shortcut_focus,key)) continue;
         if (key==KEY_F12) continue; /* Reserved screenshot key is never recorded. */
         if (key==KEY_ESCAPE) { escape=true;continue; }
         if (key==KEY_ENTER && !shortcut_modifiers()) { save=true;continue; }
+        if (client->shortcut_focus.item!=0) continue;
         if (key>=KEY_LEFT_SHIFT && key<=KEY_RIGHT_SUPER) continue;
         ShortcutChord candidate={key,shortcut_modifiers()};
         if (shortcut_allowed(candidate)) { client->shortcut_candidate=candidate;client->shortcut_capture_valid=true;client->shortcut_error[0]=0; }
@@ -46,13 +53,13 @@ static void shortcut_record_input(WorkspaceClient *client)
         if (key>=0 && key<512) workbench_key_blocked[key]=true;
     }
     while (GetCharPressed()!=0) { }
-    Rectangle b=dialog_bounds();bool clicked=IsMouseButtonPressed(MOUSE_BUTTON_LEFT);Vector2 pointer=GetMousePosition();
-    if (clicked && CheckCollisionPointRec(pointer,(Rectangle){b.x+24,b.y+162,72,30})) { client->shortcut_candidate=(ShortcutChord){0};client->shortcut_capture_valid=true;client->shortcut_error[0]=0; }
-    if (clicked && CheckCollisionPointRec(pointer,(Rectangle){b.x+104,b.y+162,92,30})) {
+    Rectangle b=dialog_bounds();
+    if (ui_focus_hit(&client->shortcut_focus,1,(Rectangle){b.x+24,b.y+162,72,30})) { client->shortcut_candidate=(ShortcutChord){0};client->shortcut_capture_valid=true;client->shortcut_error[0]=0; }
+    if (ui_focus_hit(&client->shortcut_focus,2,(Rectangle){b.x+104,b.y+162,92,30})) {
         client->shortcut_candidate=shortcut_defaults(shortcut_platform_apple()).bindings[client->shortcut_edit];client->shortcut_capture_valid=true;client->shortcut_error[0]=0;
     }
-    if (escape || (clicked && CheckCollisionPointRec(pointer,(Rectangle){b.x+216,b.y+162,80,30}))) client->shortcut_recording=false;
-    else if (save || (clicked && CheckCollisionPointRec(pointer,(Rectangle){b.x+306,b.y+162,90,30}))) shortcut_edit_save(client);
+    if (escape || ui_focus_hit(&client->shortcut_focus,3,(Rectangle){b.x+216,b.y+162,80,30})) client->shortcut_recording=false;
+    else if (save || ui_focus_hit(&client->shortcut_focus,4,(Rectangle){b.x+306,b.y+162,90,30})) shortcut_edit_save(client);
 }
 static void shortcut_record_draw(WorkspaceClient *client)
 {
@@ -61,14 +68,15 @@ static void shortcut_record_draw(WorkspaceClient *client)
     DrawTextEx(client->font,"Set shortcut",(Vector2){b.x+24,b.y+22},16,0,ui.text);
     DrawTextEx(client->font,command_definitions[client->shortcut_edit].title,(Vector2){b.x+24,b.y+50},13,0,ui.muted);
     DrawRectangleRounded((Rectangle){b.x+24,b.y+72,372,32},.2f,8,ui.background);
+    ui_focus_ring(client->shortcut_focus,0,(Rectangle){b.x+24,b.y+72,372,32});
     DrawTextEx(client->font,!client->shortcut_candidate.key ? "Unbound" : label,(Vector2){b.x+32,b.y+80},14,0,ui.text);
     DrawTextEx(client->font,"Press a shortcut, then Save. Escape cancels.",(Vector2){b.x+24,b.y+112},11,0,ui.muted);
     BeginScissorMode((int)b.x+24,(int)b.y+130,372,28);
     DrawTextEx(client->font,client->shortcut_error,(Vector2){b.x+24,b.y+132},10,0,ui.waiting);EndScissorMode();
-    draw_header_button(client->font,(Rectangle){b.x+24,b.y+162,72,30},"Clear",true);
-    draw_header_button(client->font,(Rectangle){b.x+104,b.y+162,92,30},"Default",true);
-    draw_header_button(client->font,(Rectangle){b.x+216,b.y+162,80,30},"Cancel",true);
-    draw_header_button(client->font,(Rectangle){b.x+306,b.y+162,90,30},"Save",client->shortcut_capture_valid);
+    ui_focus_button(client->font,client->shortcut_focus,1,(Rectangle){b.x+24,b.y+162,72,30},"Clear",true);
+    ui_focus_button(client->font,client->shortcut_focus,2,(Rectangle){b.x+104,b.y+162,92,30},"Default",true);
+    ui_focus_button(client->font,client->shortcut_focus,3,(Rectangle){b.x+216,b.y+162,80,30},"Cancel",true);
+    ui_focus_button(client->font,client->shortcut_focus,4,(Rectangle){b.x+306,b.y+162,90,30},"Save",client->shortcut_capture_valid);
 }
 static void shortcut_drain(void)
 {

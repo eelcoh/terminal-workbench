@@ -130,7 +130,8 @@ bindings in themed groups. Editable defaults are **Command+Option+/** on macOS
 and **Ctrl+Shift+/** on Linux, with Commands entry and an Edit shortcuts link.
 Mac application defaults share Command+Option, except Command+C/V for clipboard.
 Saved custom bindings remain intact. The owner has confirmed the independent
-widths and their Mac navigation-consistent shortcuts; native help acceptance is open.
+widths, their Mac navigation-consistent shortcuts and the help overlay.
+Broader native acceptance remains open.
 
 - Toggle the overlay with its shortcut; Escape and a visible close control dismiss
   it. Provide a **Show shortcuts** action in Commands for mouse access.
@@ -154,6 +155,19 @@ Acceptance includes custom and cleared bindings appearing correctly, predictable
 open/close and modal routing, native keyboard checks on both platforms, and owner
 review of the overlay's clarity and polish. See [shortcut help](shortcuts.md#shortcut-help-overlay).
 This belongs to the UX spike and fresh keyboard milestone before installable releases.
+
+## Keyboard focus slice
+
+The prototype now supports Tab/Shift+Tab traversal and accent focus outlines in
+management dialogs, Commands, help/settings/recording, Overview and Appearance.
+Enter/Space activates focused buttons; text fields retain their quick Enter
+actions. Stop/recovery requires an explicit move to the confirmation control.
+Escape restores the underlying overlay/view, with Appearance cancellation
+restoring the prior transaction. See [focus behavior](keyboard.md#dialog-and-overlay-focus).
+
+Linux acceptance includes disposable-shell GUI checks, narrow help, light/dark
+focus, and stop/recovery guards. Native Mac focus, modifier/non-US/IME behavior
+and accessibility review remain open before the UX gate is complete.
 
 ## UX spike: a product-quality gate
 

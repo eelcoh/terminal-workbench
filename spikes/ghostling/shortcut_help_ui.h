@@ -1,4 +1,5 @@
 /* Grouped, read-only help from the current binding map. No runtime mutations. */
+/* Focus order: scroll body, Edit shortcuts, Done. */
 #include "shortcut_help.h"
 static Rectangle shortcut_help_bounds(void)
 {
@@ -19,6 +20,7 @@ static void shortcut_help_open(WorkspaceClient *client)
 {
     navigation_finish(client);shortcut_load(client);
     client->command_open=false;client->help_open=true;client->help_scroll=0;
+    client->help_focus=(UiFocus){.item=0};
     client->help_dirty=true;client->help_cache_failed=false;
     client->forwarding=false;client->divider_dragging=false;
     if (client->overview_open) overview_animation_target(&client->overview_animation,1,GetTime(),0);
@@ -35,24 +37,28 @@ static void shortcut_help_input(WorkspaceClient *client)
 {
     Rectangle b=shortcut_help_bounds(),body=shortcut_help_body();
     float maximum=fmaxf(0,shortcut_help_content_height(b.width>=900)-body.height);
+    ui_focus_begin(&client->help_focus,7,6);
+    ui_focus_hit(&client->help_focus,0,body);
     float previous=client->help_scroll;
     int key;float delta=0;bool settings=false,escape=false;
     while ((key=GetKeyPressed())!=0) {
+        if (ui_focus_key(&client->help_focus,key)) continue;
         escape|=key==KEY_ESCAPE;settings|=key==KEY_ENTER;
+        if (client->help_focus.item!=0) continue;
         if (key==KEY_UP) delta-=40;if (key==KEY_DOWN) delta+=40;
         if (key==KEY_PAGE_UP) delta-=body.height;if (key==KEY_PAGE_DOWN) delta+=body.height;
         if (key==KEY_HOME) client->help_scroll=0;if (key==KEY_END) client->help_scroll=maximum;
         if (key>=0 && key<512) workbench_key_blocked[key]=true;
     }
     while (GetCharPressed()!=0) { }
-    if (IsKeyPressedRepeat(KEY_UP)) delta-=40;if (IsKeyPressedRepeat(KEY_DOWN)) delta+=40;
+    if (client->help_focus.item==0) { if (IsKeyPressedRepeat(KEY_UP)) delta-=40;if (IsKeyPressedRepeat(KEY_DOWN)) delta+=40; }
     Vector2 pointer=GetMousePosition();
     if (CheckCollisionPointRec(pointer,body)) delta-=GetMouseWheelMoveV().y*40;
     client->help_scroll=shortcut_help_scroll(client->help_scroll,delta,maximum);
     if (client->help_scroll!=previous) client->help_dirty=true;
-    bool click=IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    if (escape || (click && CheckCollisionPointRec(pointer,(Rectangle){b.x+b.width-84,b.y+18,64,26}))) client->help_open=false;
-    else if (settings || (click && CheckCollisionPointRec(pointer,shortcut_help_settings()))) {
+
+    if (escape || ui_focus_hit(&client->help_focus,2,(Rectangle){b.x+b.width-84,b.y+18,64,26})) client->help_open=false;
+    else if ((settings && client->help_focus.item==0) || ui_focus_hit(&client->help_focus,1,shortcut_help_settings())) {
         command_open(client);shortcut_load(client);client->command_settings=true;
     }
 }
@@ -109,16 +115,17 @@ static void shortcut_help_draw(WorkspaceClient *client)
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,160});ui_panel(b,ui.surface,true);
     DrawTextEx(client->font,"Keyboard shortcuts",(Vector2){b.x+22,b.y+20},20,0,ui.text);
     DrawTextEx(client->font,"Your current bindings. Terminal actions apply in the working view.",(Vector2){b.x+22,b.y+52},13,0,ui.muted);
-    draw_header_button(client->font,(Rectangle){b.x+b.width-84,b.y+18,64,26},"Done",true);
+    ui_focus_button(client->font,client->help_focus,2,(Rectangle){b.x+b.width-84,b.y+18,64,26},"Done",true);
     if (client->help_canvas.id)
         DrawTextureRec(client->help_canvas.texture,(Rectangle){0,0,body.width,-body.height},(Vector2){body.x,body.y},WHITE);
     else shortcut_help_content(client,body,wide);
+    ui_focus_ring(client->help_focus,0,body);
     if (maximum>0) {
         float thumb=fmaxf(20,body.height*body.height/(body.height+maximum));
         DrawRectangleRounded((Rectangle){body.x+body.width-3,body.y+(body.height-thumb)*client->help_scroll/maximum,3,thumb},.5f,6,ui.muted);
     }
-    draw_header_button(client->font,shortcut_help_settings(),"Edit shortcuts",true);
-    char hint[160];snprintf(hint,sizeof(hint),"%s%sEsc closes   Enter edits   Arrows / wheel scroll",
+    ui_focus_button(client->font,client->help_focus,1,shortcut_help_settings(),"Edit shortcuts",true);
+    char hint[160];snprintf(hint,sizeof(hint),"%s%sTab focuses   Esc closes   Arrows / wheel scroll",
         client->shortcuts.bindings[COMMAND_HELP].key ? client->help_bindings[COMMAND_HELP] : "",
         client->shortcuts.bindings[COMMAND_HELP].key ? " toggles   " : "");
     BeginScissorMode((int)b.x+180,(int)b.y+(int)b.height-42,(int)b.width-200,30);

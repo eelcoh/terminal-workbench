@@ -135,9 +135,9 @@ def main():
                 palette('Shortcut settings');text('Next terminal');key('Return');key('ctrl+shift+k');key('Escape');key('Escape')
                 assert (root/'shortcuts.conf').read_bytes()==saved
                 # Clear and Default restore an individual action, with no shell restart.
-                palette('Shortcut settings');text('Next terminal');key('Return');click(470,452);key('Return');key('Escape')
+                palette('Shortcut settings');text('Next terminal');key('Return');click(470,452);click(761,452);key('Escape')
                 assert 'terminal.next=none' in (root/'shortcuts.conf').read_text()
-                palette('Shortcut settings');text('Next terminal');key('Return');click(550,452);key('Return');key('Escape')
+                palette('Shortcut settings');text('Next terminal');key('Return');click(550,452);click(761,452);key('Escape')
                 assert 'terminal.next=Ctrl+Shift+Right' in (root/'shortcuts.conf').read_text()
                 # Send-next-key bypasses the application and uses Ghostty's encoder.
                 raw_script=root/'raw_keys.py'
@@ -150,7 +150,7 @@ def main():
                 line('printf "%s" "$$" > cancelled-forward');assert marker('cancelled-forward')==middlepid
                 key('ctrl+shift+Right')
                 # Unbinding clipboard shortcuts must also disable the old handler.
-                palette('Shortcut settings');text('Paste clipboard');key('Return');click(470,452);key('Return');key('Escape')
+                palette('Shortcut settings');text('Paste clipboard');key('Return');click(470,452);click(761,452);key('Escape')
                 assert 'paste=none' in (root/'shortcuts.conf').read_text(), (root/'shortcuts.conf').read_text()
                 (root/'raw.ready').unlink();(root/'raw.bytes').unlink()
                 line('python3 raw_keys.py');marker('raw.ready');key('ctrl+shift+v')

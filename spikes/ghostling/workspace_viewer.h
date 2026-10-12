@@ -13,6 +13,7 @@
 #include "overview_scroll.h"
 #include "window_state.h"
 #include "shortcut_state.h"
+#include "ui_focus.h"
 #include <sys/stat.h>
 #include <limits.h>
 
@@ -75,6 +76,7 @@ typedef struct {
     double catalog_checked;
     bool managed, dialog_open, dialog_all, management_busy, refreshing;
     char claim_new[41];
+    UiFocus dialog_focus, command_focus, help_focus, theme_focus, overview_focus, shortcut_focus;
     bool command_open, command_all, help_open;
     float help_scroll;
     RenderTexture2D help_canvas;
@@ -282,6 +284,7 @@ static Rectangle workspace_pane_bounds(WorkbenchWorkspace *workspace, int pane)
 static void overview_move_saved(WorkspaceClient *client);
 static void navigation_finish(WorkspaceClient *client);
 static bool navigation_moving(WorkspaceClient *client);
+#include "ui_focus_draw.h"
 #include "management_ui.h"
 #include <ctype.h>
 static void pane_preview_refresh(WorkspaceClient *client, WorkbenchPane *pane);

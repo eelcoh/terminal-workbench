@@ -21,8 +21,9 @@ The initial actions cover:
 
 Actions apply to the active workspace or focused terminal. Opening a dialog from
 an action consumes the dispatch key: Enter cannot also save or confirm the new
-dialog. Stop/replacement actions retain the existing mouse confirmation; Enter
-cannot stop a process. The palette never takes another window's terminal ownership.
+dialog. Stop/replacement dialogs require a mouse confirmation or an explicit
+Tab/Shift+Tab move to their confirmation button followed by Enter/Space. Opening
+Enter cannot stop or replace a process. The palette never takes another window's terminal ownership.
 It opens from the working view, and existing dialogs, appearance and overview have
 input precedence; there are no nested palettes. Ctrl-C/D/Z keep their usual terminal
 meaning outside the palette.
@@ -52,3 +53,7 @@ Terminal layout actions cycle the focused terminal between half, two thirds and
 one third, toggle reversible full terminal-area width, or select an explicit
 preset. They are client-only and work without session management or ownership.
 Use Shortcut settings to change their bindings.
+
+Tab/Shift+Tab moves between search, results and Done. Enter/Space on Done closes;
+on results it runs the selected action. Arrow keys choose results, and Enter in
+search retains quick dispatch. See [overlay focus](keyboard.md#dialog-and-overlay-focus).

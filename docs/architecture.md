@@ -129,7 +129,9 @@ Explicit close stops runtime-owned shells through a separate private control
 endpoint; it works while a viewer is attached. The runtime force-stops the PTY's
 foreground process group and terminates/reaps its shell. Detached jobs are outside
 this guarantee. Window close only disconnects views. UI confirmations require a
-click on Stop; Enter cannot accidentally authorize termination.
+click on Stop or an explicit Tab/Shift+Tab move to its confirmation button before
+Enter/Space. Opening Enter cannot accidentally authorize termination. Focus is
+transient client presentation state and does not enter catalog/runtime protocols.
 
 Before stopping, the helper records pending close identities in authoritative
 JSON. Successful stops remove those identities and clear the intent. An interrupted
