@@ -92,6 +92,32 @@ static bool theme_initialize(WorkspaceClient *client)
         /* Preserve the old global palette as both application and default colors. */
         client->appearance=appearance_default(theme);
     }
+    if (getenv("WORKBENCH_CONFIG")) {
+        /* Session files retain scoped identities; globals start from portable defaults. */
+        client->appearance.application=client->theme_catalog[0];client->appearance.defaults=client->theme_catalog[0];client->appearance.follow=false;
+        if (client->config.has_application) client->appearance.application=client->config.application;
+        if (client->config.has_terminal) client->appearance.defaults=client->config.terminal;
+        if (client->config.has_follow) client->appearance.follow=client->config.follow;
+        const char *ui=getenv("WORKBENCH_UI_APPEARANCE");
+        if (ui && access(ui,F_OK)==0) {
+            AppearanceState saved;unsigned mask=0;FILE *file=fopen(ui,"r");
+            bool valid=file && appearance_ui_read(file,&saved,&mask,client->theme_error,sizeof(client->theme_error));
+            if (file) fclose(file);
+            if (valid && !saved.workspace_count && !saved.terminal_count) {
+                if (mask&1) client->appearance.application=saved.application;
+                if (mask&2) client->appearance.defaults=saved.defaults;
+                if (mask&4) client->appearance.follow=saved.follow;
+            } else fprintf(stderr,"Invalid UI appearance overrides; dotfile defaults retained (%s)\n",ui);
+        } else if (ui) {
+            char legacy_ui[1200];snprintf(legacy_ui,sizeof(legacy_ui),"%.*sappearance.conf",strrchr(ui,'/') ? (int)(strrchr(ui,'/')-ui+1) : 0,ui);
+            if (access(legacy_ui,F_OK)==0) {
+                Theme palette;int ignored=0;
+                if (theme_load_path(legacy_ui,&palette,&ignored,client->theme_error,sizeof(client->theme_error)))
+                    client->appearance.application=client->appearance.defaults=palette;
+                else fprintf(stderr,"Invalid migrated UI appearance; dotfile defaults retained\n");
+            }
+        }
+    }
     const char *path=getenv("WORKBENCH_THEME");
     if (path) {
         if (!theme_load_path(path,&client->theme_imported,&client->theme_ignored,client->theme_error,sizeof(client->theme_error))) {
@@ -103,19 +129,73 @@ static bool theme_initialize(WorkspaceClient *client)
     client->appearance_dirty=true;
     ui_theme_set(*appearance_chrome(&client->appearance,theme_workspace_id(client))); return true;
 }
-static bool theme_save(WorkspaceClient *client)
+
+/* Prepare all changed records before replacing either destination. */
+static bool theme_prepare_save(WorkspaceClient *client,const char *path,const AppearanceState *state,unsigned mask,char *temporary,size_t capacity)
 {
-    if (!client->theme_path[0]) return true; /* Diagnostic clients preview in memory. */
-    char temporary[1100]; snprintf(temporary,sizeof(temporary),"%s.XXXXXX",client->theme_path);
+    if (!path || !*path) {temporary[0]=0;return true;}
+    if (snprintf(temporary,capacity,"%s.XXXXXX",path)>=(int)capacity) {strcpy(client->theme_error,"Appearance path is too long");return false;}
     int fd=mkstemp(temporary);
-    if (fd<0) { snprintf(client->theme_error,sizeof(client->theme_error),"Could not save appearance: %s",strerror(errno)); return false; }
-    FILE *file=fdopen(fd,"w"); bool valid=file!=NULL;
+    if (fd<0) {snprintf(client->theme_error,sizeof(client->theme_error),"Could not save appearance: %s",strerror(errno));return false;}
+    FILE *file=fdopen(fd,"w");bool valid=file!=NULL;
     if (file) {
-        valid=appearance_write(file,&client->appearance);
+        valid=mask ? appearance_ui_write(file,state,mask) : appearance_write(file,state);
         if (fflush(file) || fsync(fd)) valid=false;
         if (fclose(file)) valid=false;
     } else close(fd);
-    if (valid && rename(temporary,client->theme_path)) valid=false;
-    if (!valid) { unlink(temporary); snprintf(client->theme_error,sizeof(client->theme_error),"Could not save appearance; retry or cancel"); }
+    if (!valid) {unlink(temporary);strcpy(client->theme_error,"Could not prepare appearance; retry or cancel");}
     return valid;
+}
+static bool theme_save(WorkspaceClient *client)
+{
+    const char *ui=getenv("WORKBENCH_UI_APPEARANCE");
+    unsigned changed=0,mask=0;
+    if (memcmp(&client->appearance.application,&client->appearance_before.application,sizeof(Theme))) changed|=1;
+    if (memcmp(&client->appearance.defaults,&client->appearance_before.defaults,sizeof(Theme))) changed|=2;
+    if (client->appearance.follow!=client->appearance_before.follow) changed|=4;
+    bool scoped=client->appearance.workspace_count!=client->appearance_before.workspace_count
+        || client->appearance.terminal_count!=client->appearance_before.terminal_count
+        || memcmp(client->appearance.workspaces,client->appearance_before.workspaces,sizeof(client->appearance.workspaces))
+        || memcmp(client->appearance.terminals,client->appearance_before.terminals,sizeof(client->appearance.terminals));
+    AppearanceState saved=appearance_default(client->appearance.application);
+    saved.defaults=client->appearance.defaults;saved.follow=client->appearance.follow;
+    bool existed=ui && access(ui,F_OK)==0;
+    if (ui && changed && existed) {
+        FILE *file=fopen(ui,"r");
+        bool valid=file && appearance_ui_read(file,&saved,&mask,client->theme_error,sizeof(client->theme_error));
+        if (file) fclose(file);
+        if (!valid) return false;
+    }
+    AppearanceState previous=saved;unsigned previous_mask=mask;
+    if (changed&1) saved.application=client->appearance.application;
+    if (changed&2) saved.defaults=client->appearance.defaults;
+    if (changed&4) saved.follow=client->appearance.follow;
+    mask|=changed;
+    char global[1100]={0},local[1100]={0},backup[1100]={0};
+    bool global_save=ui && changed,local_save=(!ui || scoped) && client->theme_path[0];
+    if (global_save && !theme_prepare_save(client,ui,&saved,mask,global,sizeof(global))) return false;
+    if (local_save && !theme_prepare_save(client,client->theme_path,&client->appearance,0,local,sizeof(local))) {
+        if (global[0]) unlink(global);
+        return false;
+    }
+    if (global_save && local_save && existed && !theme_prepare_save(client,ui,&previous,previous_mask,backup,sizeof(backup))) {
+        unlink(global);unlink(local);return false;
+    }
+    bool committed=false;
+    if (global[0]) {
+        if (rename(global,ui)) goto failed;
+        committed=true;global[0]=0;
+    }
+    if (local[0] && rename(local,client->theme_path)) {
+        /* A late local replacement failure restores the pre-Apply global record. */
+        if (committed) {if (existed) {if (!rename(backup,ui)) backup[0]=0;} else unlink(ui);}
+        goto failed;
+    }
+    if (backup[0]) unlink(backup);
+    return true;
+failed:
+    if (global[0]) unlink(global);
+    if (local[0]) unlink(local);
+    if (backup[0]) unlink(backup);
+    strcpy(client->theme_error,"Could not save appearance; retry or cancel");return false;
 }

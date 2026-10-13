@@ -75,13 +75,20 @@ and platform-native composition remain unverified.
 
 ## Saving and loading
 
-The launcher uses separate local files for each platform:
-`.local/shortcuts-linux.conf` and `.local/shortcuts-macos.conf`. Set
-`WORKBENCH_SHORTCUTS` before `just spike` to use another path. Files use private
-atomic saves and apply immediately in the editing window. Other open windows load
-changes when opening Shortcut settings; new windows load them at startup. Saving
-rereads the latest valid file and edits only the chosen action. Simultaneous saves
-are not synchronized by the session service; the final file replacement wins.
+Normal `just spike` launches load shared/platform settings from the managed
+dotfile, then `ui/linux/shortcuts.conf` or `ui/macos/shortcuts.conf` under the user
+configuration directory. The first launch migrates existing checkout-local
+shortcut preferences. UI saves record only differences from the managed baseline;
+Default restores the configured binding. See [dotfiles](dotfiles.md) for paths,
+precedence, reset and migration behavior.
+
+Set `WORKBENCH_SHORTCUTS` before `just spike` to retain standalone-file behavior.
+That explicit file uses full-map saves. Files use private atomic saves and apply
+immediately in the editing window. Other open windows load UI changes when
+opening Shortcut settings; new windows load them at startup. Managed dotfile
+changes require a new window. Saving rereads the latest valid UI file and edits
+only the chosen action. Simultaneous saves are not synchronized by the session
+service; the final file replacement wins.
 
 A missing file uses defaults. An invalid, conflicting or unsupported file keeps
 the current in-memory bindings (defaults on startup) and shows an error in the
@@ -102,7 +109,7 @@ forward=F8
 ```
 
 Command/Cmd/Super, Alt/Option, and Ctrl/Control are accepted modifier aliases.
-Editor saves write the complete map. Cross-platform files use Super as the stored
+Standalone editor saves write the complete map; managed UI saves write differences. Cross-platform files use Super as the stored
 Command modifier; labels display Command and Option on macOS.
 
 ## Shortcut-help overlay

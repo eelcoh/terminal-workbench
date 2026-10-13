@@ -87,6 +87,12 @@ intact. This is color-field compatibility, not a complete Ghostty configuration 
 Named colors, inline comments, includes, cursor text color, fonts, opacity and system
 light/dark following are outside this first slice.
 
+Normal launches now load portable shared/platform global colors followed by
+separate UI overrides. Global Apply saves only edited fields outside the checkout;
+workspace/terminal bindings remain local to the session directory. See
+[dotfiles](dotfiles.md) for configuration, migration and precedence. The following
+legacy state format still holds scoped palettes and supports standalone test clients.
+
 Apply atomically replaces `appearance.state` in the launcher state directory
 (currently `.local/sessions`). It has a versioned client preference format and
 stores resolved RGB values for application/default/workspace/terminal palettes,

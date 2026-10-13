@@ -1,0 +1,90 @@
+/* Read-only portable preferences. Parsed once at startup, never in pane loops. */
+#ifndef WORKBENCH_PORTABLE_CONFIG_H
+#define WORKBENCH_PORTABLE_CONFIG_H
+#include "theme_catalog.h"
+#include "shortcut_state.h"
+typedef struct {
+    char application[1024],terminal[1024];
+    bool follow,has_follow,seen_application,seen_terminal;
+    ShortcutState shortcuts;
+    bool seen[COMMAND_COUNT];
+} PortableLayer;
+typedef struct {
+    Theme application,terminal;
+    bool has_application,has_terminal,has_follow,follow;
+    ShortcutState shortcuts;
+} PortableConfig;
+static char *portable_trim(char *text)
+{
+    while (*text && isspace((unsigned char)*text)) text++;
+    size_t length=strlen(text);
+    while (length && isspace((unsigned char)text[length-1])) text[--length]=0;
+    return text;
+}
+static bool portable_theme(const char *config,const char *value,Theme *out,char *error,size_t capacity)
+{
+    Theme themes[THEME_CATALOG_COUNT];int ignored[THEME_CATALOG_COUNT];
+    if (!theme_catalog_load(themes,ignored,error,capacity)) return false;
+    for (int i=0;i<THEME_CATALOG_COUNT;i++) if (!strcmp(value,theme_catalog_name(i))) { *out=themes[i];return true; }
+    char path[2048];
+    if (value[0]=='/') {
+        if (snprintf(path,sizeof(path),"%s",value)>=(int)sizeof(path)) return false;
+    } else {
+        const char *slash=strrchr(config,'/');int prefix=slash ? (int)(slash-config+1) : 0;
+        if (snprintf(path,sizeof(path),"%.*s%s",prefix,config,value)>=(int)sizeof(path)) return false;
+    }
+    FILE *file=fopen(path,"r");
+    if (!file) { snprintf(error,capacity,"Cannot read configured theme: %s",strerror(errno));return false; }
+    int count=0;bool valid=theme_read(file,&themes[0],out,&count,error,capacity);fclose(file);return valid;
+}
+static bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)
+{
+    PortableConfig next={.shortcuts=shortcut_defaults(apple)};
+    if (!path) { *out=next;return true; }
+    FILE *file=fopen(path,"r");
+    if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
+    PortableLayer layers[3]={0};char line[2048];int section=-1,kind=0,number=1;
+    bool valid=fgets(line,sizeof(line),file) && !strcmp(line,"workbench-config-v1\n");
+    while (valid && fgets(line,sizeof(line),file)) {
+        number++;if (number>512 || !strchr(line,'\n')) {valid=false;break;}
+        char *text=portable_trim(line);if (!*text || *text=='#') continue;
+        if (*text=='[') {
+            static const char *sections[]={"[appearance]","[shortcuts]","[linux.appearance]","[linux.shortcuts]","[macos.appearance]","[macos.shortcuts]"};
+            int found=-1;for (int i=0;i<6;i++) if (!strcmp(text,sections[i])) found=i;
+            if (found<0) {valid=false;break;}section=found/2;kind=found%2;continue;
+        }
+        char *equal=strchr(text,'=');if (section<0 || !equal) {valid=false;break;}*equal++=0;
+        char *key=portable_trim(text),*value=portable_trim(equal);PortableLayer *layer=&layers[section];
+        if (!*value) {valid=false;break;}
+        if (kind) {
+            int action=-1;for (int i=0;i<COMMAND_COUNT;i++) if (!strcmp(key,command_ids[i])) action=i;
+            if (action<0 || layer->seen[action] || !shortcut_parse(value,&layer->shortcuts.bindings[action])) {valid=false;break;}
+            layer->seen[action]=true;
+        } else if (!strcmp(key,"application-theme") || !strcmp(key,"terminal-theme")) {
+            bool application=!strcmp(key,"application-theme");bool *seen=application ? &layer->seen_application : &layer->seen_terminal;
+            if (*seen || strlen(value)>=1024) {valid=false;break;}*seen=true;
+            strcpy(application ? layer->application : layer->terminal,value);
+        } else if (!strcmp(key,"follow-workspace")) {
+            if (layer->has_follow || (strcmp(value,"true") && strcmp(value,"false"))) {valid=false;break;}
+            layer->has_follow=true;layer->follow=!strcmp(value,"true");
+        } else {valid=false;break;}
+    }
+    if (ferror(file)) valid=false;
+    fclose(file);
+    if (!valid) {snprintf(error,capacity,"Invalid dotfile near line %d; preferences kept",number);return false;}
+    PortableLayer *platform=&layers[apple ? 2 : 1];
+    const char *application=platform->seen_application ? platform->application : layers[0].application;
+    const char *terminal=platform->seen_terminal ? platform->terminal : layers[0].terminal;
+    next.has_application=*application;next.has_terminal=*terminal;
+    if ((next.has_application && !portable_theme(path,application,&next.application,error,capacity))
+        || (next.has_terminal && !portable_theme(path,terminal,&next.terminal,error,capacity))) return false;
+    next.has_follow=platform->has_follow || layers[0].has_follow;
+    next.follow=platform->has_follow ? platform->follow : layers[0].follow;
+    for (int i=0;i<COMMAND_COUNT;i++) {
+        if (layers[0].seen[i]) next.shortcuts.bindings[i]=layers[0].shortcuts.bindings[i];
+        if (platform->seen[i]) next.shortcuts.bindings[i]=platform->shortcuts.bindings[i];
+    }
+    if (!shortcut_valid(&next.shortcuts,error,capacity)) return false;
+    *out=next;error[0]=0;return true;
+}
+#endif

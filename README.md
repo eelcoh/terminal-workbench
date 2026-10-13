@@ -130,6 +130,11 @@ see [runtime hardening](docs/runtime-hardening.md). New windows reconnect throug
 terminal snapshots, so new runtimes keep accepting attachments beyond 16 MiB of
 output. Older live runtimes use replay fallback and retain their existing limit.
 
+Portable appearance and shortcuts now load from a managed dotfile outside the
+checkout, with Mac/Linux overrides and separate UI saves. Use `just config-path`
+to find it and `just config-init` for an example. Existing preferences migrate
+without moving running sessions. See [dotfiles](docs/dotfiles.md).
+
 ## Layout
 
 ```text

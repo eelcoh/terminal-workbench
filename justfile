@@ -1,3 +1,9 @@
+config-path:
+    python3 scripts/config_paths.py
+
+config-init:
+    python3 scripts/config_paths.py --init
+
 default:
     @just --list
 
@@ -24,6 +30,7 @@ check: runtime-build
     python3 tests/copilot_observer_test.py
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
+    python3 tests/config_paths_test.py
     python3 tests/build_env_test.py
     python3 tests/font_assets_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
@@ -160,3 +167,7 @@ display-gui-test: spike-build
     python3 tests/display_callback_test.py .local/build/viewer/_deps/raylib-src
     python3 tests/display_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
     python3 tests/display_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
+
+# Portable settings and UI overrides with same-process reopen.
+dotfiles-gui-test: spike-build
+    python3 tests/dotfiles_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

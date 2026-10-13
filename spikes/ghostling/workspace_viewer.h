@@ -1,4 +1,4 @@
-#include "theme_catalog.h"
+#include "portable_config.h"
 #include "ui_font.h"
 #include "pixel_geometry.h"
 #include "platform_display.h"
@@ -93,6 +93,8 @@ typedef struct {
     int command_selected, command_first;
     char command_query[64];
     ShortcutState shortcuts;
+    PortableConfig config;
+    char config_error[256];
     const char *shortcut_path;
     char shortcut_error[256];
     bool command_settings, shortcut_recording, shortcut_capture_valid, forwarding;
@@ -499,7 +501,10 @@ static int workspace_main(const char *catalog)
     if (!workspace_catalog(client, catalog)) { fprintf(stderr, "Could not load workspace catalog: %s\n", catalog); free(client); return 1; }
     client->managed = getenv("WORKBENCH_CATALOG_SCRIPT") != NULL;
     workbench_clipboard_keys=false;workbench_window_buttons=false;
-    client->shortcuts=shortcut_defaults(shortcut_platform_apple());
+    client->config.shortcuts=shortcut_defaults(shortcut_platform_apple());
+    if (!portable_read(getenv("WORKBENCH_CONFIG"),shortcut_platform_apple(),&client->config,client->config_error,sizeof(client->config_error)))
+        fprintf(stderr,"Dotfiles: %s\n",client->config_error);
+    client->shortcuts=client->config.shortcuts;
     client->shortcut_path=getenv("WORKBENCH_SHORTCUTS");shortcut_load(client);
     client->management_fd = -1;
     client->management_pid = -1;
@@ -555,6 +560,7 @@ static int workspace_main(const char *catalog)
 
     if (client->view_loaded && client->saved_view.overview) overview_open(client);
 
+    if (client->config_error[0]) clipboard_notice(client->config_error);
     while (!WindowShouldClose()) {
         display_tick(client);
         workspace_refresh(client);

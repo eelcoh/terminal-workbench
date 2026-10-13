@@ -94,12 +94,15 @@ static bool shortcut_valid(const ShortcutState *state, char *error, size_t capac
     }
     return true;
 }
-static bool shortcut_read(const char *path, bool apple, ShortcutState *out, char *error, size_t capacity)
+static bool shortcut_read_layer(const char *path, bool apple, const ShortcutState *base, ShortcutState *out, char *error, size_t capacity)
 {
     FILE *file=fopen(path,"r");
-    if (!file) { if (errno==ENOENT) { *out=shortcut_defaults(apple); return true; } snprintf(error,capacity,"Cannot read shortcuts: %s",strerror(errno)); return false; }
-    ShortcutState next=shortcut_defaults(apple);bool seen[COMMAND_COUNT]={0};char line[256];bool valid=true;
-    if (!fgets(line,sizeof(line),file) || strcmp(line,"workbench-shortcuts-v1\n")) valid=false;
+    if (!file) { if (errno==ENOENT) { *out=base ? *base : shortcut_defaults(apple); return true; } snprintf(error,capacity,"Cannot read shortcuts: %s",strerror(errno)); return false; }
+    ShortcutState next=base ? *base : shortcut_defaults(apple);bool seen[COMMAND_COUNT]={0};char line[256];bool valid=true;
+    bool migrated=false;
+    if (!fgets(line,sizeof(line),file)) valid=false;
+    else if (!strcmp(line,"workbench-shortcuts-migrated-v1\n")) {migrated=true;next=shortcut_defaults(apple);}
+    else if (strcmp(line,"workbench-shortcuts-v1\n")) valid=false;
     int lines=0;
     while (valid && fgets(line,sizeof(line),file)) {
         if (++lines>64 || !strchr(line,'\n')) { valid=false; break; }
@@ -113,24 +116,32 @@ static bool shortcut_read(const char *path, bool apple, ShortcutState *out, char
     fclose(file);
     if (!valid) { snprintf(error,capacity,"Invalid shortcut file; existing bindings kept"); return false; }
     /* New defaults must not invalidate a previously customized old binding. */
-    for (int i=0;i<COMMAND_COUNT;i++) if (!seen[i] && (i>=COMMAND_WIDTH_CYCLE || (apple &&
+    for (int i=0;i<COMMAND_COUNT;i++) if ((!base || migrated) && !seen[i] && (i>=COMMAND_WIDTH_CYCLE || (apple &&
         (i==COMMAND_PALETTE || i==COMMAND_OVERVIEW || i==COMMAND_TERMINAL_CREATE || i==COMMAND_WORKSPACE_CREATE))))
         for (int j=0;j<COMMAND_COUNT;j++) if (seen[j] && next.bindings[i].key==next.bindings[j].key
             && next.bindings[i].mods==next.bindings[j].mods) next.bindings[i]=(ShortcutChord){0};
     if (!shortcut_valid(&next,error,capacity)) return false;
     *out=next; return true;
 }
-static bool shortcut_write(const char *path, const ShortcutState *state, char *error, size_t capacity)
+static bool shortcut_read(const char *path,bool apple,ShortcutState *out,char *error,size_t capacity)
+{ return shortcut_read_layer(path,apple,NULL,out,error,capacity); }
+static bool shortcut_write_layer(const char *path, const ShortcutState *state, const ShortcutState *base, char *error, size_t capacity)
 {
     if (!shortcut_valid(state,error,capacity)) return false;
     char temporary[1200];if (snprintf(temporary,sizeof(temporary),"%s.tmp-XXXXXX",path)>=(int)sizeof(temporary)) return false;
     int fd=mkstemp(temporary);if (fd<0) { snprintf(error,capacity,"Cannot save shortcuts: %s",strerror(errno));return false; }
     FILE *file=fdopen(fd,"w");if (!file) { close(fd);unlink(temporary);return false; }
     bool success=fputs("workbench-shortcuts-v1\n",file)!=EOF;
-    for (int i=0;i<COMMAND_COUNT;i++) { char label[96];shortcut_label(state->bindings[i],false,label,sizeof(label));if (fprintf(file,"%s=%s\n",command_ids[i],label)<0) success=false; }
+    for (int i=0;i<COMMAND_COUNT;i++) {
+        if (base && state->bindings[i].key==base->bindings[i].key && state->bindings[i].mods==base->bindings[i].mods) continue;
+        char label[96];shortcut_label(state->bindings[i],false,label,sizeof(label));
+        if (fprintf(file,"%s=%s\n",command_ids[i],label)<0) success=false;
+    }
     if (fflush(file) || fsync(fd)) success=false;
     if (fclose(file)) success=false;
     if (success && rename(temporary,path)==0) return true;
     snprintf(error,capacity,"Cannot save shortcuts: %s",strerror(errno));unlink(temporary);return false;
 }
+static bool shortcut_write(const char *path,const ShortcutState *state,char *error,size_t capacity)
+{ return shortcut_write_layer(path,state,NULL,error,capacity); }
 #endif

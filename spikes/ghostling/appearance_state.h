@@ -110,4 +110,26 @@ static bool appearance_read(FILE *file, AppearanceState *result, char *error, si
 invalid:
     snprintf(error,capacity,"Invalid saved appearance; existing preferences preserved"); return false;
 }
+
+/* Global UI edits carry a field mask, so unrelated portable defaults still inherit. */
+static bool appearance_ui_read(FILE *file,AppearanceState *out,unsigned *mask,char *error,size_t capacity)
+{
+    char line[128];unsigned fields=7;
+    if (!fgets(line,sizeof(line),file)) goto invalid;
+    if (!strcmp(line,"workbench-ui-appearance-v1\n")) {
+        if (!fgets(line,sizeof(line),file) || strlen(line)!=7 || strncmp(line,"mask\t",5)
+            || line[5]<'1' || line[5]>'7' || line[6]!='\n') goto invalid;
+        fields=(unsigned)(line[5]-'0');
+    } else if (fseek(file,0,SEEK_SET)) goto invalid;
+    AppearanceState next;
+    if (!appearance_read(file,&next,error,capacity) || next.workspace_count || next.terminal_count) goto invalid;
+    *out=next;*mask=fields;return true;
+invalid:
+    snprintf(error,capacity,"Invalid UI appearance; preferences preserved");return false;
+}
+static bool appearance_ui_write(FILE *file,const AppearanceState *state,unsigned mask)
+{
+    return mask>0 && mask<=7 && !state->workspace_count && !state->terminal_count
+        && fprintf(file,"workbench-ui-appearance-v1\nmask\t%u\n",mask)>0 && appearance_write(file,state);
+}
 #endif

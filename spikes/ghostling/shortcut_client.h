@@ -1,5 +1,7 @@
 /* Desktop shortcut routing and the client-owned binding editor. */
 /* Focus order: capture, Clear, Default, Cancel, Save. */
+static const ShortcutState *shortcut_base(WorkspaceClient *client)
+{ return getenv("WORKBENCH_LAYERED_SHORTCUTS") ? &client->config.shortcuts : NULL; }
 static char shortcut_copy_hint[128],shortcut_paste_hint[128];
 static void shortcut_refresh_hints(WorkspaceClient *client)
 {
@@ -14,7 +16,7 @@ static void shortcut_load(WorkspaceClient *client)
     shortcut_refresh_hints(client);
     if (!client->shortcut_path) return;
     ShortcutState next;
-    if (shortcut_read(client->shortcut_path,shortcut_platform_apple(),&next,client->shortcut_error,sizeof(client->shortcut_error))) {
+    if (shortcut_read_layer(client->shortcut_path,shortcut_platform_apple(),shortcut_base(client),&next,client->shortcut_error,sizeof(client->shortcut_error))) {
         client->shortcuts=next;shortcut_refresh_hints(client);client->shortcut_error[0]=0;
     }
 }
@@ -29,9 +31,9 @@ static void shortcut_edit_save(WorkspaceClient *client)
     if (!client->shortcut_capture_valid) return;
     if (!client->shortcut_path) { strcpy(client->shortcut_error,"Use just spike to save shortcut settings");return; }
     ShortcutState next;
-    if (!shortcut_read(client->shortcut_path,shortcut_platform_apple(),&next,client->shortcut_error,sizeof(client->shortcut_error))) return;
+    if (!shortcut_read_layer(client->shortcut_path,shortcut_platform_apple(),shortcut_base(client),&next,client->shortcut_error,sizeof(client->shortcut_error))) return;
     next.bindings[client->shortcut_edit]=client->shortcut_candidate;
-    if (!shortcut_write(client->shortcut_path,&next,client->shortcut_error,sizeof(client->shortcut_error))) return;
+    if (!shortcut_write_layer(client->shortcut_path,&next,shortcut_base(client),client->shortcut_error,sizeof(client->shortcut_error))) return;
     client->shortcuts=next;shortcut_refresh_hints(client);client->shortcut_recording=false;client->shortcut_error[0]=0;
 }
 static void shortcut_record_input(WorkspaceClient *client)
@@ -56,7 +58,7 @@ static void shortcut_record_input(WorkspaceClient *client)
     Rectangle b=dialog_bounds();
     if (ui_focus_hit(&client->shortcut_focus,1,(Rectangle){b.x+24,b.y+162,72,30})) { client->shortcut_candidate=(ShortcutChord){0};client->shortcut_capture_valid=true;client->shortcut_error[0]=0; }
     if (ui_focus_hit(&client->shortcut_focus,2,(Rectangle){b.x+104,b.y+162,92,30})) {
-        client->shortcut_candidate=shortcut_defaults(shortcut_platform_apple()).bindings[client->shortcut_edit];client->shortcut_capture_valid=true;client->shortcut_error[0]=0;
+        client->shortcut_candidate=shortcut_base(client) ? client->config.shortcuts.bindings[client->shortcut_edit] : shortcut_defaults(shortcut_platform_apple()).bindings[client->shortcut_edit];client->shortcut_capture_valid=true;client->shortcut_error[0]=0;
     }
     if (escape || ui_focus_hit(&client->shortcut_focus,3,(Rectangle){b.x+216,b.y+162,80,30})) client->shortcut_recording=false;
     else if (save || ui_focus_hit(&client->shortcut_focus,4,(Rectangle){b.x+306,b.y+162,90,30})) shortcut_edit_save(client);

@@ -160,6 +160,13 @@ predictable destination, malformed settings retain a usable app, and migration
 preserves existing preferences and running terminals. Format and detailed
 precedence remain design decisions for this milestone.
 
+The first dotfiles slice now implements shared/platform appearance and shortcuts,
+native user configuration paths, read-only managed/symlinked settings, sparse
+per-platform UI overrides and once-only preference migration. Scoped theme
+identities stay with local sessions. Configuration reads occur at startup, with
+no work added to pane rendering or runtime parsing. Font preferences, workspace
+defaults, live reload and native Mac acceptance remain open. See [dotfiles](dotfiles.md).
+
 ## Plugins: long horizon
 
 Explore extension points after the first installable release and a stable

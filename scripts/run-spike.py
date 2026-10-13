@@ -8,6 +8,7 @@ import sys
 import time
 from session_service import request, exchange, Unavailable, ReplyClosed, PROTOCOL
 from window_slots import acquire_window_slot
+from config_paths import prepare_preferences
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -103,6 +104,8 @@ def main():
         print("Build the spike first with: just spike-build", file=sys.stderr)
         return 1
     try:
+        preferences=prepare_preferences(ROOT,sessions,os.environ,sys.platform)
+        print(f"Configuration: {preferences['WORKBENCH_CONFIG']}",flush=True)
         service,health=ensure_service(sessions,runtime,ROOT)
         stopped = sum(terminal["state"] != "running" for terminal in health["terminals"])
         print(f"Session service: {service['service_pid']}; {len(health['terminals']) - stopped} running, {stopped} stopped/unavailable", flush=True)
@@ -113,9 +116,9 @@ def main():
         return 1
     print("Opening saved workspaces. Close detaches shells; exit stops only the focused shell.", flush=True)
     environment = dict(os.environ, WORKBENCH_WORKSPACES=str(sessions / "workspaces.tsv"),
-        WORKBENCH_SHORTCUTS=os.environ.get("WORKBENCH_SHORTCUTS",str(ROOT / ".local" / ("shortcuts-macos.conf" if sys.platform=="darwin" else "shortcuts-linux.conf"))),
         WORKBENCH_CATALOG_SCRIPT=str(ROOT / "scripts/workspace_catalog.py"),
         WORKBENCH_STATE_DIR=str(sessions), WORKBENCH_RUNTIME=str(runtime), WORKBENCH_PROJECT=str(ROOT))
+    environment.update(preferences)
     environment.pop("WORKBENCH_SOCKET", None)
     try:
         return launch_viewer(viewer, ROOT, sessions, environment, detach=inside_workbench(os.environ))

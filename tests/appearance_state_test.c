@@ -40,5 +40,15 @@ int main(void)
     /* The legacy Ghostty color reader still supplies migration defaults. */
     file=tmpfile(); assert(file); fputs("background=#f4f1eb\n",file); rewind(file); int ignored;
     assert(theme_read(file,&night,&dawn,&ignored,error,sizeof(error))); fclose(file);
+    FILE *ui=tmpfile();assert(ui);unsigned mask=0;
+    AppearanceState globals=appearance_default(theme_preset(true)),read_globals;
+    assert(appearance_ui_write(ui,&globals,1));rewind(ui);
+    assert(appearance_ui_read(ui,&read_globals,&mask,error,sizeof(error)) && mask==1);
+    assert(!memcmp(&read_globals.application,&globals.application,sizeof(Theme)));fclose(ui);
+    ui=tmpfile();assert(ui);assert(appearance_write(ui,&globals));rewind(ui);
+    assert(appearance_ui_read(ui,&read_globals,&mask,error,sizeof(error)) && mask==7);fclose(ui);
+    ui=tmpfile();assert(ui);fputs("workbench-ui-appearance-v1\nmask\t8\n",ui);rewind(ui);
+    AppearanceState unchanged_ui=read_globals;
+    assert(!appearance_ui_read(ui,&read_globals,&mask,error,sizeof(error)) && !memcmp(&read_globals,&unchanged_ui,sizeof(read_globals)));fclose(ui);
     puts("PASS: stable/follow chrome, workspace/default inheritance, terminal overrides and identity moves, scoped roundtrip, limits and transactional corruption isolation");
 }
