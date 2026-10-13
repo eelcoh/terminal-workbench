@@ -36,7 +36,9 @@ behavior remain unverified. The current renderer is an experiment; it is not the
 | 5 | Complete workspace workflows | Smooth horizontal pane navigation, workspace directories, layout/focus persistence, terminal search and clear exited/disconnected states. |
 | 6 | Fresh keyboard model | Scoped actions, configurable shortcuts, command palette, shortcut-help overlay and a way to forward intercepted bindings to terminals; platform input validation. |
 | 7 | Real agent validation | Live Codex/Claude on Linux and GitHub Copilot CLI on macOS, lifecycle transitions and hook trust/setup flows; explicit Unknown for unsupported agents or unavailable signals. |
-| 8 | Installable releases | macOS app bundle and Linux installation, configuration outside the repository, lifecycle/update policy and platform smoke checks. Finalize the product name before distribution; the project uses MIT. |
+| 8 | Dotfiles and portable configuration | Documented readable settings outside the checkout, custom themes/fonts/shortcuts, platform overrides, predictable UI/file precedence and safe migration of prototype preferences. |
+| 9 | Installable releases | macOS app bundle and Linux installation, configuration outside the repository, lifecycle/update policy and platform smoke checks. Finalize the product name before distribution; the project uses MIT. |
+| Later | Plugin exploration | After daily-use foundations and the first installable release: bounded extension points, capability/version contracts and explicit permission/lifecycle handling, proven with a small extension. |
 
 The first UX slice now includes shared UI colors, rounded controls and
 a searchable offline palette gallery with Night/Dawn, Dracula, Catppuccin and
@@ -109,6 +111,68 @@ status symbols using embedded primary/fallback glyphs; Linux screenshot coverage
 passes. The owner confirmed glyphs on Linux and native macOS in Copilot.
 Specific Retina scaling coverage, full shaping and broader font preferences
 remain open. See [terminal fonts](terminal-fonts.md).
+
+## Remaining work and next priorities
+
+The core prototype workflows are implemented; the milestone table describes
+acceptance gates rather than a list of wholly unstarted features. Remaining work:
+
+1. Finish native platform/UX acceptance: Mac external-monitor text/borders and
+   unplug recovery, keyboard layouts/IME, accessibility, Linux native Wayland and
+   physical GPU behavior. The owner confirmed Mac resizing and horizontal content
+   swipes; the mixed-display hardware review is pending.
+2. Decide the production toolkit using those results and the approved minimal
+   chrome/Overview flows. Complex text shaping and accessibility are still open.
+3. Harden daily-use runtime behavior: detailed exit reasons, creation/close
+   journaling, crash/recovery and long-running session validation. Finish terminal
+   search, native folder browsing and invalid-path/recovery review.
+4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
+   background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
+   and full lifecycle transitions. Unsupported signals retain honest fallback.
+5. Add portable dotfiles, then package/install outside the checkout. Decide the
+   product name, app/session shutdown policy and update approach before release.
+6. Explore plugins after these foundations; extensions are not a first-release
+   gate.
+
+## Dotfiles and portable configuration
+
+Treat application configuration as something the owner can keep in a dotfiles
+repository and reuse on Linux/macOS. This milestone covers Workbench preferences;
+management of shell dotfiles is a separate possible integration.
+
+- Provide documented, readable configuration in native per-user locations, with
+  an explicit path override and support for symlink-managed files. Migrate current
+  checkout-local preferences without losing settings.
+- Cover appearance, custom Ghostty themes, terminal/UI font preferences,
+  shortcuts and workspace creation defaults. Support platform-specific overrides
+  so shared settings can retain Command+Option on Mac and Ctrl+Shift on Linux.
+- Define defaults/file/platform/UI precedence and how UI changes are saved.
+  Preserve user-owned comments and files or keep UI overrides in a separate file;
+  avoid silently rewriting a user's managed configuration.
+- Validate changes transactionally, report useful errors and keep the last valid
+  settings. Define live reload versus restart-required settings explicitly.
+- Keep configuration separate from session catalogs, sockets, agent credentials
+  and per-window restoration state. Copying dotfiles must not copy runtime
+  ownership or machine-specific session identities.
+
+Acceptance: a shared dotfiles setup loads on both platforms, UI edits have a
+predictable destination, malformed settings retain a usable app, and migration
+preserves existing preferences and running terminals. Format and detailed
+precedence remain design decisions for this milestone.
+
+## Plugins: long horizon
+
+Explore extension points after the first installable release and a stable
+runtime/client boundary. Candidate uses include additional agent integrations,
+Commands actions and project/workspace helpers. Start with a small extension to
+prove a useful contract before building a marketplace or general UI framework.
+
+Define versioned capabilities, explicit access to processes/files/network,
+installation/removal and crash isolation. A failed or removed plugin must not
+interrupt terminals or prevent startup. Keep core navigation, rendering and
+session ownership under application control. Whether extensions run out of
+process, and which APIs they receive, requires a separate design spike; no plugin
+API or implementation is selected yet.
 
 ## Current UX slice: Niri-style terminal widths
 
@@ -211,7 +275,8 @@ logical terminal cells; the marked GLFW adapter fixes Mac scale callback
 transforms and framebuffer refresh. Window recovery uses logical work areas and
 pane outlines stay inside their clipping area. Horizontal two-finger content
 swipes pan the working strip while vertical input retains terminal scrolling.
-Native external-monitor/unplug and physical trackpad review remains open; see
+The owner confirmed native Mac resizing and horizontal swipes. External-monitor
+text/borders and unplug recovery remain pending; see
 [display details](interface-typography.md#display-changes-and-pane-outlines).
 
 ## UX spike: a product-quality gate
