@@ -154,3 +154,9 @@ retina-gui-test: spike-build
 # Minimal native chrome, menus, panel geometry and live ownership.
 chrome-gui-test: spike-build
     python3 tests/minimal_chrome_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Pinned renderer callbacks and dynamic backing-density changes.
+display-gui-test: spike-build
+    python3 tests/display_callback_test.py .local/build/viewer/_deps/raylib-src
+    python3 tests/display_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
+    python3 tests/display_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15

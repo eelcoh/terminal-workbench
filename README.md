@@ -55,7 +55,9 @@ has a three-dot menu for rename, themes, widths, moving and Stop. New workspaces
 start with one shell. Pane marks in the top bar show focus and viewport visibility.
 Click a mark to reveal that terminal, or scroll over the header's navigation strip to move between terminals. Horizontal
 trackpad scrolling and vertical mouse-wheel scrolling work there; scrolling inside
-terminals keeps its terminal behavior. Adjacent pane changes scroll for 270ms; longer jumps scroll through every
+terminals keeps its terminal behavior. Horizontal two-finger gestures over
+terminal content pan the strip continuously; vertical gestures retain terminal
+scrolling. Adjacent pane changes scroll for 270ms; longer jumps scroll through every
 intermediate pane, taking up to 1.25s depending on distance, with immediate
 focus and typing. `WORKBENCH_REDUCED_MOTION=1 just spike` skips motion.
 Names are saved; renaming preserves the process.

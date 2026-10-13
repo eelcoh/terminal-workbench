@@ -76,3 +76,53 @@ metrics, a stack buffer and no heap allocation. Chrome uses metadata already
 present in the client; it adds no process, filesystem or terminal-snapshot work
 to render loops. The shared session protocol and persisted view format are
 unchanged. Native Mac review of this chrome slice remains pending.
+
+## Display changes and pane outlines
+
+The owner reported soft text/broken pane borders on a regular external Mac
+monitor, and oversized presentation after unplugging it, while a clean Retina
+start looked good. Source inspection found two separate density bugs: font and
+canvas density was fixed at startup, and Raylib 5.5's GLFW content-scale callback
+applied a scale matrix on Mac even though Cocoa/SetupViewport already scales the
+viewport. Initial Mac setup correctly leaves that matrix at identity.
+
+The marked display adaptation in `scripts/patch-raylib-display.py` keeps Mac
+logical-point transforms at identity, synchronizes framebuffer and window-size
+callbacks, and exposes actual framebuffer size and logical monitor work areas
+through the GLFW backend. The app does not cast Mac's NSWindow handle to GLFW.
+Upstream Raylib notices remain intact; the patch is applied idempotently during
+configure alongside the existing mouse/wheel adaptation.
+
+One window-level probe checks density after resize/backing events and every
+250ms. On a density change, it reloads terminal/symbol/UI atlases and invalidates
+pane, navigation and help canvases and preview epochs. Font changes retain the
+7×16 logical grid and never reconnect or resize a terminal by themselves. Ordinary
+window resizing reuses fonts. New fonts are acquired before old atlases are
+released; a failed acquisition retains the prior resources. Hidden panes rebuild
+presentation lazily when visible. Minimized/inconsistent framebuffer dimensions
+are deferred. Runtime state, output and scrollback remain intact.
+
+Startup and display-layout recovery fit oversized windows into logical work-area
+bounds, accounting for titlebar/frame insets. Monitor removal and a shrinking
+work area can resize/reposition a window; ordinary dragging between displays
+leaves a fitting, straddling window alone. Maximized/fullscreen behavior stays
+with the OS. Actual logical window size changes can legitimately resize PTYs.
+Saved layouts restore after the window exists, using its usable geometry.
+
+The active pane outline previously used Raylib's outward one-pixel GL-line path
+at the exact viewport edge, which could clip the top/left stroke. Its inset,
+filled rounded ring keeps the complete outline inside the pane without changing
+terminal bounds, padding, input coordinates or the 4px corner shape.
+
+`just display-gui-test` compiles the actual marked callbacks with Mac/Linux policy
+mocks and exercises live 1→2→1 atlas/help/canvas changes with one and fifteen terminals in Linux Xvfb. Image checks protect
+all four pane edges; PID/socket/grid checks protect live shell continuity.
+`just check` covers the pure monitor-fitting and density geometry contracts.
+`WORKBENCH_RENDER_SCALE_FILE=/path/to/file` is a diagnostic-only density override:
+write a number from 1 to 4 to that file to exercise transitions. It is not a UI
+setting and does not emulate actual Cocoa display hardware.
+
+Native Mac acceptance still requires a Retina↔regular-monitor move and unplug
+sequence. Bounded 384×240 Overview thumbnails remain miniature previews; the
+reading surface uses current display density. Native font appearance, physical
+trackpad response and GPU frame pacing cannot be established by Xvfb/mocks.

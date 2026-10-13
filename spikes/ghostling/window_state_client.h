@@ -20,7 +20,7 @@ static void window_view_restore_layout(WorkspaceClient *client)
             }
             workspace->scroll=saved->terminals ? saved->scroll*(workspace_estate()+WORKBENCH_GAP) : workspace_offset(workspace,workspace->first);
             workspace->estate=workspace_estate();
-            workspace_focus(workspace,workspace->focused);
+            workspace->manual_scroll=saved->terminals>0;workspace_sync_view(workspace);
             client->overview_columns[w]=(int)floorf(saved->horizontal+.5f);
             client->overview_horizontal[w]=(OverviewScroll){.position=saved->horizontal,.target=saved->horizontal,
                 .command=client->overview_columns[w]};

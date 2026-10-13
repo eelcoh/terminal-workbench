@@ -21,5 +21,10 @@ int main(void)
     assert(pane_navigation_wheel(&wheel,0,12)==0);
     assert(pane_navigation_wheel(&wheel,NAN,12)==0);
     assert(pane_navigation_wheel(&wheel,INFINITY,12)==0);
+    assert(pane_navigation_horizontal(.2f,0));assert(!pane_navigation_horizontal(.1f,.5f));
+    assert(!pane_navigation_horizontal(0,1));assert(!pane_navigation_horizontal(NAN,0));
+    assert(pane_navigation_pan(0,.25f,1000)==10);assert(pane_navigation_pan(0,.5f,1000)==20);
+    assert(pane_navigation_pan(10,-1,1000)==0);assert(pane_navigation_pan(990,1,1000)==1000);
+    assert(pane_navigation_pan(0,20,1000)==120);assert(pane_navigation_pan(0,1,0)==0);
     return 0;
 }

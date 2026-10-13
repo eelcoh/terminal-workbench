@@ -1,6 +1,7 @@
 #include "theme_catalog.h"
 #include "ui_font.h"
 #include "pixel_geometry.h"
+#include "platform_display.h"
 #include "appearance_state.h"
 /* Experimental client layout. Runtime processes remain independently owned.
  * Terminal setup/rendering builds on the MIT-licensed Ghostling example;
@@ -58,6 +59,7 @@ typedef struct {
     WorkbenchPane *panes[WORKBENCH_PANES];
     int focused, first, count;
     float scroll, estate;
+    bool manual_scroll;
 } WorkbenchWorkspace;
 
 typedef struct { RenderTexture2D canvas; uint64_t epoch; } NavigationTile;
@@ -74,7 +76,9 @@ typedef struct {
     bool divider_dragging;
     int cell_width, cell_height;
     Font font, ui_font;
-    float raster_scale;
+    float raster_scale, raster_override;
+    double display_checked;
+    DisplayWorkarea display_work;
     const char *catalog_path;
     struct stat catalog_stamp;
     double catalog_checked;
@@ -267,8 +271,9 @@ static bool workspace_visible(WorkbenchWorkspace *workspace, int pane)
     PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
     return pane_width_visible(widths,pane,workspace->scroll,workspace_estate(),WORKBENCH_GAP);
 }
-static void workspace_focus(WorkbenchWorkspace *workspace, int requested)
+static void workspace_sync_view(WorkbenchWorkspace *workspace)
 {
+    int requested=workspace->focused;
     if (!workspace->count) { workspace->focused=workspace->first=0; workspace->scroll=0; return; }
     if (requested<0) requested=0;
     if (requested>=workspace->count) requested=workspace->count-1;
@@ -278,9 +283,16 @@ static void workspace_focus(WorkbenchWorkspace *workspace, int requested)
         workspace->scroll*=(estate+WORKBENCH_GAP)/(workspace->estate+WORKBENCH_GAP);
     workspace->estate=estate;
     PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
-    workspace->scroll=pane_width_reveal(widths,workspace->count,requested,workspace->scroll,workspace_estate(),WORKBENCH_GAP);
+    if (workspace->manual_scroll) {
+        float maximum=fmaxf(0,pane_width_start(widths,workspace->count,estate,WORKBENCH_GAP)-WORKBENCH_GAP-estate);
+        workspace->scroll=fmaxf(0,fminf(maximum,workspace->scroll));
+    } else workspace->scroll=pane_width_reveal(widths,workspace->count,requested,workspace->scroll,estate,WORKBENCH_GAP);
     workspace->first=0;
     while (workspace->first<workspace->count-1 && !workspace_visible(workspace,workspace->first)) workspace->first++;
+}
+static void workspace_focus(WorkbenchWorkspace *workspace,int requested)
+{
+    workspace->focused=requested;workspace->manual_scroll=false;workspace_sync_view(workspace);
 }
 static Rectangle workspace_pane_bounds(WorkbenchWorkspace *workspace, int pane)
 {
@@ -314,7 +326,7 @@ static bool workspace_layout(WorkspaceClient *client)
     /* Hidden workspaces retain their geometry until entry. */
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
     if (!workspace->count) return true;
-    workspace_focus(workspace,workspace->focused);
+    workspace_sync_view(workspace);
     for (int p=0;p<workspace->count;p++)
         workspace->panes[p]->bounds=workspace_pane_bounds(workspace,p);
     for (int p=0;p<workspace->count;p++) {
@@ -410,6 +422,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
 #include "terminal_preview.h"
 #include "navigation_ui.h"
 #include "window_state_client.h"
+#include "display_client.h"
 
 /* One metadata check per window, four times/second; no pane-scaled I/O.
  * The atomic catalog projection is the shared organization authority for the
@@ -502,7 +515,6 @@ static int workspace_main(const char *catalog)
         client->chrome_pinned=client->saved_view.chrome_pinned;client->chrome_drawer=client->chrome_pinned;
         client->chrome_agents=client->saved_view.chrome_agents;client->chrome_waiting=client->saved_view.chrome_waiting;
         chrome_sidebar_width=client->chrome_pinned ? 288 : 44;
-        window_view_restore_layout(client);
     }
     int exit_code = 0;
     if (!theme_initialize(client)) { free(client); return 1; }
@@ -513,12 +525,15 @@ static int workspace_main(const char *catalog)
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetWindowMinSize(800, 300);
     SetTargetFPS(60);
-    client->raster_scale=pixel_scale(GetScreenWidth(),GetRenderWidth());
+    display_fit(client,true);
+    if (client->view_loaded) window_view_restore_layout(client);
+    client->raster_scale=display_current_scale(client);
+    if (!client->raster_scale) client->raster_scale=1;
     /* Diagnostic override exercises doubled backing textures on a 1x Xvfb display. */
     const char *raster_override=getenv("WORKBENCH_RENDER_SCALE");
     if (raster_override) {
         char *end=NULL;float scale=strtof(raster_override,&end);
-        if (end && !*end && isfinite(scale) && scale>=1 && scale<=4) client->raster_scale=scale;
+        if (end && !*end && isfinite(scale) && scale>=1 && scale<=4) client->raster_scale=client->raster_override=scale;
     }
     int font_pixels=(int)(16*client->raster_scale);
     client->font = terminal_font_load(font_pixels);
@@ -541,6 +556,7 @@ static int workspace_main(const char *catalog)
     if (client->view_loaded && client->saved_view.overview) overview_open(client);
 
     while (!WindowShouldClose()) {
+        display_tick(client);
         workspace_refresh(client);
         overview_motion_tick(client);
         if (client->help_open || client->command_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
@@ -581,6 +597,10 @@ static int workspace_main(const char *catalog)
         WorkbenchWorkspace *workspace = &client->workspaces[client->active];
         WorkbenchPane *old_focus = workspace->panes[workspace->focused];
         bool gesture_active = old_focus && (old_focus->selection.dragging || old_focus->scrollbar_dragging);
+        Vector2 body_wheel=GetMouseWheelMoveV();
+        bool swipe_frame=!modal_frame && !gesture_active && !client->divider_dragging && !client->management_busy
+            && CheckCollisionPointRec(pointer,navigation_area()) && pane_navigation_horizontal(body_wheel.x,body_wheel.y);
+        if (swipe_frame) navigation_pan(client,-body_wheel.x);
         bool navigation_hover = CheckCollisionPointRec(pointer, terminal_navigation_strip());
         if (!modal_frame && !gesture_active && !client->divider_dragging && !client->management_busy && navigation_hover) {
             Vector2 wheel=GetMouseWheelMoveV();
@@ -590,13 +610,13 @@ static int workspace_main(const char *catalog)
         } else client->navigation_wheel=(PaneNavigationWheel){0};
         if (navigation_moving(client) && CheckCollisionPointRec(pointer,navigation_area())
             && (pressed || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
-                || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) || GetMouseWheelMoveV().x || GetMouseWheelMoveV().y)) navigation_finish(client);
+                || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) || (!swipe_frame && (GetMouseWheelMoveV().x || GetMouseWheelMoveV().y)))) navigation_finish(client);
         if (pressed && !gesture_active && !modal_frame && !shortcut_bypass) {
             workspace = &client->workspaces[client->active];
             for (int p = 0; p < workspace->count; p++)
                 if (workspace_visible(workspace,p) && pointer.x>=WORKBENCH_SIDEBAR+WORKBENCH_GAP
                     && pointer.x<GetScreenWidth()-WORKBENCH_GAP)
-                if (CheckCollisionPointRec(pointer, workspace->panes[p]->bounds)) workspace->focused = p;
+                if (CheckCollisionPointRec(pointer, workspace->panes[p]->bounds)) workspace_focus(workspace,p);
             if (management_click(client, pointer)) modal_frame=true;
             if (client->dialog_open) modal_frame = true;
         }
@@ -664,7 +684,7 @@ static int workspace_main(const char *catalog)
                 handle_input(focused->fd, focused->keys, focused->key, focused->terminal);
             }
             bool in_pane = CheckCollisionPointRec(pointer, focused->bounds);
-            if (!modal_frame && !divider_consumed && (in_pane || focused->selection.dragging || focused->scrollbar_dragging)) {
+            if (!modal_frame && !swipe_frame && !divider_consumed && (in_pane || focused->selection.dragging || focused->scrollbar_dragging)) {
                 bool scroll = handle_scrollbar(focused->terminal, focused->render, &focused->scrollbar_dragging);
                 bool selection = handle_selection(focused->terminal, client->cell_width, client->cell_height, 4, scroll);
                 if (!scroll && surface_pointer().y >= 32) {

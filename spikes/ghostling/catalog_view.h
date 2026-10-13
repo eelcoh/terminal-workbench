@@ -162,6 +162,7 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
         next->first=old ? old->first : 0;
         next->scroll=old ? old->scroll : 0;
         next->estate=old ? old->estate : 0;
+        next->manual_scroll=old && old->manual_scroll;
         if (next->first>=next->count) next->first=0;
     }
     /* Free only resources not retained in the chosen state. Heap addresses never

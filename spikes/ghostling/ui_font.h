@@ -1,4 +1,4 @@
-/* Bundled interface face, loaded once per window independently of terminal cells. */
+/* Bundled interface face, loaded per window/backing density independently of terminal cells. */
 #include "font_adwaita_sans.h"
 #include "ui_font_codepoints.h"
 static Font ui_font_load(float dpi, Font fallback)

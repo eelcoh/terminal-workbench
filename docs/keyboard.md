@@ -119,8 +119,18 @@ in the top bar select a terminal directly; focused, visible and off-screen panes
 have distinct marks. Scroll horizontally on a trackpad or vertically with a mouse wheel over
 that strip to navigate. Fractional deltas accumulate, direction reversal resets
 the accumulation, and a short cooldown bounds momentum-driven changes. Leaving
-the strip clears residual navigation input. Scrolling inside terminal content
-continues to reach terminal scrolling and mouse-aware applications.
+the strip clears residual navigation input.
+
+Over terminal content, horizontal-dominant two-finger gestures now pan the
+working strip directly. Fractional deltas and OS momentum are preserved with a
+bounded per-event movement; no second fling is added. Vertical and vertical-
+dominant gestures retain terminal scrollback/mouse reporting. Selection/scrollbar
+and divider drags, menus and modal overlays keep ownership and block pane swipes.
+Focus stays on its terminal while that terminal intersects the viewport, then
+moves to the adjacent visible terminal. A click, position mark or navigation
+shortcut reveals the chosen terminal normally. Pan position uses the existing
+per-window saved scroll value and survives catalog refresh; terminal widths and
+processes stay independent of viewport movement.
 
 The target gets focus immediately. The view scrolls through the intervening panes for
 270ms on adjacent moves, increasing with travel distance up to 1.25s. Retargeting

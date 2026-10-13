@@ -2,7 +2,7 @@
 #include "terminal_font_codepoints.h"
 #include "font_noto_symbols.h"
 
-// Both atlases are loaded once per window, not while rendering panes. The
+// Both atlases are loaded per window/backing density, never inside pane rendering. The
 // generated Unicode lists are sorted; Raylib preserves their glyph order.
 static Font terminal_fallback_font;
 static int terminal_glyph_index(Font font,int cp) {

@@ -204,6 +204,16 @@ navigation, cross-workspace agent attention, pane indicators and application/pan
 menus with existing actions and confirmations. Platform visual/input acceptance
 remains part of the UX gate; the HTML remains a sample-data reference.
 
+## Mixed-display and gesture slice
+
+Mixed-density display moves now update font/canvas density without changing
+logical terminal cells; the marked GLFW adapter fixes Mac scale callback
+transforms and framebuffer refresh. Window recovery uses logical work areas and
+pane outlines stay inside their clipping area. Horizontal two-finger content
+swipes pan the working strip while vertical input retains terminal scrolling.
+Native external-monitor/unplug and physical trackpad review remains open; see
+[display details](interface-typography.md#display-changes-and-pane-outlines).
+
 ## UX spike: a product-quality gate
 
 The UX spike is a dedicated milestone, not a final cosmetic pass. Build a runnable

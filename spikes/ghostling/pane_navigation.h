@@ -31,4 +31,14 @@ static int pane_navigation_wheel(PaneNavigationWheel *wheel, float delta, double
     wheel->accumulated = 0; wheel->next = now + .12;
     return direction;
 }
+/* GLFW already supplies fractional deltas and OS momentum. Keep the axis and
+ * magnitude; vertical/diagonal-dominant events continue to the terminal. */
+static inline bool pane_navigation_horizontal(float x,float y)
+{ return isfinite(x) && isfinite(y) && x!=0 && fabsf(x)>fabsf(y); }
+static inline float pane_navigation_pan(float scroll,float delta,float maximum)
+{
+    if (!isfinite(delta) || !isfinite(scroll) || maximum<=0) return isfinite(scroll) && maximum>0 ? scroll : 0;
+    float pixels=fmaxf(-120,fminf(120,delta*40));
+    return fmaxf(0,fminf(maximum,scroll+pixels));
+}
 #endif

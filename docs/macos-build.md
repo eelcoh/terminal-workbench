@@ -351,3 +351,27 @@ window. Agent identity and Working/Ready/Needs input should read separately from
 the name; long names should end cleanly with an ellipsis. Move here, reconnect
 and stopped-terminal recovery should stay in the header with their existing
 confirmation behavior. Native acceptance of this refinement is pending.
+
+### Mixed-display and swipe review
+
+After pulling/building this slice:
+
+1. Start on the MacBook with no external screen. Check text and all four active
+   pane edges. Record `stty size`, `echo $$` and a shell variable in a spare pane.
+2. Connect the regular external monitor and move the same window onto it. Text
+   should use that screen's backing density and all pane borders should remain
+   visible. A density-only move at the same logical size should retain the grid
+   and shell PID/state; a real window resize may change `stty size`.
+3. Move back to Retina, then move to the external screen and unplug it with the
+   app still running. Content should retain its normal logical size, and an
+   oversized window should fit the MacBook's usable area. Check dialogs/help,
+   terminal input, pane selection and the original shell variable/PID.
+4. Repeat with Appearance or shortcut help open, then close it. Confirm the
+   working terminals return with sharp text and usable input.
+5. Swipe left/right with two fingers over terminal content. The strip should pan
+   continuously, including partial panes. Vertical scrolling still goes to the
+   terminal. Existing pane navigation chords and position marks remain available.
+
+Density transitions write `Display backing scale updated: ...; logical cells ...
+retained` to `viewer.log`. These logs and the live Linux callback/geometry checks
+support diagnosis; native Mac hardware acceptance remains pending.

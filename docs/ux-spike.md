@@ -559,3 +559,43 @@ pane; hidden panes retain the existing presentation early exits.
 
 Native Mac input/visual acceptance and physical GPU/Wayland review remain open.
 The toolkit and overall product-quality gates remain open.
+
+## Mixed-display recovery and working-view swipes
+
+The owner reported regular external-display blur, missing pane-border edges and
+oversized presentation after unplugging a Mac monitor. The renderer now uses
+current backing density, renews raster resources on density changes, keeps Cocoa
+logical transforms separate from framebuffer pixels, and recovers oversized
+window geometry using logical work areas. The pane border is inset and filled,
+so scissor clipping cannot remove its top edge. Details and acceptance steps are
+in [interface typography](interface-typography.md#display-changes-and-pane-outlines)
+and [Mac build review](macos-build.md#mixed-display-and-swipe-review).
+
+The owner also liked two-finger horizontal swiping in the browser study. The
+native working strip now accepts horizontal-dominant gestures over terminals,
+preserves fractional magnitude/OS momentum and allows partial panes. Vertical
+terminal scrolling and modal/selection/divider ownership remain separate.
+Focus stays while its pane remains visible, then follows an adjacent visible
+pane; existing click/chord navigation remains the explicit reveal action.
+Pan position stays per window and survives catalog refresh/reopen without adding
+runtime or persisted-format fields. [Input contract](keyboard.md#working-view-pane-navigation).
+
+
+Validation passes the Linux viewer build and full `just check`, including pure
+display geometry, horizontal input bounds and catalog retention of manual pan.
+The actual patched callbacks pass Mac/Linux policy mocks. Live display tests pass
+with one/fifteen terminals through 1→2→1 density changes with retained help,
+four-edge image checks, stable grids/PIDs/sockets/shell variables, ordinary resize,
+continuous pan/focus boundaries and vertical/modal input isolation. Window
+restoration, multiwindow ownership and one/fifteen/reduced-motion navigation also
+pass. Final Retina/input, fifteen-terminal 2x navigation and minimal chrome checks
+pass on the rebuilt viewer.
+
+Final fixed 1240×760 help/working-view samples measured 256.3% CPU with one
+populated terminal and 291.4% with fifteen (+13.7%; 100% is one core), versus
+247.4% / 288.2% before this slice. These two-second llvmpipe samples are noisy;
+they do not establish native GPU performance. Display probing runs once per
+window every 250ms/on resize, outside pane loops. Resource renewal runs only on
+density transitions, with hidden presentation rebuilt lazily. Horizontal input
+uses bounded scalar pane geometry, without process reads or terminal snapshots.
+Native Mac external-screen/unplug, physical trackpad and GPU review remain open.

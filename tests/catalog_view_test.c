@@ -19,6 +19,7 @@ typedef struct {
     WorkbenchPane *panes[8];
     int count, focused, first;
     float scroll, estate;
+    bool manual_scroll;
 } WorkbenchWorkspace;
 typedef struct {
     WorkbenchWorkspace workspaces[8];
@@ -49,7 +50,9 @@ int main(void) {
     strcpy(s.workspaces[0].id,"a"); strcpy(s.workspaces[0].name,"Source");
     strcpy(s.workspaces[1].id,"b"); strcpy(s.workspaces[1].name,"Target");
     terminal(&s,0,0,&two); terminal(&s,1,0,&one); terminal(&s,1,1,&three);
+    client.workspaces[0].manual_scroll=true;
     assert(catalog_apply(&client,&s,true));
+    assert(client.workspaces[0].manual_scroll);
     assert(client.workspaces[0].panes[0]==&two && client.workspaces[0].focused==0);
     assert(client.workspaces[1].panes[0]==&one && client.workspaces[1].focused==1);
     assert(one.fd==77 && one.retained_parser_marker==123 && two.fd==88);
