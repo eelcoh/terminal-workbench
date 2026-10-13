@@ -78,7 +78,7 @@ static void navigation_prepare(WorkspaceClient *client)
     Rectangle area=navigation_area();
     bool same=client->navigation_valid && !strcmp(client->navigation_workspace,workspace->id)
         && client->navigation_width==(int)area.width && client->navigation_height==(int)area.height;
-    bool blocked=client->help_open || client->theme_open || client->dialog_open || client->overview_open || client->management_busy
+    bool blocked=client->help_open || client->text_open || client->theme_open || client->dialog_open || client->overview_open || client->management_busy
         || client->divider_dragging || client->navigation_reset || workspace->manual_scroll;
     if (!same || blocked || !client->overview_animation_enabled) {
         client->navigation_animation=(OverviewAnimation){.from=workspace->scroll,.target=workspace->scroll};

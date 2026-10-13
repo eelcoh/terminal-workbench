@@ -7,6 +7,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "font_preferences.h"
 #define WINDOW_STATE_WORKSPACES 8
 typedef struct { char id[41]; int preset; bool full; } WindowTerminalState;
 typedef struct {
@@ -17,6 +18,7 @@ typedef struct {
 } WindowWorkspaceState;
 typedef struct {
     int width, height, count;
+    int font_size,font_family; /* 0 inherits; family 1/2 selects bundled face. */
     float divider, vertical;
     bool overview, list, agents, waiting, context;
     bool chrome_pinned, chrome_agents, chrome_waiting;
@@ -49,7 +51,8 @@ static bool window_state_read(WindowState *state, const char *path)
     WindowState next={0}; char line[512], query[128]; int end=0, overview,list,agents,waiting,context;
     bool valid=false;
     if (!fgets(line,sizeof(line),file)) goto done;
-    bool v3=!strcmp(line,"workbench-window-v3\n");
+    bool v4=!strcmp(line,"workbench-window-v4\n");
+    bool v3=v4 || !strcmp(line,"workbench-window-v3\n");
     bool v2=v3 || !strcmp(line,"workbench-window-v2\n");
     if (!v2 && strcmp(line,"workbench-window-v1\n")) goto done;
     if (!fgets(line,sizeof(line),file) || sscanf(line,"V %d %d %f %40s %40s %d %d %d %d %f %40s %127s %d%n",
@@ -78,6 +81,9 @@ static bool window_state_read(WindowState *state, const char *path)
             || pinned<0 || pinned>1 || mode<0 || mode>1 || filter<0 || filter>1) goto done;
         next.chrome_pinned=pinned;next.chrome_agents=mode;next.chrome_waiting=filter;
     }
+    if (v4 && (!fgets(line,sizeof(line),file) || sscanf(line,"F %d %d%n",&next.font_size,&next.font_family,&end)!=2
+        || strcmp(line+end,"\n") || (next.font_size && (next.font_size<TERMINAL_FONT_MIN || next.font_size>TERMINAL_FONT_MAX))
+        || next.font_family<0 || next.font_family>TERMINAL_FONT_FAMILIES)) goto done;
     while (fgets(line,sizeof(line),file)) {
         if (v2 && line[0]=='T') {
             if (!next.count) goto done;
@@ -118,11 +124,12 @@ static bool window_state_write(const WindowState *state, const char *path)
     if (!file) { close(fd); unlink(temporary); return false; }
     char query[128]={0};
     for (size_t i=0;i<strlen(state->query);i++) snprintf(query+i*2,3,"%02x",(unsigned char)state->query[i]);
-    bool valid=fprintf(file,"workbench-window-v3\nV %d %d %.9g %s %s %d %d %d %d %.9g %s %s %d\n",
+    bool valid=fprintf(file,"workbench-window-v4\nV %d %d %.9g %s %s %d %d %d %d %.9g %s %s %d\n",
         state->width,state->height,state->divider,window_state_token(state->active),window_state_token(state->sidebar),
         state->overview,state->list,state->agents,state->waiting,state->vertical,window_state_token(state->selected),
         *query ? query : "-",state->context)>0;
     if (fprintf(file,"C %d %d %d\n",state->chrome_pinned,state->chrome_agents,state->chrome_waiting)<0) valid=false;
+    if (fprintf(file,"F %d %d\n",state->font_size,state->font_family)<0) valid=false;
     for (int i=0;i<state->count;i++) {
         const WindowWorkspaceState *workspace=&state->workspaces[i];
         if (fprintf(file,"W %s %s %s %.9g %.9g\n",workspace->id,window_state_token(workspace->focused),

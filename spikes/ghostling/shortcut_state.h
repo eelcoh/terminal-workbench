@@ -16,7 +16,7 @@
 typedef struct { int key; unsigned mods; } ShortcutChord;
 typedef struct { ShortcutChord bindings[COMMAND_COUNT]; } ShortcutState;
 static const struct { const char *name; int key; } shortcut_keys[]={
-    {"/",47},{"Left",263},{"Right",262},{"Up",265},{"Down",264},{"Space",32},{"Tab",258},
+    {"=",61},{"-",45},{"/",47},{"Left",263},{"Right",262},{"Up",265},{"Down",264},{"Space",32},{"Tab",258},
     {"Enter",257},{"Backspace",259},{"Delete",261},{"Home",268},{"End",269},
     {"PageUp",266},{"PageDown",267},{"Insert",260},
     {"F1",290},{"F2",291},{"F3",292},{"F4",293},{"F5",294},{"F6",295},
@@ -29,6 +29,8 @@ static int shortcut_key(const char *name)
         if (ch>='a' && ch<='z') ch-=32;
         if ((ch>='A' && ch<='Z') || (ch>='0' && ch<='9')) return ch;
     }
+    if (!strcasecmp(name,"Equal")) return 61;
+    if (!strcasecmp(name,"Minus")) return 45;
     if (!strcasecmp(name,"Slash")) return 47;
     for (size_t i=0;i<sizeof(shortcut_keys)/sizeof(shortcut_keys[0]);i++)
         if (!strcasecmp(name,shortcut_keys[i].name)) return shortcut_keys[i].key;
@@ -77,6 +79,9 @@ static ShortcutState shortcut_defaults(bool apple)
     state.bindings[COMMAND_COPY]=(ShortcutChord){'C',clipboard};state.bindings[COMMAND_PASTE]=(ShortcutChord){'V',clipboard};
     state.bindings[COMMAND_TERMINAL_CREATE]=(ShortcutChord){'T',navigation};
     state.bindings[COMMAND_WORKSPACE_CREATE]=(ShortcutChord){'N',navigation};
+    state.bindings[COMMAND_FONT_INCREASE]=(ShortcutChord){61,navigation};
+    state.bindings[COMMAND_FONT_DECREASE]=(ShortcutChord){45,navigation};
+    state.bindings[COMMAND_FONT_RESET]=(ShortcutChord){48,navigation};
     state.bindings[COMMAND_HELP]=(ShortcutChord){47,navigation};
     state.bindings[COMMAND_WIDTH_CYCLE]=(ShortcutChord){'R',navigation};
     state.bindings[COMMAND_WIDTH_FULL]=(ShortcutChord){'F',navigation};
@@ -115,8 +120,10 @@ static bool shortcut_read_layer(const char *path, bool apple, const ShortcutStat
     if (ferror(file)) valid=false;
     fclose(file);
     if (!valid) { snprintf(error,capacity,"Invalid shortcut file; existing bindings kept"); return false; }
-    /* New defaults must not invalidate a previously customized old binding. */
-    for (int i=0;i<COMMAND_COUNT;i++) if ((!base || migrated) && !seen[i] && (i>=COMMAND_WIDTH_CYCLE || (apple &&
+    /* New inherited defaults yield to old custom keys; explicit managed remaps still conflict. */
+    ShortcutState defaults=shortcut_defaults(apple);
+    for (int i=0;i<COMMAND_COUNT;i++) if (!seen[i] && ((!base || migrated) || (i>=COMMAND_FONT_SETTINGS
+        && base->bindings[i].key==defaults.bindings[i].key && base->bindings[i].mods==defaults.bindings[i].mods)) && (i>=COMMAND_WIDTH_CYCLE || (apple &&
         (i==COMMAND_PALETTE || i==COMMAND_OVERVIEW || i==COMMAND_TERMINAL_CREATE || i==COMMAND_WORKSPACE_CREATE))))
         for (int j=0;j<COMMAND_COUNT;j++) if (seen[j] && next.bindings[i].key==next.bindings[j].key
             && next.bindings[i].mods==next.bindings[j].mods) next.bindings[i]=(ShortcutChord){0};

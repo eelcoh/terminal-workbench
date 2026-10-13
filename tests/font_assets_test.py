@@ -34,6 +34,10 @@ def main():
     assert 'SIL OPEN FONT LICENSE Version 1.1' in (interface.parent/'OFL.txt').read_text()
     ui_covered=codepoints(interface.read_bytes())
     assert all(ord(cp) in ui_covered for cp in 'Workbench café Ελληνικά / →')
+    fira=ROOT/'fonts/fira-code/FiraCode-Regular.ttf'
+    assert hashlib.sha256(fira.read_bytes()).hexdigest() in (fira.parent/'README.md').read_text()
+    assert 'SIL OPEN FONT LICENSE Version 1.1' in (fira.parent/'OFL.txt').read_text()
+    assert all(ord(cp) in codepoints(fira.read_bytes()) for cp in 'Workbench café Ελληνικά / →')
     print('PASS: bundled interface integrity/coverage/license; cmap format 4/12, non-BMP/missing glyphs, symbol coverage, font digest and license')
 
 if __name__=='__main__':main()

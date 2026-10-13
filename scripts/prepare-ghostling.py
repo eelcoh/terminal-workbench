@@ -36,6 +36,13 @@ write_if_changed(destination / "terminal_font_codepoints.h", font_codepoint_head
     (destination / "fonts/JetBrainsMono-Regular.ttf").read_bytes(),
     (destination / "fonts/NotoSansSymbols2-Regular.ttf").read_bytes()).encode())
 
+for name in ("FiraCode-Regular.ttf", "OFL.txt"):
+    write_if_changed(destination / "fonts" / ("Fira-"+name if name=="OFL.txt" else name),
+        (ROOT / "fonts/fira-code" / name).read_bytes())
+write_if_changed(destination / "fira_font_codepoints.h", font_codepoint_header(
+    (ROOT / "fonts/fira-code/FiraCode-Regular.ttf").read_bytes(),
+    (ROOT / "fonts/noto-symbols/NotoSansSymbols2-Regular.ttf").read_bytes(), "fira").encode())
+
 for name in ("AdwaitaSans-Regular.ttf", "OFL.txt"):
     write_if_changed(destination / "fonts" / ("Adwaita-"+name if name=="OFL.txt" else name),
         (ROOT / "fonts/adwaita-sans" / name).read_bytes())
@@ -73,8 +80,14 @@ add_custom_command(OUTPUT "${UI_FONT_HEADER}"
   COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/embed-font.py"
     "${UI_FONT_INPUT}" "${UI_FONT_HEADER}" font_adwaita_sans
   DEPENDS "${UI_FONT_INPUT}" "${CMAKE_SOURCE_DIR}/embed-font.py")
+set(FIRA_FONT_INPUT "${CMAKE_SOURCE_DIR}/fonts/FiraCode-Regular.ttf")
+set(FIRA_FONT_HEADER "${CMAKE_BINARY_DIR}/font_fira_code.h")
+add_custom_command(OUTPUT "${FIRA_FONT_HEADER}"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/embed-font.py"
+    "${FIRA_FONT_INPUT}" "${FIRA_FONT_HEADER}" font_fira_code
+  DEPENDS "${FIRA_FONT_INPUT}" "${CMAKE_SOURCE_DIR}/embed-font.py")
 # --- Our Project""")
-cmake = cmake.replace('main.c "${FONT_HEADER}"', 'main.c "${FONT_HEADER}" "${SYMBOL_FONT_HEADER}" "${UI_FONT_HEADER}"')
+cmake = cmake.replace('main.c "${FONT_HEADER}"', 'main.c "${FONT_HEADER}" "${SYMBOL_FONT_HEADER}" "${UI_FONT_HEADER}" "${FIRA_FONT_HEADER}"')
 write_if_changed(destination / "CMakeLists.txt", cmake.encode())
 
 text = upstream("main.c").decode()
@@ -192,7 +205,7 @@ replace_once('int main(void)', '#include "snapshot_restore.h"\n\nstatic int sing
 text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
 write_if_changed(destination / "main.c", text.encode())
 write_if_changed(destination / "session_bridge.h", (ROOT / "spikes/ghostling/session_bridge.h").read_bytes())
-for name in ["portable_config.h", "terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "ui_font.h", "chrome_ui.h", "minimal_chrome.h", "pixel_geometry.h", "display_geometry.h", "platform_display.h", "display_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
+for name in ["font_preferences.h", "font_client.h", "portable_config.h", "terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "ui_font.h", "chrome_ui.h", "minimal_chrome.h", "pixel_geometry.h", "display_geometry.h", "platform_display.h", "display_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
     write_if_changed(destination / name, (ROOT / "spikes/ghostling" / name).read_bytes())
 for collection in ["catppuccin", "dracula"]:
     target = destination / "theme-licenses" / collection / "LICENSE"

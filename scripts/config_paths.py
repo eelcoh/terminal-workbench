@@ -16,6 +16,12 @@ terminal-theme = Workbench Night
 # A theme can also be a Ghostty color file relative to this config file:
 # terminal-theme = themes/my-theme
 
+[font]
+family = JetBrains Mono
+size = 16
+# Also bundled: Fira Code. Sizes are logical points, from 10 to 32.
+# [macos.font] and [linux.font] can override either field.
+
 [shortcuts]
 # Shared bindings; omitted actions retain platform defaults.
 # forward = F8

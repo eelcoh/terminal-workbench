@@ -169,5 +169,9 @@ display-gui-test: spike-build
     python3 tests/display_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
 
 # Portable settings and UI overrides with same-process reopen.
+font-settings-gui-test: spike-build
+    python3 tests/font_settings_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
+    python3 tests/font_settings_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
+
 dotfiles-gui-test: spike-build
     python3 tests/dotfiles_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

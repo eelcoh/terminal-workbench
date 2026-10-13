@@ -5,7 +5,7 @@
 int main(void)
 {
     char path[1200]; snprintf(path,sizeof(path),"%s/window.view",getenv("WB_TEST_DIRECTORY"));
-    WindowState original={.width=1360,.height=820,.divider=.375f,.vertical=2.25f,.overview=true,.list=true,.context=true,.count=2,.chrome_pinned=true,.chrome_agents=true,.chrome_waiting=true};
+    WindowState original={.width=1360,.height=820,.divider=.375f,.vertical=2.25f,.overview=true,.list=true,.context=true,.count=2,.chrome_pinned=true,.chrome_agents=true,.chrome_waiting=true,.font_size=22,.font_family=2};
     strcpy(original.active,"-"); strcpy(original.sidebar,"empty"); strcpy(original.selected,"pane-7");
     strcpy(original.query,"two words \t café");
     original.workspaces[0]=(WindowWorkspaceState){.id="project",.focused="pane-7",.first="pane-6",.horizontal=3.125f};
@@ -40,6 +40,15 @@ int main(void)
     for (size_t i=0;i<sizeof(chrome_bad)/sizeof(*chrome_bad);i++) {
         FILE *file=fopen(path,"w");assert(file);
         fputs("workbench-window-v3\nV 1360 820 .5 project . 0 0 0 0 0 . - 0\n",file);fputs(chrome_bad[i],file);fclose(file);
+        read=original;assert(!window_state_read(&read,path) && !memcmp(&read,&original,sizeof(read)));
+    }
+    legacy=fopen(path,"w");assert(legacy);
+    fputs("workbench-window-v3\nV 1360 820 .5 project . 0 0 0 0 0 . - 0\nC 1 0 0\n",legacy);fclose(legacy);
+    assert(window_state_read(&read,path) && !read.font_size && !read.font_family && read.chrome_pinned);
+    const char *font_bad[]={"F 9 0\n","F 33 0\n","F 16 -1\n","F 16 3\n","F 16\n","F 16 1 extra\n"};
+    for (size_t i=0;i<sizeof(font_bad)/sizeof(*font_bad);i++) {
+        FILE *file=fopen(path,"w");assert(file);
+        fputs("workbench-window-v4\nV 1360 820 .5 project . 0 0 0 0 0 . - 0\nC 0 0 0\n",file);fputs(font_bad[i],file);fclose(file);
         read=original;assert(!window_state_read(&read,path) && !memcmp(&read,&original,sizeof(read)));
     }
     const char *invalid_widths[]={"T pane-7 3 0\n", "T pane-7 0 2\n", "T pane-7 0 0\nT pane-7 1 0\n"};

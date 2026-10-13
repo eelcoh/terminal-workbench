@@ -29,11 +29,11 @@ def codepoints(data):
                     if mapped: result.add(cp)
     return sorted(cp for cp in result if cp>=32 and not 0xd800<=cp<=0xdfff)
 
-def header(primary,fallback):
+def header(primary,fallback,prefix="terminal"):
     main=codepoints(primary)
     extra=sorted(set(codepoints(fallback))-set(main))
     lines=['// Generated from the pinned bundled font cmap tables.','#pragma once']
-    for name,values in [('terminal_primary_codepoints',main),('terminal_fallback_codepoints',extra)]:
+    for name,values in [(prefix+'_primary_codepoints',main),(prefix+'_fallback_codepoints',extra)]:
         lines+=['static int '+name+'[] = {']
         lines+=['    '+','.join(str(cp) for cp in values[i:i+16])+',' for i in range(0,len(values),16)]
         lines+=['};']

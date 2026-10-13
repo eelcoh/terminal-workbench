@@ -25,8 +25,20 @@ int main(void)
     PortableConfig platform_colors;
     assert(portable_read(path,true,&platform_colors,error,sizeof(error)) && !theme_light(&platform_colors.application) && !platform_colors.follow);
     assert(portable_read(path,false,&platform_colors,error,sizeof(error)) && theme_light(&platform_colors.application) && platform_colors.follow);
+    write_text(path,"workbench-config-v1\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 18\n[linux.font]\nfamily = JetBrains Mono\n");
+    PortableConfig fonts;
+    assert(portable_read(path,true,&fonts,error,sizeof(error)) && fonts.font.size==20 && fonts.font.family==1);
+    assert(portable_read(path,false,&fonts,error,sizeof(error)) && fonts.font.size==18 && fonts.font.family==0);
+    write_text(path,"workbench-config-v1\n[shortcuts]\ncopy = Ctrl+Shift+=\n");
+    assert(portable_read(path,false,&fonts,error,sizeof(error)) && !fonts.shortcuts.bindings[COMMAND_FONT_INCREASE].key
+        && fonts.shortcuts.bindings[COMMAND_COPY].key==61);
     PortableConfig unchanged=linux_config;
-    const char *bad[]={"workbench-config-v9\n","workbench-config-v1\n[font]\nsize = 16\n",
+    const char *bad[]={"workbench-config-v9\n","workbench-config-v1\n[font]\nsize = 99\n",
+        "workbench-config-v1\n[font]\nsize = 9\n",
+        "workbench-config-v1\n[font]\nsize = 18pt\n",
+        "workbench-config-v1\n[font]\nfamily = absent\n",
+        "workbench-config-v1\n[font]\nfamily = Fira Code\nfamily = JetBrains Mono\n",
+        "workbench-config-v1\n[font]\nsize = 18\nsize = 20\n",
         "workbench-config-v1\n[shortcuts]\nforward = F8\nforward = F9\n",
         "workbench-config-v1\n[shortcuts]\ncopy = Ctrl+C\n",
         "workbench-config-v1\n[shortcuts]\nforward = Ctrl+Shift+P\n",
@@ -47,6 +59,10 @@ int main(void)
     assert(loaded.bindings[COMMAND_TERMINAL_CREATE].key=='Y' && loaded.bindings[COMMAND_FORWARD].key==299);
     write_text(ui,"workbench-shortcuts-v1\nforward=Ctrl+Alt+Y\n");
     ShortcutState before=loaded;assert(!shortcut_read_layer(ui,false,&new_base,&loaded,error,sizeof(error)));
+    assert(!memcmp(&loaded,&before,sizeof(loaded)));
+    ShortcutState font_base=new_base;font_base.bindings[COMMAND_FONT_INCREASE]=(ShortcutChord){'Z',5};
+    write_text(ui,"workbench-shortcuts-v1\nforward=Ctrl+Alt+Z\n");
+    assert(!shortcut_read_layer(ui,false,&font_base,&loaded,error,sizeof(error)));
     assert(!memcmp(&loaded,&before,sizeof(loaded)));
     write_text(ui,"workbench-shortcuts-migrated-v1\ncopy=Ctrl+Shift+R\n");
     assert(shortcut_read_layer(ui,false,&new_base,&loaded,error,sizeof(error)));

@@ -59,6 +59,9 @@ static void window_view_save(WorkspaceClient *client, bool force)
     WindowState view={0};
     view.width=GetScreenWidth(); view.height=GetScreenHeight();
     if (view.width<800 || view.height<300) return; /* Ignore minimized dimensions. */
+    FontPreferences committed=client->text_open ? client->text_before : client->text;
+    view.font_size=committed.size==client->config.font.size ? 0 : committed.size;
+    view.font_family=committed.family==client->config.font.family ? 0 : committed.family+1;
     view.divider=.5f; view.count=client->count;
     view.chrome_pinned=client->chrome_pinned;view.chrome_agents=client->chrome_agents;view.chrome_waiting=client->chrome_waiting;
     strcpy(view.active,client->workspaces[client->active].id);

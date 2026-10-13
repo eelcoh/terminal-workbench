@@ -1,4 +1,4 @@
-# Terminal Unicode fonts
+# Terminal fonts and sizing
 
 The Ghostling spike previously loaded Raylib's default ASCII glyph set from its
 bundled JetBrains Mono font. That replaced Unicode block art, arrows and other
@@ -33,10 +33,44 @@ Running terminals can stay alive during the viewer rebuild.
 ## Terminal sharpness and interface fonts
 
 Interface chrome now has its own bundled sans-serif face and type hierarchy.
-Terminal text retains the existing monospace font and 7×16 logical grid. Pane
+The default terminal text uses JetBrains Mono with a 7×16 logical grid. Pane
 and navigation canvases now render at backing-pixel resolution, removing the
 logical-texture reduction/enlargement stage on Retina displays. Help uses a
 matching backing texture. See [typography and backing resolution](interface-typography.md).
 
 The owner reported soft terminal text on Mac before this change. Native Mac
 sharpness of the corrected pipeline remains to be reviewed after rebuilding.
+
+## Choosing a font and size
+
+Open **Terminal text settings** from the hamburger menu or Commands. Choose
+**JetBrains Mono** or **Fira Code** and a size from **10 to 32 pt**. The terminal
+and sample preview immediately; **Apply** keeps the choice for this window,
+**Cancel** / Escape restores its previous settings, and **Use defaults** returns
+both fields to your [dotfile defaults](dotfiles.md#terminal-fonts).
+
+| Action | Linux | macOS |
+| --- | --- | --- |
+| Increase terminal text size | Ctrl+Shift+= | Command+Option+= |
+| Decrease terminal text size | Ctrl+Shift+- | Command+Option+- |
+| Reset terminal text size | Ctrl+Shift+0 | Command+Option+0 |
+
+These use the Equal, Minus and 0 keys and are editable in Shortcut settings.
+They apply in the working view; dialogs, help and Overview retain their input
+ownership. Reset restores configured size while retaining your chosen face.
+Interface typography stays independent. Logical zoom resizes the visible
+terminal grid, preserving processes, scrollback and terminal state; hidden
+workspaces receive their new grid when entered. Display density refreshes the
+selected face's atlas without changing logical cells or resizing the grid.
+
+Fira Code Regular 6.002 is embedded with its upstream OFL license, source and
+digest in [fonts/fira-code](../fonts/fira-code/README.md). The renderer uses its
+normal glyphs; programming ligatures, complex shaping and installed-font browsing
+are follow-up work.
+
+`just font-settings-gui-test` exercises native font/size changes with one and
+fifteen live terminals, window restore, platform defaults, density transitions,
+selection/clipboard, variable-width navigation, modal input and shell continuity.
+The full check suite, chrome, display and dotfile GUI regressions pass on Linux.
+Native macOS keyboard/visual review remains
+pending. Screenshots are retained under `.local/test-results/font-settings-*`.

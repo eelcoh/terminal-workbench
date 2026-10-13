@@ -27,7 +27,10 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
     if (command==COMMAND_HELP) return NULL;
     if (client->management_busy) return "A session change is still being saved";
     switch (command) {
-    case COMMAND_OVERVIEW: case COMMAND_PALETTE: case COMMAND_SHORTCUTS: return NULL;
+    case COMMAND_OVERVIEW: case COMMAND_PALETTE: case COMMAND_SHORTCUTS:
+    case COMMAND_FONT_SETTINGS: case COMMAND_FONT_RESET: return NULL;
+    case COMMAND_FONT_INCREASE: return client->text.size<TERMINAL_FONT_MAX ? NULL : "Largest terminal text size";
+    case COMMAND_FONT_DECREASE: return client->text.size>TERMINAL_FONT_MIN ? NULL : "Smallest terminal text size";
     case COMMAND_APPEARANCE: return client->count ? NULL : "Create a workspace to choose a theme";
     case COMMAND_WIDTH_CYCLE: case COMMAND_WIDTH_FULL: case COMMAND_WIDTH_THIRD: case COMMAND_WIDTH_HALF: case COMMAND_WIDTH_TWO_THIRDS:
         return pane ? NULL : "This workspace has no terminals";
@@ -97,6 +100,10 @@ static void command_dispatch(WorkspaceClient *client, int command)
         client->forwarding=true;strcpy(client->forward_terminal,workspace->panes[workspace->focused]->id);client->forward_deadline=GetTime()+10;break;
     case COMMAND_OVERVIEW: overview_open(client); break;
     case COMMAND_APPEARANCE: theme_open(client); break;
+    case COMMAND_FONT_SETTINGS: text_open(client);break;
+    case COMMAND_FONT_INCREASE: text_adjust(client,1);break;
+    case COMMAND_FONT_DECREASE: text_adjust(client,-1);break;
+    case COMMAND_FONT_RESET: text_adjust(client,0);break;
     case COMMAND_WORKSPACE_CREATE: dialog_open(client,DIALOG_WORKSPACE_CREATE); break;
     case COMMAND_WORKSPACE_RENAME: dialog_open(client,DIALOG_WORKSPACE_RENAME); break;
     case COMMAND_WORKSPACE_FOLDER: dialog_open(client,DIALOG_WORKSPACE_DIRECTORY); break;

@@ -1,6 +1,8 @@
 #pragma once
 #include "terminal_font_codepoints.h"
 #include "font_noto_symbols.h"
+#include "font_fira_code.h"
+#include "fira_font_codepoints.h"
 
 // Both atlases are loaded per window/backing density, never inside pane rendering. The
 // generated Unicode lists are sorted; Raylib preserves their glyph order.
@@ -15,13 +17,27 @@ static int terminal_glyph_index(Font font,int cp) {
     }
     return left<font.glyphCount && font.glyphs[left].value==cp ? left : -1;
 }
-static Font terminal_font_load(int pixels) {
-    Font font=LoadFontFromMemory(".ttf",font_jetbrains_mono,sizeof(font_jetbrains_mono),pixels,
-        terminal_primary_codepoints,sizeof(terminal_primary_codepoints)/sizeof(int));
-    terminal_fallback_font=LoadFontFromMemory(".ttf",font_noto_symbols,sizeof(font_noto_symbols),pixels,
-        terminal_fallback_codepoints,sizeof(terminal_fallback_codepoints)/sizeof(int));
+static Font terminal_font_load_family(int family,int pixels) {
+    const unsigned char *bytes=family ? font_fira_code : font_jetbrains_mono;
+    int length=family ? sizeof(font_fira_code) : sizeof(font_jetbrains_mono);
+    int *points=family ? fira_primary_codepoints : terminal_primary_codepoints;
+    int count=family ? sizeof(fira_primary_codepoints)/sizeof(int) : sizeof(terminal_primary_codepoints)/sizeof(int);
+    Font font=LoadFontFromMemory(".ttf",bytes,length,pixels,points,count);
+    points=family ? fira_fallback_codepoints : terminal_fallback_codepoints;
+    count=family ? sizeof(fira_fallback_codepoints)/sizeof(int) : sizeof(terminal_fallback_codepoints)/sizeof(int);
+    terminal_fallback_font=LoadFontFromMemory(".ttf",font_noto_symbols,sizeof(font_noto_symbols),pixels,points,count);
     SetTextureFilter(terminal_fallback_font.texture,TEXTURE_FILTER_BILINEAR);
     return font;
+}
+static Font terminal_font_load(int pixels) { return terminal_font_load_family(0,pixels); }
+/* Measure at logical size: backing-density rounding must never change a grid. */
+static int terminal_font_cell_width(int family,int size) {
+    int cp='M';
+    GlyphInfo *glyph=LoadFontData(family ? font_fira_code : font_jetbrains_mono,
+        family ? sizeof(font_fira_code) : sizeof(font_jetbrains_mono),size,&cp,1,FONT_DEFAULT);
+    if (!glyph) return 0;
+    int width=glyph[0].advanceX ? glyph[0].advanceX : glyph[0].image.width+glyph[0].offsetX;
+    UnloadFontData(glyph,1);return width;
 }
 static void terminal_font_unload(Font font) {
     UnloadFont(terminal_fallback_font); UnloadFont(font);

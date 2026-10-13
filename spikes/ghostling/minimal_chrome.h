@@ -42,7 +42,7 @@ static bool chrome_menu_target(WorkspaceClient *client)
 static int chrome_menu_actions(WorkspaceClient *client,int *actions)
 {
     const int app[]={COMMAND_TERMINAL_CREATE,COMMAND_WORKSPACE_CREATE,COMMAND_WORKSPACE_FOLDER,COMMAND_WORKSPACE_RENAME,
-        COMMAND_WORKSPACE_STOP,COMMAND_PALETTE,COMMAND_APPEARANCE,COMMAND_SHORTCUTS,COMMAND_HELP,COMMAND_COPY,COMMAND_PASTE,-1};
+        COMMAND_WORKSPACE_STOP,COMMAND_PALETTE,COMMAND_APPEARANCE,COMMAND_FONT_SETTINGS,COMMAND_SHORTCUTS,COMMAND_HELP,COMMAND_COPY,COMMAND_PASTE,-1};
     const int pane[]={COMMAND_TERMINAL_RENAME,COMMAND_APPEARANCE,COMMAND_WIDTH_THIRD,COMMAND_WIDTH_HALF,
         COMMAND_WIDTH_TWO_THIRDS,COMMAND_WIDTH_FULL,-2,COMMAND_TERMINAL_STOP};
     int count=client->chrome_menu==1 ? (int)(sizeof(app)/sizeof(*app)) : client->chrome_menu==3 ? client->count : (int)(sizeof(pane)/sizeof(*pane));
@@ -79,7 +79,7 @@ static void chrome_activate(WorkspaceClient *client,int action,int index)
             theme_open_target(client,true);
         } else command_dispatch(client,action);
     }
-    if (client->dialog_open || client->theme_open || client->command_open || client->help_open || client->overview_open)
+    if (client->dialog_open || client->text_open || client->theme_open || client->command_open || client->help_open || client->overview_open)
         if (!client->chrome_pinned) client->chrome_drawer=false;
 }
 /* Return true for the whole dismissal/dispatch frame: no click-through or PTY keys. */
@@ -87,7 +87,7 @@ static bool chrome_input(WorkspaceClient *client)
 {
     Vector2 pointer=GetMousePosition();bool pressed=IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     bool transient=client->chrome_menu || (client->chrome_drawer && (!client->chrome_pinned || client->chrome_keyboard));
-    bool blocked=client->dialog_open || client->theme_open || client->command_open || client->help_open || client->overview_open;
+    bool blocked=client->dialog_open || client->text_open || client->theme_open || client->command_open || client->help_open || client->overview_open;
     if (blocked) { chrome_close_transient(client);return false; }
     if (client->chrome_menu) {
         if (!chrome_menu_target(client)) return true;
@@ -299,7 +299,7 @@ static void minimal_chrome_draw(WorkspaceClient *client)
         Rectangle b={fmaxf(54,(GetScreenWidth()-width)/2),GetScreenHeight()-36,width,26};
         DrawRectangleRounded(b,ui_roundness(b,8),8,ui.surface);DrawTextEx(client->ui_font,notice,(Vector2){b.x+10,b.y+7},UI_TEXT_CAPTION,0,ui.muted);
     }
-    if (!client->chrome_menu && !client->dialog_open && !client->overview_open && !client->theme_open && !client->help_open && !client->command_open) {
+    if (!client->chrome_menu && !client->dialog_open && !client->overview_open && !client->text_open && !client->theme_open && !client->help_open && !client->command_open) {
         const char *hint=NULL;Vector2 pointer=GetMousePosition();
         if (CheckCollisionPointRec(pointer,chrome_rail_button(0))) hint="Workspaces";
         if (CheckCollisionPointRec(pointer,chrome_rail_button(1))) hint="Agents across workspaces";

@@ -160,3 +160,10 @@ slash recording, Overview layering, settings handoff, modal isolation, light/dar
 appearance, narrow-window scrolling and retained shell state/geometry, with ordinary
 and reduced motion. `just shortcuts-scale-gui-test` profiles fixed geometry with
 one and fifteen populated terminals.
+
+Terminal text actions are `terminal.font.settings`, `terminal.font.increase`,
+`terminal.font.decrease`, and `terminal.font.reset`. Size shortcuts default to
+Ctrl+Shift+= / - / 0 on Linux, Command+Option+= / - / 0 on Mac. Equal/Minus
+are accepted key names for configuration and recording. The settings action
+is unbound by default and accessible in Commands and the hamburger menu.
+See [terminal font controls](terminal-fonts.md#choosing-a-font-and-size).

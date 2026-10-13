@@ -9,6 +9,7 @@ typedef enum {
     COMMAND_PALETTE, COMMAND_COPY, COMMAND_PASTE, COMMAND_FORWARD, COMMAND_SHORTCUTS,
     COMMAND_WIDTH_CYCLE, COMMAND_WIDTH_FULL, COMMAND_WIDTH_THIRD, COMMAND_WIDTH_HALF, COMMAND_WIDTH_TWO_THIRDS,
     COMMAND_HELP,
+    COMMAND_FONT_SETTINGS, COMMAND_FONT_INCREASE, COMMAND_FONT_DECREASE, COMMAND_FONT_RESET,
     COMMAND_COUNT
 } WorkbenchCommand;
 typedef struct { const char *title, *detail; } CommandDefinition;
@@ -37,11 +38,15 @@ static const CommandDefinition command_definitions[COMMAND_COUNT]={
     {"Terminal width: one third","Fit three terminals side by side"},
     {"Terminal width: one half","Fit two terminals side by side"},
     {"Terminal width: two thirds","Pair with a one-third terminal"},
-    {"Show shortcuts","View current bindings and open Shortcut settings"}
+    {"Show shortcuts","View current bindings and open Shortcut settings"},
+    {"Terminal text settings","Choose a font and size for this window"},
+    {"Increase terminal text size","Larger terminal text; keep interface size"},
+    {"Decrease terminal text size","Smaller terminal text; keep interface size"},
+    {"Reset terminal text size","Use the configured size, retaining the selected font"}
 };
 static const char *command_ids[COMMAND_COUNT]={
     "overview", "appearance", "workspace.new", "workspace.rename", "workspace.folder", "workspace.stop",
     "terminal.new", "terminal.rename", "terminal.stop", "terminal.previous", "terminal.next",
-    "workspace.previous", "workspace.next", "terminal.recover", "commands", "copy", "paste", "forward", "shortcuts", "terminal.width.cycle", "terminal.width.full", "terminal.width.third", "terminal.width.half", "terminal.width.two-thirds", "shortcuts.help"
+    "workspace.previous", "workspace.next", "terminal.recover", "commands", "copy", "paste", "forward", "shortcuts", "terminal.width.cycle", "terminal.width.full", "terminal.width.third", "terminal.width.half", "terminal.width.two-thirds", "shortcuts.help", "terminal.font.settings", "terminal.font.increase", "terminal.font.decrease", "terminal.font.reset"
 };
 #endif

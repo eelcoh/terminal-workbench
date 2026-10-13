@@ -104,7 +104,7 @@ def main():
                 catalog.write_text('workbench-catalog-v3\nW\tempty\tEmpty\n')
                 first,a=opened(1);saved(1,lambda s:' empty ' in s.splitlines()[1]);closed(first,a)
                 (root/'windows/1.view').write_text('workbench-window-v999\nbroken\n')
-                first,a=opened(1);saved(1,lambda s:s.startswith('workbench-window-v3\n'));closed(first,a)
+                first,a=opened(1);saved(1,lambda s:s.startswith('workbench-window-v4\n'));closed(first,a)
                 closed(second,b)
                 for p in range(5):os.kill(int(pids[p]),0);assert (root/f'p{p}.sock').stat().st_ino==inodes[p]
             finally:

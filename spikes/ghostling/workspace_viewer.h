@@ -76,6 +76,8 @@ typedef struct {
     bool divider_dragging;
     int cell_width, cell_height;
     Font font, ui_font;
+    FontPreferences text,text_before;
+    bool text_open;UiFocus text_focus;char text_error[256];
     float raster_scale, raster_override;
     double display_checked;
     DisplayWorkarea display_work;
@@ -323,6 +325,9 @@ static const char *command_unavailable(WorkspaceClient *client, int command);
 static void command_dispatch(WorkspaceClient *client, int command);
 static void command_open(WorkspaceClient *client);
 static void shortcut_help_open(WorkspaceClient *client);
+static void text_open(WorkspaceClient *client);
+static void text_adjust(WorkspaceClient *client,int direction);
+static bool text_font_replace(WorkspaceClient *client,FontPreferences next,float scale);
 #include "shortcut_client.h"
 #include "command_palette.h"
 #include "shortcut_help_ui.h"
@@ -397,7 +402,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     BeginMode2D((Camera2D){.zoom=client->raster_scale});
     ClearBackground((Color){colors.background.r, colors.background.g, colors.background.b, 255});
     render_terminal(pane->render, pane->rows, pane->cells, client->font,
-                    client->cell_width, client->cell_height, 16, 4,
+                    client->cell_width, client->cell_height, client->text.size, 4,
                     &scrollbar, pane->terminal, pane->images);
     if (pane->closed) {
         /* Retain the frozen terminal screen, but keep connection feedback out
@@ -429,6 +434,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
 #include "navigation_ui.h"
 #include "window_state_client.h"
 #include "display_client.h"
+#include "font_client.h"
 
 /* One metadata check per window, four times/second; no pane-scaled I/O.
  * The atomic catalog projection is the shared organization authority for the
@@ -438,7 +444,7 @@ static void workspace_refresh(WorkspaceClient *client)
     double now=GetTime();
     if (now-client->catalog_checked<.25) return;
     client->catalog_checked=now;
-    if (client->management_busy || client->dialog_open || client->theme_open || client->command_open || client->help_open
+    if (client->management_busy || client->dialog_open || client->text_open || client->theme_open || client->command_open || client->help_open
         || client->overview_drag_armed || client->overview_closing || client->divider_dragging
         || navigation_moving(client) || overview_animation_busy(&client->overview_animation,now)) return;
     for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++)
@@ -506,6 +512,7 @@ static int workspace_main(const char *catalog)
     client->managed = getenv("WORKBENCH_CATALOG_SCRIPT") != NULL;
     workbench_clipboard_keys=false;workbench_window_buttons=false;
     client->config.shortcuts=shortcut_defaults(shortcut_platform_apple());
+    client->config.font=font_preferences_default();
     if (!portable_read(getenv("WORKBENCH_CONFIG"),shortcut_platform_apple(),&client->config,client->config_error,sizeof(client->config_error)))
         fprintf(stderr,"Dotfiles: %s\n",client->config_error);
     client->shortcuts=client->config.shortcuts;
@@ -544,12 +551,16 @@ static int workspace_main(const char *catalog)
         char *end=NULL;float scale=strtof(raster_override,&end);
         if (end && !*end && isfinite(scale) && scale>=1 && scale<=4) client->raster_scale=client->raster_override=scale;
     }
-    int font_pixels=(int)(16*client->raster_scale);
-    client->font = terminal_font_load(font_pixels);
+    client->text=client->config.font;
+    if (client->view_loaded) {
+        if (client->saved_view.font_size) client->text.size=client->saved_view.font_size;
+        if (client->saved_view.font_family) client->text.family=client->saved_view.font_family-1;
+    }
+    int font_pixels=(int)roundf(client->text.size*client->raster_scale);
+    client->font = terminal_font_load_family(client->text.family,font_pixels);
     SetTextureFilter(client->font.texture, TEXTURE_FILTER_BILINEAR);
-    Vector2 glyph = MeasureTextEx(client->font, "M", font_pixels, 0);
-    client->cell_width = (int)(glyph.x / client->raster_scale);
-    client->cell_height = (int)(glyph.y / client->raster_scale);
+    client->cell_width = terminal_font_cell_width(client->text.family,client->text.size);
+    client->cell_height = client->text.size;
     if (client->cell_width < 1) client->cell_width = 1;
     if (client->cell_height < 1) client->cell_height = 1;
     client->ui_font=ui_font_load(client->raster_scale,client->font);
@@ -569,7 +580,7 @@ static int workspace_main(const char *catalog)
         display_tick(client);
         workspace_refresh(client);
         overview_motion_tick(client);
-        if (client->help_open || client->command_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
+        if (client->help_open || client->command_open || client->text_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
         theme_sync(client);
 
         bool shortcut_bypass=false;
@@ -579,22 +590,23 @@ static int workspace_main(const char *catalog)
         bool shortcut_frame=chrome_frame ? false : shortcut_route(client,&shortcut_bypass);
         bool help_frame=client->help_open;
         bool command_started=shortcut_frame && client->command_open;
-        if (!chrome_frame && !shortcut_frame && !help_frame && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
+        if (!chrome_frame && !shortcut_frame && !help_frame && !client->command_open && !client->text_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
             command_open(client); command_started=true;
         }
         bool command_frame=client->command_open;
+        bool text_frame=client->text_open;
         bool theme_frame=client->theme_open;
-        if (!chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
+        if (!chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
             && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
             && CheckCollisionPointRec(GetMousePosition(),client->overview_open ? overview_theme_button(client) : theme_button())) {
             theme_open(client); theme_frame=true;
         }
-        bool toggled_overview = !chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
+        bool toggled_overview = !chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
         if (toggled_overview) {
             if (client->overview_open && !client->overview_closing) overview_close(client, -1, -1);
             else overview_open(client);
         }
-        bool modal_frame = chrome_frame || help_frame || shortcut_frame || command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
+        bool modal_frame = chrome_frame || help_frame || shortcut_frame || command_frame || text_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
         if (!management_poll(client)) { exit_code = 1; break; }
         if (command_frame) {
             if (command_started) {
@@ -709,6 +721,7 @@ static int workspace_main(const char *catalog)
         bool overview_jumped = false;
         if (chrome_frame || shortcut_frame || command_frame) { /* The entire action-dispatch frame stays modal. */ }
         else if (help_frame) shortcut_help_input(client);
+        else if (text_frame) text_input(client);
         else if (theme_frame) theme_input(client);
         else if (client->overview_open && !client->overview_closing) overview_jumped = overview_input(client);
         else if (client->overview_closing) {
@@ -720,7 +733,7 @@ static int workspace_main(const char *catalog)
             while (GetCharPressed() != 0) { }
         }
         workspace = &client->workspaces[client->active];
-        if (((overview_jumped && !client->overview_closing) || (layout_deferred && !help_frame && !client->help_open && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
+        if (((overview_jumped && !client->overview_closing) || (layout_deferred && !help_frame && !client->help_open && !client->text_open && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
         theme_sync(client);
         if (overview_jumped) { navigation_finish(client); client->navigation_valid=false; }
         if (client->overview_open && !client->overview_list) overview_previews_refresh(client);
@@ -741,6 +754,7 @@ static int workspace_main(const char *catalog)
         if (client->dialog_open) dialog_draw(client);
         if (client->overview_open) overview_present(client);
         if (client->theme_open) theme_draw(client);
+        if (client->text_open) text_draw(client);
         if (client->command_open) command_draw(client);
         if (client->help_open) shortcut_help_draw(client);
         EndDrawing();

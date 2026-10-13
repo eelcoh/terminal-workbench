@@ -3,14 +3,17 @@
 #define WORKBENCH_PORTABLE_CONFIG_H
 #include "theme_catalog.h"
 #include "shortcut_state.h"
+#include "font_preferences.h"
 typedef struct {
     char application[1024],terminal[1024];
     bool follow,has_follow,seen_application,seen_terminal;
     ShortcutState shortcuts;
     bool seen[COMMAND_COUNT];
+    FontPreferences font;bool has_size,has_family;
 } PortableLayer;
 typedef struct {
     Theme application,terminal;
+    FontPreferences font;
     bool has_application,has_terminal,has_follow,follow;
     ShortcutState shortcuts;
 } PortableConfig;
@@ -39,7 +42,7 @@ static bool portable_theme(const char *config,const char *value,Theme *out,char 
 }
 static bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)
 {
-    PortableConfig next={.shortcuts=shortcut_defaults(apple)};
+    PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default()};
     if (!path) { *out=next;return true; }
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
@@ -49,14 +52,24 @@ static bool portable_read(const char *path,bool apple,PortableConfig *out,char *
         number++;if (number>512 || !strchr(line,'\n')) {valid=false;break;}
         char *text=portable_trim(line);if (!*text || *text=='#') continue;
         if (*text=='[') {
-            static const char *sections[]={"[appearance]","[shortcuts]","[linux.appearance]","[linux.shortcuts]","[macos.appearance]","[macos.shortcuts]"};
-            int found=-1;for (int i=0;i<6;i++) if (!strcmp(text,sections[i])) found=i;
-            if (found<0) {valid=false;break;}section=found/2;kind=found%2;continue;
+            static const char *sections[]={"[appearance]","[shortcuts]","[font]","[linux.appearance]","[linux.shortcuts]","[linux.font]","[macos.appearance]","[macos.shortcuts]","[macos.font]"};
+            int found=-1;for (int i=0;i<9;i++) if (!strcmp(text,sections[i])) found=i;
+            if (found<0) {valid=false;break;}section=found/3;kind=found%3;continue;
         }
         char *equal=strchr(text,'=');if (section<0 || !equal) {valid=false;break;}*equal++=0;
         char *key=portable_trim(text),*value=portable_trim(equal);PortableLayer *layer=&layers[section];
         if (!*value) {valid=false;break;}
-        if (kind) {
+        if (kind==2) {
+            if (!strcmp(key,"size")) {
+                char *end=NULL;long size=strtol(value,&end,10);
+                if (layer->has_size || end==value || *end || size<TERMINAL_FONT_MIN || size>TERMINAL_FONT_MAX) {valid=false;break;}
+                layer->font.size=(int)size;layer->has_size=true;
+            } else if (!strcmp(key,"family")) {
+                int family=font_preferences_family(value);
+                if (layer->has_family || family<0) {valid=false;break;}
+                layer->font.family=family;layer->has_family=true;
+            } else {valid=false;break;}
+        } else if (kind==1) {
             int action=-1;for (int i=0;i<COMMAND_COUNT;i++) if (!strcmp(key,command_ids[i])) action=i;
             if (action<0 || layer->seen[action] || !shortcut_parse(value,&layer->shortcuts.bindings[action])) {valid=false;break;}
             layer->seen[action]=true;
@@ -78,12 +91,20 @@ static bool portable_read(const char *path,bool apple,PortableConfig *out,char *
     next.has_application=*application;next.has_terminal=*terminal;
     if ((next.has_application && !portable_theme(path,application,&next.application,error,capacity))
         || (next.has_terminal && !portable_theme(path,terminal,&next.terminal,error,capacity))) return false;
+    if (layers[0].has_size) next.font.size=layers[0].font.size;
+    if (layers[0].has_family) next.font.family=layers[0].font.family;
+    if (platform->has_size) next.font.size=platform->font.size;
+    if (platform->has_family) next.font.family=platform->font.family;
     next.has_follow=platform->has_follow || layers[0].has_follow;
     next.follow=platform->has_follow ? platform->follow : layers[0].follow;
     for (int i=0;i<COMMAND_COUNT;i++) {
         if (layers[0].seen[i]) next.shortcuts.bindings[i]=layers[0].shortcuts.bindings[i];
         if (platform->seen[i]) next.shortcuts.bindings[i]=platform->shortcuts.bindings[i];
     }
+    for (int i=COMMAND_FONT_SETTINGS;i<COMMAND_COUNT;i++) if (!layers[0].seen[i] && !platform->seen[i])
+        for (int j=0;j<COMMAND_COUNT;j++) if ((layers[0].seen[j] || platform->seen[j]) && next.shortcuts.bindings[i].key
+            && next.shortcuts.bindings[i].key==next.shortcuts.bindings[j].key && next.shortcuts.bindings[i].mods==next.shortcuts.bindings[j].mods)
+            next.shortcuts.bindings[i]=(ShortcutChord){0};
     if (!shortcut_valid(&next.shortcuts,error,capacity)) return false;
     *out=next;error[0]=0;return true;
 }

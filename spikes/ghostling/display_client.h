@@ -49,19 +49,8 @@ static void display_tick(WorkspaceClient *client)
     }
     float scale=display_current_scale(client);
     if (!scale || fabsf(scale-client->raster_scale)<.01f) return;
-    navigation_finish(client);
-    /* Font textures are recreated only on density changes, not ordinary resize.
-     * Logical cell metrics remain fixed, so a scale-only change never resizes a PTY. */
-    Font old_primary=client->font,old_fallback=terminal_fallback_font,old_ui=client->ui_font;
-    Font primary=terminal_font_load((int)roundf(16*scale)),fallback=terminal_fallback_font;
-    if (!primary.texture.id || primary.texture.id==GetFontDefault().texture.id || !fallback.texture.id) {
-        terminal_font_unload(primary);terminal_fallback_font=old_fallback;
+    if (!text_font_replace(client,client->text,scale)) {
         fprintf(stderr,"Could not update display fonts; retaining the previous atlas\n");return;
     }
-    SetTextureFilter(primary.texture,TEXTURE_FILTER_BILINEAR);
-    Font interface=ui_font_load(scale,primary);
-    ui_font_unload(old_ui,old_primary);terminal_fallback_font=old_fallback;terminal_font_unload(old_primary);
-    terminal_fallback_font=fallback;client->font=primary;client->ui_font=interface;client->raster_scale=scale;
-    display_release_canvases(client);
     fprintf(stderr,"Display backing scale updated: %.3g; logical cells %dx%d retained\n",scale,client->cell_width,client->cell_height);
 }

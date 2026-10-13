@@ -32,7 +32,7 @@ static void pane_preview_refresh(WorkspaceClient *client, WorkbenchPane *pane)
                 (width - surface_w * zoom) / 2, (height - surface_h * zoom) / 2}, .zoom = zoom };
             BeginMode2D(camera);
             render_terminal(pane->render, pane->rows, pane->cells, client->font,
-                client->cell_width, client->cell_height, 16, 4, &scrollbar, pane->terminal, pane->images);
+                client->cell_width, client->cell_height, client->text.size, 4, &scrollbar, pane->terminal, pane->images);
             EndMode2D();
             EndTextureMode();
             pane_unbind();

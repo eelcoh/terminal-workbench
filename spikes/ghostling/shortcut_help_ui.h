@@ -74,7 +74,7 @@ static void shortcut_help_content(WorkspaceClient *client, Rectangle body, bool 
         DrawTextEx(client->ui_font,shortcut_help_groups[g].title,(Vector2){card.x+14,card.y+12},UI_TEXT_LEAD,0,ui.accent);
         for (int row=0;row<shortcut_help_groups[g].count;row++) {
             int action=shortcut_help_groups[g].actions[row];float y=card.y+38+row*32;
-            float binding_width=fminf(card.width*.58f,MeasureTextEx(client->font,client->help_bindings[action],13,0).x+16);
+            float binding_width=fminf(card.width*.58f,MeasureTextEx(client->ui_font,client->help_bindings[action],13,0).x+16);
             Rectangle pill={card.x+card.width-binding_width-12,y,binding_width,24};
             DrawRectangleRounded(pill,.22f,8,ui.raised);
             /* Intersect row clips with the scroll body; Raylib scissors do not nest. */
@@ -83,7 +83,7 @@ static void shortcut_help_content(WorkspaceClient *client, Rectangle body, bool 
             BeginScissorMode((int)((card.x+14)*scale),(int)(top*scale),(int)(fmaxf(1,card.width-binding_width-38)*scale),(int)((bottom-top)*scale));
             DrawTextEx(client->ui_font,command_definitions[action].title,(Vector2){card.x+14,y+5},UI_TEXT_BODY,0,ui.text);
             BeginScissorMode((int)((pill.x+7)*scale),(int)(top*scale),(int)((pill.width-14)*scale),(int)((bottom-top)*scale));
-            DrawTextEx(client->font,client->help_bindings[action],(Vector2){pill.x+8,y+5},13,0,client->shortcuts.bindings[action].key ? ui.text : ui.muted);
+            DrawTextEx(client->ui_font,client->help_bindings[action],(Vector2){pill.x+8,y+5},13,0,client->shortcuts.bindings[action].key ? ui.text : ui.muted);
             BeginScissorMode((int)(body.x*scale),(int)(body.y*scale),(int)(body.width*scale),(int)(body.height*scale));
         }
     }

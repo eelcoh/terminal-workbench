@@ -28,6 +28,9 @@ int main(void)
     assert(shortcut_parse("Command+Option+Slash",&chord) && chord.key==47 && chord.mods==12);
     shortcut_label(chord,true,label,sizeof(label));assert(!strcmp(label,"Command+Option+/"));
     assert(!shortcut_parse("Ctrl+Shift+?",&chord) && !shortcut_parse("/",&chord));
+    assert(shortcut_parse("Command+Option+Equal",&chord) && chord.key==61 && chord.mods==12);
+    assert(shortcut_parse("Ctrl+Shift+-",&chord) && chord.key==45 && chord.mods==3);
+    assert(linux_state.bindings[COMMAND_FONT_INCREASE].key==61 && mac.bindings[COMMAND_FONT_RESET].key==48);
     assert(shortcut_parse("F8",&chord));assert(shortcut_parse("none",&chord));
     char path[1024];snprintf(path,sizeof(path),"%s/shortcuts.conf",getenv("WB_TEST_DIRECTORY"));
     assert(shortcut_write(path,&linux_state,error,sizeof(error)));struct stat statbuf;assert(!stat(path,&statbuf) && (statbuf.st_mode&0777)==0600);

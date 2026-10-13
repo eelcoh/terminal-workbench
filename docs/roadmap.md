@@ -130,11 +130,12 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
 4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
    background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
    and full lifecycle transitions. Unsupported signals retain honest fallback.
-5. Add portable dotfiles, then package/install outside the checkout. Decide the
+5. Extend portable dotfiles as needed, then package/install outside the checkout. Decide the
    product name, app/session shutdown policy and update approach before release.
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither
-   direction is a first-release gate; font-size controls remain the next UI slice.
+   direction is a first-release gate. Finish native font-controls review and the
+   menu/workspace-row polish below.
 
 ## Dotfiles and portable configuration
 
@@ -304,6 +305,39 @@ Long UTF-8 names use ellipses; pane geometry, action targets, terminal input and
 keyboard bindings stay unchanged. See [the chrome refinement](interface-typography.md#pane-headers-and-workspace-sidebar).
 Native Mac and owner visual review of this slice remain open.
 
+## Chrome polish: menu sections and workspace removal
+
+Restore the subtle separators between action groups in the hamburger menu,
+as shown in the design prototype. Group terminal/workspace actions, settings,
+clipboard and window actions for easier scanning while keeping the menu quiet.
+Review spacing, keyboard focus, hover and narrow-window scrolling together;
+separators must not become selectable rows.
+
+Workspace removal currently takes too many steps. Add a quiet × at the end of
+each workspace row, invoking the existing Stop workspace confirmation. Make
+the workspace name and affected shells clear in the Are you sure dialog; only
+confirmation removes the workspace. Keep row navigation distinct from the close
+target, with keyboard access, a tooltip and visible hover/focus treatment. These
+are planned polish items.
+
+Workspace name and project-folder fields currently behave like replacement-only
+inputs: typing replaces the existing value, and a caret cannot be placed within
+it. Add normal text editing with pointer caret placement, selection, insertion
+and deletion, and standard keyboard navigation/selection. Preserve the existing
+value on opening; make whole-value replacement an explicit Select all action.
+Validate long paths, spaces and Unicode, clipboard editing, Apply/Cancel and
+keyboard access on Mac/Linux. This is a reported polish issue.
+
+## Design question: do terminal panes need names?
+
+Reconsider the need for always-visible pane names and a Rename terminal action.
+Compare a quieter header using the process/shell title, agent identity, current
+directory or position, with custom names as an optional override. Evaluate the
+working view, Overview, agent navigation and ownership/reconnect messages;
+multiple similar shells should remain distinguishable. Stable terminal IDs and
+session persistence remain independent of presentation labels. This is an open
+design question, not a decision to remove names.
+
 ## Minimal chrome design study
 
 The owner's Niri/Dank Material/Foot references lead to a new
@@ -333,12 +367,12 @@ intact. Workspace preview follows chrome automatically unless dotfiles explicitl
 request fixed chrome; Cancel restores the prior follow state. Native Mac review
 remains open. See [design requirements](workspace-appearance-study.md).
 
-## Next UX slice: terminal font size
+## Current UX slice: terminal font and size
 
-The owner requested control over font size as the next slice. Start with a clear
-terminal-text size control for the current window, plus configurable Increase,
-Decrease and Reset actions in Commands and shortcut help. Keep interface sizing
-separate so enlarging terminal text does not enlarge all chrome and dialogs.
+The prototype provides font and terminal-text size controls for the current
+window, plus configurable Increase, Decrease and Reset actions in Commands and
+shortcut help. Interface sizing remains separate, so enlarging terminal text
+does not enlarge chrome and dialogs.
 
 - Provide a bounded, readable size range and show the current size. Select
   platform-consistent shortcuts after checking keyboard-layout and binding conflicts.
@@ -353,9 +387,13 @@ separate so enlarging terminal text does not enlarge all chrome and dialogs.
   overview previews and live resize at small/large sizes, with one and fifteen
   terminals and native Mac/Linux review.
 
-Font-family selection, separate UI scaling and per-terminal size overrides can
-follow this first control. Font-size controls are planned, not implemented by the
-Appearance design study.
+The native prototype now offers Terminal text settings with bundled JetBrains Mono
+and Fira Code, live preview, Apply/Cancel, and 10–32 logical-point sizing. Commands
+and configurable platform shortcuts provide Increase, Decrease and Reset. Dotfiles
+set shared/platform defaults; each window restores its own differences. Interface
+text keeps its independent font and size. Native Mac owner review remains open.
+Separate UI scaling, arbitrary installed-font selection, programming ligatures and
+per-terminal size overrides remain follow-up work. See [terminal fonts](terminal-fonts.md).
 
 ## Mixed-display and gesture slice
 
@@ -413,6 +451,20 @@ Ghostty theme files. Full Ghostty configuration compatibility, wallpaper-derived
 palettes and desktop-wide theme synchronization are later options, not
 prerequisites for the initial theme milestone. Workspace themes and terminal
 overrides are already part of the prototype.
+
+## Theme imports from TerminalColors
+
+The owner requested importing themes from [TerminalColors](https://terminalcolors.com/).
+Explore browsing/searching its catalog or importing a chosen download/link into
+Workbench's palette gallery. The site lists Ghostty among its supported formats;
+reuse the existing Ghostty color-field loader where the downloaded format matches.
+
+Provide an import preview with Apply/Cancel, a saved name/source and appropriate
+author/license attribution, and an offline local copy after import. Establish the
+available download/API contract and theme redistribution terms before integration.
+Cover malformed/unsupported imports, duplicates and unavailable downloads without
+changing existing themes or running terminals. This is planned; current import
+support remains local Ghostty files. Font controls remain the active slice.
 
 ## Release gates
 

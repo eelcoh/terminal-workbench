@@ -1,8 +1,8 @@
 # Dotfiles
 
-Workbench can load shared appearance and shortcut settings outside the source
+Workbench can load shared appearance, terminal-font and shortcut settings outside the source
 checkout. It reads your managed file and writes UI edits to separate files.
-Shell dotfile installation, font selection, workspace defaults and live reload
+Shell dotfile installation, arbitrary installed fonts, workspace defaults and live reload
 are follow-up work.
 
 ## Getting started
@@ -28,6 +28,13 @@ workbench-config-v1
 application-theme = Workbench Night
 terminal-theme = themes/my-theme
 follow-workspace = false
+
+[font]
+family = Fira Code
+size = 18
+
+[macos.font]
+size = 16
 
 [shortcuts]
 forward = F8
@@ -63,6 +70,21 @@ over shared settings, regardless of their order in the file. Omitted shortcuts
 retain platform defaults. Use action IDs from [shortcut settings](shortcuts.md),
 and `none` to clear a binding. Platform sections keep Mac Command+Option and
 Linux Ctrl+Shift conventions while sharing other preferences.
+
+## Terminal fonts
+
+`[font]` accepts `family = JetBrains Mono` or `family = Fira Code` and integer
+`size = 10` through `32` in logical points. Defaults are JetBrains Mono, 16 pt.
+Both faces and symbol fallback are bundled on Linux/Mac. `[linux.font]` and
+`[macos.font]` override either field independently, regardless of section order.
+Unknown families and invalid sizes reject the configuration transactionally.
+
+Terminal text settings preview font/size for the current window; Apply saves
+differences from managed defaults in its local window view file. Cancel restores
+the prior font and size. Use defaults resets both to configured values; Reset
+terminal text size resets only size. A new window inherits managed defaults, and
+an existing window restores its own overrides. Unchanged fields inherit later
+dotfile edits on reopen. This never rewrites your config or restarts shells.
 
 ## Precedence and UI edits
 
