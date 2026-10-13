@@ -38,6 +38,7 @@ behavior remain unverified. The current renderer is an experiment; it is not the
 | 7 | Real agent validation | Live Codex/Claude on Linux and GitHub Copilot CLI on macOS, lifecycle transitions and hook trust/setup flows; explicit Unknown for unsupported agents or unavailable signals. |
 | 8 | Dotfiles and portable configuration | Documented readable settings outside the checkout, custom themes/fonts/shortcuts, platform overrides, predictable UI/file precedence and safe migration of prototype preferences. |
 | 9 | Installable releases | macOS app bundle and Linux installation, configuration outside the repository, lifecycle/update policy and platform smoke checks. Finalize the product name before distribution; the project uses MIT. |
+| Later | TUI apps / window-manager exploration | Named app launch profiles, an app launcher, workspace layouts and explicit live-instance/restart behavior, proven with real TUIs on Mac/Linux. |
 | Later | Plugin exploration | After daily-use foundations and the first installable release: bounded extension points, capability/version contracts and explicit permission/lifecycle handling, proven with a small extension. |
 
 The first UX slice now includes shared UI colors, rounded controls and
@@ -131,8 +132,9 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    and full lifecycle transitions. Unsupported signals retain honest fallback.
 5. Add portable dotfiles, then package/install outside the checkout. Decide the
    product name, app/session shutdown policy and update approach before release.
-6. Explore plugins after these foundations; extensions are not a first-release
-   gate.
+6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
+   where extensions add something beyond launching terminal programs. Neither
+   direction is a first-release gate; font-size controls remain the next UI slice.
 
 ## Dotfiles and portable configuration
 
@@ -166,6 +168,46 @@ per-platform UI overrides and once-only preference migration. Scoped theme
 identities stay with local sessions. Configuration reads occur at startup, with
 no work added to pane rendering or runtime parsing. Font preferences, workspace
 defaults, live reload and native Mac acceptance remain open. See [dotfiles](dotfiles.md).
+
+## Apps: Workbench as a TUI window manager
+
+The owner proposed apps as a longer-term product direction: use Workbench's
+scrolling panes, workspace organization and Overview to manage TUI application
+instances. A shell is one kind of pane; a Git interface, file manager, system
+monitor or coding agent can be another. This builds on runtime-owned PTYs and
+same-process reattachment rather than requiring a plugin system first.
+
+Explore:
+
+- Named app profiles in dotfiles: executable/arguments, working-directory rules,
+  environment overrides, display name and preferred pane width. Support shared
+  profiles with Mac/Linux overrides, without copying machine/session identities.
+- An app launcher integrated with Commands and pane creation. Distinguish starting
+  a new instance from focusing an existing one; launching a chosen profile is an
+  explicit action.
+- Project layouts that combine shells, agents and tools, with app identity in
+  Overview and familiar pane navigation, resizing, workspace moves and ownership
+  transfer across windows. Optional launch shortcuts reuse the fresh keyboard model.
+- Separate saved launch recipes from live runtime instances. Closing a window
+  detaches an app; reopening reattaches the same process while it is alive. After
+  exit/reboot, show its stopped state and offer an explicit restart. Restoring a
+  layout must not blindly rerun every saved command or imply restoration of the
+  app's own internal state.
+- Preserve each TUI's keyboard/mouse behavior, alternate screen, clipboard,
+  scrollback and resize contracts. Keep Workbench navigation predictable through
+  configurable chords and forwarding. Background apps retain the existing hidden
+  presentation exits while their runtime continues parsing output.
+
+Start with a small app-profile/launcher spike and real Git, file-management and
+monitoring TUIs on both platforms. Acceptance includes focus versus new instance,
+pane/layout restoration, long-running and exited apps, same-PID handoff, resize,
+input ownership and missing-executable feedback. Launch metadata/process state
+belongs to the runtime/session boundary; launcher layout and app indicators belong
+to the client. No profile format, runtime API or app integration is selected yet.
+
+This direction is on the roadmap, not implemented. Packaging and daily-use
+foundations come first. Plugins can later add richer integrations where launch
+profiles and ordinary terminal behavior are insufficient.
 
 ## Plugins: long horizon
 
