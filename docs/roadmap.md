@@ -275,6 +275,43 @@ navigation, cross-workspace agent attention, pane indicators and application/pan
 menus with existing actions and confirmations. Platform visual/input acceptance
 remains part of the UX gate; the HTML remains a sample-data reference.
 
+## Workspace-first Appearance study
+
+The owner finds the four-target picker confusing and its text follow checkbox
+less polished than the rest of the UI. The new [interactive study](prototypes/workspace-appearance.html)
+explores one workspace theme picker, clear Apply/Cancel, workspace terminals and
+chrome previewing together, and a steady picker surface. The scope tabs and
+follow checkbox disappear from that flow. Terminal exceptions can remain in the
+pane menu for remote-box colors; defaults remain in dotfiles.
+
+This is a browser design study; the native app and saved palettes are unchanged.
+Native implementation must preserve existing preferences and establish the
+chrome-follow/terminal-exception policy. See [design requirements](workspace-appearance-study.md).
+
+## Next UX slice: terminal font size
+
+The owner requested control over font size as the next slice. Start with a clear
+terminal-text size control for the current window, plus configurable Increase,
+Decrease and Reset actions in Commands and shortcut help. Keep interface sizing
+separate so enlarging terminal text does not enlarge all chrome and dialogs.
+
+- Provide a bounded, readable size range and show the current size. Select
+  platform-consistent shortcuts after checking keyboard-layout and binding conflicts.
+- Load the default from dotfiles, support platform overrides, and define how a
+  per-window size adjustment is restored without rewriting managed configuration.
+- Treat font size as logical points, independently of Retina/backing density.
+  Rebuild primary/fallback atlases and presentation caches when required.
+- Recompute terminal cells and PTY rows/columns, preserving shell PID, terminal
+  state and scrollback. Genuine text zoom changes the grid; a density-only display
+  move must still preserve its logical size.
+- Validate input coordinates, selection, clipboard, pane widths, navigation,
+  overview previews and live resize at small/large sizes, with one and fifteen
+  terminals and native Mac/Linux review.
+
+Font-family selection, separate UI scaling and per-terminal size overrides can
+follow this first control. Font-size controls are planned, not implemented by the
+Appearance design study.
+
 ## Mixed-display and gesture slice
 
 Mixed-density display moves now update font/canvas density without changing

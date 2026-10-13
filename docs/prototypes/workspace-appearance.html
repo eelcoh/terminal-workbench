@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workbench — workspace appearance study</title>
+<style>
+@font-face{font-family:Workbench;src:url('../../fonts/adwaita-sans/AdwaitaSans-Regular.ttf')}
+*{box-sizing:border-box}body{margin:0;background:#131619;color:#e6e9ed;font:14px Workbench,system-ui,sans-serif;padding:30px}
+button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid #a9c9d6;outline-offset:3px}button:disabled{opacity:.45;cursor:default}
+.intro{max-width:1200px;margin:0 auto 20px}.intro h1{font-size:23px;font-weight:500;margin:0 0 8px}.intro p{color:#a7afb9;line-height:1.6;margin:0;max-width:820px}
+.frame{--bg:#15191f;--fg:#dbe5ef;--accent:#a4c5d4;--surface:#1e242c;max-width:1200px;height:720px;min-height:500px;margin:auto;border:1px solid #38414b;border-radius:12px;overflow:hidden;position:relative;background:var(--bg);color:var(--fg)}
+.top{height:44px;display:flex;align-items:center;padding:0 16px;gap:14px;background:var(--surface)}button{border:0;border-radius:8px;background:transparent;color:inherit;padding:9px 12px}.top button:hover{background:#ffffff12}.marks{display:flex;gap:6px;margin:auto}.marks i{width:16px;height:7px;background:var(--accent);opacity:.45;border-radius:10px}.marks i:first-child{width:26px;opacity:1}.workspace{border:0;background:transparent;color:inherit;font:inherit;padding:6px;cursor:pointer}.workspace option{background:#20252c;color:#edf1f4}
+.panes{display:flex;gap:10px;padding:10px;height:calc(100% - 44px)}.pane{width:50%;border:1px solid color-mix(in srgb,var(--fg),transparent 78%);border-radius:5px;background:var(--bg);overflow:hidden}.pane:first-child{border-color:var(--accent)}.pane header{font-size:12px;padding:10px 12px;background:var(--surface)}.pane pre{margin:16px;font:13px/1.7 ui-monospace,monospace;white-space:pre-wrap}.pane .success{color:var(--accent)}
+dialog{--text:#e6e9ed;--muted:#9aa5b3;color:var(--text);background:#20262e;border:1px solid #ffffff14;border-radius:16px;width:min(836px,calc(100% - 36px));max-height:calc(100% - 80px);padding:0;box-shadow:0 20px 70px #0007;position:absolute;margin:auto}
+dialog::backdrop{background:#090c1170}dialog.light{--text:#26333c;--muted:#63717d;background:#f0f2f2;border-color:#00000016}
+.heading{padding:25px 28px 18px;display:flex;align-items:start;gap:16px}.heading h2{font-size:23px;font-weight:500;margin:0 0 7px}.heading p{color:var(--muted);font-size:13px;margin:0;line-height:1.5}.close{margin-left:auto;flex-shrink:0;color:var(--muted);font-size:22px;padding:0 8px}.close:hover{color:var(--text)}
+.tools{display:flex;gap:16px;padding:0 28px 20px}.search{width:100%;min-width:0;background:#00000017;border:1px solid #ffffff14;border-radius:9px;padding:10px 12px;color:var(--text)}.light .search{background:#ffffff8f;border-color:#00000018}.search::placeholder{color:var(--muted)}.filters{display:flex;gap:2px;background:#00000017;border-radius:9px;padding:3px;flex-shrink:0}.filters button{color:var(--muted);padding:6px 13px;font-size:12px}.filters button[aria-pressed=true]{background:#ffffff15;color:var(--text)}.light .filters button[aria-pressed=true]{background:#fff}
+.gallery{padding:0 28px 24px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-height:390px;overflow:auto;scrollbar-width:thin;scrollbar-color:#66717b transparent}
+.card{border:1px solid #ffffff13;border-radius:10px;padding:0;background:#ffffff04;text-align:left;overflow:hidden;position:relative}.light .card{border-color:#00000014}.card:hover{border-color:#a9c9d68f}.card[aria-checked=true]{border-color:#b4d3dd;box-shadow:0 0 0 1px #b4d3dd}.light .card[aria-checked=true]{border-color:#4e798b;box-shadow:0 0 0 1px #4e798b}
+.sample{height:100px;padding:13px 15px;font:11px/1.6 ui-monospace,monospace;background:var(--sample-bg);color:var(--sample-fg)}.sample .branch{color:var(--sample-accent)}.swatches{display:flex;gap:4px;margin-top:10px}.swatches i{width:13px;height:6px;border-radius:3px}.caption{display:flex;align-items:center;gap:10px;padding:11px 13px;font-size:12px}.name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kind{color:var(--muted);margin-left:auto;font-size:11px}.selected{position:absolute;top:10px;right:10px;width:18px;height:18px;background:var(--sample-accent);border-radius:50%;border:4px solid var(--sample-bg);box-shadow:0 0 0 1px var(--sample-accent)}
+.empty{color:var(--muted);grid-column:1/-1;padding:40px 0;text-align:center}.footer{border-top:1px solid #ffffff0b;display:flex;gap:10px;align-items:center;padding:17px 28px}.light .footer{border-color:#0000000b}.status{color:var(--muted);font-size:12px;flex:1;line-height:1.4}.cancel{background:#ffffff08}.light .cancel{background:#00000008}.apply{background:#b4d3dd;color:#20333e;padding:10px 17px}.light .apply{background:#416d80;color:white}.review{max-width:1200px;margin:14px auto;color:#a7afb9;font-size:12px;line-height:1.6}.review button{background:#27313b;margin-right:10px}.toast{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 18px;border-radius:10px;background:#263340;color:#e8f0f5;white-space:nowrap}
+@media(max-width:720px){body{padding:12px}.frame{height:740px}.heading{padding:22px 20px 16px}.tools{padding:0 20px 16px;flex-wrap:wrap;gap:10px}.search{flex-basis:100%}.gallery{padding:0 20px 20px;grid-template-columns:repeat(2,minmax(0,1fr));max-height:360px}.footer{padding:16px 20px;flex-wrap:wrap}.status{flex-basis:100%}.apply{margin-left:auto}.heading h2{font-size:20px}.pane pre{font-size:11px}}
+@media(prefers-reduced-motion:no-preference){.card{transition:border-color .12s,box-shadow .12s}.frame{transition:background .16s,color .16s}}
+</style>
+</head>
+<body>
+<div class="intro"><h1>Workspace appearance</h1><p>A design study: choose a theme for the workspace you are in. No target tabs or follow checkbox. Try previewing, cancelling, and switching workspaces. Sample terminals only.</p></div>
+<main class="frame" id="frame">
+ <div class="top"><span aria-hidden="true">☰</span><select id="workspace" class="workspace" aria-label="Workspace"><option>Nasdaq</option><option>Workbench</option></select><div class="marks" aria-hidden="true"><i></i><i></i><i></i></div><button id="open">Change theme</button></div>
+ <div class="panes"><section class="pane"><header>Shell</header><pre>$ git status
+On branch main
+
+<span class="success">Working tree clean</span>
+
+$ </pre></section><section class="pane"><header>Agent · Ready</header><pre>Review complete.
+
+<span class="success">All checks passed.</span>
+
+What would you like to work on next?</pre></section></div>
+ <dialog id="picker" aria-labelledby="title" aria-describedby="description">
+  <div class="heading"><div><h2 id="title">Theme for Nasdaq</h2><p id="description">Give this workspace its own look.</p></div><button class="close" id="close" aria-label="Cancel theme change">×</button></div>
+  <div class="tools"><input id="search" class="search" placeholder="Search themes" aria-label="Search themes"><div class="filters" aria-label="Theme brightness"><button data-filter="all" aria-pressed="true">All</button><button data-filter="dark" aria-pressed="false">Dark</button><button data-filter="light" aria-pressed="false">Light</button></div></div>
+  <div id="gallery" class="gallery" role="radiogroup" aria-label="Workspace themes"></div>
+  <div class="footer"><span class="status" id="status" aria-live="polite">Previewing Workbench Night</span><button id="cancel" class="cancel">Cancel</button><button id="apply" class="apply">Apply to workspace</button></div>
+ </dialog>
+ <div id="toast" class="toast" role="status" hidden></div>
+</main>
+<div class="review">The picker surface stays steady during previews. Apply Dawn and reopen to review the light surface.</div>
+<script>
+'use strict';
+const themes=[
+ {name:'Workbench Night',bg:'#15191f',fg:'#dbe5ef',accent:'#a4c5d4',colors:['#c78585','#a9c29a','#d8c38b','#91b0d2','#b79dcc','#8dc3c2']},
+ {name:'Workbench Dawn',bg:'#f4f1eb',fg:'#203443',accent:'#386f82',light:true,colors:['#a54646','#557749','#927b35','#476e9d','#815b94','#427e7b']},
+ {name:'Dracula',bg:'#282a36',fg:'#f8f8f2',accent:'#bd93f9',colors:['#ff5555','#50fa7b','#f1fa8c','#bd93f9','#ff79c6','#8be9fd']},
+ {name:'Catppuccin Mocha',bg:'#1e1e2e',fg:'#cdd6f4',accent:'#b4befe',colors:['#f38ba8','#a6e3a1','#f9e2af','#89b4fa','#cba6f7','#94e2d5']},
+ {name:'Catppuccin Macchiato',bg:'#24273a',fg:'#cad3f5',accent:'#b7bdf8',colors:['#ed8796','#a6da95','#eed49f','#8aadf4','#c6a0f6','#8bd5ca']},
+ {name:'Catppuccin Frappe',bg:'#303446',fg:'#c6d0f5',accent:'#babbf1',colors:['#e78284','#a6d189','#e5c890','#8caaee','#ca9ee6','#81c8be']},
+ {name:'Catppuccin Latte',bg:'#eff1f5',fg:'#4c4f69',accent:'#7287fd',light:true,colors:['#d20f39','#40a02b','#df8e1d','#1e66f5','#8839ef','#179299']}
+];
+const $=id=>document.getElementById(id),saved=[0,3];let selected=0,filter='all',opener=null,toastTimer;
+function preview(index){const theme=themes[index];$('frame').style.setProperty('--bg',theme.bg);$('frame').style.setProperty('--fg',theme.fg);$('frame').style.setProperty('--accent',theme.accent);$('frame').style.setProperty('--surface',`color-mix(in srgb, ${theme.bg}, ${theme.fg} 5%)`)}
+function matches(){const query=$('search').value.toLowerCase();return themes.map((theme,index)=>({theme,index})).filter(({theme})=>theme.name.toLowerCase().includes(query)&&(filter==='all'||Boolean(theme.light)===(filter==='light')))}
+function render(focusIndex=null){
+ const items=matches();if(items.length&&!items.some(item=>item.index===selected)){selected=items[0].index;preview(selected)}$('gallery').replaceChildren();
+ if(!items.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='No themes match. Try another search.';$('gallery').append(empty)}
+ items.forEach(({theme,index})=>{
+  const card=document.createElement('button');card.className='card';card.setAttribute('role','radio');card.setAttribute('aria-checked',String(index===selected));card.setAttribute('aria-label',theme.name);card.tabIndex=index===(items.some(item=>item.index===selected)?selected:items[0].index)?0:-1;card.dataset.index=index;
+  card.style.setProperty('--sample-bg',theme.bg);card.style.setProperty('--sample-fg',theme.fg);card.style.setProperty('--sample-accent',theme.accent);
+  card.innerHTML='<div class="sample">$ git status<br><span class="branch">main · ready to build</span><div class="swatches"></div></div><div class="caption"><span class="name"></span><span class="kind"></span></div>';
+  card.querySelector('.name').textContent=theme.name;card.querySelector('.kind').textContent=theme.light?'Light':'Dark';theme.colors.forEach(color=>{const swatch=document.createElement('i');swatch.style.background=color;card.querySelector('.swatches').append(swatch)});
+  if(index===selected){const dot=document.createElement('span');dot.className='selected';dot.setAttribute('aria-hidden','true');card.append(dot)}
+  card.onclick=()=>choose(index,true);card.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;event.preventDefault();const columns=getComputedStyle($('gallery')).gridTemplateColumns.split(' ').length;const offset=event.key==='ArrowLeft'?-1:event.key==='ArrowRight'?1:event.key==='ArrowUp'?-columns:columns;const position=items.findIndex(item=>item.index===index);choose(items[Math.max(0,Math.min(items.length-1,position+offset))].index,true)};
+  $('gallery').append(card);
+ });
+ $('status').textContent='Previewing '+themes[selected].name;$('apply').disabled=!items.length;
+ if(focusIndex!==null){const card=$('gallery').querySelector(`[data-index="${focusIndex}"]`);card?.focus();card?.scrollIntoView({block:'nearest'})}
+}
+function choose(index,focus=false){selected=index;preview(index);render(focus?index:null)}
+function open(){opener=document.activeElement===document.body?$('open'):document.activeElement;selected=saved[$('workspace').selectedIndex];filter='all';$('search').value='';document.querySelectorAll('[data-filter]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.filter==='all')));$('title').textContent='Theme for '+$('workspace').value;$('picker').classList.toggle('light',Boolean(themes[selected].light));render();$('picker').showModal();$('search').focus()}
+function cancel(){preview(saved[$('workspace').selectedIndex]);$('picker').close();opener?.focus()}
+$('open').onclick=open;$('cancel').onclick=cancel;$('close').onclick=cancel;$('picker').addEventListener('cancel',event=>{event.preventDefault();cancel()});$('picker').addEventListener('keydown',event=>{if(event.key==='Enter'&&event.target===$('search')&&!$('apply').disabled){event.preventDefault();$('apply').click()}});
+$('apply').onclick=()=>{saved[$('workspace').selectedIndex]=selected;$('picker').close();opener?.focus();$('toast').textContent='Theme saved for '+$('workspace').value;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,2000)};
+$('search').oninput=()=>render();document.querySelectorAll('[data-filter]').forEach(button=>button.onclick=()=>{filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));render()});
+$('workspace').onchange=()=>preview(saved[$('workspace').selectedIndex]);
+preview(saved[0]);open();
+</script>
+</body>
+</html>
