@@ -321,8 +321,8 @@ reach search, results and Done. Test Enter/Space on buttons. In New workspace,
 visit name, folder, Cancel and Create. In Stop terminal or Start new shell,
 initial Enter/Space must do nothing; Tab selects Cancel, then the confirmation.
 Open help with Command+Option+/, focus Edit shortcuts or Done, and verify Escape
-returns to the previous Overview filter and focus. In Appearance, visit scope,
-follow, filters, inheritance and Cancel/Apply; Escape must restore prior colors.
+returns to the previous Overview filter and focus. In Appearance, visit search, gallery, close,
+filters, reset and Cancel/Apply; Escape must restore prior colors.
 Native focus and keyboard-layout acceptance of this slice is pending.
 
 ### Typography and Retina review
@@ -375,3 +375,17 @@ After pulling/building this slice:
 Density transitions write `Display backing scale updated: ...; logical cells ...
 retained` to `viewer.log`. These logs and the live Linux callback/geometry checks
 support diagnosis; native Mac hardware acceptance remains pending.
+
+
+### Workspace-first theme review
+
+Open Change appearance in a workspace. Confirm its name in the title, search
+Dawn/Dracula and preview: inheriting terminals and chrome should change while
+the picker surface stays steady. Cancel restores both. Apply to workspace saves
+only that workspace's palette, retaining existing preferences and live shells.
+Repeat from Overview, with an empty workspace, and in a narrow window.
+
+Use a pane's Terminal theme menu for an exception. The workspace picker should
+report it and preserve its colors; Use workspace clears it only on Apply.
+Verify reopening, Tab/Shift+Tab, Enter/Escape, dotfile defaults and explicitly
+fixed chrome (`follow-workspace = false`). Native acceptance is pending.

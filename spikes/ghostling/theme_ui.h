@@ -1,5 +1,5 @@
 /* A client-only live appearance preview. Cancel restores the exact prior theme. */
-/* Focus order: search, palette grid, four scopes, follow, three filters, clear, inherit, Cancel, Apply. */
+/* Focus order: search, gallery, close, brightness filters, clear, reset, Cancel, Apply. */
 static Rectangle theme_button(void) { return (Rectangle){-1000,-1000,0,0}; }
 static Rectangle overview_theme_button(WorkspaceClient *client)
 {
@@ -9,13 +9,13 @@ static Rectangle overview_theme_button(WorkspaceClient *client)
 static Rectangle theme_bounds(void)
 {
     float width=GetScreenWidth()-40, height=GetScreenHeight()-40;
-    if (width>880) width=880;
+    if (width>836) width=836;
     if (height>640) height=640;
     return (Rectangle){(GetScreenWidth()-width)/2,(GetScreenHeight()-height)/2,width,height};
 }
 static Rectangle theme_grid(void)
 {
-    Rectangle b=theme_bounds(); return (Rectangle){b.x+24,b.y+164,b.width-48,b.height-238};
+    Rectangle b=theme_bounds(); return (Rectangle){b.x+24,b.y+140,b.width-48,b.height-228};
 }
 static int theme_columns(void) { return theme_bounds().width>=820 ? 3 : 2; }
 static float theme_card_height(void) { return theme_grid().height<112 ? theme_grid().height : 112; }
@@ -48,6 +48,10 @@ static int theme_find(WorkspaceClient *client, const Theme *theme)
 #include "appearance_client.h"
 static void theme_prepare_gallery(WorkspaceClient *client)
 {
+    WorkbenchWorkspace *workspace=theme_dialog_workspace(client);
+    client->theme_target_live=workspace!=NULL;client->theme_exceptions=0;
+    if (workspace && client->theme_scope==1) for (int p=0;p<workspace->count;p++)
+        client->theme_exceptions+=appearance_binding(client->appearance.terminals,client->appearance.terminal_count,workspace->panes[p]->id)!=NULL;
     const Theme *theme=theme_target(client);
     client->theme_selected=theme_find(client,theme);
     client->theme_has_custom=client->theme_selected==THEME_CATALOG_COUNT;
@@ -56,47 +60,56 @@ static void theme_prepare_gallery(WorkspaceClient *client)
     if (client->theme_first<0) client->theme_first=0;
     client->theme_query[0]='\0'; client->theme_error[0]='\0';
 }
-static void theme_open(WorkspaceClient *client)
+static void theme_open_target(WorkspaceClient *client,bool terminal)
 {
     theme_sync(client);client->divider_dragging=false;
-    client->theme_focus=(UiFocus){.item=0};
-    client->theme_open=true; client->appearance_before=client->appearance; client->theme_scope=0;
+    WorkbenchWorkspace *workspace=&client->workspaces[client->active];WorkbenchPane *pane=theme_focused(client);
+    client->theme_focus=(UiFocus){.item=0};client->theme_open=true;
+    client->appearance_before=client->appearance;client->theme_scope=terminal ? 2 : 1;client->theme_reset=false;
+    snprintf(client->theme_workspace,sizeof(client->theme_workspace),"%s",workspace->id);
+    snprintf(client->theme_terminal,sizeof(client->theme_terminal),"%s",terminal && pane ? pane->id : "");
+    snprintf(client->theme_name,sizeof(client->theme_name),"%s",terminal && pane ? pane->name : workspace->name);
+    if (!terminal && workspace->id[0]) {
+        client->appearance.follow=theme_follow_policy(client);client->appearance_dirty=true;theme_sync(client);
+    }
+    client->theme_surface=ui; /* Dialogs keep the application surface, including fixed chrome. */
     theme_prepare_gallery(client);
     if (client->overview_open) overview_animation_target(&client->overview_animation,1,GetTime(),0);
 }
+static void theme_open(WorkspaceClient *client) {theme_open_target(client,false);}
 static void theme_select(WorkspaceClient *client, int selected)
 {
-    client->theme_selected=selected; client->theme_error[0]='\0';
+    client->theme_selected=selected;client->theme_reset=false;client->theme_error[0]='\0';
     theme_apply(client,*theme_choice(client,selected));
 }
 static void theme_inherit(WorkspaceClient *client)
 {
-    AppearanceState *state=&client->appearance;
-    if (client->theme_scope==1) appearance_set(state->workspaces,&state->workspace_count,APPEARANCE_WORKSPACES,theme_workspace_id(client),NULL);
-    if (client->theme_scope==2) { WorkbenchPane *pane=theme_focused(client); if (pane) appearance_set(state->terminals,&state->terminal_count,APPEARANCE_TERMINALS,pane->id,NULL); }
-    client->appearance_dirty=true; theme_sync(client); theme_prepare_gallery(client);
+    if (!theme_dialog_workspace(client)) return;
+    AppearanceState *state=&client->appearance;client->theme_reset=true;
+    if (client->theme_scope==1) appearance_set(state->workspaces,&state->workspace_count,APPEARANCE_WORKSPACES,client->theme_workspace,NULL);
+    else appearance_set(state->terminals,&state->terminal_count,APPEARANCE_TERMINALS,client->theme_terminal,NULL);
+    client->appearance_dirty=true;theme_sync(client);theme_prepare_gallery(client);
 }
-static Rectangle theme_scope_button(int index)
-{
-    Rectangle b=theme_bounds(); const int x[]={24,124,238,342}, width[]={92,106,96,114};
-    return (Rectangle){b.x+x[index],b.y+82,width[index],28};
-}
-static Rectangle theme_follow_button(void)
-{
-    Rectangle b=theme_bounds(); return (Rectangle){b.x+b.width-252,b.y+82,228,28};
-}
+static Rectangle theme_search(void)
+{Rectangle b=theme_bounds();return (Rectangle){b.x+24,b.y+94,b.width-276,32};}
+static Rectangle theme_filter_button(int index)
+{Rectangle b=theme_bounds();return (Rectangle){b.x+b.width-232+index*70,b.y+94,66,32};}
+static Rectangle theme_close_button(void)
+{Rectangle b=theme_bounds();return (Rectangle){b.x+b.width-58,b.y+20,34,30};}
+static Rectangle theme_apply_button(void)
+{Rectangle b=theme_bounds();return (Rectangle){b.x+b.width-194,b.y+b.height-48,170,32};}
+static Rectangle theme_cancel_button(void)
+{Rectangle b=theme_bounds();return (Rectangle){b.x+b.width-284,b.y+b.height-48,80,32};}
 static void theme_input(WorkspaceClient *client)
 {
-    Rectangle focus_bounds=theme_bounds();
     int indices[THEME_CATALOG_COUNT+2],count=theme_matches(client,indices);
-    uint32_t enabled=0x3fff;
-    if (!theme_focused(client)) enabled&=~ui_focus_bit(4);
-    if (!client->count) enabled&=~ui_focus_bit(3);
+    uint32_t enabled=0x3f87;
+    bool live=client->theme_target_live;
+    if (!live) enabled&=~(ui_focus_bit(1)|ui_focus_bit(11)|ui_focus_bit(13));
     if (!client->theme_query[0]) enabled&=~ui_focus_bit(10);
-    if (client->theme_scope!=1 && client->theme_scope!=2) enabled&=~ui_focus_bit(11);
     if (!count) enabled&=~(ui_focus_bit(1)|ui_focus_bit(13));
     ui_focus_begin(&client->theme_focus,enabled,enabled&~3u);
-    ui_focus_hit(&client->theme_focus,0,(Rectangle){focus_bounds.x+252,focus_bounds.y+118,focus_bounds.width-310,28});
+    ui_focus_hit(&client->theme_focus,0,theme_search());
     ui_focus_hit(&client->theme_focus,1,theme_grid());
     bool escape=false,enter=false,changed=false; int direction=0,key;
     while ((key=GetKeyPressed())!=0) {
@@ -119,20 +132,13 @@ static void theme_input(WorkspaceClient *client)
     if (client->theme_focus.item>1) direction=0;
     Rectangle bounds=theme_bounds(),grid=theme_grid(); Vector2 pointer=GetMousePosition();
     bool click=IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-    for (int i=0;i<4;i++) {
-        bool enabled=i!=1 && i!=2 ? true : i==1 ? client->count>0 : theme_focused(client)!=NULL;
-        if (enabled && ui_focus_hit(&client->theme_focus,i+2,theme_scope_button(i))) { client->theme_scope=i; theme_prepare_gallery(client); changed=true; }
-    }
-    if (ui_focus_hit(&client->theme_focus,6,theme_follow_button())) {
-        client->appearance.follow=!client->appearance.follow; client->appearance_dirty=true; theme_sync(client);
-    }
     Rectangle inherit={bounds.x+24,bounds.y+bounds.height-48,150,30};
     if ((client->theme_scope==1 || client->theme_scope==2) && ui_focus_hit(&client->theme_focus,11,inherit)) { theme_inherit(client); changed=true; }
     for (int i=0;i<3;i++) {
-        Rectangle tab={bounds.x+24+i*72,bounds.y+118,64,28};
+        Rectangle tab=theme_filter_button(i);
         if (ui_focus_hit(&client->theme_focus,i+7,tab) && i!=client->theme_filter) { client->theme_filter=i; changed=true; }
     }
-    Rectangle clear={bounds.x+bounds.width-52,bounds.y+118,28,28};
+    Rectangle search=theme_search();Rectangle clear={search.x+search.width-30,search.y+2,28,28};
     if (ui_focus_hit(&client->theme_focus,10,clear)) { client->theme_query[0]='\0'; changed=true; }
     if (changed) count=theme_matches(client,indices);
     int position=-1;
@@ -161,49 +167,54 @@ static void theme_input(WorkspaceClient *client)
     for (int i=0;i<count;i++) {
         if (click && CheckCollisionPointRec(pointer,grid) && CheckCollisionPointRec(pointer,theme_card(i,client->theme_first))) theme_select(client,indices[i]);
     }
-    Rectangle cancel={bounds.x+bounds.width-208,bounds.y+bounds.height-48,80,30};
-    Rectangle apply={bounds.x+bounds.width-118,bounds.y+bounds.height-48,94,30};
-    if (escape || ui_focus_hit(&client->theme_focus,12,cancel)) {
+    Rectangle cancel=theme_cancel_button();
+    Rectangle apply=theme_apply_button();
+    if (escape || ui_focus_hit(&client->theme_focus,2,theme_close_button()) || ui_focus_hit(&client->theme_focus,12,cancel)) {
         client->appearance=client->appearance_before; client->appearance_dirty=true; theme_sync(client); client->theme_open=false;
-    } else if (count && ((enter && client->theme_focus.item<=1) || ui_focus_hit(&client->theme_focus,13,apply))) {
-        if (theme_save(client)) { client->theme_open=false; clipboard_notice("Appearance saved"); }
+    } else if (live && count && ((enter && client->theme_focus.item<=1) || ui_focus_hit(&client->theme_focus,13,apply))) {
+        client->theme_error[0]=0;
+        if (!client->theme_reset) theme_apply(client,*theme_choice(client,client->theme_selected));
+        if (!client->theme_error[0] && theme_save(client)) { client->theme_open=false; clipboard_notice(client->theme_scope==2 ? "Terminal theme saved" : "Workspace theme saved"); }
     }
 }
-static void theme_draw(WorkspaceClient *client)
+static void theme_draw_contents(WorkspaceClient *client)
 {
     Rectangle bounds=theme_bounds(),grid=theme_grid();
     DrawRectangle(0,0,GetScreenWidth(),GetScreenHeight(),(Color){0,0,0,75});
     ui_panel(bounds,ui.surface,true);
-    DrawTextEx(client->ui_font,"Appearance",(Vector2){bounds.x+24,bounds.y+22},UI_TEXT_DISPLAY,0,ui.text);
-    char target[160];
-    WorkbenchWorkspace *workspace=&client->workspaces[client->active]; WorkbenchPane *focused=theme_focused(client);
-    if (client->theme_scope==1) snprintf(target,sizeof(target),"Workspace: %s%s",workspace->name,appearance_binding(client->appearance.workspaces,client->appearance.workspace_count,workspace->id) ? "" : " / inherits defaults");
-    else if (client->theme_scope==2) snprintf(target,sizeof(target),"Terminal: %s%s",focused ? focused->name : "none",focused && appearance_binding(client->appearance.terminals,client->appearance.terminal_count,focused->id) ? "" : " / inherits workspace");
-    else snprintf(target,sizeof(target),"%s",client->theme_scope==3 ? "Default colors for terminals without a workspace theme" : "Application colors / choosing a palette keeps chrome stable");
-    DrawTextEx(client->ui_font,target,(Vector2){bounds.x+24,bounds.y+53},UI_TEXT_CAPTION,0,ui.muted);
-    const char *scopes[]={"Application","Workspace","Terminal","Defaults"};
-    for (int i=0;i<4;i++) {
-        bool enabled=i!=1 && i!=2 ? true : i==1 ? client->count>0 : focused!=NULL;
-        Rectangle tab=theme_scope_button(i); ui_focus_button(client->ui_font,client->theme_focus,i+2,tab,scopes[i],enabled);
-        if (client->theme_scope==i) DrawRectangleRoundedLinesEx(tab,.2f,8,1,ui.accent);
+    bool live=client->theme_target_live;char title[160],description[192];
+    const char *name=client->theme_name[0] ? client->theme_name : "workspace";
+    snprintf(title,sizeof(title),"Theme for %s",name);
+    if (!live) snprintf(description,sizeof(description),"This target was closed. Cancel to return.");
+    else if (client->theme_scope==2) snprintf(description,sizeof(description),"Custom colors for this terminal. The workspace keeps its theme.");
+    else {
+        int exceptions=client->theme_exceptions;
+        if (exceptions) snprintf(description,sizeof(description),"Give this workspace its own look. %d terminal%s keep%s custom colors.",exceptions,exceptions==1 ? "" : "s",exceptions==1 ? "s" : "");
+        else snprintf(description,sizeof(description),"Give this workspace its own look.%s",theme_follow_policy(client) ? "" : " Chrome stays fixed by configuration.");
     }
-    Rectangle follow=theme_follow_button();
-    ui_focus_button(client->ui_font,client->theme_focus,6,follow,client->appearance.follow ? "[x] Follow active workspace" : "[ ] Follow active workspace",true);
-    if (client->appearance.follow) DrawRectangleRoundedLinesEx(follow,.2f,8,1,ui.accent);
+    BeginScissorMode((int)bounds.x+24,(int)bounds.y+20,(int)bounds.width-94,64);
+    DrawTextEx(client->ui_font,title,(Vector2){bounds.x+24,bounds.y+22},UI_TEXT_DISPLAY,0,ui.text);
+    DrawTextEx(client->ui_font,description,(Vector2){bounds.x+24,bounds.y+57},UI_TEXT_CAPTION,0,ui.muted);
+    EndScissorMode();
+    Rectangle close=theme_close_button();
+    ui_focus_button(client->ui_font,client->theme_focus,2,close,"",true);
+    Vector2 centre={close.x+close.width/2,close.y+close.height/2};
+    DrawLineEx((Vector2){centre.x-4,centre.y-4},(Vector2){centre.x+4,centre.y+4},1.5f,ui.muted);
+    DrawLineEx((Vector2){centre.x-4,centre.y+4},(Vector2){centre.x+4,centre.y-4},1.5f,ui.muted);
     const char *filters[]={"All","Dark","Light"};
     for (int i=0;i<3;i++) {
-        Rectangle tab={bounds.x+24+i*72,bounds.y+118,64,28};
+        Rectangle tab=theme_filter_button(i);
         ui_focus_button(client->ui_font,client->theme_focus,i+7,tab,filters[i],true);
         if (client->theme_filter==i) DrawRectangleRoundedLinesEx(tab,.2f,8,1,ui.accent);
     }
-    Rectangle search={bounds.x+252,bounds.y+118,bounds.width-276,28};
+    Rectangle search=theme_search();
     DrawRectangleRounded(search,.22f,8,ui.background);
     DrawRectangleRoundedLinesEx(search,.22f,8,1,ui.border);
     ui_focus_ring(client->theme_focus,0,search);
     BeginScissorMode((int)search.x+8,(int)search.y,(int)search.width-42,(int)search.height);
-    DrawTextEx(client->ui_font,client->theme_query[0] ? client->theme_query : "Type to search palettes...",(Vector2){search.x+8,search.y+7},UI_TEXT_CAPTION,0,client->theme_query[0] ? ui.text : ui.muted);
+    DrawTextEx(client->ui_font,client->theme_query[0] ? client->theme_query : "Search themes",(Vector2){search.x+8,search.y+7},UI_TEXT_CAPTION,0,client->theme_query[0] ? ui.text : ui.muted);
     EndScissorMode();
-    if (client->theme_query[0]) ui_focus_button(client->ui_font,client->theme_focus,10,(Rectangle){bounds.x+bounds.width-52,bounds.y+118,28,28},"x",true);
+    if (client->theme_query[0]) ui_focus_button(client->ui_font,client->theme_focus,10,(Rectangle){search.x+search.width-30,search.y+2,28,28},"x",true);
     int indices[THEME_CATALOG_COUNT+2],count=theme_matches(client,indices);
     BeginScissorMode((int)grid.x,(int)grid.y,(int)grid.width,(int)grid.height);
     if (!count) DrawTextEx(client->ui_font,"No palettes match / change the search or filter",(Vector2){grid.x+16,grid.y+24},UI_TEXT_BODY,0,ui.muted);
@@ -225,7 +236,10 @@ static void theme_draw(WorkspaceClient *client)
         if (sample.height>=50) for (int c=0;c<16;c++) DrawRectangleRounded((Rectangle){sample.x+10+c*swatch,sample.y+sample.height-20,swatch-2,10},.2f,4,ui_color(theme->palette[c]));
         }
         if (selected) ui_focus_ring(client->theme_focus,1,card);
-        if (selected) DrawRectangleRoundedLinesEx(card,.06f,8,2,ui.accent);
+        if (selected) {
+            DrawRectangleRoundedLinesEx(card,ui_roundness(card,8),8,1.001f,ui.accent);
+            DrawCircle((int)(card.x+card.width-13),(int)(card.y+13),3,ui.accent);
+        }
     }
     EndScissorMode();
     int rows=(count+theme_columns()-1)/theme_columns();
@@ -233,15 +247,23 @@ static void theme_draw(WorkspaceClient *client)
         float thumb=grid.height*theme_rows_visible()/rows;
         DrawRectangleRounded((Rectangle){grid.x+grid.width+8,grid.y+client->theme_first*(grid.height-thumb)/(rows-theme_rows_visible()),3,thumb},.5f,4,ui.muted);
     }
-    int ignored=client->theme_selected<THEME_CATALOG_COUNT ? client->theme_catalog_ignored[client->theme_selected] : client->theme_selected==THEME_CATALOG_COUNT+1 || (client->theme_has_import && !memcmp(theme_choice(client,client->theme_selected),&client->theme_imported,sizeof(Theme))) ? client->theme_ignored : 0;
-    const char *notice=client->theme_error[0] ? client->theme_error : ignored ? "Color fields applied / other Ghostty options ignored" : "Tab focuses / Arrows preview / Enter applies / Esc restores";
-    DrawTextEx(client->ui_font,notice,(Vector2){bounds.x+24,bounds.y+bounds.height-64},UI_TEXT_CAPTION,0,client->theme_error[0] ? ui.danger : ui.muted);
+    char preview[160];
+    if (client->theme_reset) snprintf(preview,sizeof(preview),"Using %s theme",client->theme_scope==2 ? "workspace" : "default");
+    else snprintf(preview,sizeof(preview),"Previewing %s",theme_catalog_name(client->theme_selected));
+    const char *notice=client->theme_error[0] ? client->theme_error : preview;
+    DrawTextEx(client->ui_font,notice,(Vector2){bounds.x+24,bounds.y+bounds.height-74},UI_TEXT_CAPTION,0,client->theme_error[0] ? ui.danger : ui.muted);
     char label[64]; snprintf(label,sizeof(label),"%d palette%s",count,count==1 ? "" : "s");
-    bool inherits=client->theme_scope==1 || client->theme_scope==2;
-    if (inherits) ui_focus_button(client->ui_font,client->theme_focus,11,(Rectangle){bounds.x+24,bounds.y+bounds.height-48,150,30},client->theme_scope==1 ? "Use defaults" : "Use workspace",true);
+    bool inherits=live;
+    if (inherits) ui_focus_button(client->ui_font,client->theme_focus,11,(Rectangle){bounds.x+24,bounds.y+bounds.height-48,150,30},client->theme_scope==1 ? "Use default theme" : "Use workspace",true);
     DrawTextEx(client->ui_font,label,(Vector2){bounds.x+(inherits ? 186 : 24),bounds.y+bounds.height-35},UI_TEXT_CAPTION,0,ui.muted);
-    Rectangle cancel={bounds.x+bounds.width-208,bounds.y+bounds.height-48,80,30};
-    Rectangle apply={bounds.x+bounds.width-118,bounds.y+bounds.height-48,94,30};
+    Rectangle cancel=theme_cancel_button();
+    Rectangle apply=theme_apply_button();
     ui_focus_button(client->ui_font,client->theme_focus,12,cancel,"Cancel",true);
-    ui_focus_action(client->ui_font,client->theme_focus,13,apply,"Apply",count>0,false);
+    ui_focus_primary(client->ui_font,client->theme_focus,13,apply,client->theme_scope==2 ? "Apply to terminal" : "Apply to workspace",count>0 && live);
+}
+
+static void theme_draw(WorkspaceClient *client)
+{
+    /* Freeze the picker tokens; surrounding workspace colors still preview live. */
+    UiStyle surrounding=ui;ui=client->theme_surface;theme_draw_contents(client);ui=surrounding;
 }

@@ -33,3 +33,15 @@ static void ui_focus_action(Font font, UiFocus focus, int item, Rectangle bounds
     }
     ui_focus_ring(focus,item,bounds);
 }
+
+/* Filled primary action, with the existing hover/press/focus behavior. */
+static void ui_focus_primary(Font font,UiFocus focus,int item,Rectangle bounds,const char *label,bool enabled)
+{
+    UiStyle original=ui;
+    if (enabled) {
+        Color ink=ui.accent.r*.2126f+ui.accent.g*.7152f+ui.accent.b*.0722f>140
+            ? (Color){20,27,34,255} : (Color){246,248,250,255};
+        ui.raised=ui.accent;ui.hover=ui_mix(ui.accent,ink,.10f);ui.selected=ui_mix(ui.accent,ink,.18f);ui.text=ink;
+    }
+    draw_header_button(font,bounds,label,enabled);ui=original;ui_focus_ring(focus,item,bounds);
+}

@@ -157,8 +157,8 @@ management of shell dotfiles is a separate possible integration.
 
 Acceptance: a shared dotfiles setup loads on both platforms, UI edits have a
 predictable destination, malformed settings retain a usable app, and migration
-preserves existing preferences and running terminals. Format and detailed
-precedence remain design decisions for this milestone.
+preserves existing preferences and running terminals. The first slice documents its format and precedence; the remaining settings
+and native acceptance still belong to this milestone.
 
 The first dotfiles slice now implements shared/platform appearance and shortcuts,
 native user configuration paths, read-only managed/symlinked settings, sparse
@@ -284,9 +284,12 @@ chrome previewing together, and a steady picker surface. The scope tabs and
 follow checkbox disappear from that flow. Terminal exceptions can remain in the
 pane menu for remote-box colors; defaults remain in dotfiles.
 
-This is a browser design study; the native app and saved palettes are unchanged.
-Native implementation must preserve existing preferences and establish the
-chrome-follow/terminal-exception policy. See [design requirements](workspace-appearance-study.md).
+The owner approved the study. The native picker now implements workspace-first
+selection, fixed picker surfaces, clear Apply/Cancel and a separate terminal
+exception entry in the pane menu. Existing palettes and persistence formats stay
+intact. Workspace preview follows chrome automatically unless dotfiles explicitly
+request fixed chrome; Cancel restores the prior follow state. Native Mac review
+remains open. See [design requirements](workspace-appearance-study.md).
 
 ## Next UX slice: terminal font size
 

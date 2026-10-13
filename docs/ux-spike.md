@@ -599,3 +599,40 @@ window every 250ms/on resize, outside pane loops. Resource renewal runs only on
 density transitions, with hidden presentation rebuilt lazily. Horizontal input
 uses bounded scalar pane geometry, without process reads or terminal snapshots.
 Native Mac external-screen/unplug, physical trackpad and GPU review remain open.
+
+
+## Native workspace-first Appearance
+
+The owner approved the workspace-first browser study. The native picker now
+names the active workspace, provides search/brightness filters and a filled
+Apply to workspace action, and removes target tabs and the text follow checkbox.
+Terminal exceptions remain in the pane menu, with a quiet count in the workspace
+picker. Use default theme/Use workspace explicitly resets inheritance. Apply
+pins the selected palette even when it matches the inherited default.
+
+The picker captures application surface tokens after establishing its preview
+policy, then keeps them steady. Surrounding terminals/chrome preview together;
+explicit dotfile fixed-chrome policy stays available. Cancel restores the full
+previous appearance and follow state. Existing application/default/workspace/
+terminal records and formats are retained. Editing uses captured IDs, cached
+target labels/exception counts and the existing deferred-catalog-refresh guard.
+The render path does not perform identity scans, snapshots or filesystem reads.
+
+Linux native build and full `just check` pass. GUI checks cover one/fifteen
+terminals, workspace/chrome preview, steady surfaces, no matches, failed save,
+cancel/reopen, terminal exceptions and scheme replies, reset/inheritance,
+identity moves, imported palettes, legacy/corrupt preference isolation and live
+PID/socket/grid preservation. Dotfiles checks cover explicit Apply of the default,
+managed-file preservation, saved workspace choices, reset to managed defaults,
+fixed chrome and its picker surface, plus empty workspaces. Focus, Commands,
+minimal chrome, Retina and fifteen-terminal 2x navigation checks pass.
+
+The latest two-second fixed overview samples measured 235.5% / 240.0% CPU for
+one/fifteen terminals with Dawn (+1.9%), and 238.0% / 233.5% with Night (-1.9%).
+These Xvfb/llvmpipe diagnostics are noisy and do not establish native GPU frame
+pacing. Per-pane presentation paths and hidden-pane early exits stay intact;
+picker metadata is computed on opening/reset, rather than per rendered card/pane.
+Review captures include `.local/test-results/ux-{1,15}-workspace-picker-preview.png`,
+`ux-15-workspace-with-exception.png`, `dotfiles-fixed-picker.png` and focus/Retina
+captures. Native Mac review remains pending; see the Mac workspace-theme steps.
+Font-size controls remain the next slice.

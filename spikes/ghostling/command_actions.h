@@ -14,7 +14,7 @@ typedef enum {
 typedef struct { const char *title, *detail; } CommandDefinition;
 static const CommandDefinition command_definitions[COMMAND_COUNT]={
     {"Open overview","Search workspaces and terminals"},
-    {"Change appearance","Themes and application colors"},
+    {"Change appearance","Choose a theme for the active workspace"},
     {"New workspace","Create a project and its first shell"},
     {"Rename workspace","Edit this workspace's name"},
     {"Change project folder","Where new and replacement shells start"},

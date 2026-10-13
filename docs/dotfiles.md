@@ -74,9 +74,12 @@ Global appearance and shortcuts resolve as:
 4. UI overrides in `ui/linux/` or `ui/macos/` below the configuration directory.
 
 Shortcut editing saves only differences from the managed baseline; Default
-returns that action to its configured binding. Appearance saves only the global
-fields changed by Apply. Editing the application theme therefore does not hide
-future managed-file edits to the terminal default. Cancel never saves.
+returns that action to its configured binding. The workspace-first picker saves
+workspace/terminal palettes with local session identities. Automatic chrome-follow
+saves only its changed global field, preserving other managed defaults. Global
+palette choices remain dotfile settings; existing global UI overrides still load.
+An explicit `follow-workspace = false` keeps chrome fixed during workspace theme
+selection. Cancel never saves.
 UI files use private, atomic replacements. The managed file, comments and
 symlink remain untouched. Other windows reread shortcut UI edits when opening
 Shortcut settings; appearance UI edits load when a new window opens. Managed

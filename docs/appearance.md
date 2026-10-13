@@ -4,43 +4,48 @@ The workspace client now has shared surface, text, focus and status colors, roun
 controls, and a live appearance picker. These are the first runnable UX slice;
 owner review and native platform validation are still required.
 
-Choose **Change appearance** in the hamburger menu, or **Theme** in the overview. A pane’s three-dot menu opens **Terminal theme**
-with that terminal’s scope selected.
-The picker has four targets:
+Choose **Change appearance** in the hamburger menu or **Theme** in Overview.
+The picker now chooses a theme for the active workspace. Its title names that
+workspace, and **Apply to workspace** makes the destination explicit. There are
+no Application/Workspace/Terminal/Defaults tabs or follow checkbox.
 
-| Target | What changes |
-| --- | --- |
-| Application | Sidebar, dialogs, overview surfaces and other chrome |
-| Workspace | Terminal colors for the active workspace |
-| Terminal | An override for the focused terminal, such as a remote shell |
-| Defaults | Fallback terminal colors for workspaces without a theme |
+Browse sample cards, type to search, and filter **All**, **Dark** or **Light**.
+Click a card or use arrows to preview. The workspace's inheriting terminals and
+chrome preview together; the picker keeps the surface colors captured at opening
+so its controls stay readable. **Cancel**, Escape or the close icon restores the
+entire previous appearance. Save failures keep the preview open for retry/cancel.
+Tab traverses search, gallery, close, filters, clear, reset and Cancel/Apply.
+Backspace edits search; Ctrl+A (Command+A on Mac) and the clear button clear it.
+Apply pins the selected palette even when it currently matches the default.
+Apply is disabled when no theme matches. **Use default theme** previews removing
+the workspace override; Apply saves the reset.
 
-Terminal colors resolve in this order: terminal override → workspace palette →
-default terminal palette. The application palette is separate. Stable chrome
-is the default: **Follow active workspace** starts unchecked. Checking it makes
-application colors follow the
-workspace palette, including its inherited default. A terminal override never
-changes chrome in this mode. Choosing an Application palette returns to stable
-chrome. This gives you project/machine colors while keeping the overview coherent.
+Opening the workspace picker previews matching chrome by default; Apply saves
+that follow preference, and Cancel restores its previous value. An explicit
+dotfile `follow-workspace = false` requests fixed chrome and is respected by the
+picker. Application colors and default terminal colors remain advanced dotfile
+settings. Existing colors/follow preferences are loaded without being flattened
+or rewritten merely by upgrading or opening a window.
 
-Browse sample cards, type to search names, and filter **All**, **Dark** or **Light**.
-Click a card or use arrows to preview. Scroll smaller grids. Backspace edits the
-search; Ctrl+A (Command+A on Mac) or the clear button clears it. With no matches,
-Apply is disabled. **Use defaults** removes a workspace override;
-**Use workspace** removes a terminal override.
+### Terminal exceptions
 
-Switching targets keeps your pending changes. **Apply** / Enter saves the entire
-appearance dialog; **Cancel** / Escape restores all palettes, inheritance and
-follow mode from before opening. Save failures keep the preview open for retry or
-cancel. Output continues while the picker owns input. Palette changes do not
-restart shells, change PTY sizes, clear selection or send typed input to terminals.
-Every overview thumbnail retains that terminal's own colors.
+A pane's three-dot menu opens **Terminal theme…**, a separate picker for that
+terminal's custom colors. **Use workspace** previews clearing the exception.
+**Apply to terminal** saves it; Cancel restores it. A terminal exception never
+changes chrome. The main workspace picker quietly reports how many terminals
+keep custom colors, rather than presenting another scope to choose.
 
-Themes follow stable IDs through renaming and reordering. Moving a terminal with
-an override keeps its colors; moving an inheriting terminal adopts the destination
-workspace palette. Newly created terminals inherit their workspace. Closed entities'
-preferences are pruned when organization is reconciled. Themes do not change shared
-runtime/session metadata or detect remote hosts automatically.
+Terminal colors still resolve as terminal exception → workspace → default.
+New terminals inherit the workspace, and empty workspaces can be themed before
+their first terminal exists. Themes follow stable IDs through renaming/reordering;
+moving an exception keeps its colors and moving an inheriting terminal adopts
+its destination workspace palette. Closed entities' preferences are pruned when
+organization is reconciled. Catalog refresh remains deferred during a dialog,
+and edit targets are captured by ID, so a pending update cannot redirect the edit.
+
+Palette changes never restart shells, resize PTYs, clear selection or send dialog
+input to terminals. Every Overview thumbnail retains its terminal's colors.
+Global/scoped persistence formats and theme-file compatibility remain unchanged.
 
 The offline gallery includes:
 
@@ -66,7 +71,7 @@ WORKBENCH_THEME=/absolute/path/to/theme just spike
 `WORKBENCH_THEME` overrides default terminal colors on each launch; explicit
 workspace/terminal palettes retain priority, and application appearance stays
 independent. A non-bundled imported palette is available as **Imported colors**
-for any picker target. A target's existing custom palette appears as **Custom
+in the workspace or terminal picker. A target's existing custom palette appears as **Custom
 colors**. Unset the environment variable to use saved defaults. Saved colors are
 matched to bundled palettes when reopening.
 The loader accepts this subset of Ghostty configuration syntax:
@@ -88,7 +93,8 @@ Named colors, inline comments, includes, cursor text color, fonts, opacity and s
 light/dark following are outside this first slice.
 
 Normal launches now load portable shared/platform global colors followed by
-separate UI overrides. Global Apply saves only edited fields outside the checkout;
+separate UI overrides. Automatic chrome-follow changes save only the follow field outside the
+checkout;
 workspace/terminal bindings remain local to the session directory. See
 [dotfiles](dotfiles.md) for configuration, migration and precedence. The following
 legacy state format still holds scoped palettes and supports standalone test clients.

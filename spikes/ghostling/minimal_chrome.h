@@ -76,7 +76,7 @@ static void chrome_activate(WorkspaceClient *client,int action,int index)
             management_move_start(client,workspace->panes[workspace->focused]->id,client->workspaces[index].id,client->workspaces[index].count);
     } else {
         if (action==COMMAND_APPEARANCE && kind==2) {
-            command_dispatch(client,action);client->theme_scope=2;theme_prepare_gallery(client);
+            theme_open_target(client,true);
         } else command_dispatch(client,action);
     }
     if (client->dialog_open || client->theme_open || client->command_open || client->help_open || client->overview_open)

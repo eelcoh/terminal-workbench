@@ -27,7 +27,8 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
     if (command==COMMAND_HELP) return NULL;
     if (client->management_busy) return "A session change is still being saved";
     switch (command) {
-    case COMMAND_OVERVIEW: case COMMAND_APPEARANCE: case COMMAND_PALETTE: case COMMAND_SHORTCUTS: return NULL;
+    case COMMAND_OVERVIEW: case COMMAND_PALETTE: case COMMAND_SHORTCUTS: return NULL;
+    case COMMAND_APPEARANCE: return client->count ? NULL : "Create a workspace to choose a theme";
     case COMMAND_WIDTH_CYCLE: case COMMAND_WIDTH_FULL: case COMMAND_WIDTH_THIRD: case COMMAND_WIDTH_HALF: case COMMAND_WIDTH_TWO_THIRDS:
         return pane ? NULL : "This workspace has no terminals";
     case COMMAND_COPY: return pane && selection_active(pane->terminal) ? NULL : "Select terminal text to copy";

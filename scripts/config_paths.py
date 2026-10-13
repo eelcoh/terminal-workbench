@@ -11,7 +11,8 @@ EXAMPLE = '''workbench-config-v1
 [appearance]
 application-theme = Workbench Night
 terminal-theme = Workbench Night
-follow-workspace = false
+# Optional fixed chrome; workspace selection otherwise previews matching chrome.
+# follow-workspace = false
 # A theme can also be a Ghostty color file relative to this config file:
 # terminal-theme = themes/my-theme
 

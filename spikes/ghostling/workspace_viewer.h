@@ -110,7 +110,11 @@ typedef struct {
     Theme theme_custom, theme_imported;
     bool theme_has_import, appearance_dirty;
     AppearanceState appearance, appearance_before;
-    int theme_scope;
+    int theme_scope; /* Workspace (1) or pane-menu terminal exception (2). */
+    char theme_workspace[41],theme_terminal[41],theme_name[64];
+    UiStyle theme_surface;
+    bool theme_target_live,theme_reset;
+    int theme_exceptions;
     char appearance_active[41];
     char theme_path[1024], theme_error[256];
     int dialog_kind, management_fd;

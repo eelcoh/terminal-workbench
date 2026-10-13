@@ -12,9 +12,9 @@ static Color ui_mix(Color a, Color b, float amount)
 {
     return (Color){(unsigned char)(a.r+(b.r-a.r)*amount), (unsigned char)(a.g+(b.g-a.g)*amount), (unsigned char)(a.b+(b.b-a.b)*amount),255};
 }
-static void ui_theme_set(Theme theme)
+static UiStyle ui_style_for_theme(Theme theme)
 {
-    current_theme = theme;
+    UiStyle ui={0};
     bool light = theme_light(&theme);
     ui.background = ui_color(theme.background); ui.text = ui_color(theme.foreground);
     ui.surface = ui_mix(ui.background,ui.text,light ? .035f : .045f);
@@ -28,7 +28,11 @@ static void ui_theme_set(Theme theme)
     ui.danger = light ? (Color){160,43,54,255} : (Color){238,158,166,255};
     ui.waiting = light ? (Color){131,86,18,255} : (Color){230,198,137,255};
     ui.ready = light ? (Color){43,112,77,255} : (Color){165,210,177,255};
+    return ui;
 }
+static void ui_theme_set(Theme theme)
+{ current_theme=theme;ui=ui_style_for_theme(theme); }
+
 static float ui_roundness(Rectangle bounds, float radius)
 {
     return fminf(1,2*radius/fmaxf(1,fminf(bounds.width,bounds.height)));

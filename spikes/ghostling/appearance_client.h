@@ -45,22 +45,36 @@ static void theme_sync(WorkspaceClient *client)
     ui_theme_set(*appearance_chrome(&client->appearance,active));
     strcpy(client->appearance_active,active);
 }
+/* Dialog targets are stable IDs; catalog refresh must never redirect an edit. */
+static WorkbenchWorkspace *theme_dialog_workspace(WorkspaceClient *client)
+{
+    for (int w=0;w<client->count;w++) {
+        WorkbenchWorkspace *workspace=&client->workspaces[w];
+        if (client->theme_scope==1 && !strcmp(workspace->id,client->theme_workspace)) return workspace;
+        if (client->theme_scope==2) for (int p=0;p<workspace->count;p++)
+            if (!strcmp(workspace->panes[p]->id,client->theme_terminal)) return workspace;
+    }
+    return NULL;
+}
+static bool theme_follow_policy(WorkspaceClient *client)
+{ return client->config.has_follow ? client->config.follow : true; }
 static const Theme *theme_target(WorkspaceClient *client)
 {
-    AppearanceState *state=&client->appearance;
-    if (client->theme_scope==1) return appearance_workspace(state,theme_workspace_id(client));
-    if (client->theme_scope==2) { WorkbenchPane *pane=theme_focused(client); return pane ? appearance_terminal(state,theme_workspace_id(client),pane->id) : &state->defaults; }
-    return client->theme_scope==3 ? &state->defaults : &state->application;
+    WorkbenchWorkspace *workspace=theme_dialog_workspace(client);
+    if (!workspace) return &client->appearance.defaults;
+    return client->theme_scope==2 ? appearance_terminal(&client->appearance,workspace->id,client->theme_terminal)
+        : appearance_workspace(&client->appearance,workspace->id);
 }
-static void theme_apply(WorkspaceClient *client, Theme theme)
+static void theme_apply(WorkspaceClient *client,Theme theme)
 {
-    AppearanceState *state=&client->appearance; bool valid=true;
-    if (client->theme_scope==0) { state->application=theme; state->follow=false; }
-    if (client->theme_scope==1) valid=appearance_set(state->workspaces,&state->workspace_count,APPEARANCE_WORKSPACES,theme_workspace_id(client),&theme);
-    if (client->theme_scope==2) { WorkbenchPane *pane=theme_focused(client); valid=pane && appearance_set(state->terminals,&state->terminal_count,APPEARANCE_TERMINALS,pane->id,&theme); }
-    if (client->theme_scope==3) state->defaults=theme;
+    WorkbenchWorkspace *workspace=theme_dialog_workspace(client);
+    if (!workspace) {strcpy(client->theme_error,"This target was closed. Cancel to return.");return;}
+    AppearanceState *state=&client->appearance;
+    bool valid=client->theme_scope==2 ? appearance_set(state->terminals,&state->terminal_count,APPEARANCE_TERMINALS,client->theme_terminal,&theme)
+        : appearance_set(state->workspaces,&state->workspace_count,APPEARANCE_WORKSPACES,client->theme_workspace,&theme);
+    if (client->theme_scope==1) state->follow=theme_follow_policy(client);
     if (!valid) snprintf(client->theme_error,sizeof(client->theme_error),"Could not set appearance for this target");
-    client->appearance_dirty=true; theme_sync(client);
+    client->appearance_dirty=true;theme_sync(client);
 }
 static bool theme_load_path(const char *path, Theme *theme, int *ignored, char *error, size_t capacity)
 {

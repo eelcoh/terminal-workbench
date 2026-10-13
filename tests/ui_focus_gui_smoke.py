@@ -107,11 +107,11 @@ def main():
                 key('ctrl+shift+o');key('Tab');key('Tab');key('Tab');key('Tab');key('Tab');key('space') # Agents.
                 key('ctrl+shift+slash');key('Escape');key('space') # All terminals again.
                 key('Tab');key('space');safe('focus-overview-done')
-                # Appearance supports scope, follow and cancel without accidental Apply.
-                palette('Change appearance');key('Tab');key('Tab');key('Tab');key('space') # Workspace scope.
-                for _ in range(3):key('Tab')
-                key('space') # Follow toggle.
-                capture('focus-appearance-follow.png');key('Escape')
+                # Workspace picker traversal reaches filters/close/reset without scope tabs.
+                palette('Change appearance');key('Tab');key('Tab');key('space') # Close.
+                assert not (state/'appearance.state').exists()
+                palette('Change appearance');text('Dawn');key('Tab');key('Tab');key('Tab')
+                capture('focus-appearance-preview.png');key('Escape')
                 assert not (state/'appearance.state').exists()
                 palette('Change appearance');text('Dawn');key('shift+Tab');key('space') # Apply.
                 wait_until(lambda:(state/'appearance.state').exists())
@@ -152,7 +152,7 @@ def main():
                 if env.get('WORKBENCH_RENDER_SCALE')=='2':
                     assert 'Texture loaded successfully (1166x1400' in render_log, 'pane canvas remained at logical resolution'
                     assert 'Texture loaded successfully (1840x1156' in render_log, 'help cache remained at logical resolution'
-                print('PASS: forward/reverse focus traversal, text/button isolation, create/folder/save/cancel, help/settings/recorder, overview focus restoration, appearance scope/follow/apply/cancel, deliberate stop/recovery, narrow focus and live shell continuity')
+                print('PASS: forward/reverse focus traversal, text/button isolation, create/folder/save/cancel, help/settings/recorder, overview focus restoration, workspace theme preview/reset/apply/cancel, deliberate stop/recovery, narrow focus and live shell continuity')
             finally:
                 if sys.exc_info()[0]:
                     for sock in state.glob('*.sock'):

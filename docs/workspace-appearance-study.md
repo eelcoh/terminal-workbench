@@ -35,5 +35,9 @@ existing palettes and scoped records during any migration; do not silently flatt
 them. Chrome-follow defaults and advanced fixed-chrome preferences need an explicit
 policy, since the owner previously appreciated both independent and aligned chrome.
 
-This is a proposal for review. The native scope model and dotfiles format remain
-unchanged until the interaction policy is agreed.
+The owner approved this study. The native implementation now follows the main
+workspace flow, retaining terminal exceptions in the pane menu. It keeps existing
+preferences and formats, previews chrome-follow unless dotfiles explicitly request
+fixed chrome, and restores the previous follow state on Cancel. Picker tokens are
+captured at opening; targets use stable IDs and catalog refresh is deferred during
+editing. Native Mac acceptance remains open.

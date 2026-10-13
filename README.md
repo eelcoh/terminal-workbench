@@ -102,9 +102,10 @@ invocation; they do not edit global agent configuration. Existing shells need a
 new terminal for the updated runtime and PATH. See [hook details](docs/agent-attention.md).
 
 Use **Change appearance** in the hamburger menu or **Theme** in the overview to browse palettes.
-Choose **Application**, **Workspace**, **Terminal**, or **Defaults**. Terminal overrides
-inherit from workspace colors when cleared; workspace colors inherit from Defaults.
-Chrome stays stable by default; **Follow active workspace** enables matching chrome.
+Choose a theme for the active workspace; the title names its target and the
+picker surface stays steady during previews. Chrome follows the workspace unless
+dotfiles request fixed colors. **Terminal theme…** in a pane menu keeps optional
+remote-box colors separate; **Use workspace** clears that exception.
 Apply saves all pending changes; Cancel restores the whole dialog. The offline
 gallery includes Dracula and all four Catppuccin variants. Import Ghostty color
 fields with `WORKBENCH_THEME=/path/to/theme just spike` to set terminal defaults.
