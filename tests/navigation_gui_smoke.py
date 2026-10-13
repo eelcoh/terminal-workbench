@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Wide-workspace navigation, immediate typing and stable PTY geometry in Xvfb."""
+from chrome_gui_actions import position, workspace as chrome_workspace
+from gui_smoke import close_window
 from pathlib import Path
 import ctypes
 import fcntl
@@ -11,7 +13,6 @@ import sys
 import tempfile
 import termios
 import time
-from gui_smoke import close_window
 from pane_width_gui_checks import exercise_widths
 from theme_gui_smoke import pixel
 from session_smoke import attach, send, wait_until
@@ -105,13 +106,13 @@ def main():
                     target=artifacts/f'nav-{total}-{mode}-{tag}.png'; shutil.copyfile(image,target); key('ctrl+u'); return target
                 verify(0,'initial')
                 for p in range(active):
-                    click(363+p*14,16,.01); verify(p,f'position-{p}'); time.sleep(.2)
+                    click(position(p,active),20,.01); verify(p,f'position-{p}'); time.sleep(.2)
                 exercise_widths(active,click,key,cmd,window,geometry,capture,PANE_COLORS,verify)
                 baseline=geometry(); alive(); capture('positions')
                 if active>2:
                     # Confirm actual pixel movement, not just a completed focus change.
-                    click(363,16,1.35); start_image=capture('start')
-                    click(377,16,.04); click(286,16,.06); middle=capture('moving')
+                    click(position(0,active),20,1.35); start_image=capture('start')
+                    click(position(1,active),20,.04); key('ctrl+shift+Right');time.sleep(.06); middle=capture('moving')
                     time.sleep(.2); end_image=capture('settled')
                     if env.get('WORKBENCH_REDUCED_MOTION')!='1':
                         # Framebuffer readback may arrive at any point in the short
@@ -123,10 +124,10 @@ def main():
                     # Every intermediate pane must actually reach the screen, not
                     # just exist in a pure animation model. Distinct OSC backgrounds
                     # make the user's alternating-theme regression observable.
-                    click(363+7*14,16,1.35); jump_start=capture('jump-start')
+                    click(position(7,active),20,1.35); jump_start=capture('jump-start')
                     sampler=WindowSampler(env['DISPLAY'],window)
                     try:
-                        click(363,16,.06); seen=set(); until=time.monotonic()+1.4
+                        click(position(0,active),20,.06); seen=set(); until=time.monotonic()+1.4
                         while time.monotonic()<until:
                             seen.update(sampler.colors()); time.sleep(.012)
                     finally: sampler.close()
@@ -135,47 +136,47 @@ def main():
                     jump_end=capture('jump-settled')
                     assert pixel(jump_end,1220,700)!=pixel(jump_start,1220,700), 'long jump did not complete'
                     # Keep a midpoint artifact for native visual comparison.
-                    click(363+7*14,16,1.35); click(363,16,.5); capture('jump-moving'); time.sleep(.8)
+                    click(position(7,active),20,1.35); click(position(0,active),20,.5); capture('jump-moving'); time.sleep(.8)
                     # Retarget repeatedly before the previous move finishes.
-                    click(363,16,.04); click(286,16,.04); click(286,16,.04); click(222,16,.04); click(222,16,.04)
+                    click(position(0,active),20,.04); key('ctrl+shift+Right');time.sleep(.04); key('ctrl+shift+Right');time.sleep(.04); key('ctrl+shift+Left');time.sleep(.04); key('ctrl+shift+Left');time.sleep(.04)
                     verify(0,'retarget-input')
                     for _ in range(8): assert geometry()==baseline; time.sleep(.025)
                     # Header vertical/horizontal wheel owns navigation; content wheel doesn't.
-                    click(377,16,.04)
-                    cmd('mousemove','--window',window,335,16); cmd('click',5); time.sleep(.02); verify(2,'wheel-next')
+                    click(position(1,active),20,.04)
+                    cmd('mousemove','--window',window,620,20); cmd('click',5); time.sleep(.02); verify(2,'wheel-next')
                     time.sleep(.15); cmd('click',6); time.sleep(.02); verify(1,'wheel-horizontal-prev')
                     time.sleep(.15); cmd('click',7); time.sleep(.02); verify(2,'wheel-horizontal-next')
                     cmd('mousemove','--window',window,800,180); cmd('click',5); cmd('click',7); time.sleep(.1); verify(2,'content-wheel-keeps-focus')
                     assert geometry()==baseline
                     # Clicking terminal content during motion settles it before hit testing.
-                    click(363+7*14,16,.01); click(300,100,.01); verify(6,'transition-content-click')
-                    click(363+7*14,16,.01); verify(7,'last-pane-immediate-input')
-                    cmd('mousemove','--window',window,712,300); cmd('mousedown',1); time.sleep(.06)
-                    cmd('mousemove','--window',window,900,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
-                    click(363,16,.04); click(363+3*14,16,.04); verify(3,'asymmetric-divider-input')
+                    click(position(7,active),20,.01); click(300,100,.01); verify(6,'transition-content-click')
+                    click(position(7,active),20,.01); verify(7,'last-pane-immediate-input')
+                    cmd('mousemove','--window',window,647,300); cmd('mousedown',1); time.sleep(.06)
+                    cmd('mousemove','--window',window,845,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
+                    click(position(0,active),20,.04); click(position(3,active),20,.04); verify(3,'asymmetric-divider-input')
                     capture('asymmetric')
-                    cmd('mousemove','--window',window,900,300); cmd('mousedown',1); time.sleep(.06)
-                    cmd('mousemove','--window',window,712,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
+                    cmd('mousemove','--window',window,845,300); cmd('mousedown',1); time.sleep(.06)
+                    cmd('mousemove','--window',window,647,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
                     # A snapped third leaves the neighbor's half untouched;
                     # the remaining estate now shows part of the third terminal.
-                    click(363,16,1.35);key('ctrl+shift+r');key('ctrl+shift+r');time.sleep(.2)
+                    click(position(0,active),20,1.35);key('ctrl+shift+r');key('ctrl+shift+r');time.sleep(.2)
                     narrow_divider=capture('narrow-divider')
                     assert pixel(narrow_divider,220,700)==PANE_COLORS[0]
                     assert pixel(narrow_divider,650,700)==PANE_COLORS[1]
                     assert pixel(narrow_divider,1100,700)==PANE_COLORS[2]
                     key('ctrl+shift+r');time.sleep(.2)
-                    click(363+7*14,16,.04)
-                    click(286,16); verify(7,'last-boundary')
-                    click(363,16,.01); click(222,16); verify(0,'first-boundary')
+                    click(position(7,active),20,.04)
+                    key('ctrl+shift+Right');time.sleep(.2); verify(7,'last-boundary')
+                    click(position(0,active),20,.01); key('ctrl+shift+Left');time.sleep(.2); verify(0,'first-boundary')
                     # Modals and window changes finish motion and preserve their input isolation.
-                    click(363+7*14,16,.01); key('ctrl+shift+o'); time.sleep(.25); key('Escape'); time.sleep(.25); verify(7,'overview-return')
-                    cmd('windowsize',window,800,300); time.sleep(.25); click(363+3*14,16,.01); verify(3,'narrow-input'); capture('narrow')
-                    cmd('windowsize',window,1240,760); time.sleep(.25); click(363+7*14,16); capture('wide')
+                    click(position(7,active),20,.01); key('ctrl+shift+o'); time.sleep(.25); key('Escape'); time.sleep(.25); verify(7,'overview-return')
+                    cmd('windowsize',window,800,300); time.sleep(.25); click(position(3,active,800),20,.01); verify(3,'narrow-input'); capture('narrow')
+                    cmd('windowsize',window,1240,760); time.sleep(.25); click(position(7,active),20); capture('wide')
                 else:
-                    click(286,16); click(222,16); verify(0,'single-boundary')
+                    key('ctrl+shift+Right');time.sleep(.2); key('ctrl+shift+Left');time.sleep(.2); verify(0,'single-boundary')
                 # Empty workspaces have no navigation target and no phantom pane.
-                click(60,194); cmd('mousemove','--window',window,335,16); cmd('click',5); click(286,16); click(363,16)
-                click(60,106); click(363,16); verify(0,'empty-return')
+                chrome_workspace(click,2); cmd('mousemove','--window',window,620,20); cmd('click',5); key('ctrl+shift+Right');time.sleep(.2); click(position(0,active),20)
+                chrome_workspace(click,0); click(position(0,active),20); verify(0,'empty-return')
                 time.sleep(.3)
                 ticks_per_second=os.sysconf('SC_CLK_TCK')
                 def ticks(): return sum(map(int,Path(f'/proc/{viewer.pid}/stat').read_text().split(') ',1)[1].split()[11:13]))

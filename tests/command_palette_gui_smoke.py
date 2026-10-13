@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Palette routing with live shells: navigation, dialogs and input isolation."""
+from gui_smoke import close_window
+from chrome_gui_actions import action as chrome_action
 from pathlib import Path
 import json
 import os
@@ -57,7 +59,7 @@ def main():
                 def marker(name):return wait_until(lambda:(root/name).exists() and (root/name).read_text())
                 def catalog():return json.loads((state/'workspaces.json').read_text())
                 def palette(query,mouse=False,run=True):
-                    if mouse:click(80,745)
+                    if mouse:chrome_action(cmd,window,'Open Commands')
                     else:key('ctrl+shift+p')
                     text(query)
                     if run:key('Return')
@@ -176,11 +178,11 @@ def main():
                 line('sleep 30');key('ctrl+c');line('printf ctrl-c-safe > controls');assert marker('controls')=='ctrl-c-safe'
                 # A fresh viewer loads the saved override while shells survive.
                 palette('Shortcut settings');text('Next terminal');key('Return');key('ctrl+shift+j');key('Return');key('Escape')
-                click(760,16);assert process.wait(timeout=5)==0
+                close_window(window,env);assert process.wait(timeout=5)==0
                 process=subprocess.Popen([str(viewer)],cwd=root,env=env,stdout=log,stderr=log);processes.append(process)
                 window=wait_until(find);cmd('windowfocus',window);time.sleep(.4)
                 key('ctrl+shift+j');line('printf "%s" "$$" > restored-binding');assert marker('restored-binding')==middlepid
-                click(1196,16);assert process.wait(timeout=5)==0
+                close_window(window,env);assert process.wait(timeout=5)==0
                 for value in (pid,newpid,middlepid,scratchpid):os.kill(int(value),0)
                 print('PASS: palette mouse/chord entry, filtering/cancel/no-match isolation, dialog handoff, create/rename, same-PID navigation, stop confirmation safety, theme/overview/folder routing, disabled recovery/capacity, default/custom navigation, recorder collision/cancel/clear/default, raw forwarded arrow, unbound clipboard input, modal scope, saved override on reopen, cancelled forwarding, minimum geometry and ordinary Ctrl-C')
             finally:

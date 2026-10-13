@@ -205,7 +205,7 @@ static void management_start(WorkspaceClient *client)
 }
 static void management_check_status(WorkspaceClient *client)
 {
-    if (!client->managed || client->management_busy || client->dialog_open || client->theme_open || client->command_open || client->help_open || client->overview_open) return;
+    if (!client->managed || client->chrome_menu || client->chrome_keyboard || client->management_busy || client->dialog_open || client->theme_open || client->command_open || client->help_open || client->overview_open) return;
     WorkbenchWorkspace *workspace=&client->workspaces[client->active];
     for (int p=0;p<workspace->count;p++) {
         if (!workspace_visible(workspace,p)) continue;
@@ -230,91 +230,22 @@ static void management_move_start(WorkspaceClient *client, const char *identity,
     }
 }
 
-static Rectangle management_button(int index)
-{
-    if (index==3) return (Rectangle){118,GetScreenHeight()-134,58,30};
-    return (Rectangle){8, GetScreenHeight() - 172 + index * 38, index==1 ? 104 : WORKBENCH_SIDEBAR - 16, 30};
-}
-static Rectangle terminal_navigation(int next)
-{
-    return (Rectangle){194 + next * 64, 4, 58, 24};
-}
-static Rectangle terminal_navigation_strip(void) { return (Rectangle){194,0,274,32}; }
-static Rectangle terminal_position(int index) { return (Rectangle){356+index*14,4,14,24}; }
-static Rectangle terminal_rename(WorkbenchPane *pane)
-{
-    return (Rectangle){pane->bounds.x + pane->bounds.width - 72, pane->bounds.y + 6, 64, 20};
-}
-
-static Rectangle terminal_stop(WorkbenchPane *pane)
-{
-    return (Rectangle){pane->bounds.x + pane->bounds.width - 132, pane->bounds.y + 6, 54, 20};
-}
+static Rectangle terminal_navigation_strip(void) { float width=fmaxf(28,chrome_pane_count*28);return (Rectangle){GetScreenWidth()/2.0f-width/2,6,width,28}; }
+static Rectangle terminal_position(int index) { Rectangle b=terminal_navigation_strip();return (Rectangle){b.x+index*28,6,28,28}; }
+static Rectangle terminal_overflow(WorkbenchPane *pane)
+{ return (Rectangle){pane->bounds.x+pane->bounds.width-30,pane->bounds.y+4,24,24}; }
+static void chrome_open_menu(WorkspaceClient *client,int kind,Rectangle anchor);
 /* One rectangle contract for window hit testing and canvas-local drawing. */
 static Rectangle terminal_move_here_bounds(Rectangle bounds)
 {
-    return (Rectangle){bounds.x+bounds.width-(bounds.width<300 ? 94 : 224),bounds.y+6,86,20};
+    return (Rectangle){bounds.x+bounds.width-124,bounds.y+6,86,20};
 }
 static Rectangle terminal_move_here(WorkbenchPane *pane)
 {
     if (pane->runtime_state==RUNTIME_STOPPED)
-        return (Rectangle){pane->bounds.x+pane->bounds.width-(pane->bounds.width<300 ? 134 : 264),pane->bounds.y+6,126,20};
+        return (Rectangle){pane->bounds.x+pane->bounds.width-164,pane->bounds.y+6,126,20};
     return terminal_move_here_bounds(pane->bounds);
 }
-static Rectangle workspace_stop(void) { return (Rectangle){150, 51, 26, 22}; }
-
-static void management_controls(WorkspaceClient *client)
-{
-    const char *labels[] = {"New workspace", "Rename", "New terminal", "Folder"};
-    for (int i = 0; i < 4; i++) {
-        Rectangle button = management_button(i);
-        bool enabled = client->managed && (i != 0 || client->count < WORKBENCH_MAX_WORKSPACES)
-            && (i == 0 || client->count > 0)
-            && (i != 2 || client->workspaces[client->active].count < WORKBENCH_PANES);
-        char limit_label[48];
-        snprintf(limit_label,sizeof(limit_label),"Workspace limit (%d)",WORKBENCH_MAX_WORKSPACES);
-        const char *label=i==0 && client->count>=WORKBENCH_MAX_WORKSPACES ? limit_label : labels[i];
-        if (i==1 || i==3) draw_quiet_button(client->ui_font,button,label,enabled,UI_TEXT_BODY);
-        else draw_header_button(client->ui_font,button,label,enabled);
-    }
-    if (client->managed && client->count>=WORKBENCH_MAX_WORKSPACES &&
-        !client->command_open && !client->dialog_open && !client->theme_open && !client->overview_open &&
-        CheckCollisionPointRec(GetMousePosition(),management_button(0))) {
-        Rectangle button=management_button(0);
-        const char *hint="Close a workspace to create another";
-        Vector2 size=MeasureTextEx(client->ui_font,hint,UI_TEXT_CAPTION,0);
-        Rectangle tip={button.x+button.width+8,button.y+3,size.x+16,24};
-        DrawRectangleRounded(tip,.25f,6,ui.raised);
-        DrawTextEx(client->ui_font,hint,(Vector2){tip.x+8,tip.y+6},UI_TEXT_CAPTION,0,ui.text);
-    }
-    draw_quiet_button(client->ui_font,workspace_stop(),"×",client->managed && client->count>0,UI_TEXT_BODY);
-    WorkbenchWorkspace *workspace = &client->workspaces[client->active];
-    DrawRectangle(188, 0, 280, 32, ui.surface);
-    draw_header_button(client->ui_font, terminal_navigation(0), "Prev", workspace->focused > 0);
-    draw_header_button(client->ui_font, terminal_navigation(1), "Next", workspace->focused + 1 < workspace->count);
-    char count[48];
-    snprintf(count, sizeof(count), "%d/%d", workspace->count ? workspace->focused + 1 : 0, workspace->count);
-    DrawTextEx(client->ui_font, count, (Vector2){326, 9},UI_TEXT_CAPTION, 0, ui.muted);
-    for (int p=0;p<workspace->count;p++) {
-        Rectangle position=terminal_position(p);
-        bool selected=p==workspace->focused, visible=workspace_visible(workspace,p);
-        bool hover=CheckCollisionPointRec(GetMousePosition(),position);
-        DrawRectangleRounded((Rectangle){position.x+1,position.y+3,position.width-2,18},.4f,6,
-            selected ? ui.selected : hover ? ui.hover : visible ? ui.raised : ui.surface);
-        char number[4]; snprintf(number,sizeof(number),"%d",p+1);
-        DrawTextEx(client->ui_font,number,(Vector2){position.x+4,position.y+7},UI_TEXT_CAPTION,0,selected ? ui.accent : visible ? ui.text : ui.muted);
-        if (selected) DrawRectangleRounded((Rectangle){position.x+3,28,8,2},.5f,6,ui.accent);
-    }
-    Vector2 pointer=GetMousePosition();
-    if (!client->command_open && !client->dialog_open && !client->theme_open && !client->overview_open && CheckCollisionPointRec(pointer,terminal_navigation_strip())) {
-        const char *hint="Scroll here to move between terminals";
-        for (int p=0;p<workspace->count;p++) if (CheckCollisionPointRec(pointer,terminal_position(p))) hint=workspace->panes[p]->name;
-        Vector2 size=MeasureTextEx(client->ui_font,hint,UI_TEXT_CAPTION,0);
-        DrawRectangleRounded((Rectangle){194,36,size.x+16,24},.25f,6,ui.raised);
-        DrawTextEx(client->ui_font,hint,(Vector2){202,42},UI_TEXT_CAPTION,0,ui.muted);
-    }
-}
-
 static bool management_click(WorkspaceClient *client, Vector2 pointer)
 {
     if (!IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) return false;
@@ -335,31 +266,12 @@ static bool management_click(WorkspaceClient *client, Vector2 pointer)
             return true;
         }
     }
-    if (client->managed) {
-        if (CheckCollisionPointRec(pointer, management_button(0))) {
-            if (client->count < WORKBENCH_MAX_WORKSPACES) dialog_open(client,DIALOG_WORKSPACE_CREATE);
-            else clipboard_notice("Workspace limit reached; close a workspace to create another");
-            return true;
+    for (int p=0;p<workspace->count;p++) {
+        WorkbenchPane *pane=workspace->panes[p];
+        if (workspace_visible(workspace,p) && CheckCollisionPointRec(pointer,terminal_overflow(pane))) {
+            workspace_focus(workspace,p);chrome_open_menu(client,2,terminal_overflow(pane));return true;
         }
-        else if (CheckCollisionPointRec(pointer, management_button(1)) && client->count) dialog_open(client, DIALOG_WORKSPACE_RENAME);
-        else if (CheckCollisionPointRec(pointer, management_button(2)) && client->count && workspace->count < WORKBENCH_PANES)
-            dialog_open(client, DIALOG_TERMINAL_CREATE);
-        else if (client->count && CheckCollisionPointRec(pointer, management_button(3))) dialog_open(client,DIALOG_WORKSPACE_DIRECTORY);
-        else if (client->count && CheckCollisionPointRec(pointer, workspace_stop())) dialog_open(client, DIALOG_WORKSPACE_CLOSE);
-        else
-            for (int p = 0; p < workspace->count; p++)
-                if (workspace_visible(workspace,p) && workspace->panes[p]->bounds.width>=300
-                    && pointer.x>=WORKBENCH_SIDEBAR+WORKBENCH_GAP && pointer.x<GetScreenWidth()-WORKBENCH_GAP)
-                if (CheckCollisionPointRec(pointer, terminal_rename(workspace->panes[p]))) {
-                    workspace->focused = p;
-                    dialog_open(client, DIALOG_TERMINAL_RENAME);
-                } else if (CheckCollisionPointRec(pointer, terminal_stop(workspace->panes[p]))) {
-                    workspace->focused = p;
-                    dialog_open(client, DIALOG_TERMINAL_CLOSE);
-                }
     }
-    if (CheckCollisionPointRec(pointer, terminal_navigation(0)) && workspace->focused > 0) workspace->focused--;
-    if (CheckCollisionPointRec(pointer, terminal_navigation(1)) && workspace->focused + 1 < workspace->count) workspace->focused++;
     for (int p=0;p<workspace->count;p++)
         if (CheckCollisionPointRec(pointer,terminal_position(p))) workspace->focused=p;
     workspace_focus(workspace,workspace->focused);

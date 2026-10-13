@@ -74,3 +74,12 @@ one-pixel difference between columns to make fractional combinations fit exactly
 PTY resize requests occur at committed visible geometry, never for guide motion
 or scrolling animation. Narrow columns offer rename/stop through Commands; closed
 terminals retain their connection/recovery control. See [the UX brief](ux-spike.md#niri-reference-and-next-layout-slice).
+
+## Minimal chrome preferences
+
+Version 3 adds per-window pinned-navigation, Workspaces/Agents mode and Needs input
+filter after the existing view header. Version 1 and 2 remain readable and default
+to the compact rail. Invalid/truncated chrome records preserve the same all-or-
+fallback contract as layout records. Only persistent presentation preferences
+are saved; a temporary drawer, menu or its keyboard focus is never reopened.
+Pinning changes terminal estate; opening a temporary drawer leaves it unchanged.

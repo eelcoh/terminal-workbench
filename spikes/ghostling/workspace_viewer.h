@@ -21,7 +21,8 @@
 
 #define WORKBENCH_MAX_WORKSPACES 8
 #define WORKBENCH_PANES 8
-#define WORKBENCH_SIDEBAR 184
+static int chrome_sidebar_width=44,chrome_pane_count=0;
+#define WORKBENCH_SIDEBAR chrome_sidebar_width
 #define WORKBENCH_GAP 10
 
 typedef struct {
@@ -113,6 +114,11 @@ typedef struct {
     char edit_name[64], dialog_error[256], management_reply[512], management_target[41];
     size_t management_length;
     int sidebar_first;
+    bool chrome_pinned, chrome_drawer, chrome_agents, chrome_waiting, chrome_quit, chrome_keyboard;
+    int chrome_menu, chrome_menu_first, chrome_first;
+    UiFocus chrome_focus;
+    Rectangle chrome_anchor;
+    char chrome_target[41];
     bool navigation_valid, navigation_reset;
     char navigation_workspace[41];
     int navigation_first, navigation_focused, navigation_width, navigation_height;
@@ -279,8 +285,8 @@ static void workspace_focus(WorkbenchWorkspace *workspace, int requested)
 static Rectangle workspace_pane_bounds(WorkbenchWorkspace *workspace, int pane)
 {
     PaneWidth widths[WORKBENCH_PANES]; workspace_widths(workspace,widths);
-    return (Rectangle){WORKBENCH_SIDEBAR+WORKBENCH_GAP+workspace_offset(workspace,pane)-workspace->scroll,42,
-        pane_width_pixels(widths,pane,workspace_estate(),WORKBENCH_GAP),GetScreenHeight()-52};
+    return (Rectangle){WORKBENCH_SIDEBAR+WORKBENCH_GAP+workspace_offset(workspace,pane)-workspace->scroll,50,
+        pane_width_pixels(widths,pane,workspace_estate(),WORKBENCH_GAP),GetScreenHeight()-60};
 }
 
 #include "catalog_view.h"
@@ -355,43 +361,9 @@ static void pane_focus_event(WorkbenchPane *pane, bool focused)
 
 #include "chrome_ui.h"
 
-static Rectangle workspace_row(int index)
-{
-    return (Rectangle){8, 88 + index * 44, WORKBENCH_SIDEBAR - 16, 36};
-}
+#include "minimal_chrome.h"
 
-static void workspace_chrome(WorkspaceClient *client)
-{
-    DrawRectangle(0, 32, WORKBENCH_SIDEBAR, GetScreenHeight() - 32, ui.surface);
-    DrawTextEx(client->ui_font, "Workspaces", (Vector2){16, 56},UI_TEXT_CAPTION, 0, ui.muted);
-    DrawLine(WORKBENCH_SIDEBAR-1,32,WORKBENCH_SIDEBAR-1,GetScreenHeight(),ui_mix(ui.surface,ui.border,.45f));
-    DrawLine(16,(int)fmaxf(126,GetScreenHeight()-184),WORKBENCH_SIDEBAR-16,(int)fmaxf(126,GetScreenHeight()-184),ui_mix(ui.surface,ui.border,.5f));
-    int visible_rows = (GetScreenHeight() - 268) / 44;
-    if (visible_rows < 1) visible_rows = 1;
-    for (int w = client->sidebar_first; w < client->count && w < client->sidebar_first + visible_rows; w++) {
-        Rectangle row = workspace_row(w - client->sidebar_first);
-        bool active = w == client->active;
-        bool unread = false;
-        for (int p = 0; p < client->workspaces[w].count; p++) unread |= client->workspaces[w].panes[p]->unread;
-        bool hovered=CheckCollisionPointRec(GetMousePosition(),row);
-        DrawRectangleRounded(row,ui_roundness(row,8),8,active ? ui.selected : hovered ? ui.hover : ui.surface);
-        if (active) DrawRectangleRounded((Rectangle){row.x+4,row.y+10,3,row.height-20},.5f,6,ui.accent);
-        chrome_name(client->ui_font,client->workspaces[w].name,(Rectangle){row.x+14,row.y+11,row.width-50,20},UI_TEXT_BODY,
-            active ? ui.text : ui_mix(ui.surface,ui.text,.85f));
-        char terminals[8];snprintf(terminals,sizeof(terminals),"%d",client->workspaces[w].count);
-        DrawTextEx(client->ui_font,terminals,(Vector2){row.x+row.width-28,row.y+12},UI_TEXT_CAPTION,0,active ? ui.accent : ui.muted);
-        if (unread) DrawCircle((int)(row.x + row.width - 12), (int)(row.y + 18), 3, ui.waiting);
-    }
-    draw_quiet_button(client->ui_font,theme_button(),"Appearance",!client->dialog_open,UI_TEXT_BODY);
-    draw_quiet_button(client->ui_font,command_button(),"Commands",!client->dialog_open && !client->theme_open && !client->overview_open && !client->management_busy,UI_TEXT_BODY);
-    WorkbenchWorkspace *workspace = &client->workspaces[client->active];
-    WorkbenchPane *focused = workspace->panes[workspace->focused];
-    bool can_copy = focused && selection_active(focused->terminal);
-    bool can_paste = focused && !focused->closed && !focused->transport.replaying;
-    draw_window_controls(client->ui_font, can_copy, can_paste, client->forwarding ? "Next key (Esc cancels)" : clipboard_current_notice());
-    management_controls(client);
-    draw_header_button(client->ui_font, overview_button(), "Overview", !client->dialog_open);
-}
+static void workspace_chrome(WorkspaceClient *client) { minimal_chrome_draw(client); }
 
 /* Render at presentation geometry without changing pane bounds or PTY size. */
 static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, RenderTexture2D canvas, Rectangle bounds)
@@ -513,7 +485,7 @@ static int workspace_main(const char *catalog)
     (void)stat(catalog,&client->catalog_stamp);
     if (!workspace_catalog(client, catalog)) { fprintf(stderr, "Could not load workspace catalog: %s\n", catalog); free(client); return 1; }
     client->managed = getenv("WORKBENCH_CATALOG_SCRIPT") != NULL;
-    workbench_clipboard_keys=false;
+    workbench_clipboard_keys=false;workbench_window_buttons=false;
     client->shortcuts=shortcut_defaults(shortcut_platform_apple());
     client->shortcut_path=getenv("WORKBENCH_SHORTCUTS");shortcut_load(client);
     client->management_fd = -1;
@@ -526,7 +498,12 @@ static int workspace_main(const char *catalog)
     client->view_loaded=client->window_state_path && window_state_read(&client->saved_view,client->window_state_path);
     client->view_has_overview=client->view_loaded && client->saved_view.context;
     client->view_restore_overview=client->view_has_overview;
-    if (client->view_loaded) window_view_restore_layout(client);
+    if (client->view_loaded) {
+        client->chrome_pinned=client->saved_view.chrome_pinned;client->chrome_drawer=client->chrome_pinned;
+        client->chrome_agents=client->saved_view.chrome_agents;client->chrome_waiting=client->saved_view.chrome_waiting;
+        chrome_sidebar_width=client->chrome_pinned ? 288 : 44;
+        window_view_restore_layout(client);
+    }
     int exit_code = 0;
     if (!theme_initialize(client)) { free(client); return 1; }
     SetConfigFlags(FLAG_WINDOW_HIGHDPI);
@@ -568,46 +545,39 @@ static int workspace_main(const char *catalog)
         overview_motion_tick(client);
         if (client->help_open || client->command_open || client->theme_open || client->dialog_open || client->overview_open || IsWindowResized()) navigation_finish(client);
         theme_sync(client);
-        if (!client->help_open && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && window_close_requested()) break;
+
         bool shortcut_bypass=false;
-        bool shortcut_frame=shortcut_route(client,&shortcut_bypass);
+        chrome_pane_count=client->workspaces[client->active].count;
+        bool chrome_frame=chrome_input(client);
+        if (client->chrome_quit) break;
+        bool shortcut_frame=chrome_frame ? false : shortcut_route(client,&shortcut_bypass);
         bool help_frame=client->help_open;
         bool command_started=shortcut_frame && client->command_open;
-        if (!shortcut_frame && !help_frame && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
+        if (!chrome_frame && !shortcut_frame && !help_frame && !client->command_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
             command_open(client); command_started=true;
         }
         bool command_frame=client->command_open;
         bool theme_frame=client->theme_open;
-        if (!shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
+        if (!chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
             && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
             && CheckCollisionPointRec(GetMousePosition(),client->overview_open ? overview_theme_button(client) : theme_button())) {
             theme_open(client); theme_frame=true;
         }
-        bool toggled_overview = !shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
+        bool toggled_overview = !chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
         if (toggled_overview) {
             if (client->overview_open && !client->overview_closing) overview_close(client, -1, -1);
             else overview_open(client);
         }
-        bool modal_frame = help_frame || shortcut_frame || command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
+        bool modal_frame = chrome_frame || help_frame || shortcut_frame || command_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
         if (!management_poll(client)) { exit_code = 1; break; }
         if (command_frame) {
             if (command_started) {
                 while (GetKeyPressed()!=0) { }
                 while (GetCharPressed()!=0) { }
-            } else command_input(client);
+            } else if (!chrome_frame) command_input(client);
         }
         Vector2 pointer = GetMousePosition();
         bool pressed = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-        if (!modal_frame && pointer.x < WORKBENCH_SIDEBAR && pointer.y >= 88 && pointer.y < GetScreenHeight() - 180) {
-            float wheel = GetMouseWheelMove();
-            int visible_rows = (GetScreenHeight() - 268) / 44;
-            if (visible_rows < 1) visible_rows = 1;
-            if (wheel) client->sidebar_first += wheel > 0 ? -1 : 1;
-            int limit = client->count - visible_rows;
-            if (limit < 0) limit = 0;
-            if (client->sidebar_first < 0) client->sidebar_first = 0;
-            if (client->sidebar_first > limit) client->sidebar_first = limit;
-        }
         WorkbenchWorkspace *workspace = &client->workspaces[client->active];
         WorkbenchPane *old_focus = workspace->panes[workspace->focused];
         bool gesture_active = old_focus && (old_focus->selection.dragging || old_focus->scrollbar_dragging);
@@ -622,11 +592,6 @@ static int workspace_main(const char *catalog)
             && (pressed || IsMouseButtonDown(MOUSE_BUTTON_LEFT) || IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)
                 || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) || GetMouseWheelMoveV().x || GetMouseWheelMoveV().y)) navigation_finish(client);
         if (pressed && !gesture_active && !modal_frame && !shortcut_bypass) {
-            int visible_rows = (GetScreenHeight() - 268) / 44;
-            if (visible_rows < 1) visible_rows = 1;
-            for (int w = client->sidebar_first; w < client->count && w < client->sidebar_first + visible_rows; w++) {
-                if (CheckCollisionPointRec(pointer, workspace_row(w - client->sidebar_first))) client->active = w;
-            }
             workspace = &client->workspaces[client->active];
             for (int p = 0; p < workspace->count; p++)
                 if (workspace_visible(workspace,p) && pointer.x>=WORKBENCH_SIDEBAR+WORKBENCH_GAP
@@ -638,7 +603,7 @@ static int workspace_main(const char *catalog)
         if (pressed && !gesture_active && !modal_frame && !shortcut_bypass) {
             for (int p=0;p<workspace->count;p++) {
                 Rectangle b=workspace_pane_bounds(workspace,p);
-                Rectangle edge={b.x+b.width,42,WORKBENCH_GAP,b.height};
+                Rectangle edge={b.x+b.width,50,WORKBENCH_GAP,b.height};
                 if (workspace_visible(workspace,p) && CheckCollisionPointRec(pointer,edge)) {
                     navigation_finish(client); client->divider_dragging=true;client->divider_pane=p;
                     client->divider_preset=workspace->panes[p]->width.preset;
@@ -710,9 +675,9 @@ static int workspace_main(const char *catalog)
             }
             pane_unbind();
         }
-        if (!help_frame && !shortcut_frame && !command_frame && client->dialog_open) dialog_input(client);
+        if (!chrome_frame && !help_frame && !shortcut_frame && !command_frame && client->dialog_open) dialog_input(client);
         bool overview_jumped = false;
-        if (shortcut_frame || command_frame) { /* The entire action-dispatch frame stays modal. */ }
+        if (chrome_frame || shortcut_frame || command_frame) { /* The entire action-dispatch frame stays modal. */ }
         else if (help_frame) shortcut_help_input(client);
         else if (theme_frame) theme_input(client);
         else if (client->overview_open && !client->overview_closing) overview_jumped = overview_input(client);
@@ -730,17 +695,18 @@ static int workspace_main(const char *catalog)
         if (overview_jumped) { navigation_finish(client); client->navigation_valid=false; }
         if (client->overview_open && !client->overview_list) overview_previews_refresh(client);
         if (client->help_open) shortcut_help_prepare(client);
+        chrome_pane_count=workspace->count;
         BeginDrawing();
         ClearBackground(ui.background);
         if (!client->overview_open || client->overview_list) {
             navigation_present(client,workspace,workspace->first);
             if (client->divider_dragging) {
-                DrawRectangle((int)client->divider_preview,42,2,GetScreenHeight()-52,ui.accent);
+                DrawRectangle((int)client->divider_preview,50,2,GetScreenHeight()-60,ui.accent);
                 const char *label=client->divider_preset==1 ? "2/3" : client->divider_preset==2 ? "1/3" : "1/2";
                 DrawText(label,(int)client->divider_preview-32,48,18,ui.accent);
             }
         }
-        if (!workspace->count) DrawTextEx(client->ui_font, "Create a terminal to start working", (Vector2){224, 110},UI_TEXT_LEAD, 0, ui.muted);
+        if (!workspace->count) DrawTextEx(client->ui_font, "Create a terminal to start working", (Vector2){WORKBENCH_SIDEBAR+36, 118},UI_TEXT_LEAD, 0, ui.muted);
         workspace_chrome(client);
         if (client->dialog_open) dialog_draw(client);
         if (client->overview_open) overview_present(client);

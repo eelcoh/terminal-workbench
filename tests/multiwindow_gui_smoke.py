@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Shared catalog changes and explicit ownership transfer between real windows."""
+from chrome_gui_actions import action as chrome_action, workspace as chrome_workspace
+from gui_smoke import close_window
 from pathlib import Path
 import json
 import re
@@ -14,7 +16,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from gui_smoke import close_window
 from session_smoke import wait_until
 ROOT=Path(__file__).resolve().parent.parent
 
@@ -79,8 +80,8 @@ def main():
                     focus(window);type_text(window,value);key(window,'Return')
                 def read(name):return wait_until(lambda:(root/name).exists() and (root/name).read_text().strip(),timeout=10)
                 def metadata():return json.loads((state/'workspaces.json').read_text())
-                def edit(window,x,y,title,predicate):
-                    click(window,x,y);type_text(window,title);key(window,'Return');wait_until(lambda:predicate(metadata()),timeout=10);time.sleep(.65)
+                def edit(window,action,title,predicate):
+                    chrome_action(cmd,window,action);type_text(window,title);key(window,'Return');wait_until(lambda:predicate(metadata()),timeout=10);time.sleep(.65)
                 project=root/'Projects with spaces';project.mkdir()
                 alternate=root/'Other project';alternate.mkdir()
                 first,a=launch()
@@ -88,7 +89,7 @@ def main():
                 pid=read('original.pid');inode=(state/'one.sock').stat().st_ino
                 second,b=launch(dict(env,WORKBENCH_CATALOG_SCRIPT=str(wrapper)))
                 # Set a folder in B, then inspect A's shared editor and keep live shell cwd.
-                click(b,147,641);type_text(b,str(project));key(b,'Return')
+                chrome_action(cmd,b,'Change project folder');type_text(b,str(project));key(b,'Return')
                 try: wait_until(lambda:metadata()['workspaces'][0].get('directory')==str(project));time.sleep(.65)
                 except AssertionError:
                     key(b,'F12');time.sleep(.3)
@@ -97,52 +98,52 @@ def main():
                         destination=ROOT/'.local/test-results/width-directory-failure.png';destination.parent.mkdir(exist_ok=True)
                         shutil.copyfile(max(images,key=lambda p:p.stat().st_mtime_ns),destination)
                     print('Directory failure metadata:',metadata());raise
-                click(a,147,641);key(a,'Escape')
+                chrome_action(cmd,a,'Change project folder');key(a,'Escape')
                 assert (state/'workspaces.tsv').read_text().startswith('workbench-catalog-v4\n')
                 line(a,'printf "%s" "$PWD" > unchanged-cwd');assert read('unchanged-cwd')==str(root)
                 key(b,'F12');time.sleep(.15)
                 artifacts=ROOT/'.local/test-results';artifacts.mkdir(exist_ok=True)
                 shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1],artifacts/'move-here-header.png')
-                click(b,535,58);time.sleep(.5)
+                click(b,556,62);time.sleep(.5)
                 line(b,'printf "%s:%s" "$$" "$keep" > transferred')
                 assert read('transferred')==pid+':original'
                 log.flush()
                 assert f"session attachment request: {state/'one.sock'} via {state/'one.ctl'} (ATM1 transfer)" in (root/'test.log').read_text()
                 # Transfer just one pane: its sibling remains usable in window A.
                 click(a,900,250);line(a,'echo $$ > sibling.pid');sibling=read('sibling.pid')
-                click(a,535,58);time.sleep(.5)
+                click(a,556,62);time.sleep(.5)
                 line(a,'printf "%s:%s" "$$" "$keep" > returned')
                 assert read('returned')==pid+':original'
                 # GUI creation claims new terminals for the creating window even
                 # if the other window observes the atomic catalog first.
                 (root/'race').touch()
-                click(b,84,603);type_text(b,'Shared project');key(b,'Tab');type_text(b,str(alternate));key(b,'Return')
+                chrome_action(cmd,b,'New workspace');type_text(b,'Shared project');key(b,'Tab');type_text(b,str(alternate));key(b,'Return')
                 wait_until(lambda:len(metadata()['workspaces'])==4);time.sleep(.65)
                 assert next(w for w in metadata()['workspaces'] if w['name']=='Shared project')['directory']==str(alternate)
                 line(b,'printf "%s" "$PWD" > created-workspace-cwd');assert read('created-workspace-cwd')==str(alternate)
                 created=metadata()['workspaces'][2];created_id=created['id'];terminal=created['terminals'][0]['id']
                 line(b,'keep=new; echo $$ > new.pid');new_pid=read('new.pid')
-                click(a,84,238);line(a,'echo $$ > concurrent.pid')
+                chrome_workspace(lambda x,y:click(a,x,y),3);line(a,'echo $$ > concurrent.pid')
                 assert read('concurrent.pid')!=new_pid
                 # Clicking the new row in A proves it appeared without relaunch.
-                click(a,84,194);click(a,535,58);time.sleep(.5)
+                chrome_workspace(lambda x,y:click(a,x,y),2);click(a,556,62);time.sleep(.5)
                 line(a,'printf "%s:%s" "$$" "$keep" > synchronized')
                 assert read('synchronized')==new_pid+':new'
                 # Saving an untouched rename dialog uses the refreshed name.
-                edit(b,84,641,'Shared rename',lambda d:d['workspaces'][2]['name']=='Shared rename')
-                click(a,84,641);key(a,'Return');time.sleep(.5)
+                edit(b,'Rename workspace','Shared rename',lambda d:d['workspaces'][2]['name']=='Shared rename')
+                chrome_action(cmd,a,'Rename workspace');key(a,'Return');time.sleep(.5)
                 assert metadata()['workspaces'][2]['name']=='Shared rename'
-                edit(b,667,58,'Shared terminal',lambda d:d['workspaces'][2]['terminals'][0]['name']=='Shared terminal')
-                click(a,667,58);key(a,'Return');time.sleep(.5)
+                edit(b,'Rename terminal','Shared terminal',lambda d:d['workspaces'][2]['terminals'][0]['name']=='Shared terminal')
+                chrome_action(cmd,a,'Rename terminal');key(a,'Return');time.sleep(.5)
                 assert metadata()['workspaces'][2]['terminals'][0]['name']=='Shared terminal'
                 # New terminal creation also synchronizes while keeping local focus.
-                click(b,84,679);key(b,'Return')
+                chrome_action(cmd,b,'New terminal');key(b,'Return')
                 wait_until(lambda:len(metadata()['workspaces'][2]['terminals'])==2,timeout=10);time.sleep(.65)
                 extra=metadata()['workspaces'][2]['terminals'][1]['id']
                 line(b,'keep=extra; echo $$ > extra.pid');extra_pid=read('extra.pid')
                 line(a,'printf "%s:%s" "$$" "$keep" > focus-retained')
                 assert read('focus-retained')==new_pid+':new'
-                click(a,1050,58);time.sleep(.5)
+                click(a,1149,62);time.sleep(.5)
                 line(a,'printf "%s:%s" "$$" "$keep" > extra-synchronized')
                 assert read('extra-synchronized')==extra_pid+':extra'
                 subprocess.run(bootstrap+['--command','terminal.move','--id',extra,'--to','main'],env=env,check=True,stdout=log,stderr=log,timeout=10);time.sleep(.65)
@@ -153,10 +154,10 @@ def main():
                 subprocess.run(bootstrap+['--command','workspace.close','--id',created_id],env=env,check=True,stdout=log,stderr=log,timeout=20);time.sleep(.65)
                 # Both windows select a surviving workspace after removing their active one.
                 # Selecting Main again retains its original live connections.
-                click(a,84,106);click(a,300,250)
+                chrome_workspace(lambda x,y:click(a,x,y),0);click(a,300,250)
                 line(a,'printf "%s:%s" "$$" "$keep" > survived-close')
                 assert read('survived-close')==pid+':original'
-                click(b,84,106);click(b,535,58);time.sleep(.5)
+                chrome_workspace(lambda x,y:click(b,x,y),0);click(b,556,62);time.sleep(.5)
                 line(b,'printf "%s:%s" "$$" "$keep" > close-sync')
                 assert read('close-sync')==pid+':original'
                 assert (state/'one.sock').stat().st_ino==inode
@@ -198,12 +199,12 @@ def main():
                 older_catalog=root/'old.tsv'
                 older_catalog.write_text(f'workbench-catalog-v3\nW\told\tEarlier runtime\nT\told\tone\tOne\t{alias}\n')
                 older,c=launch(dict(env,WORKBENCH_WORKSPACES=str(older_catalog)))
-                click(c,535,58);time.sleep(.6)
+                click(c,556,62);time.sleep(.6)
                 log.flush();assert 'Earlier runtime: retrying ordinary attachment' in (root/'test.log').read_text()
                 line(b,'printf "%s:%s" "$$" "$keep" > old-owner-preserved')
                 assert read('old-owner-preserved')==pid+':original'
                 focus(b);close_window(b,env);assert second.wait(timeout=5)==0;time.sleep(.3)
-                click(c,535,58);time.sleep(.6)
+                click(c,556,62);time.sleep(.6)
                 line(c,'printf "%s:%s" "$$" "$keep" > old-reconnect')
                 assert read('old-reconnect')==pid+':original'
                 focus(c);close_window(c,env);assert older.wait(timeout=5)==0
@@ -213,12 +214,12 @@ def main():
                 replay_owner,f=launch()
                 replay_client,g=launch(dict(env,WORKBENCH_WORKSPACES=str(older_catalog)))
                 transfer_requests=attachment_methods.count(b'ATM1\n')
-                click(g,535,58);time.sleep(.6)
+                click(g,556,62);time.sleep(.6)
                 assert attachment_methods.count(b'ATM1\n')==transfer_requests
                 line(f,'printf "%s:%s" "$$" "$keep" > replay-owner-preserved')
                 assert read('replay-owner-preserved')==pid+':original'
                 focus(f);close_window(f,env);assert replay_owner.wait(timeout=5)==0;time.sleep(.3)
-                click(g,535,58);time.sleep(.6)
+                click(g,556,62);time.sleep(.6)
                 line(g,'printf "%s:%s" "$$" "$keep" > replay-reconnect')
                 assert read('replay-reconnect')==pid+':original'
                 focus(g);close_window(g,env);assert replay_client.wait(timeout=5)==0
@@ -246,10 +247,10 @@ def main():
                 # The parent shell is already usable while the child GUI lives.
                 line(d,'printf "%s:%s" "$$" "$keep" > parent-usable')
                 assert read('parent-usable')==pid+':original'
-                click(e,535,58);time.sleep(.5)
+                click(e,556,62);time.sleep(.5)
                 line(e,'printf "%s:%s" "$$" "$keep" > nested-transferred')
                 assert read('nested-transferred')==pid+':original'
-                click(d,535,58);time.sleep(.5)
+                click(d,556,62);time.sleep(.5)
                 line(d,'printf "%s:%s" "$$" "$keep" > nested-returned')
                 assert read('nested-returned')==pid+':original'
                 focus(e);close_window(e,env);wait_until(lambda:not nested_window(),timeout=5)

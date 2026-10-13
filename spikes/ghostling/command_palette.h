@@ -1,6 +1,6 @@
 /* Client actions and a searchable palette. Shared facts still use management. */
 /* Focus order: search, selected result (arrows choose), Done. */
-static Rectangle command_button(void) { return (Rectangle){8,GetScreenHeight()-26,168,22}; }
+static Rectangle command_button(void) { return (Rectangle){-1000,-1000,0,0}; }
 static Rectangle command_bounds(void)
 {
     float width=fminf(640,GetScreenWidth()-48),height=fminf(490,GetScreenHeight()-40);

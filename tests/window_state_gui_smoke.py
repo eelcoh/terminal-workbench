@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Independent real window views survive close, crash and catalog edits."""
+from chrome_gui_actions import workspace as chrome_workspace, position as chrome_position
+from gui_smoke import close_window
 from pathlib import Path
 import os
 import select
@@ -8,7 +10,6 @@ import subprocess
 import sys
 import tempfile
 import time
-from gui_smoke import close_window
 from session_smoke import wait_until, attach, send
 from launch_diagnostics_test import launch
 ROOT=Path(__file__).resolve().parent.parent
@@ -63,13 +64,13 @@ def main():
                     viewers.remove(pid);time.sleep(.2)
                 first,a=opened(1)
                 # Select pane four; first visible follows by identity. Resize and split.
-                click(a,405,16)
+                click(a,chrome_position(3,4),20)
                 cmd('windowsize',a,1360,820);time.sleep(.3)
-                cmd('mousemove','--window',a,777,400);cmd('mousedown',1);time.sleep(.08)
-                cmd('mousemove','--window',a,650,400);time.sleep(.1);cmd('mouseup',1)
+                cmd('mousemove','--window',a,697,400);cmd('mousedown',1);time.sleep(.08)
+                cmd('mousemove','--window',a,490,400);time.sleep(.1);cmd('mouseup',1)
                 key(a,'ctrl+shift+r')
                 before=saved(1,lambda s:'V 1360 820 ' in s and 'W main p3 ' in s and 'T p3 1 0' in s)
-                second,b=opened(2);click(b,70,150)
+                second,b=opened(2);chrome_workspace(lambda x,y:click(b,x,y),1)
                 second_view=saved(2,lambda s:' empty ' in s.splitlines()[1]);assert ' main ' in read(1).splitlines()[1]
                 closed(first,a)
                 # Reordering workspaces and terminals preserves focus and first by ID.
@@ -83,7 +84,7 @@ def main():
                 assert wait_until(lambda:(root/'restored').exists() and (root/'restored').read_text())==pids[3]+':p3'
                 assert read(2).splitlines()[1].split()[1:5]==second_view.splitlines()[1].split()[1:5]
                 # Smaller geometry makes both overview axes nonzero.
-                cmd('windowsize',a,900,500);time.sleep(.3);click(a,518,16)
+                cmd('windowsize',a,900,500);time.sleep(.3);key(a,'ctrl+shift+o')
                 spatial=saved(1,lambda s:s.splitlines()[1].split()[6]=='1' and float(s.splitlines()[1].split()[10])>0
                     and any(line.startswith('W main ') and float(line.split()[4])>0 for line in s.splitlines()))
                 closed(first,a);first,a=opened(1)
@@ -103,7 +104,7 @@ def main():
                 catalog.write_text('workbench-catalog-v3\nW\tempty\tEmpty\n')
                 first,a=opened(1);saved(1,lambda s:' empty ' in s.splitlines()[1]);closed(first,a)
                 (root/'windows/1.view').write_text('workbench-window-v999\nbroken\n')
-                first,a=opened(1);saved(1,lambda s:s.startswith('workbench-window-v2\n'));closed(first,a)
+                first,a=opened(1);saved(1,lambda s:s.startswith('workbench-window-v3\n'));closed(first,a)
                 closed(second,b)
                 for p in range(5):os.kill(int(pids[p]),0);assert (root/f'p{p}.sock').stat().st_ino==inodes[p]
             finally:

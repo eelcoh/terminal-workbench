@@ -57,7 +57,7 @@ def main():
                 def marker(name):return wait_until(lambda:(root/name).exists() and (root/name).read_text())
                 def catalog():return json.loads((state/'workspaces.json').read_text())
                 def palette(query,mouse=False,run=True):
-                    if mouse:click(80,745)
+                    if mouse:click(22,20);click(90,225)
                     else:key('ctrl+shift+p')
                     text(query)
                     if run:key('Return')
@@ -71,7 +71,7 @@ def main():
                 baseline=geometry()
                 import struct
                 # Existing 7x16 monospace grid at the fixed 1240x760 half-pane layout.
-                assert struct.unpack('HHHH',baseline)[:2]==(41,72), 'interface typography changed the terminal grid'
+                assert struct.unpack('HHHH',baseline)[:2]==(41,82), 'compact rail changed the expected logical terminal grid'
                 if env.get('WORKBENCH_GEOMETRY_OUTPUT'): Path(env['WORKBENCH_GEOMETRY_OUTPUT']).write_text(json.dumps(struct.unpack('HHHH',baseline)[:2]))
                 artifacts=ROOT/'.local/test-results';artifacts.mkdir(parents=True,exist_ok=True)
                 def capture(name):
@@ -150,7 +150,7 @@ def main():
                 log.flush();render_log=(root/'test.log').read_text()
                 assert 'Could not load interface font' not in render_log
                 if env.get('WORKBENCH_RENDER_SCALE')=='2':
-                    assert 'Texture loaded successfully (1026x1416' in render_log, 'pane canvas remained at logical resolution'
+                    assert 'Texture loaded successfully (1166x1400' in render_log, 'pane canvas remained at logical resolution'
                     assert 'Texture loaded successfully (1840x1156' in render_log, 'help cache remained at logical resolution'
                 print('PASS: forward/reverse focus traversal, text/button isolation, create/folder/save/cancel, help/settings/recorder, overview focus restoration, appearance scope/follow/apply/cancel, deliberate stop/recovery, narrow focus and live shell continuity')
             finally:

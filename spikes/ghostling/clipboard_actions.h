@@ -75,12 +75,13 @@ static void clipboard_paste(int fd, GhosttyTerminal terminal)
     free(encoded);
 }
 
+static bool workbench_window_buttons=true;
 static bool handle_clipboard(int fd, GhosttyTerminal terminal, bool can_paste)
 {
     bool chord = workbench_clipboard_keys && clipboard_chord_down();
     bool copy_key = chord && (IsKeyPressed(KEY_C) || IsKeyPressedRepeat(KEY_C));
     bool paste_key = chord && (IsKeyPressed(KEY_V) || IsKeyPressedRepeat(KEY_V));
-    bool clicked = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+    bool clicked = workbench_window_buttons && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     Vector2 pointer = GetMousePosition();
     if (copy_key || (clicked && CheckCollisionPointRec(pointer, window_copy_bounds())))
         clipboard_copy(terminal);

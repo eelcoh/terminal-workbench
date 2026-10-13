@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Real GUI moves retain live sessions and persist placement."""
+from gui_smoke import close_window
 from pathlib import Path
 import fcntl
 import json
@@ -108,29 +109,29 @@ def main():
                 cmd('mousemove','--window',window,600,560); time.sleep(.1); cmd('mouseup',1)
                 wait_until(lambda: ids(1)==['one']); assert ids(2)==['two','three']
                 # A filtered-out populated row appends at its actual catalog count.
-                cmd('type','--window',window,'--delay',30,'--','One'); time.sleep(.15)
+                time.sleep(.3);click(500,133);cmd('type','--window',window,'--delay',30,'--','One'); time.sleep(.15)
                 drag(170,300,500,560,False); cmd('click','--repeat','8','--delay','40',5); time.sleep(.25)
                 cmd('mouseup',1); wait_until(lambda: ids(2)==['two','three','one'])
                 assert ids(1)==[] and geometry()==before; alive()
-                key('ctrl+a'); key('BackSpace'); time.sleep(.1)
+                click(500,133);key('ctrl+a'); key('BackSpace'); time.sleep(.1)
                 # Filtered positions use catalog indices, and all rows become targets.
-                cmd('type','--window',window,'--delay',30,'--','One'); time.sleep(.15)
+                time.sleep(.3);click(500,133);cmd('type','--window',window,'--delay',30,'--','One'); time.sleep(.15)
                 drag(170,300,500,560,False); time.sleep(.1)
                 cmd('click','--repeat','8','--delay','40',5); time.sleep(.1) # Source + Empty -> Empty + Other
                 cmd('click','--repeat','8','--delay','40',5); time.sleep(.1) # Other + Full
                 cmd('mousemove','--window',window,500,560); time.sleep(.1); cmd('mouseup',1); time.sleep(.2)
                 assert ids(2)==['two','three','one'] and len(ids(3))==8
-                key('ctrl+a'); key('BackSpace'); time.sleep(.1)
+                click(500,133);key('ctrl+a'); key('BackSpace'); time.sleep(.1)
                 # Select moved terminal in its new row, enter it, and check shell state.
                 key('Escape'); time.sleep(.25); key('ctrl+shift+o'); time.sleep(.25)
                 cmd('type','--window',window,'--delay',30,'--','Other'); time.sleep(.15)
                 click(760,300); time.sleep(.25); verify('one','after-move')
-                click(1196,16); assert viewer.wait(timeout=5)==0; alive()
+                close_window(window,env); assert viewer.wait(timeout=5)==0; alive()
                 # Reopen from saved placement, with the same running shells.
                 viewer,window=start(); key('ctrl+shift+o'); time.sleep(.25)
                 cmd('type','--window',window,'--delay',30,'--','Other'); time.sleep(.15)
                 click(760,300); time.sleep(.25); verify('one','after-reopen')
-                click(1196,16); assert viewer.wait(timeout=5)==0; alive()
+                close_window(window,env); assert viewer.wait(timeout=5)==0; alive()
                 print('PASS: empty-workspace drop, populated insert, reorder, escape/outside/full cancellation, edge scrolling, filtered insertion, persistence and unchanged live shell PID/state/socket/geometry')
             finally:
                 for process in reversed(processes):

@@ -36,7 +36,7 @@ static void pane_header(WorkspaceClient *client, WorkbenchPane *pane, Rectangle 
         client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "Unavailable" : pane->transport.attached_elsewhere ? "Elsewhere" : "Disconnected") :
         pane->transport.replaying ? "Connecting" : agent[0] ? remote_attention_name(pane->transport.attention) : "";
     Color status_color=pane->closed || pane->transport.replaying ? ui.muted : remote_attention_color(pane->transport.attention);
-    int reserve=bounds.width<300 ? (pane->closed ? 142 : 16) : (pane->closed ? (pane->runtime_state==RUNTIME_STOPPED ? 282 : 242) : 150);
+    int reserve=pane->closed ? (pane->runtime_state==RUNTIME_STOPPED ? 172 : 132) : 38;
     float right=fmaxf(12,bounds.width-reserve),space=right-12;
     float status_width=status[0] ? MeasureTextEx(client->ui_font,status,UI_TEXT_CAPTION,0).x+14 : 0;
     bool badge=status_width>0 && space>=status_width+44;
@@ -53,7 +53,7 @@ static void pane_header(WorkspaceClient *client, WorkbenchPane *pane, Rectangle 
     if (show_agent)
         DrawTextEx(client->ui_font,agent,(Vector2){12+name_width+12,10},UI_TEXT_CAPTION,0,ui.muted);
     if (pane->closed) {
-        Rectangle action=pane->runtime_state==RUNTIME_STOPPED ? (Rectangle){bounds.width-(bounds.width<300 ? 134 : 264),6,126,20}
+        Rectangle action=pane->runtime_state==RUNTIME_STOPPED ? (Rectangle){bounds.width-164,6,126,20}
             : terminal_move_here_bounds((Rectangle){0,0,bounds.width,bounds.height});
         const char *label=client->managed && pane->runtime_state==RUNTIME_STOPPED ? "Start new shell" :
             client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE ? "Check again" :
@@ -61,8 +61,7 @@ static void pane_header(WorkspaceClient *client, WorkbenchPane *pane, Rectangle 
             pane->transport.takeover_unsupported ? "Reconnect" : "Move here";
         draw_header_button(client->ui_font,action,label,!client->managed || pane->runtime_state!=RUNTIME_CHECKING);
     }
-    if (client->managed && bounds.width>=300) {
-        draw_quiet_button(client->ui_font,(Rectangle){bounds.width-132,6,54,20},"Stop",true,UI_TEXT_CAPTION);
-        draw_quiet_button(client->ui_font,(Rectangle){bounds.width-72,6,64,20},"Rename",true,UI_TEXT_CAPTION);
-    }
+    Rectangle overflow={bounds.width-30,4,24,24};
+    draw_quiet_button(client->ui_font,overflow,"",true,UI_TEXT_BODY);
+    for (int i=0;i<3;i++) DrawCircle(overflow.x+7+i*5,16,1.2f,ui.muted);
 }

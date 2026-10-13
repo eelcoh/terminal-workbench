@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Palette routing with live shells: navigation, dialogs and input isolation."""
+from chrome_gui_actions import action as chrome_action
 from pathlib import Path
 import json
 import os
@@ -57,7 +58,7 @@ def main():
                 def marker(name):return wait_until(lambda:(root/name).exists() and (root/name).read_text())
                 def catalog():return json.loads((state/'workspaces.json').read_text())
                 def palette(query,mouse=False,run=True):
-                    if mouse:click(80,745)
+                    if mouse:chrome_action(cmd,window,'Open Commands')
                     else:key('ctrl+shift+p')
                     text(query)
                     if run:key('Return')

@@ -56,7 +56,7 @@ full-screen terminal application on each platform.
 | Copy selection | Ctrl+Shift+C | Command+C (unverified) |
 | Paste clipboard | Ctrl+Shift+V | Command+V (unverified) |
 
-The header also exposes Copy and Paste. Ctrl-C remains terminal input.
+The hamburger menu also exposes Copy and Paste. Ctrl-C remains terminal input.
 Drag selects text; double-click selects a word and triple-click selects a line
 through Ghostty's gesture engine. Shift forces local selection when a terminal
 application has mouse reporting enabled. Typing or pasting clears selection and
@@ -66,7 +66,7 @@ desktop input layer and full native platform acceptance remain future work.
 
 ## Workspace layout prototype
 
-Navigation is mouse-first while shortcut design remains open. The sidebar selects
+Navigation is mouse-first while shortcut design remains open. The Workspaces rail opens a drawer to select
 a workspace; a pane's title or terminal area focuses it. Copy/Paste always applies
 to the selected pane. Selection drags and scrollbar drags retain pointer ownership
 until release; divider gestures are handled by the client and never forwarded
@@ -114,9 +114,9 @@ targets. A workspace with eight terminals rejects incoming moves.
 
 ## Working-view pane navigation
 
-Prev/Next focuses adjacent terminals. Numbered positions in the same header strip
-select a terminal directly; the selected position and visible pair have distinct
-marks. Scroll horizontally on a trackpad or vertically with a mouse wheel over
+The configured previous/next chords focus adjacent terminals. Compact pane marks
+in the top bar select a terminal directly; focused, visible and off-screen panes
+have distinct marks. Scroll horizontally on a trackpad or vertically with a mouse wheel over
 that strip to navigate. Fractional deltas accumulate, direction reversal resets
 the accumulation, and a short cooldown bounds momentum-driven changes. Leaving
 the strip clears residual navigation input. Scrolling inside terminal content
@@ -133,7 +133,7 @@ transitions. No new terminal-intercepting keyboard chord is added by this slice.
 
 ## Commands palette prototype
 
-Commands in the sidebar opens a searchable action list. Ctrl+Shift+P (Linux) and
+Open Commands in the hamburger menu opens a searchable action list. Ctrl+Shift+P (Linux) and
 Command+Option+P (macOS, native acceptance pending) are editable default chords.
 Up/Down or wheel selects, Enter/click runs, and Escape/Done closes. Disabled actions
 explain their state; stop/replacement actions open the explicit confirmation dialogs.
@@ -187,3 +187,13 @@ over Overview preserves the exact query, selection and focused control.
 The owner confirmed basic Mac focus navigation. Broader Option input, non-US
 layouts, IME and accessibility remain
 part of platform acceptance.
+
+## Minimal chrome input
+
+The rail opens Workspaces or Agents. Temporary drawers own keyboard/pointer input
+until selection, Escape or outside-click dismissal; they do not resize PTYs.
+Pin keeps the panel visible and changes terminal estate. Tab/Shift+Tab and arrows
+navigate drawer controls. Menu items support arrows, Tab/Shift+Tab, Enter/Space,
+Escape, outside-click dismissal and wheel scrolling in short windows. Their
+opening, dismissal and dispatch frames stay modal so input cannot reach a shell
+or accept a newly opened confirmation. [Usage and layout](minimal-chrome.md).

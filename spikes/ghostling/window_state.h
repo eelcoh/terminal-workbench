@@ -19,6 +19,7 @@ typedef struct {
     int width, height, count;
     float divider, vertical;
     bool overview, list, agents, waiting, context;
+    bool chrome_pinned, chrome_agents, chrome_waiting;
     char active[41], sidebar[41], selected[41], query[64];
     WindowWorkspaceState workspaces[WINDOW_STATE_WORKSPACES];
 } WindowState;
@@ -48,7 +49,8 @@ static bool window_state_read(WindowState *state, const char *path)
     WindowState next={0}; char line[512], query[128]; int end=0, overview,list,agents,waiting,context;
     bool valid=false;
     if (!fgets(line,sizeof(line),file)) goto done;
-    bool v2=!strcmp(line,"workbench-window-v2\n");
+    bool v3=!strcmp(line,"workbench-window-v3\n");
+    bool v2=v3 || !strcmp(line,"workbench-window-v2\n");
     if (!v2 && strcmp(line,"workbench-window-v1\n")) goto done;
     if (!fgets(line,sizeof(line),file) || sscanf(line,"V %d %d %f %40s %40s %d %d %d %d %f %40s %127s %d%n",
         &next.width,&next.height,&next.divider,next.active,next.sidebar,&overview,&list,&agents,&waiting,
@@ -69,6 +71,12 @@ static bool window_state_read(WindowState *state, const char *path)
             if (a<0 || b<0 || !(a*16+b)) goto done;
             next.query[i/2]=(char)(a*16+b);
         }
+    }
+    if (v3) {
+        int pinned,mode,filter;
+        if (!fgets(line,sizeof(line),file) || sscanf(line,"C %d %d %d%n",&pinned,&mode,&filter,&end)!=3 || strcmp(line+end,"\n")
+            || pinned<0 || pinned>1 || mode<0 || mode>1 || filter<0 || filter>1) goto done;
+        next.chrome_pinned=pinned;next.chrome_agents=mode;next.chrome_waiting=filter;
     }
     while (fgets(line,sizeof(line),file)) {
         if (v2 && line[0]=='T') {
@@ -110,10 +118,11 @@ static bool window_state_write(const WindowState *state, const char *path)
     if (!file) { close(fd); unlink(temporary); return false; }
     char query[128]={0};
     for (size_t i=0;i<strlen(state->query);i++) snprintf(query+i*2,3,"%02x",(unsigned char)state->query[i]);
-    bool valid=fprintf(file,"workbench-window-v2\nV %d %d %.9g %s %s %d %d %d %d %.9g %s %s %d\n",
+    bool valid=fprintf(file,"workbench-window-v3\nV %d %d %.9g %s %s %d %d %d %d %.9g %s %s %d\n",
         state->width,state->height,state->divider,window_state_token(state->active),window_state_token(state->sidebar),
         state->overview,state->list,state->agents,state->waiting,state->vertical,window_state_token(state->selected),
         *query ? query : "-",state->context)>0;
+    if (fprintf(file,"C %d %d %d\n",state->chrome_pinned,state->chrome_agents,state->chrome_waiting)<0) valid=false;
     for (int i=0;i<state->count;i++) {
         const WindowWorkspaceState *workspace=&state->workspaces[i];
         if (fprintf(file,"W %s %s %s %.9g %.9g\n",workspace->id,window_state_token(workspace->focused),

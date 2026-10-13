@@ -2,7 +2,7 @@
 /* Focus order: search, terminals, Theme, layout, states, agents, Done. */
 typedef struct { int workspace, pane; } OverviewItem;
 
-static Rectangle overview_button(void) { return (Rectangle){482, 4, 80, 24}; }
+static Rectangle overview_button(void) { return (Rectangle){GetScreenWidth()-92, 6, 84, 28}; }
 static Rectangle overview_bounds(WorkspaceClient *client)
 {
     float width = GetScreenWidth() - 48;

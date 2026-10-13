@@ -198,9 +198,11 @@ The owner's Niri/Dank Material/Foot references lead to a new
 [interactive local sketch](prototypes/minimal-chrome.html). Top-bar indicators
 represent panes: focus, visibility and off-screen position. A compact left rail
 can expand into separate Workspaces and Agents views; occasional actions move to
-application/pane menus. Compact versus pinned navigation remains for owner review.
-This is a sample-data design proposal. Native menu/sidebar implementation and
-platform acceptance are upcoming UX work; the running viewer is unchanged.
+application/pane menus. Compact and pinned navigation remain available for native owner review.
+The owner approved the design. The native viewer now implements compact/pinned
+navigation, cross-workspace agent attention, pane indicators and application/pane
+menus with existing actions and confirmations. Platform visual/input acceptance
+remains part of the UX gate; the HTML remains a sample-data reference.
 
 ## UX spike: a product-quality gate
 

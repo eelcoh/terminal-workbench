@@ -4,7 +4,8 @@ The workspace client now has shared surface, text, focus and status colors, roun
 controls, and a live appearance picker. These are the first runnable UX slice;
 owner review and native platform validation are still required.
 
-Open **Appearance** at the bottom of the sidebar, or **Theme** in the overview.
+Choose **Change appearance** in the hamburger menu, or **Theme** in the overview. A pane’s three-dot menu opens **Terminal theme**
+with that terminal’s scope selected.
 The picker has four targets:
 
 | Target | What changes |

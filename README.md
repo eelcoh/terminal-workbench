@@ -42,23 +42,25 @@ distrobox enter build-machine -- just spike
 The first build downloads pinned Ghostling, Ghostty VT, and Raylib dependencies.
 The first launch starts **Main** and **Scratch**, each with two independent shells.
 Later launches reopen your saved workspaces and terminal names.
-Click a workspace in the sidebar, then click a pane or its title to focus it.
+Open Workspaces from the compact left rail, select a workspace, then click a pane
+or its title to focus it. Pin keeps the navigation panel visible; Hide collapses it.
 The blue border marks the selected pane. Drag the gap between panes to resize.
-Copy/Paste targets the selected pane. Gold dots mark output from an unfocused
-terminal; they are activity indicators, not agent status.
+Copy/Paste targets the selected pane. The Agents rail view lists agents across
+workspaces, with an explicit Needs input filter and a global attention count.
+Gold dots mark output from an unfocused terminal; they are activity indicators, not agent status.
 
-Use **New workspace**, **Rename workspace**, and **New terminal** at the bottom
-of the sidebar. Each terminal title has a **Rename** button. New workspaces start
-with one shell. **Prev/Next** in the header focuses terminals and reveals those
-outside the two visible columns. Click a numbered position to jump directly, or
-scroll over the header's navigation strip to move between terminals. Horizontal
+Use the hamburger menu for workspace creation, rename and folder actions, or
+**+ New workspace** in its drawer. The top-bar **+** creates a terminal. Each pane
+has a three-dot menu for rename, themes, widths, moving and Stop. New workspaces
+start with one shell. Pane marks in the top bar show focus and viewport visibility.
+Click a mark to reveal that terminal, or scroll over the header's navigation strip to move between terminals. Horizontal
 trackpad scrolling and vertical mouse-wheel scrolling work there; scrolling inside
 terminals keeps its terminal behavior. Adjacent pane changes scroll for 270ms; longer jumps scroll through every
 intermediate pane, taking up to 1.25s depending on distance, with immediate
 focus and typing. `WORKBENCH_REDUCED_MOTION=1 just spike` skips motion.
 Names are saved; renaming preserves the process.
 
-Each terminal has **Stop**; the **x** beside WORKSPACES stops the selected workspace.
+Use **Stop terminal** in the pane menu or **Stop workspace** in the hamburger menu.
 The confirmation names the target and shows the number of affected shells.
 Click **Stop** to terminate those shells and their foreground jobs and remove them
 from the saved organization. Escape/Cancel keeps them running. Empty workspaces
@@ -97,7 +99,7 @@ reviewing the Workbench hooks in `/hooks`. The launchers add settings for that
 invocation; they do not edit global agent configuration. Existing shells need a
 new terminal for the updated runtime and PATH. See [hook details](docs/agent-attention.md).
 
-Use **Appearance** in the sidebar or **Theme** in the overview to browse palettes.
+Use **Change appearance** in the hamburger menu or **Theme** in the overview to browse palettes.
 Choose **Application**, **Workspace**, **Terminal**, or **Defaults**. Terminal overrides
 inherit from workspace colors when cleared; workspace colors inherit from Defaults.
 Chrome stays stable by default; **Follow active workspace** enables matching chrome.
@@ -106,13 +108,13 @@ gallery includes Dracula and all four Catppuccin variants. Import Ghostty color
 fields with `WORKBENCH_THEME=/path/to/theme just spike` to set terminal defaults.
 See [appearance support and limits](docs/appearance.md).
 
-Click **Close** in the top-right header to detach all shells, then run the
+Choose **Close window** in the hamburger menu to detach all shells, then run the
 command again to reconnect to the same processes. The original spike shell is
 kept as Main / Shell 1. Type `exit` to stop only the selected shell. Closing an
 older single-terminal window before relaunching releases its attachment.
 
 Drag to select text, double-click a word, and use **Copy** / **Paste** in the
-header or **Ctrl+Shift+C/V** on Linux. Scroll with the mouse wheel; typing or
+hamburger menu or **Ctrl+Shift+C/V** on Linux. Scroll with the mouse wheel; typing or
 pasting returns to live output. Hold Shift to select inside mouse-enabled apps.
 
 The spike uses Linux X11/XWayland. Automated checks use an isolated Xvfb display.

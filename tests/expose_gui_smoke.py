@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Spatial overview: live hidden screens, geometry preservation and navigation."""
+from gui_smoke import close_window
 from pathlib import Path
 import fcntl
 import json
@@ -133,7 +134,7 @@ def main():
                     path=wait_until(lambda:next((p for p in root.glob('screenshot*.png') if p.stat().st_mtime_ns>=started),None))
                     destination = artifacts / name; shutil.copyfile(path, destination); return destination
                 before = geometry()
-                fast_click(522, 16)
+                key('ctrl+shift+o')
                 fast_key('F12')
                 time.sleep(.05)
                 opening=wait_until(lambda:next(root.glob('screenshot*.png'),None))
@@ -163,7 +164,7 @@ def main():
                 assert ('Texture loaded successfully (1240x760' in (root / 'test.log').read_text()) != reduced
                 if not reduced:
                     # Pending navigation must not commit if the zoom is reversed.
-                    text('Workspace 2'); fast_key('Return'); fast_click(522, 16)
+                    text('Workspace 2'); fast_key('Return'); key('ctrl+shift+o')
                     text('missing-terminal'); fast_key('Return'); fast_key('Escape')
                     # Immediate typing completes closing without losing queued text.
                     verify('w0p0', 'cancel-safe')
@@ -195,7 +196,7 @@ def main():
                 key('Down'); key('Return')
                 command('windowsize', window, 1240, 760); time.sleep(.3)
                 verify('w2p0', 'small-window-jump')
-                click(1196, 16); assert viewer.wait(timeout=5) == 0
+                close_window(window,environment); assert viewer.wait(timeout=5) == 0
                 for pid in pids.values(): os.kill(pid, 0)
                 print(('PASS (reduced motion): ' if reduced else 'PASS (animated): ') + 'spatial grouping, live never-opened previews, preserved geometry/PIDs, modal isolation, horizontal/vertical keyboard navigation, filters, both scroll axes, minimum-window navigation and detach' + ('; reversed pending jump and immediate transition typing' if not reduced else ''))
             finally:

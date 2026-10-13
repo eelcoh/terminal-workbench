@@ -21,7 +21,11 @@ static void overview_motion_tick(WorkspaceClient *client)
     bool interrupted = false;
     /* A new terminal key completes the transition before normal input handling.
      * Leave queues intact. The exit gesture was consumed in its own modal frame. */
-    if (!overview_requested() && !workbench_input_has_key(KEY_ESCAPE)) {
+    ShortcutChord toggle=client->shortcuts.bindings[COMMAND_OVERVIEW];
+    bool toggling=overview_requested() || (toggle.key && toggle.mods==shortcut_modifiers()
+        && (workbench_input_has_key(toggle.key) || IsKeyPressed(toggle.key)));
+    /* A configured toggle reverses the zoom; it must not commit a pending jump. */
+    if (!toggling && !workbench_input_has_key(KEY_ESCAPE)) {
         interrupted = workbench_input_has_text();
         for (int key = 32; key <= KEY_KB_MENU; key++)
             if (!(key >= KEY_LEFT_SHIFT && key <= KEY_RIGHT_SUPER) && key != KEY_F12 && workbench_input_has_key(key)) { interrupted = true; break; }

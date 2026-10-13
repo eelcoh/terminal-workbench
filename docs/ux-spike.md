@@ -506,3 +506,56 @@ viewer behavior or establish platform/runtime acceptance. Review the placement,
 discoverability, agent context and compact/pinned tradeoff before implementing
 shared menus, indicator geometry and sidebar layout in the app. Preserve existing
 keyboard navigation, scoped themes, explicit stop/recovery and multiwindow facts.
+
+## Native minimal chrome
+
+The owner approved the layout study and its 4px pane corners. The native client
+now has compact pane marks in a slim top bar, a 44px rail, temporary/pinned
+workspace and agent panels, application/pane menus, and retained direct recovery/
+ownership buttons. The menus dispatch existing registered actions; terminal
+menus add the existing workspace-move workflow and scoped theme entry. Pointer
+and keyboard dismissal consume their whole frame before terminal routing.
+Temporary drawers do not resize PTYs; pinning commits real estate changes.
+
+Client-only version-3 view data saves pin/mode/filter while preserving reads of
+version-1/version-2 files. Agent rows use already-received identity/activity,
+including Unknown and connection fallbacks. No runtime protocol or server
+organization data was added. Existing configured Mac Cmd+Option and Linux
+Ctrl+Shift navigation and copy/paste behavior remain available.
+
+The dedicated `just chrome-gui-test` checks live shell continuity, drawer geometry,
+pin restoration, menus, create/rename/explicit stop, cross-workspace agent jumping,
+menu target identity across catalog refresh, width actions, workspace moves and
+window ownership transfer. Agent projection uses a disposable named-process/hook
+fixture, not a real agent CLI. Review captures are under `.local/test-results/`
+as `minimal-{working-dark,working-light,pinned,pane-menu,agents-attention,
+restored-agents,elsewhere,small-menu}.png`. Native Mac review remains pending.
+
+Validation passes the Linux viewer build and `just check`, including version-1/
+version-2 view migration and version-3 chrome corruption/roundtrip coverage.
+GUI recipes pass for minimal chrome, management, workspaces/clipboard/same-poll
+trackpad taps, Commands, themes (1/15 populated terminals), multiwindow ownership,
+spatial Overview (ordinary/reduced motion), drag/move, window restoration,
+shortcut help (ordinary/reduced motion) and Retina. Navigation passes with 1/15
+populated terminals, reduced motion and fifteen terminals at 2x backing.
+The fixed half-pane fixture has 41 rows / 82 columns at both 1x and 2x;
+1x/2x cell size remains 7×16. Wider estate comes from the compact rail.
+
+The configured Overview toggle now reverses a closing zoom before a pending jump
+commits, matching the pointer toggle. The live spatial test covers pending-jump
+reversal and immediate typing on exit. Test fixture migrations explicitly focus
+search fields before filtering and use the new menus/drawer geometry.
+
+Final sequential fixed 1240×760 help/working-view samples measured 247.4% CPU
+with one populated terminal and 288.2% with fifteen (+16.5%; 100% is one core).
+The previous chrome slice sampled 252.9% / 277.0% in the same window fixture.
+Each run retained PID/socket/geometry and a single help-body allocation.
+These two-second llvmpipe samples are noisy, and the compact rail increases
+terminal estate; they do not establish a rendering gain or native frame pacing.
+Chrome reads bounded scalar client metadata for visible marks and the global
+attention count, without process/filesystem inspection, terminal snapshots or
+per-byte work. Corner masking adds a fixed sixteen small rectangles per visible
+pane; hidden panes retain the existing presentation early exits.
+
+Native Mac input/visual acceptance and physical GPU/Wayland review remain open.
+The toolkit and overall product-quality gates remain open.

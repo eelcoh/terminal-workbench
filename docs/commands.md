@@ -1,6 +1,6 @@
 # Commands palette
 
-Open **Commands** at the bottom of the sidebar, **Ctrl+Shift+P** on Linux, or
+Choose **Open Commands** in the hamburger menu, **Ctrl+Shift+P** on Linux, or
 **Command+Option+P** on macOS. The fresh keyboard model now supports configurable bindings,
 navigation shortcuts and sending an intercepted key to the terminal. Defaults are
 editable through Shortcut settings. See [shortcuts](shortcuts.md).

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Create/rename through the GUI and verify persistent live shell identities."""
+from chrome_gui_actions import action as chrome_action, workspace as chrome_workspace
+from gui_smoke import close_window
 from pathlib import Path
 import json
 import os
@@ -10,7 +12,6 @@ import sys
 import tempfile
 import time
 import uuid
-from gui_smoke import close_window
 from session_smoke import wait_until, attach, send
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -75,8 +76,8 @@ def main():
                     return wait_until(lambda: (root / name).exists() and (root / name).read_text())
                 def metadata():
                     return json.loads((state / "workspaces.json").read_text())
-                def edit(x, y, title, predicate):
-                    click(x, y)
+                def edit(action, title, predicate):
+                    chrome_action(command,window,action)
                     type_text(title)
                     key("Return")
                     wait_until(lambda: predicate(metadata()), timeout=10)
@@ -84,20 +85,20 @@ def main():
                 viewer, window = launch()
                 line("keep=retained; printf '%s' \"$$\" > original.pid")
                 original_pid = read("original.pid")
-                edit(84, 641, "Projects", lambda data: data["workspaces"][0]["name"] == "Projects")
-                edit(667, 58, "-Build", lambda data: data["workspaces"][0]["terminals"][0]["name"] == "-Build")
+                edit('Rename workspace', "Projects", lambda data: data["workspaces"][0]["name"] == "Projects")
+                edit('Rename terminal', "-Build", lambda data: data["workspaces"][0]["terminals"][0]["name"] == "-Build")
                 line("printf '%s:%s' \"$$\" \"$keep\" > renamed.pid")
                 assert read("renamed.pid") == f"{original_pid}:retained"
                 # Escape and Cancel must not rename or feed their text into a shell.
                 before = (state / "workspaces.json").read_bytes()
-                click(667, 58)
+                chrome_action(command,window,'Rename terminal')
                 type_text("cancelled")
                 key("Escape")
                 assert (state / "workspaces.json").read_bytes() == before
                 line("printf cancelled-safely > cancelled-result")
                 assert read("cancelled-result") == "cancelled-safely"
                 # Empty names report an error and keep the editor open.
-                click(84, 641)
+                chrome_action(command,window,'Rename workspace')
                 key("BackSpace")
                 key("Return")
                 time.sleep(0.3)
@@ -110,30 +111,30 @@ def main():
                 key("ctrl+v")
                 key("Return")
                 time.sleep(0.4)
-                edit(84, 603, "Research", lambda data: len(data["workspaces"]) == 3)
+                edit('New workspace', "Research", lambda data: len(data["workspaces"]) == 3)
                 line("keep=research; printf '%s' \"$$\" > research.pid")
                 research_pid = read("research.pid")
                 assert research_pid != original_pid
-                edit(84, 679, "Tests", lambda data: len(data["workspaces"][2]["terminals"]) == 2)
+                edit('New terminal', "Tests", lambda data: len(data["workspaces"][2]["terminals"]) == 2)
                 line("keep=tests; printf '%s' \"$$\" > tests.pid")
                 tests_pid = read("tests.pid")
-                edit(84, 679, "Checks", lambda data: len(data["workspaces"][2]["terminals"]) == 3)
+                edit('New terminal', "Checks", lambda data: len(data["workspaces"][2]["terminals"]) == 3)
                 line("keep=checks; printf '%s' \"$$\" > checks.pid")
                 checks_pid = read("checks.pid")
                 assert len({original_pid, research_pid, tests_pid, checks_pid}) == 4
                 # Previous/Next reveals offscreen terminals and keeps their process state.
-                click(223, 16)
+                key('ctrl+shift+Left')
                 line("printf '%s:%s' \"$$\" \"$keep\" > tests-again")
                 assert read("tests-again") == f"{tests_pid}:tests"
-                click(223, 16)
+                key('ctrl+shift+Left')
                 line("printf '%s:%s' \"$$\" \"$keep\" > research-again")
                 assert read("research-again") == f"{research_pid}:research"
-                click(287, 16)
-                click(287, 16)
-                edit(1190, 58, "Verification", lambda data: data["workspaces"][2]["terminals"][2]["name"] == "Verification")
+                key('ctrl+shift+Right')
+                key('ctrl+shift+Right')
+                edit('Rename terminal', "Verification", lambda data: data["workspaces"][2]["terminals"][2]["name"] == "Verification")
                 # Raylib also forwards F12 as terminal input. Capture with the
                 # name editor open so the modal consumes it without shell input.
-                click(1190, 58)
+                chrome_action(command,window,'Rename terminal')
                 key("F12")
                 screenshot = root / "screenshot000.png"
                 wait_until(screenshot.exists)
@@ -141,7 +142,7 @@ def main():
                 artifacts.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(screenshot, artifacts / "management.png")
                 key("Escape")
-                click(1196, 16)
+                close_window(window,environment)
                 assert viewer.wait(timeout=5) == 0
                 for value in [original_pid, research_pid, tests_pid, checks_pid]: os.kill(int(value), 0)
                 subprocess.run(bootstrap, env=environment, check=True, stdout=log, stderr=log, timeout=10)
@@ -151,15 +152,15 @@ def main():
                 viewer, window = launch()
                 line("printf '%s:%s' \"$$\" \"$keep\" > restored-original")
                 assert read("restored-original") == f"{original_pid}:retained"
-                click(60, 194)
+                chrome_workspace(click,2)
                 line("printf '%s:%s' \"$$\" \"$keep\" > restored-research")
                 assert read("restored-research") == f"{research_pid}:research"
-                click(287, 16)
-                click(287, 16)
+                key('ctrl+shift+Right')
+                key('ctrl+shift+Right')
                 line("printf '%s:%s' \"$$\" \"$keep\" > restored-checks")
                 assert read("restored-checks") == f"{checks_pid}:checks"
                 # Keep the existing list-specific navigation/geometry coverage.
-                click(522, 16)
+                key('ctrl+shift+o')
                 click(872, 74)  # List
                 click(500, 133)  # Return text focus to the overview search.
                 # Overview filtering and cancellation cannot feed text to the shell.
@@ -181,7 +182,7 @@ def main():
                 line("printf '%s:%s' \"$$\" \"$keep\" > overview-third")
                 assert read("overview-third") == f"{checks_pid}:checks"
                 line("sleep 0.4; printf overview-background; touch overview-background-done")
-                click(522, 16)
+                key('ctrl+shift+o')
                 type_text("Research")
                 wait_until(lambda: (root / "overview-background-done").exists())
                 key("F12")
@@ -241,7 +242,7 @@ def main():
                     time.sleep(0.15)
                 report("UserPromptSubmit", "working")
                 time.sleep(0.2)
-                click(522, 16)
+                key('ctrl+shift+o')
                 type_text(agent_fixture)
                 click(844, 74)
                 key("F12")
@@ -264,23 +265,23 @@ def main():
                 line("printf '%s:%s' \"$$\" \"$keep\" > after-agent")
                 assert read("after-agent") == f"{checks_pid}:checks"
                 # Identity disappearing empties the Agents filter without closing it.
-                click(522, 16)
+                key('ctrl+shift+o')
                 key("Return")
                 click(844, 74)
                 click(740, 74)
                 key("Escape")
                 # Stop the middle terminal while a foreground job is running.
-                click(223, 16)
+                key('ctrl+shift+Left')
                 line("python3 -c 'import os,time;open(\"job.pid\",\"w\").write(str(os.getpid()));time.sleep(120)'")
                 job_pid = read("job.pid")
                 before = (state / "workspaces.json").read_bytes()
-                click(602, 58)
+                chrome_action(command,window,'Stop terminal')
                 key("Return")  # Destructive confirmation requires an explicit click.
                 time.sleep(0.2)
                 assert (state / "workspaces.json").read_bytes() == before
                 key("Escape")
                 os.kill(int(job_pid), 0)
-                click(602, 58)
+                chrome_action(command,window,'Stop terminal')
                 key("F12")
                 time.sleep(0.2)
                 screenshots = sorted(root.glob("screenshot*.png"))
@@ -295,41 +296,41 @@ def main():
                 wait_until(lambda: stopped(job_pid) and stopped(tests_pid))
                 time.sleep(0.4)
                 # Removing a pane must preserve its surviving sibling's shell.
-                click(287, 16)
+                key('ctrl+shift+Right')
                 line("printf '%s:%s' \"$$\" \"$keep\" > after-middle-close")
                 assert read("after-middle-close") == f"{checks_pid}:checks"
-                click(163, 62)
+                chrome_action(command,window,'Stop workspace')
                 key("Escape")
                 assert len(metadata()["workspaces"]) == 3
-                click(163, 62)
+                chrome_action(command,window,'Stop workspace')
                 click(761, 452)
                 wait_until(lambda: len(metadata()["workspaces"]) == 2, timeout=10)
                 wait_until(lambda: stopped(research_pid) and stopped(checks_pid))
                 time.sleep(0.4)
-                click(60, 106)
+                chrome_workspace(click,0)
                 line("printf '%s:%s' \"$$\" \"$keep\" > after-workspace-close")
                 assert read("after-workspace-close") == f"{original_pid}:retained"
                 # An empty workspace remains usable, and no stopped shell revives.
-                click(602, 58)
+                chrome_action(command,window,'Stop terminal')
                 click(761, 452)
                 wait_until(lambda: len(metadata()["workspaces"][0]["terminals"]) == 1)
                 time.sleep(0.3)
-                click(602, 58)
+                chrome_action(command,window,'Stop terminal')
                 click(761, 452)
                 wait_until(lambda: len(metadata()["workspaces"][0]["terminals"]) == 0)
                 time.sleep(0.3)
-                edit(84, 679, "Fresh", lambda data: len(data["workspaces"][0]["terminals"]) == 1)
+                edit('New terminal', "Fresh", lambda data: len(data["workspaces"][0]["terminals"]) == 1)
                 line("printf fresh > fresh-shell")
                 assert read("fresh-shell") == "fresh"
                 for row in [150, 106]:
-                    click(60, row)
-                    click(163, 62)
+                    chrome_workspace(click,(row-106)//44)
+                    chrome_action(command,window,'Stop workspace')
                     click(761, 452)
                     expected = 1 if row == 150 else 0
                     wait_until(lambda: len(metadata()["workspaces"]) == expected)
                     time.sleep(0.3)
                 assert not list(state.glob("*.sock"))
-                click(522, 16)
+                key('ctrl+shift+o')
                 key("Return")
                 key("Escape")
                 assert metadata()["workspaces"] == []
@@ -338,7 +339,7 @@ def main():
                 subprocess.run(bootstrap, env=environment, check=True, stdout=log, stderr=log, timeout=10)
                 assert metadata()["workspaces"] == [] and not list(state.glob("*.sock"))
                 viewer, window = launch()
-                edit(84, 603, "Restart", lambda data: len(data["workspaces"]) == 1)
+                edit('New workspace', "Restart", lambda data: len(data["workspaces"]) == 1)
                 line("printf empty-recovery > recovery")
                 assert read("recovery") == "empty-recovery"
                 # Opening saved organization does not resurrect an exited shell.
@@ -354,10 +355,10 @@ def main():
                 assert viewer.poll() is None and not recovered_path.exists()
                 time.sleep(.6)
                 before_recovery=metadata()
-                click(535,58)  # Start new shell in the terminal header.
+                click(556,62)  # Start new shell in the terminal header.
                 key("Escape")
                 assert not recovered_path.exists() and metadata()==before_recovery
-                click(535,58)
+                click(556,62)
                 click(755,452)  # Explicit confirmation, no keyboard auto-accept.
                 wait_until(recovered_path.exists,timeout=10)
                 time.sleep(.6)
@@ -367,14 +368,14 @@ def main():
                 line('keep=fresh; echo $$ > recovered.pid')
                 recovered_pid=read('recovered.pid')
                 line('exit');wait_until(lambda:not recovered_path.exists())
-                time.sleep(.6);click(535,58)
+                time.sleep(.6);click(556,62)
                 # Other caller recovers while this confirmation is open.
                 subprocess.run(bootstrap+["--command","terminal.recover","--id",recovered_id],env=environment,check=True,stdout=log,stderr=log,timeout=10)
                 recovered_inode=recovered_path.stat().st_ino
                 click(755,452);time.sleep(.5)
                 assert recovered_path.stat().st_ino==recovered_inode and viewer.poll() is None
                 log.flush();assert 'Terminal recovery failed: Terminal is still running' in (root/'test.log').read_text()
-                key('Escape');time.sleep(.4);click(535,58);time.sleep(.6)
+                key('Escape');time.sleep(.4);click(556,62);time.sleep(.6)
                 line('echo $$ > raced.pid');assert read('raced.pid')!=recovered_pid
                 assert recovered_path.stat().st_ino==recovered_inode
                 # Service unavailable: status check stays local, does not restart it.
@@ -382,10 +383,10 @@ def main():
                 subprocess.run(['python3',str(ROOT/'scripts/session_service.py'),'stop','--state-dir',str(state),'--runtime',runtime,'--cwd',str(root)],env=environment,check=True,stdout=log,stderr=log,timeout=10)
                 close_window(window,environment);assert viewer.wait(timeout=5)==0
                 viewer,window=launch();time.sleep(.5)
-                click(535,58);time.sleep(.3)
+                click(556,62);time.sleep(.3)
                 assert not recovered_path.exists() and not (state/'service.rpc').exists()
                 subprocess.run(bootstrap,env=environment,check=True,stdout=log,stderr=log,timeout=10)
-                click(535,58);time.sleep(.5);click(535,58);click(755,452)
+                click(556,62);time.sleep(.5);click(556,62);click(755,452)
                 wait_until(recovered_path.exists);time.sleep(.5)
                 line('printf resumed > status-recovery');assert read('status-recovery')=='resumed'
                 close_window(window, environment)

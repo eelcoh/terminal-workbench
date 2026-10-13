@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Verify independent terminal state and input on an isolated display."""
+from chrome_gui_actions import action as chrome_action, workspace as chrome_workspace
+from gui_smoke import close_window
 from pathlib import Path
 import os
 import select
@@ -10,7 +12,6 @@ import sys
 import tempfile
 import time
 
-from gui_smoke import close_window
 from session_smoke import wait_until, attach
 
 def main():
@@ -69,10 +70,10 @@ def main():
                 def read(name):
                     return wait_until(lambda: (root / name).exists() and (root / name).read_text())
                 def select_word(left):
-                    command("mousemove", "--window", window, left + 2, 86)
+                    command("mousemove", "--window", window, left + 2, 94)
                     command("mousedown", 1)
                     time.sleep(0.06)
-                    command("mousemove", "--window", window, left + 8 * 7 + 5, 86)
+                    command("mousemove", "--window", window, left + 8 * 7 + 5, 94)
                     time.sleep(0.06)
                     command("mouseup", 1)
                     time.sleep(0.1)
@@ -80,7 +81,7 @@ def main():
                     return subprocess.check_output(["xclip", "-selection", "clipboard", "-o"], env=environment, timeout=5).decode()
                 viewer, window = launch()
                 for index, (workspace_y, pane_x) in enumerate([(106, 300), (106, 800), (150, 300), (150, 800)]):
-                    click(60, workspace_y)
+                    chrome_workspace(click,(workspace_y-106)//44)
                     click(pane_x, 100)
                     type_line(f"keep=pane{index}; printf '%s:%s' \"$$\" \"$keep\" > pid-{index}; stty size > size-{index}")
                     assert read(f"pid-{index}").endswith(f":pane{index}")
@@ -96,7 +97,7 @@ def main():
                         os.kill(viewer.pid, signal.SIGCONT)
                     time.sleep(0.15)
                 for index, (workspace_y, pane_x) in enumerate([(106, 300), (106, 800), (150, 300), (150, 800)]):
-                    tap(60, workspace_y)
+                    tap(22,66);tap(100,117+((workspace_y-106)//44)*52)
                     tap(pane_x, 100)
                     type_line(f"printf '%s' \"$keep\" > tapped-{index}")
                     assert read(f"tapped-{index}") == f"pane{index}"
@@ -104,24 +105,24 @@ def main():
                 assert len({value.split(':')[0] for value in identities}) == 4
                 assert read("size-0") == read("size-1"), [read("size-0"), read("size-1")]
                 # Both panes have independent selections; header Copy follows focus.
-                click(60, 106)
+                chrome_workspace(click,0)
                 click(300, 100)
                 type_line("printf '\\033[2J\\033[Hleft-copy\\r\\n'; touch left-ready")
                 wait_until(lambda: (root / "left-ready").exists())
                 time.sleep(0.1)
-                select_word(198)
+                select_word(58)
                 key("ctrl+shift+c")
                 assert clipboard() == "left-copy", repr(clipboard())
                 click(800, 100)
                 type_line("printf '\\033[2J\\033[Hrightcopy\\r\\n'; touch right-ready")
                 wait_until(lambda: (root / "right-ready").exists())
                 time.sleep(0.1)
-                select_word(721)
-                click(1048, 16)
+                select_word(651)
+                chrome_action(command,window,'Copy selection')
                 assert clipboard() == "rightcopy", repr(clipboard())
                 # Refocus by title, preserving the original pane's selection.
                 click(300, 58)
-                click(1048, 16)
+                chrome_action(command,window,'Copy selection')
                 assert clipboard() == "left-copy", repr(clipboard())
                 # Paste must use the focused pane's transport, not its sibling's.
                 click(800, 58)
@@ -134,10 +135,10 @@ def main():
                 key("Return")
                 assert read("paste-pane") == "pane1:café"
                 # Divider resize must update both PTYs without sharing dimensions.
-                command("mousemove", "--window", window, 711, 400)
+                command("mousemove", "--window", window, 642, 400)
                 command("mousedown", 1)
                 time.sleep(0.06)
-                command("mousemove", "--window", window, 620, 400)
+                command("mousemove", "--window", window, 450, 400)
                 time.sleep(0.12)
                 command("mouseup", 1)
                 time.sleep(0.08)  # Let the frame-based viewer observe release before refocusing.
@@ -150,7 +151,7 @@ def main():
                 assert left_rows == right_rows and left_cols < right_cols, (left_cols, right_cols)
                 # A hidden session continues receiving output and answering VT queries.
                 type_line("sleep 0.6; printf background-finished; touch background-done")
-                click(60, 150)
+                chrome_workspace(click,1)
                 wait_until(lambda: (root / "background-done").exists())
                 click(300, 58)
                 type_line("vi editor.txt")
@@ -160,12 +161,12 @@ def main():
                 type_line(":wq")
                 assert read("editor.txt") == "workspace editor\n"
                 # Visible Close detaches every session. Reopen preserves all PIDs and variables.
-                click(1196, 16)
+                close_window(window,environment)
                 assert viewer.wait(timeout=5) == 0
                 for value in identities: os.kill(int(value.split(':')[0]), 0)
                 viewer, window = launch()
                 for index, (workspace_y, pane_x) in enumerate([(106, 300), (106, 800), (150, 300), (150, 800)]):
-                    click(60, workspace_y)
+                    chrome_workspace(click,(workspace_y-106)//44)
                     click(pane_x, 58)
                     type_line(f"printf '%s:%s' \"$$\" \"$keep\" > reattached-{index}")
                     assert read(f"reattached-{index}") == identities[index]

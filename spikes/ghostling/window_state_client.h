@@ -60,6 +60,7 @@ static void window_view_save(WorkspaceClient *client, bool force)
     view.width=GetScreenWidth(); view.height=GetScreenHeight();
     if (view.width<800 || view.height<300) return; /* Ignore minimized dimensions. */
     view.divider=.5f; view.count=client->count;
+    view.chrome_pinned=client->chrome_pinned;view.chrome_agents=client->chrome_agents;view.chrome_waiting=client->chrome_waiting;
     strcpy(view.active,client->workspaces[client->active].id);
     if (client->sidebar_first>=0 && client->sidebar_first<client->count)
         strcpy(view.sidebar,client->workspaces[client->sidebar_first].id);

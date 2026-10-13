@@ -1,6 +1,6 @@
 /* A client-only live appearance preview. Cancel restores the exact prior theme. */
 /* Focus order: search, palette grid, four scopes, follow, three filters, clear, inherit, Cancel, Apply. */
-static Rectangle theme_button(void) { return (Rectangle){8,GetScreenHeight()-52,168,22}; }
+static Rectangle theme_button(void) { return (Rectangle){-1000,-1000,0,0}; }
 static Rectangle overview_theme_button(WorkspaceClient *client)
 {
     Rectangle bounds=overview_bounds(client);

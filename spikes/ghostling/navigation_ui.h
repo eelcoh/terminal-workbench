@@ -1,6 +1,6 @@
 /* Variable-width continuous strip. Cached intermediate screens never resize PTYs. */
 static Rectangle navigation_area(void)
-{ return (Rectangle){WORKBENCH_SIDEBAR+WORKBENCH_GAP,42,workspace_estate(),GetScreenHeight()-52}; }
+{ return (Rectangle){WORKBENCH_SIDEBAR+WORKBENCH_GAP,50,workspace_estate(),GetScreenHeight()-60}; }
 static void navigation_finish(WorkspaceClient *client)
 { overview_animation_target(&client->navigation_animation,client->navigation_animation.target,GetTime(),0); }
 static bool navigation_moving(WorkspaceClient *client)
@@ -38,7 +38,16 @@ static void navigation_present(WorkspaceClient *client, WorkbenchWorkspace *work
         Rectangle bounds={pixel_snap(area.x+pane_width_start(widths,p,area.width,WORKBENCH_GAP)-position,client->raster_scale),area.y,
             (int)pane_width_pixels(widths,p,area.width,WORKBENCH_GAP),(int)area.height};
         DrawTexturePro(canvas.texture,(Rectangle){0,0,canvas.texture.width,-canvas.texture.height},bounds,(Vector2){0},0,WHITE);
-        DrawRectangleLinesEx(bounds,1,p==workspace->focused ? ui.accent : ui.border);
+        /* Mask only four corner pixels, then draw the matching 4px outline.
+         * Bounded presentation work; terminal canvases and PTY geometry stay rectangular. */
+        for (int y=0;y<4;y++) {
+            float inset=4-sqrtf(16-(3.5f-y)*(3.5f-y));
+            DrawRectangleRec((Rectangle){bounds.x,bounds.y+y,inset,1},ui.background);
+            DrawRectangleRec((Rectangle){bounds.x+bounds.width-inset,bounds.y+y,inset,1},ui.background);
+            DrawRectangleRec((Rectangle){bounds.x,bounds.y+bounds.height-y-1,inset,1},ui.background);
+            DrawRectangleRec((Rectangle){bounds.x+bounds.width-inset,bounds.y+bounds.height-y-1,inset,1},ui.background);
+        }
+        DrawRectangleRoundedLinesEx(bounds,ui_roundness(bounds,4),8,1,p==workspace->focused ? ui.accent : ui.border);
     }
     EndScissorMode();
 }
