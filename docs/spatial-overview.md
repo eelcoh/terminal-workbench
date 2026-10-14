@@ -20,7 +20,7 @@ live retained terminal screens and keeps the existing search and agent filters.
 - List switches to the compact list; Spatial returns to thumbnails. View choice
   lasts for the current window. Escape/Done cancels without changing terminal focus.
 
-The provisional opening shortcut stays Ctrl+Shift+O on Linux and Command+Option+O
+The provisional opening shortcut stays Super+Alt+O on Linux and Command+Option+O
 on macOS (unverified). Super+O stays available to the compositor. Thumbnail clicks,
 search text, navigation, paste and scrolling are consumed by the overview.
 

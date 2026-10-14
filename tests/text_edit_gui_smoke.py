@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix='wb-edit-') as temporary:
             def paste(value):put(value);key('ctrl+v')
             def metadata():return json.loads((state/'workspaces.json').read_text())
             def saved(predicate):wait_until(lambda:predicate(metadata()));time.sleep(.4)
-            def palette(value):key('ctrl+shift+p');text(value);key('Return');time.sleep(.2)
+            def palette(value):key('super+alt+p');text(value);key('Return');time.sleep(.2)
             def geometry():
                 fd=os.open(f'/proc/{pid}/fd/0',os.O_RDONLY|os.O_NONBLOCK)
                 try:return fcntl.ioctl(fd,termios.TIOCGWINSZ,bytes(8))
@@ -76,7 +76,7 @@ with tempfile.TemporaryDirectory(prefix='wb-edit-') as temporary:
             before=(state/'workspaces.json').read_bytes();palette('Rename workspace');key('ctrl+a');paste('bad\nvalue');key('ctrl+c');assert clipboard()=='mouse edit'
             paste('x'*100);key('ctrl+c');assert clipboard()=='mouse edit';capture('rejected-paste.png');text('unsaved');key('Escape')
             assert (state/'workspaces.json').read_bytes()==before;safe('cancel-safe')
-            key('ctrl+shift+n');text('Draft');key('End');key('Left');key('Tab');key('ctrl+a');paste(str(old));key('Home');key('shift+Tab');text('X');key('ctrl+a');key('ctrl+c');assert clipboard()=='DrafXt'
+            key('super+alt+n');text('Draft');key('End');key('Left');key('Tab');key('ctrl+a');paste(str(old));key('Home');key('shift+Tab');text('X');key('ctrl+a');key('ctrl+c');assert clipboard()=='DrafXt'
             key('Tab');key('ctrl+a');key('ctrl+c');assert clipboard()==str(old);key('Tab');key('Tab');key('space');assert (state/'workspaces.json').read_bytes()==before;safe('dual-fields-safe')
             palette('Rename terminal');key('End');text(' debug');key('Return');saved(lambda d:d['workspaces'][0]['terminals'][0]['name']=='Shell 1 debug');safe('terminal-rename-safe')
             close_window(window,env);assert process.wait(timeout=5)==0

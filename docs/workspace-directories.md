@@ -112,7 +112,8 @@ private D-Bus session and temporary desktop preferences. Selection, cancellation
 keyboard Browse, explicit save/create, pending-picker close and sibling identity
 pass on Linux. Existing text-edit/focus/multiwindow tests pass. `just check` covers
 argument safety, platform cancellation/failure contracts, UTF-8/path bounds and
-nearest-existing-folder behavior. Mac native picker review remains pending.
+nearest-existing-folder behavior. The owner confirmed the Mac native picker on
+2026-10-14; the remaining edge-case checks below still need explicit acceptance.
 
 On Mac, open Change project folder, choose Browse, cancel once, then select a
 folder. Confirm the value remains editable before Save and existing shells keep

@@ -123,14 +123,14 @@ def main():
                 checks_pid = read("checks.pid")
                 assert len({original_pid, research_pid, tests_pid, checks_pid}) == 4
                 # Previous/Next reveals offscreen terminals and keeps their process state.
-                key('ctrl+shift+Left')
+                key('super+alt+Left')
                 line("printf '%s:%s' \"$$\" \"$keep\" > tests-again")
                 assert read("tests-again") == f"{tests_pid}:tests"
-                key('ctrl+shift+Left')
+                key('super+alt+Left')
                 line("printf '%s:%s' \"$$\" \"$keep\" > research-again")
                 assert read("research-again") == f"{research_pid}:research"
-                key('ctrl+shift+Right')
-                key('ctrl+shift+Right')
+                key('super+alt+Right')
+                key('super+alt+Right')
                 edit('Rename terminal', "Verification", lambda data: data["workspaces"][2]["terminals"][2]["name"] == "Verification")
                 # Raylib also forwards F12 as terminal input. Capture with the
                 # name editor open so the modal consumes it without shell input.
@@ -155,12 +155,12 @@ def main():
                 chrome_workspace(click,2)
                 line("printf '%s:%s' \"$$\" \"$keep\" > restored-research")
                 assert read("restored-research") == f"{research_pid}:research"
-                key('ctrl+shift+Right')
-                key('ctrl+shift+Right')
+                key('super+alt+Right')
+                key('super+alt+Right')
                 line("printf '%s:%s' \"$$\" \"$keep\" > restored-checks")
                 assert read("restored-checks") == f"{checks_pid}:checks"
                 # Keep the existing list-specific navigation/geometry coverage.
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 click(872, 74)  # List
                 click(500, 133)  # Return text focus to the overview search.
                 # Overview filtering and cancellation cannot feed text to the shell.
@@ -169,12 +169,12 @@ def main():
                 key("Escape")
                 line("printf overview-cancel-safe > overview-cancelled")
                 assert read("overview-cancelled") == "overview-cancel-safe"
-                key("ctrl+shift+o")
+                key("super+alt+o")
                 type_text("-build")
                 key("Return")
                 line("printf '%s:%s' \"$$\" \"$keep\" > overview-original")
                 assert read("overview-original") == f"{original_pid}:retained"
-                key("ctrl+shift+o")
+                key("super+alt+o")
                 type_text("RESEARCH")
                 key("Down")
                 key("Down")
@@ -182,7 +182,7 @@ def main():
                 line("printf '%s:%s' \"$$\" \"$keep\" > overview-third")
                 assert read("overview-third") == f"{checks_pid}:checks"
                 line("sleep 0.4; printf overview-background; touch overview-background-done")
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 type_text("Research")
                 wait_until(lambda: (root / "overview-background-done").exists())
                 key("F12")
@@ -195,7 +195,7 @@ def main():
                 # At minimum geometry one row is visible: wheel/keys reveal the rest.
                 command("windowsize", window, 800, 300)
                 time.sleep(0.3)
-                key("ctrl+shift+o")
+                key("super+alt+o")
                 type_text("Research")
                 command("mousemove", "--window", window, 300, 180)
                 command("click", "--repeat", 2, "--delay", 80, 5)
@@ -203,7 +203,7 @@ def main():
                 click(300, 183)
                 line("printf '%s:%s' \"$$\" \"$keep\" > overview-scrolled")
                 assert read("overview-scrolled") == f"{checks_pid}:checks"
-                key("ctrl+shift+o")
+                key("super+alt+o")
                 type_text("Research")
                 key("Down")
                 key("Down")
@@ -242,7 +242,7 @@ def main():
                     time.sleep(0.15)
                 report("UserPromptSubmit", "working")
                 time.sleep(0.2)
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 type_text(agent_fixture)
                 click(844, 74)
                 key("F12")
@@ -265,13 +265,13 @@ def main():
                 line("printf '%s:%s' \"$$\" \"$keep\" > after-agent")
                 assert read("after-agent") == f"{checks_pid}:checks"
                 # Identity disappearing empties the Agents filter without closing it.
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 key("Return")
                 click(844, 74)
                 click(740, 74)
                 key("Escape")
                 # Stop the middle terminal while a foreground job is running.
-                key('ctrl+shift+Left')
+                key('super+alt+Left')
                 line("python3 -c 'import os,time;open(\"job.pid\",\"w\").write(str(os.getpid()));time.sleep(120)'")
                 job_pid = read("job.pid")
                 before = (state / "workspaces.json").read_bytes()
@@ -296,7 +296,7 @@ def main():
                 wait_until(lambda: stopped(job_pid) and stopped(tests_pid))
                 time.sleep(0.4)
                 # Removing a pane must preserve its surviving sibling's shell.
-                key('ctrl+shift+Right')
+                key('super+alt+Right')
                 line("printf '%s:%s' \"$$\" \"$keep\" > after-middle-close")
                 assert read("after-middle-close") == f"{checks_pid}:checks"
                 chrome_action(command,window,'Stop workspace')
@@ -330,7 +330,7 @@ def main():
                     wait_until(lambda: len(metadata()["workspaces"]) == expected)
                     time.sleep(0.3)
                 assert not list(state.glob("*.sock"))
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 key("Return")
                 key("Escape")
                 assert metadata()["workspaces"] == []

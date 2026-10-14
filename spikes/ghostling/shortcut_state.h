@@ -72,8 +72,8 @@ static void shortcut_label(ShortcutChord chord, bool apple, char *out, size_t ca
 static ShortcutState shortcut_defaults(bool apple)
 {
     ShortcutState state={0};
-    unsigned navigation=apple ? SHORTCUT_SUPER|SHORTCUT_ALT : SHORTCUT_CTRL|SHORTCUT_SHIFT;
-    unsigned clipboard=apple ? SHORTCUT_SUPER : navigation;
+    unsigned navigation=SHORTCUT_SUPER|SHORTCUT_ALT;
+    unsigned clipboard=apple ? SHORTCUT_SUPER : SHORTCUT_CTRL|SHORTCUT_SHIFT;
     state.bindings[COMMAND_PALETTE]=(ShortcutChord){'P',navigation};
     state.bindings[COMMAND_OVERVIEW]=(ShortcutChord){'O',navigation};
     state.bindings[COMMAND_COPY]=(ShortcutChord){'C',clipboard};state.bindings[COMMAND_PASTE]=(ShortcutChord){'V',clipboard};
@@ -123,11 +123,16 @@ static bool shortcut_read_layer(const char *path, bool apple, const ShortcutStat
     if (!valid) { snprintf(error,capacity,"Invalid shortcut file; existing bindings kept"); return false; }
     /* New inherited defaults yield to old custom keys; explicit managed remaps still conflict. */
     ShortcutState defaults=shortcut_defaults(apple);
-    for (int i=0;i<COMMAND_COUNT;i++) if (!seen[i] && ((!base || migrated) || (i>=COMMAND_FONT_SETTINGS
-        && base->bindings[i].key==defaults.bindings[i].key && base->bindings[i].mods==defaults.bindings[i].mods)) && (i>=COMMAND_WIDTH_CYCLE || (apple &&
-        (i==COMMAND_PALETTE || i==COMMAND_OVERVIEW || i==COMMAND_TERMINAL_CREATE || i==COMMAND_WORKSPACE_CREATE))))
+    for (int i=0;i<COMMAND_COUNT;i++) {
+        bool linux_application=!apple && defaults.bindings[i].mods==(SHORTCUT_SUPER|SHORTCUT_ALT);
+        bool changed_default=i>=COMMAND_WIDTH_CYCLE || linux_application || (apple &&
+            (i==COMMAND_PALETTE || i==COMMAND_OVERVIEW || i==COMMAND_TERMINAL_CREATE || i==COMMAND_WORKSPACE_CREATE));
+        bool inherited=!base || migrated || ((i>=COMMAND_FONT_SETTINGS || linux_application)
+            && base->bindings[i].key==defaults.bindings[i].key && base->bindings[i].mods==defaults.bindings[i].mods);
+        if (seen[i] || !changed_default || !inherited) continue;
         for (int j=0;j<COMMAND_COUNT;j++) if (seen[j] && next.bindings[i].key==next.bindings[j].key
             && next.bindings[i].mods==next.bindings[j].mods) next.bindings[i]=(ShortcutChord){0};
+    }
     if (!shortcut_valid(&next,error,capacity)) return false;
     *out=next; return true;
 }

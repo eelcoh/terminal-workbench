@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(prefix='wb-pick-ui-') as temporary:
             def key(value,target=None):
                 target=target or window;command('keydown','--window',target,value);time.sleep(.08);command('keyup',value);time.sleep(.15)
             def text(value):command('type','--clearmodifiers','--window',window,'--delay',15,'--',value)
-            def palette(value):key('ctrl+shift+p');text(value);key('Return')
+            def palette(value):key('super+alt+p');text(value);key('Return')
             def picker():
                 out=subprocess.run(['xdotool','search','--onlyvisible','--name','^Choose project folder$'],env=env,capture_output=True,text=True)
                 return out.stdout.splitlines()[-1] if out.returncode==0 else None

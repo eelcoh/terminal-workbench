@@ -84,8 +84,8 @@ with tempfile.TemporaryDirectory(prefix='wb-attach-ui-') as temporary:
             capture('receiving.png')
             command('type','--window',window,'--delay',20,'x');time.sleep(.1)
             assert not (root/'f0.input').exists(),'input reached an unready terminal'
-            key('ctrl+shift+slash');capture('responsive-help.png');key('Escape')
-            if count>1:key('ctrl+shift+Right');key('ctrl+shift+Left')
+            key('super+alt+slash');capture('responsive-help.png');key('Escape')
+            if count>1:key('super+alt+Right');key('super+alt+Left')
             release.set();wait_until(lambda:len(ready)==count,timeout=15)
             wait_until(lambda:(root/'gui.log').read_text().count('restored terminal snapshot')==count,timeout=15)
             time.sleep(.4);capture('restored.png')

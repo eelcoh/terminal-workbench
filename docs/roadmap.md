@@ -81,8 +81,9 @@ Workspace project folders now support first/new/replacement shell startup,
 shared folder editing and preservation of live shell directories during edits or
 moves. Missing folders produce a local creation/recovery error. The path editor
 is implemented; the owner confirmed macOS workspace creation, folder editing and
-new-terminal directory behavior. Native folder browsing and remaining recovery/
-invalid-path checks remain follow-up. Capacity and text-selection cues now explain
+new-terminal directory behavior. Native folder browsing is now implemented and
+the owner confirmed the Mac picker; remaining recovery/invalid-path checks are
+follow-up. Capacity and text-selection cues now explain
 the eight-workspace ceiling and replacement of selected paths; the owner confirmed
 these cues on Linux and macOS.
 See [project folders](workspace-directories.md).
@@ -156,7 +157,8 @@ management of shell dotfiles is a separate possible integration.
   checkout-local preferences without losing settings.
 - Cover appearance, custom Ghostty themes, terminal/UI font preferences,
   shortcuts and workspace creation defaults. Support platform-specific overrides
-  so shared settings can retain Command+Option on Mac and Ctrl+Shift on Linux.
+  so shared settings can use matching Command+Option on Mac and Super+Alt on Linux,
+  or preserve explicitly configured platform differences.
 - Define defaults/file/platform/UI precedence and how UI changes are saved.
   Preserve user-owned comments and files or keep UI overrides in a separate file;
   avoid silently rewriting a user's managed configuration.
@@ -249,7 +251,7 @@ See [the detailed layout requirements](ux-spike.md#niri-reference-and-next-layou
 
 The prototype now provides a Niri-inspired overlay showing current configured
 bindings in themed groups. Editable defaults are **Command+Option+/** on macOS
-and **Ctrl+Shift+/** on Linux, with Commands entry and an Edit shortcuts link.
+and **Super+Alt+/** on Linux, with Commands entry and an Edit shortcuts link.
 Mac application defaults share Command+Option, except Command+C/V for clipboard.
 Saved custom bindings remain intact. The owner has confirmed the independent
 widths, their Mac navigation-consistent shortcuts and the help overlay.
@@ -315,11 +317,14 @@ Native Mac and owner visual review of this slice remain open.
 
 ## Keyboard polish: matching Linux and Mac modifiers
 
-The owner prefers Super+Alt on Linux, matching Command+Option on a Mac keyboard.
-Evaluate these as the common application/navigation defaults while preserving
-saved custom bindings and platform clipboard conventions. Check compositor
-shortcut conflicts, keyboard layouts, labels, help and migration before changing
-defaults. This is a requested roadmap item.
+Linux application/navigation defaults now use Super+Alt, matching Command+Option
+on Mac. Saved bindings and platform clipboard conventions remain intact; Commands,
+help, menus and the recorder display the effective map. Defaults apply to omitted
+actions; full-map files keep their saved keys. Niri/Zirconium's Super+Alt+S Orca
+binding conflicts with search; Commands and remapping provide alternatives without
+changing desktop configuration. The owner confirmed this change on 2026-10-14.
+Linux GUI validation and remaining layout/compositor checks are tracked in
+[shortcut settings](shortcuts.md#matching-application-modifiers).
 
 ## Chrome polish: menu sections and workspace removal
 
@@ -524,7 +529,7 @@ implementation references; this document is the milestone sequence.
 Find in terminal is implemented for the focused pane's retained output/scrollback,
 with a compact query field, visible matches/counter, wrapping next/previous
 navigation, Escape viewport restoration and Commands/settings/help integration.
-Defaults are Ctrl+Shift+S on Linux and Command+Option+S on Mac; existing custom
+Defaults are Super+Alt+S on Linux and Command+Option+S on Mac; existing custom
 bindings keep precedence. Soft wraps, wide/combining Unicode and alternate-screen
 isolation use the existing Ghostty state, with bounded incremental scans and
 stale-result invalidation outside rendering. Continuous output can delay results
@@ -591,7 +596,8 @@ project folder, keeping the selected path editable until explicit Save/Create.
 Cancellation/errors preserve state and window close dismisses pending helpers.
 Linux uses Zenity/the desktop dialog, with manual entry when unavailable; Mac uses
 Standard Additions with separate path arguments. Real Linux picker and existing
-editing/focus/ownership workflows pass; native Mac review remains pending.
+editing/focus/ownership workflows pass; the owner confirmed the Mac folder picker
+on 2026-10-14. Remaining edge-case acceptance is tracked separately.
 See [folder browsing](workspace-directories.md#native-folder-browsing).
 
 Snapshot reconnection now shows transfer/restore progress and bounded failure

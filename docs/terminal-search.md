@@ -1,6 +1,6 @@
 # Find in terminal
 
-Choose **Find in terminal** in Commands, or press **Ctrl+Shift+S** on Linux /
+Choose **Find in terminal** in Commands, or press **Super+Alt+S** on Linux /
 **Command+Option+S** on Mac. These defaults are configurable through Shortcut
 settings and appear in shortcut help. The existing full-width F shortcut stays
 available. Older custom S bindings take precedence over the new inherited default.

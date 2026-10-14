@@ -62,7 +62,7 @@ def main():
                     assert all(pixel(image,x,y)==edge for x,y in [(300,50),(636,200),(300,749)]), 'a pane outline edge disappeared'
                 borders(image)
                 # Retained help and pane textures must refresh, without changing terminal grids or parsing state.
-                key('ctrl+shift+slash');capture('help-1x')
+                key('super+alt+slash');capture('help-1x')
                 for density in [2,1]:
                     scale.write_text(str(density)+'\n')
                     wait_until(lambda:f'Display backing scale updated: {density};' in (root/'test.log').read_text());time.sleep(.4)
@@ -87,7 +87,7 @@ def main():
                     # Vertical wheel still belongs to the terminal, not pane navigation.
                     cmd('mousemove','--window',window,800,200);cmd('click',5);time.sleep(.2);verify(0,'vertical-keeps-focus')
                     # Horizontal input behind a modal cannot move the strip.
-                    key('ctrl+shift+slash');cmd('click','--repeat',16,'--delay',25,7);key('Escape');verify(0,'modal-keeps-focus')
+                    key('super+alt+slash');cmd('click','--repeat',16,'--delay',25,7);key('Escape');verify(0,'modal-keeps-focus')
                 else:
                     cmd('mousemove','--window',window,300,200);cmd('click',7);verify(0,'single-boundary')
                 for p,pid in pids.items():os.kill(pid,0);assert (root/f'p{p}.sock').stat().st_ino==inodes[p]

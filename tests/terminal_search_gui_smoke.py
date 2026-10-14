@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='wb-search-gui-') as directory:
             (root/'specimen').write_text(specimen);line('cat specimen; echo done > ready');wait_until((root/'ready').exists);time.sleep(.2)
             baseline=geometry();inodes=[s.stat().st_ino for s in sockets];before=capture('before')
             def log_text():return (root/'test.log').read_text()
-            def search(query):key('ctrl+shift+s');text(query);wait_until(lambda:'Terminal search: 3 matches' in log_text())
+            def search(query):key('super+alt+s');text(query);wait_until(lambda:'Terminal search: 3 matches' in log_text())
             search('find-me');assert 'Terminal search selected: 3/3;' in log_text();matched=capture('matches')
             original_pixels=pixels(before);matched_pixels=pixels(matched)
             assert any(original_pixels[y][58:630]!=matched_pixels[y][58:630] for y in range(200,720)),'Matches were not visibly highlighted'
@@ -69,14 +69,14 @@ with tempfile.TemporaryDirectory(prefix='wb-search-gui-') as directory:
             line('printf "%s:%s" "$$" "$keep" > continuity');assert wait_until(lambda:(root/'continuity').exists() and (root/'continuity').read_text())==pids[0]+':search'
             assert geometry()==baseline and [s.stat().st_ino for s in sockets]==inodes
             # Command palette dispatch must consume Enter before editing the search field.
-            key('ctrl+shift+p');text('Find in terminal');key('Return');key('ctrl+a')
+            key('super+alt+p');text('Find in terminal');key('Return');key('ctrl+a')
             subprocess.run(['xclip','-selection','clipboard','-i'],input='café'.encode(),env=env,stdout=subprocess.DEVNULL,stderr=log,check=True,timeout=5)
             key('ctrl+v');time.sleep(.35);key('ctrl+a');key('ctrl+c')
             assert subprocess.check_output(['xclip','-selection','clipboard','-o'],env=env,timeout=5).decode()=='café'
             key('Escape')
             # Output invalidates old highlights/results; next stable scan finds new text.
             line('(sleep 1; cat extra) &');(root/'extra').write_text('new-needle\r\n')
-            key('ctrl+shift+s');text('new-needle');time.sleep(1.4);wait_until(lambda:'Terminal search: 1 matches' in log_text());capture('live-output');key('Escape')
+            key('super+alt+s');text('new-needle');time.sleep(1.4);wait_until(lambda:'Terminal search: 1 matches' in log_text());capture('live-output');key('Escape')
             assert geometry()==baseline
             close_window(window,env);assert process.wait(timeout=5)==0
             print(f'PASS ({total}): scrollback search, matching highlights, next/previous wrap, query ownership/clipboard, Commands, live refresh, Escape restoration and retained shell/grid/socket')

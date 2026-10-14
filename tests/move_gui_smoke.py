@@ -82,7 +82,7 @@ def main():
                     cmd('type','--clearmodifiers','--window',window,'--delay',10,'--',f'printf "%s:%s" "$$" "$keep" > {name}'); key('Return')
                     actual=wait_until(lambda: (root/name).exists() and (root/name).read_text())
                     assert actual == f'{pids[identity]}:{identity}', (identity,actual)
-                key('ctrl+shift+o'); time.sleep(.25); before=geometry()
+                key('super+alt+o'); time.sleep(.25); before=geometry()
                 # Empty destination and empty source retain their workspace rows.
                 drag(170,300,170,560); wait_until(lambda: ids(1)==['one'])
                 assert ids(0)==[] and geometry()==before; alive()
@@ -123,12 +123,12 @@ def main():
                 assert ids(2)==['two','three','one'] and len(ids(3))==8
                 click(500,133);key('ctrl+a'); key('BackSpace'); time.sleep(.1)
                 # Select moved terminal in its new row, enter it, and check shell state.
-                key('Escape'); time.sleep(.25); key('ctrl+shift+o'); time.sleep(.25)
+                key('Escape'); time.sleep(.25); key('super+alt+o'); time.sleep(.25)
                 cmd('type','--window',window,'--delay',30,'--','Other'); time.sleep(.15)
                 click(760,300); time.sleep(.25); verify('one','after-move')
                 close_window(window,env); assert viewer.wait(timeout=5)==0; alive()
                 # Reopen from saved placement, with the same running shells.
-                viewer,window=start(); key('ctrl+shift+o'); time.sleep(.25)
+                viewer,window=start(); key('super+alt+o'); time.sleep(.25)
                 cmd('type','--window',window,'--delay',30,'--','Other'); time.sleep(.15)
                 click(760,300); time.sleep(.25); verify('one','after-reopen')
                 close_window(window,env); assert viewer.wait(timeout=5)==0; alive()

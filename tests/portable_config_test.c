@@ -29,7 +29,7 @@ int main(void)
     PortableConfig fonts;
     assert(portable_read(path,true,&fonts,error,sizeof(error)) && fonts.font.size==20 && fonts.font.family==1);
     assert(portable_read(path,false,&fonts,error,sizeof(error)) && fonts.font.size==18 && fonts.font.family==0);
-    write_text(path,"workbench-config-v1\n[shortcuts]\ncopy = Ctrl+Shift+=\n");
+    write_text(path,"workbench-config-v1\n[shortcuts]\ncopy = Super+Alt+=\n");
     assert(portable_read(path,false,&fonts,error,sizeof(error)) && !fonts.shortcuts.bindings[COMMAND_FONT_INCREASE].key
         && fonts.shortcuts.bindings[COMMAND_COPY].key==61);
     PortableConfig unchanged=linux_config;
@@ -41,7 +41,7 @@ int main(void)
         "workbench-config-v1\n[font]\nsize = 18\nsize = 20\n",
         "workbench-config-v1\n[shortcuts]\nforward = F8\nforward = F9\n",
         "workbench-config-v1\n[shortcuts]\ncopy = Ctrl+C\n",
-        "workbench-config-v1\n[shortcuts]\nforward = Ctrl+Shift+P\n",
+        "workbench-config-v1\n[shortcuts]\nforward = Super+Alt+P\ncommands = Super+Alt+P\n",
         "workbench-config-v1\n[appearance]\nfollow-workspace = maybe\n",
         "workbench-config-v1\n[appearance]\nterminal-theme = absent\n",
         "workbench-config-v1\n[appearance]\nterminal-theme = Workbench Night"};
@@ -64,9 +64,13 @@ int main(void)
     write_text(ui,"workbench-shortcuts-v1\nforward=Ctrl+Alt+Z\n");
     assert(!shortcut_read_layer(ui,false,&font_base,&loaded,error,sizeof(error)));
     assert(!memcmp(&loaded,&before,sizeof(loaded)));
-    write_text(ui,"workbench-shortcuts-migrated-v1\ncopy=Ctrl+Shift+R\n");
+    write_text(ui,"workbench-shortcuts-migrated-v1\ncopy=Super+Alt+R\n");
     assert(shortcut_read_layer(ui,false,&new_base,&loaded,error,sizeof(error)));
     assert(loaded.bindings[COMMAND_COPY].key=='R' && !loaded.bindings[COMMAND_WIDTH_CYCLE].key);
+    write_text(ui,"workbench-shortcuts-v1\nforward=Super+Alt+Left\n");
+    assert(shortcut_read_layer(ui,false,&new_base,&loaded,error,sizeof(error)));
+    assert(!loaded.bindings[COMMAND_TERMINAL_PREVIOUS].key && loaded.bindings[COMMAND_FORWARD].mods==12);
+    assert(loaded.bindings[COMMAND_TERMINAL_CREATE].key=='Y');
     assert(shortcut_write(ui,&new_base,error,sizeof(error)) && shortcut_read(ui,false,&loaded,error,sizeof(error)));
     char label[96];shortcut_label(loaded.bindings[COMMAND_TERMINAL_CREATE],false,label,sizeof(label));assert(!strcmp(label,"Ctrl+Alt+Y"));
     assert(theme_catalog_matches("Dawn",&unchanged.application,"daw",2));

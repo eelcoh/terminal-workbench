@@ -6,7 +6,7 @@ def action(command,window,title):
     def key(name):
         command('keydown','--window',window,name);time.sleep(.1)
         command('keyup','--window',window,name);time.sleep(.08)
-    key('ctrl+shift+p')
+    key('super+alt+p')
     command('type','--clearmodifiers','--window',window,'--delay',15,'--',title)
     key('Return')
     # These legacy whole-value workflows explicitly select the editable value.

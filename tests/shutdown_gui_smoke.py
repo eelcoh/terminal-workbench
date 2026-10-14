@@ -39,7 +39,7 @@ with tempfile.TemporaryDirectory(prefix='wb-shutdown-ui-') as directory:
                 window=value;cmd('windowraise',window);cmd('windowfocus',window);time.sleep(.3)
             def key(value):cmd('keydown','--window',window,value);time.sleep(.07);cmd('keyup','--window',window,value);time.sleep(.1)
             def text(value):cmd('type','--clearmodifiers','--window',window,'--delay',12,'--',value)
-            def palette(value):key('ctrl+shift+p');text(value);key('Return')
+            def palette(value):key('super+alt+p');text(value);key('Return')
             def capture(name):
                 start=time.time_ns();key('F12');image=wait_until(lambda:next((p for p in root.glob('screenshot*.png') if p.stat().st_mtime_ns>=start),None))
                 target=ROOT/'.local/artifacts/shutdown'/name;target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(image,target)

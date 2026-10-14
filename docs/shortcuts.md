@@ -10,16 +10,16 @@ saved binding. Commands displays the active binding beside each action.
 
 | Action | Linux | macOS |
 | --- | --- | --- |
-| Commands | Ctrl+Shift+P | Command+Option+P |
-| Overview toggle | Ctrl+Shift+O | Command+Option+O |
-| New terminal | Ctrl+Shift+T | Command+Option+T |
-| New workspace | Ctrl+Shift+N | Command+Option+N |
-| Previous / next terminal | Ctrl+Shift+Left / Right | Command+Option+Left / Right |
-| Previous / next workspace | Ctrl+Shift+Up / Down | Command+Option+Up / Down |
-| Cycle focused terminal width | Ctrl+Shift+R | Command+Option+R |
-| Toggle focused terminal full width | Ctrl+Shift+F | Command+Option+F |
-| Find in terminal | Ctrl+Shift+S | Command+Option+S |
-| Show shortcuts | Ctrl+Shift+/ | Command+Option+/ |
+| Commands | Super+Alt+P | Command+Option+P |
+| Overview toggle | Super+Alt+O | Command+Option+O |
+| New terminal | Super+Alt+T | Command+Option+T |
+| New workspace | Super+Alt+N | Command+Option+N |
+| Previous / next terminal | Super+Alt+Left / Right | Command+Option+Left / Right |
+| Previous / next workspace | Super+Alt+Up / Down | Command+Option+Up / Down |
+| Cycle focused terminal width | Super+Alt+R | Command+Option+R |
+| Toggle focused terminal full width | Super+Alt+F | Command+Option+F |
+| Find in terminal | Super+Alt+S | Command+Option+S |
+| Show shortcuts | Super+Alt+/ | Command+Option+/ |
 | Copy selection | Ctrl+Shift+C | Command+C |
 | Paste clipboard | Ctrl+Shift+V | Command+V |
 
@@ -44,7 +44,7 @@ and reports why; it is not silently sent to a shell.
 
 The recorder supports letters, digits, slash, arrows, navigation/edit keys and F1–F11.
 Slash is stored/displayed as `/`; `Slash` is accepted as a configuration alias.
-Ctrl+Shift+/ refers to the slash key with Shift, even when it produces `?` text.
+Super+Alt+/ refers to the slash key without Shift.
 Question mark is not a separate shortcut key.
 Ordinary keys need Ctrl, Command/Super or Alt/Option. Duplicate chords are rejected
 with both action names. Bare Ctrl-C/D/Z are reserved for terminal input;
@@ -115,7 +115,7 @@ Command modifier; labels display Command and Option on macOS.
 
 ## Shortcut-help overlay
 
-Open help with **Command+Option+/** on Mac or **Ctrl+Shift+/** on Linux, or choose
+Open help with **Command+Option+/** on Mac or **Super+Alt+/** on Linux, or choose
 **Show shortcuts** in Commands. It groups navigation, workspace/terminal actions,
 widths, appearance, clipboard and help, showing current bindings and **Unbound**
 for actions without a chord. The normal window uses two columns; narrow windows
@@ -164,9 +164,39 @@ one and fifteen populated terminals.
 
 Terminal text actions are `terminal.font.settings`, `terminal.font.increase`,
 `terminal.font.decrease`, and `terminal.font.reset`. Size shortcuts default to
-Ctrl+Shift+= / - / 0 on Linux, Command+Option+= / - / 0 on Mac. Equal/Minus
+Super+Alt+= / - / 0 on Linux, Command+Option+= / - / 0 on Mac. Equal/Minus
 are accepted key names for configuration and recording. The settings action
 is unbound by default and accessible in Commands and the hamburger menu.
 See [terminal font controls](terminal-fonts.md#choosing-a-font-and-size).
 
 See [terminal search](terminal-search.md) for match navigation, input ownership and viewport restoration.
+
+## Matching application modifiers
+
+Linux application/navigation defaults use Super+Alt, matching Command+Option on
+Mac. Copy/paste retain Ctrl+Shift+C/V on Linux and Command+C/V on Mac. All labels
+in Commands, menus, help and the recorder use the effective configured bindings.
+
+Existing saved chords and explicit `none` values remain intact, including earlier
+Ctrl+Shift defaults. Omitted actions inherit the new defaults; full-map files keep
+their complete saved map. Use **Default** in an action's recorder to adopt its
+current platform/managed binding. No preference files are rewritten on startup.
+
+Compositors get shortcuts first. The Niri/Zirconium configuration on the developer
+machine assigns Super+Alt+S to toggle Orca, which conflicts with Find in terminal.
+Use Commands for search, remap Workbench search in Shortcut settings, or adjust
+that compositor binding yourself if desired. Workbench does not alter desktop
+shortcuts. Other local Super+Alt Workbench defaults have no exact match in the
+inspected Niri/DankMaterialShell bindings. The owner confirmed the shortcut change
+on 2026-10-14. Non-US keyboard layouts and the complete compositor-conflict matrix
+remain unverified; Xvfb checks do not validate compositor delivery.
+
+Linux validation passes `just check`, `just commands-gui-test`,
+`just shortcuts-gui-test` (normal/reduced motion), `just navigation-gui-test`
+(one/fifteen terminals and reduced motion), `just search-gui-test`,
+`just font-settings-gui-test` (one/fifteen), and `just text-edit-gui-test`.
+These cover new defaults, custom/save/reset/reopen behavior, modal input ownership,
+unchanged clipboard/control keys, and legacy/Kitty forwarded input. Pure tests
+also preserve complete old Linux maps, sparse overrides and explicit unbindings.
+The test client now retries connection refusal briefly because socket-path
+publication precedes listener readiness; protocol/ownership rejections still fail.

@@ -299,7 +299,7 @@ testing share the same button rectangle, including during pane navigation.
 
 The prototype now cycles half → two thirds → third for the focused terminal,
 selects explicit presets through Commands, and toggles full terminal-area width
-without losing its preferred preset. Linux defaults are Ctrl+Shift+R/F; Mac
+without losing its preferred preset. Linux defaults are Super+Alt+R/F; Mac
 uses Command+Option+R/F. Shortcut settings can edit or clear these bindings.
 A right-gap drag displays a snapped guide and commits on release. Other terminal
 preferences stay unchanged. A lone terminal starts at half width too.
@@ -520,8 +520,9 @@ Temporary drawers do not resize PTYs; pinning commits real estate changes.
 Client-only version-3 view data saves pin/mode/filter while preserving reads of
 version-1/version-2 files. Agent rows use already-received identity/activity,
 including Unknown and connection fallbacks. No runtime protocol or server
-organization data was added. Existing configured Mac Cmd+Option and Linux
-Ctrl+Shift navigation and copy/paste behavior remain available.
+organization data was added. Navigation uses Cmd+Option on Mac and Super+Alt
+by default on Linux; saved Ctrl+Shift customizations and platform copy/paste
+remain available.
 
 The dedicated `just chrome-gui-test` checks live shell continuity, drawer geometry,
 pin restoration, menus, create/rename/explicit stop, cross-workspace agent jumping,

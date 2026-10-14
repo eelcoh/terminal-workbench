@@ -60,7 +60,7 @@ def main():
                 def catalog():return json.loads((state/'workspaces.json').read_text())
                 def palette(query,mouse=False,run=True):
                     if mouse:chrome_action(cmd,window,'Open Commands')
-                    else:key('ctrl+shift+p')
+                    else:key('super+alt+p')
                     text(query)
                     if run:key('Return')
                 line('keep=palette; printf "%s" "$$" > original.pid');pid=marker('original.pid')
@@ -109,18 +109,18 @@ def main():
                 # Disabled result stays in palette and cannot start a shell.
                 palette('Start new shell');key('Return');key('Escape');os.kill(int(newpid),0)
                 # Default navigation routes only in the working view.
-                key('ctrl+shift+Left');line('printf "%s" "$$" > nav-left');assert marker('nav-left')==middlepid
-                key('ctrl+shift+Right');line('printf "%s" "$$" > nav-right');assert marker('nav-right')==newpid
-                key('ctrl+shift+Down');line('printf "%s" "$$" > nav-down');assert marker('nav-down')==scratchpid
-                key('ctrl+shift+Up');line('printf "%s" "$$" > nav-up');assert marker('nav-up')==newpid
+                key('super+alt+Left');line('printf "%s" "$$" > nav-left');assert marker('nav-left')==middlepid
+                key('super+alt+Right');line('printf "%s" "$$" > nav-right');assert marker('nav-right')==newpid
+                key('super+alt+Down');line('printf "%s" "$$" > nav-down');assert marker('nav-down')==scratchpid
+                key('super+alt+Up');line('printf "%s" "$$" > nav-up');assert marker('nav-up')==newpid
                 # A shortcut opening an editor cannot save it in the same frame.
-                before=(state/'workspaces.json').read_bytes();key('ctrl+shift+t');key('Escape')
+                before=(state/'workspaces.json').read_bytes();key('super+alt+t');key('Escape')
                 assert (state/'workspaces.json').read_bytes()==before
                 # Settings captures a chord, rejects collisions, then saves a valid one.
                 palette('Shortcut settings');text('Next terminal');key('Return')
                 key('ctrl+c');key('Return');time.sleep(.2)
                 assert not (root/'shortcuts.conf').exists()
-                key('ctrl+shift+p');key('Return');time.sleep(.2)
+                key('super+alt+p');key('Return');time.sleep(.2)
                 assert not (root/'shortcuts.conf').exists()
                 key('F12');time.sleep(.2)
                 artifacts=ROOT/'.local/test-results';artifacts.mkdir(parents=True,exist_ok=True)
@@ -130,7 +130,7 @@ def main():
                 shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1],artifacts/'shortcuts.png')
                 key('Escape')
                 assert 'terminal.next=Ctrl+Shift+J' in (root/'shortcuts.conf').read_text()
-                key('ctrl+shift+Left');key('ctrl+shift+j')
+                key('super+alt+Left');key('ctrl+shift+j')
                 line('printf "%s" "$$" > custom-nav');assert marker('custom-nav')==newpid
                 # A cancelled recording leaves the complete saved file unchanged.
                 saved=(root/'shortcuts.conf').read_bytes()
@@ -140,17 +140,17 @@ def main():
                 palette('Shortcut settings');text('Next terminal');key('Return');click(470,452);click(761,452);key('Escape')
                 assert 'terminal.next=none' in (root/'shortcuts.conf').read_text()
                 palette('Shortcut settings');text('Next terminal');key('Return');click(550,452);click(761,452);key('Escape')
-                assert 'terminal.next=Ctrl+Shift+Right' in (root/'shortcuts.conf').read_text()
+                assert 'terminal.next=Super+Alt+Right' in (root/'shortcuts.conf').read_text()
                 # Send-next-key bypasses the application and uses Ghostty's encoder.
                 raw_script=root/'raw_keys.py'
                 raw_script.write_text("import os,sys,tty,termios,select,time\nfrom pathlib import Path\nsaved=termios.tcgetattr(0)\ntry:\n tty.setraw(0);Path('raw.ready').write_text('ready');assert select.select([0],[],[],8)[0];data=os.read(0,128);time.sleep(.2);Path('raw.bytes').write_text(data.hex())\nfinally:termios.tcsetattr(0,termios.TCSADRAIN,saved)\n")
                 line('python3 raw_keys.py');marker('raw.ready')
-                palette('Send next key');key('ctrl+shift+Left')
-                assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[1;6D'
+                palette('Send next key');key('super+alt+Left')
+                assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[1;11D'
                 line('printf "%s" "$$" > forwarded-focus');assert marker('forwarded-focus')==newpid
-                palette('Send next key');key('Escape');key('ctrl+shift+Left')
+                palette('Send next key');key('Escape');key('super+alt+Left')
                 line('printf "%s" "$$" > cancelled-forward');assert marker('cancelled-forward')==middlepid
-                key('ctrl+shift+Right')
+                key('super+alt+Right')
                 # Unbinding clipboard shortcuts must also disable the old handler.
                 palette('Shortcut settings');text('Paste clipboard');key('Return');click(470,452);click(761,452);key('Escape')
                 assert 'paste=none' in (root/'shortcuts.conf').read_text(), (root/'shortcuts.conf').read_text()
@@ -158,10 +158,16 @@ def main():
                 line('python3 raw_keys.py');marker('raw.ready');key('ctrl+shift+v')
                 assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[118;6u'
                 (root/'raw.ready').unlink();(root/'raw.bytes').unlink()
-                line('python3 raw_keys.py');marker('raw.ready');palette('Send next key');key('ctrl+shift+p')
-                assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[112;6u'
+                line('python3 raw_keys.py');marker('raw.ready');palette('Send next key');key('super+alt+p')
+                assert bytes.fromhex(marker('raw.bytes'))==b'\x1bp', marker('raw.bytes')
+                # Legacy printable encoding cannot retain Super; Kitty can.
+                (root/'raw.ready').unlink();(root/'raw.bytes').unlink()
+                kitty_script=root/'kitty_keys.py'
+                kitty_script.write_text(raw_script.read_text().replace("tty.setraw(0);", "tty.setraw(0);sys.stdout.write('\\x1b[>1u');sys.stdout.flush();").replace("finally:termios", "finally:sys.stdout.write('\\x1b[<u');sys.stdout.flush();termios"))
+                line('python3 kitty_keys.py');marker('raw.ready');palette('Send next key');key('super+alt+p')
+                assert bytes.fromhex(marker('raw.bytes'))==b'\x1b[112;11u', marker('raw.bytes')
                 # Navigation bindings have no effect inside an existing modal.
-                palette('Rename workspace');key('ctrl+shift+Left');key('Escape')
+                palette('Rename workspace');key('super+alt+Left');key('Escape')
                 line('printf "%s" "$$" > modal-scope');assert marker('modal-scope')==newpid
                 # Fill organization externally to exercise live refresh and capacity.
                 for i in range(6):request(state,runtime,root,'workspace.create',title='Capacity '+str(i))

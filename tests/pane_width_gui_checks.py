@@ -7,14 +7,14 @@ from theme_gui_smoke import pixel
 def exercise_widths(active, click, key, cmd, window, geometry, capture, colors, verify):
     def columns(): return {p:struct.unpack('HHHH',size)[1] for p,size in geometry().items()}
     def preset(name):
-        key('ctrl+shift+p');cmd('type','--clearmodifiers','--window',window,'--delay',15,'--',name);key('Return');time.sleep(.12)
+        key('super+alt+p');cmd('type','--clearmodifiers','--window',window,'--delay',15,'--',name);key('Return');time.sleep(.12)
     chrome_workspace(click,1);chrome_workspace(click,0)
     click(position(0,active),20,1.35);before=columns()
-    key('ctrl+shift+r');two_thirds=columns();assert two_thirds[0]>before[0]
+    key('super+alt+r');two_thirds=columns();assert two_thirds[0]>before[0]
     assert all(two_thirds[p]==before[p] for p in before if p!=0)
-    key('ctrl+shift+r');third=columns();assert third[0]<before[0]
-    key('ctrl+shift+f');assert columns()[0]>two_thirds[0]
-    key('ctrl+shift+f');assert columns()==third
+    key('super+alt+r');third=columns();assert third[0]<before[0]
+    key('super+alt+f');assert columns()[0]>two_thirds[0]
+    key('super+alt+f');assert columns()==third
     preset('Terminal width: one half');assert columns()==before
     if active<3: return
     # Explicit Commands presets work through mouse-accessible palette actions.

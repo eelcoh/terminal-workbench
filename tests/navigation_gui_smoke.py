@@ -112,7 +112,7 @@ def main():
                 if active>2:
                     # Confirm actual pixel movement, not just a completed focus change.
                     click(position(0,active),20,1.35); start_image=capture('start')
-                    click(position(1,active),20,.04); key('ctrl+shift+Right');time.sleep(.06); middle=capture('moving')
+                    click(position(1,active),20,.04); key('super+alt+Right');time.sleep(.06); middle=capture('moving')
                     time.sleep(.2); end_image=capture('settled')
                     if env.get('WORKBENCH_REDUCED_MOTION')!='1':
                         # Framebuffer readback may arrive at any point in the short
@@ -138,7 +138,7 @@ def main():
                     # Keep a midpoint artifact for native visual comparison.
                     click(position(7,active),20,1.35); click(position(0,active),20,.5); capture('jump-moving'); time.sleep(.8)
                     # Retarget repeatedly before the previous move finishes.
-                    click(position(0,active),20,.04); key('ctrl+shift+Right');time.sleep(.04); key('ctrl+shift+Right');time.sleep(.04); key('ctrl+shift+Left');time.sleep(.04); key('ctrl+shift+Left');time.sleep(.04)
+                    click(position(0,active),20,.04); key('super+alt+Right');time.sleep(.04); key('super+alt+Right');time.sleep(.04); key('super+alt+Left');time.sleep(.04); key('super+alt+Left');time.sleep(.04)
                     verify(0,'retarget-input')
                     for _ in range(8): assert geometry()==baseline; time.sleep(.025)
                     # Header vertical/horizontal wheel owns navigation; content wheel doesn't.
@@ -159,23 +159,23 @@ def main():
                     cmd('mousemove','--window',window,647,300); time.sleep(.06); cmd('mouseup',1); time.sleep(.1)
                     # A snapped third leaves the neighbor's half untouched;
                     # the remaining estate now shows part of the third terminal.
-                    click(position(0,active),20,1.35);key('ctrl+shift+r');key('ctrl+shift+r');time.sleep(.2)
+                    click(position(0,active),20,1.35);key('super+alt+r');key('super+alt+r');time.sleep(.2)
                     narrow_divider=capture('narrow-divider')
                     assert pixel(narrow_divider,220,700)==PANE_COLORS[0]
                     assert pixel(narrow_divider,650,700)==PANE_COLORS[1]
                     assert pixel(narrow_divider,1100,700)==PANE_COLORS[2]
-                    key('ctrl+shift+r');time.sleep(.2)
+                    key('super+alt+r');time.sleep(.2)
                     click(position(7,active),20,.04)
-                    key('ctrl+shift+Right');time.sleep(.2); verify(7,'last-boundary')
-                    click(position(0,active),20,.01); key('ctrl+shift+Left');time.sleep(.2); verify(0,'first-boundary')
+                    key('super+alt+Right');time.sleep(.2); verify(7,'last-boundary')
+                    click(position(0,active),20,.01); key('super+alt+Left');time.sleep(.2); verify(0,'first-boundary')
                     # Modals and window changes finish motion and preserve their input isolation.
-                    click(position(7,active),20,.01); key('ctrl+shift+o'); time.sleep(.25); key('Escape'); time.sleep(.25); verify(7,'overview-return')
+                    click(position(7,active),20,.01); key('super+alt+o'); time.sleep(.25); key('Escape'); time.sleep(.25); verify(7,'overview-return')
                     cmd('windowsize',window,800,300); time.sleep(.25); click(position(3,active,800),20,.01); verify(3,'narrow-input'); capture('narrow')
                     cmd('windowsize',window,1240,760); time.sleep(.25); click(position(7,active),20); capture('wide')
                 else:
-                    key('ctrl+shift+Right');time.sleep(.2); key('ctrl+shift+Left');time.sleep(.2); verify(0,'single-boundary')
+                    key('super+alt+Right');time.sleep(.2); key('super+alt+Left');time.sleep(.2); verify(0,'single-boundary')
                 # Empty workspaces have no navigation target and no phantom pane.
-                chrome_workspace(click,2); cmd('mousemove','--window',window,620,20); cmd('click',5); key('ctrl+shift+Right');time.sleep(.2); click(position(0,active),20)
+                chrome_workspace(click,2); cmd('mousemove','--window',window,620,20); cmd('click',5); key('super+alt+Right');time.sleep(.2); click(position(0,active),20)
                 chrome_workspace(click,0); click(position(0,active),20); verify(0,'empty-return')
                 time.sleep(.3)
                 ticks_per_second=os.sysconf('SC_CLK_TCK')

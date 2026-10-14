@@ -58,7 +58,7 @@ def main():
                 def catalog():return json.loads((state/'workspaces.json').read_text())
                 def palette(query,mouse=False,run=True):
                     if mouse:click(22,20);click(90,241)
-                    else:key('ctrl+shift+p')
+                    else:key('super+alt+p')
                     text(query)
                     if run:key('Return')
                 line('keep=help; printf "%s" "$$" > original.pid');pid=marker('original.pid')
@@ -85,27 +85,27 @@ def main():
                 palette('Rename workspace',run=False);key('shift+Tab');key('space');safe('focus-command-cancel')
                 assert (state/'workspaces.json').read_bytes()==catalog_before
                 # Creation visits both fields and both buttons, skips absent folder field in rename.
-                key('ctrl+shift+n');text('Focus project');key('Tab');key('ctrl+a');text(str(root))
+                key('super+alt+n');text('Focus project');key('Tab');key('ctrl+a');text(str(root))
                 key('Tab');key('Tab');capture('focus-create-cancel.png');key('space')
                 assert (state/'workspaces.json').read_bytes()==catalog_before
                 palette('Rename workspace');key('Tab');key('space')
                 assert (state/'workspaces.json').read_bytes()==catalog_before
                 # Explicit button activation creates a workspace with the chosen directory.
-                key('ctrl+shift+n');text('Focus project');key('Tab');key('ctrl+a');text(str(root));key('Tab');key('Tab');key('Tab');capture('focus-create-confirm.png');key('space')
+                key('super+alt+n');text('Focus project');key('Tab');key('ctrl+a');text(str(root));key('Tab');key('Tab');key('Tab');capture('focus-create-confirm.png');key('space')
                 wait_until(lambda:len(catalog()['workspaces'])==3)
                 assert catalog()['workspaces'][-1]['name']=='Focus project'
                 assert catalog()['workspaces'][-1]['directory']==str(root)
-                key('ctrl+shift+Up');key('ctrl+shift+Up');time.sleep(.2)
+                key('super+alt+Up');key('super+alt+Up');time.sleep(.2)
                 # Help hands off to settings; recording only occurs while its capture field has focus.
-                key('ctrl+shift+slash');key('Tab');capture('focus-help-edit.png');key('space')
+                key('super+alt+slash');key('Tab');capture('focus-help-edit.png');key('space')
                 text('Next terminal');key('Return');key('Tab');key('space') # Clear.
                 key('Tab');key('space') # Default.
                 key('Tab');capture('focus-recorder-cancel.png');key('space');key('Escape')
                 assert not (root/'shortcuts.conf').exists()
-                key('ctrl+shift+slash');key('shift+Tab');key('Return');safe('focus-help-done')
+                key('super+alt+slash');key('shift+Tab');key('Return');safe('focus-help-done')
                 # Overview filter buttons retain focus and query; help restores that exact focus.
-                key('ctrl+shift+o');key('Tab');key('Tab');key('Tab');key('Tab');key('Tab');key('space') # Agents.
-                key('ctrl+shift+slash');key('Escape');key('shift+Tab');key('space') # All terminals.
+                key('super+alt+o');key('Tab');key('Tab');key('Tab');key('Tab');key('Tab');key('space') # Agents.
+                key('super+alt+slash');key('Escape');key('shift+Tab');key('space') # All terminals.
                 key('Tab');key('Tab');key('space');safe('focus-overview-done')
                 # Workspace picker traversal reaches filters/close/reset without scope tabs.
                 palette('Change appearance');key('Tab');key('Tab');key('space') # Close.
@@ -122,13 +122,13 @@ def main():
                 palette('Stop terminal');key('Return');key('space');os.kill(int(pid),0)
                 key('Tab');capture('focus-stop-cancel.png');key('Return');safe('focus-stop-safe')
                 # Use a newly created terminal so this test can verify the complete stop/recover transition.
-                key('ctrl+shift+t');text('Focus disposable');key('Tab');key('Tab');key('Return')
+                key('super+alt+t');text('Focus disposable');key('Tab');key('Tab');key('Return')
                 wait_until(lambda:len(catalog()['workspaces'][0]['terminals'])==3);time.sleep(.3)
                 line('printf "%s" "$$" > disposable.pid');disposable=marker('disposable.pid')
                 palette('Stop terminal');key('Return');key('Tab');key('Tab');capture('focus-stop-confirm.png');key('space')
                 wait_until(lambda:len(catalog()['workspaces'][0]['terminals'])==2);os.kill(int(pid),0)
                 # Recover a shell that exited without deleting its catalog identity.
-                key('ctrl+shift+t');text('Focus recovery');key('Return')
+                key('super+alt+t');text('Focus recovery');key('Return')
                 wait_until(lambda:len(catalog()['workspaces'][0]['terminals'])==3);time.sleep(.3)
                 recovery_id=catalog()['workspaces'][0]['terminals'][-1]['id'];recovery_path=state/(recovery_id+'.sock')
                 line('exit');wait_until(lambda:not recovery_path.exists());time.sleep(.7)
@@ -141,7 +141,7 @@ def main():
                 wait_until(lambda:len(catalog()['workspaces'][0]['terminals'])==2);time.sleep(.3)
                 palette('Previous terminal');time.sleep(.3)
                 # Narrow help keeps traversal and Done reachable.
-                key('ctrl+shift+slash');cmd('windowsize',window,800,300);time.sleep(.2)
+                key('super+alt+slash');cmd('windowsize',window,800,300);time.sleep(.2)
                 key('Tab');key('Tab');capture('focus-help-small-done.png');key('space')
                 cmd('windowsize',window,1240,760);time.sleep(.3);baseline=geometry();safe('focus-narrow-safe')
                 assert not (root/'shortcuts.conf').exists()

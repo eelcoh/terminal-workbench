@@ -86,7 +86,7 @@ isolated display to verify real clipboard transfer.
 
 ## Terminal overview
 
-Overview in the header or Ctrl+Shift+O on Linux opens a searchable list of every
+Overview in the header or Super+Alt+O on Linux opens a searchable list of every
 terminal, including those outside the visible pane columns. Command+Option+O is
 the unverified macOS binding. Filter by workspace or terminal name, click a row,
 or use Up/Down and Enter. Escape/Done dismisses; wheel scrolling reveals longer
@@ -116,8 +116,8 @@ and typing; reduced motion skips them. Terminal-content scrolling is unchanged.
 Scroll the workspace list if
 the window is too short to show every row.
 
-Click a pane/title to focus it. Each terminal starts at half width. Ctrl+Shift+R
-(Linux) / Command+Option+R (Mac) cycles half → two thirds → third; Ctrl+Shift+F /
+Click a pane/title to focus it. Each terminal starts at half width. Super+Alt+R
+(Linux) / Command+Option+R (Mac) cycles half → two thirds → third; Super+Alt+F /
 Command+Option+F toggles full terminal-area width and restores the preset on a second
 press. Drag a right gap for a snapped guide and release to apply that terminal's
 width. Commands also offers explicit presets. Widths and strip positions are
@@ -152,7 +152,7 @@ isolated Xvfb display. Management is available independently through
 The terminal setup derives from Ghostling; [LICENSE.ghostling](LICENSE.ghostling)
 preserves its MIT copyright/permission notice beside the source adaptations.
 
-Show shortcuts in Commands, Ctrl+Shift+/ (Linux), or Command+Option+/ (Mac) opens
+Show shortcuts in Commands, Super+Alt+/ (Linux), or Command+Option+/ (Mac) opens
 a grouped help overlay using the current bindings. It works over Overview too.
 Escape/Done/toggle close it; Enter/Edit shortcuts opens settings. Mac defaults for
 Commands, Overview and new terminal/workspace now use Command+Option+P/O/T/N.

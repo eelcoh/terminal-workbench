@@ -134,7 +134,7 @@ def main():
                     path=wait_until(lambda:next((p for p in root.glob('screenshot*.png') if p.stat().st_mtime_ns>=started),None))
                     destination = artifacts / name; shutil.copyfile(path, destination); return destination
                 before = geometry()
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 fast_key('F12')
                 time.sleep(.05)
                 opening=wait_until(lambda:next(root.glob('screenshot*.png'),None))
@@ -177,11 +177,11 @@ def main():
                 assert ('Texture loaded successfully (1240x760' in (root / 'test.log').read_text()) != reduced
                 if not reduced:
                     # Pending navigation must not commit if the zoom is reversed.
-                    text('Workspace 2'); fast_key('Return'); key('ctrl+shift+o')
+                    text('Workspace 2'); fast_key('Return'); key('super+alt+o')
                     text('missing-terminal'); fast_key('Return'); fast_key('Escape')
                     # Immediate typing completes closing without losing queued text.
                     verify('w0p0', 'cancel-safe')
-                    key('ctrl+shift+o'); time.sleep(.2); fast_key('Escape'); fast_key('F12')
+                    key('super+alt+o'); time.sleep(.2); fast_key('Escape'); fast_key('F12')
                     time.sleep(.05)
                     shutil.copyfile(sorted(root.glob('screenshot*.png'))[-1], artifacts / 'overview-closing.png')
                     time.sleep(.2)
@@ -190,20 +190,20 @@ def main():
                 else:
                     text('missing-terminal'); key('Return'); key('Escape')
                     verify('w0p0', 'cancel-safe')
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 for _ in range(4): key('Right')
                 key('Return'); verify('w0p4', 'horizontal-jump')
-                key('ctrl+shift+o'); key('Down'); key('Return'); verify('w1p4', 'workspace-jump')
-                key('ctrl+shift+o'); text('Workspace 2'); key('Right'); key('Right'); key('Return')
+                key('super+alt+o'); key('Down'); key('Return'); verify('w1p4', 'workspace-jump')
+                key('super+alt+o'); text('Workspace 2'); key('Right'); key('Right'); key('Return')
                 verify('w2p2', 'filtered-jump')
-                key('ctrl+shift+o'); text('Workspace 0')
+                key('super+alt+o'); text('Workspace 0')
                 command('mousemove', '--window', window, 180, 290)
                 command('keydown', 'Shift_L'); command('click', '--repeat', '8', '--delay', '40', 5); command('keyup', 'Shift_L'); time.sleep(.2)
                 click(170, 300); verify('w0p1', 'shift-scroll')
-                key('ctrl+shift+o')
+                key('super+alt+o')
                 command('mousemove', '--window', window, 180, 290); command('click', '--repeat', '8', '--delay', '40', 5); time.sleep(.3)
                 click(170, 300); verify('w1p0', 'vertical-scroll')
-                key('ctrl+shift+o'); before = geometry()
+                key('super+alt+o'); before = geometry()
                 command('windowsize', window, 800, 300); time.sleep(.3)
                 assert geometry() == before, 'overview window resize changed PTY geometry'
                 key('Down'); key('Return')

@@ -69,7 +69,8 @@ Both appearance and shortcuts allow `[linux.appearance]`, `[macos.appearance]`,
 over shared settings, regardless of their order in the file. Omitted shortcuts
 retain platform defaults. Use action IDs from [shortcut settings](shortcuts.md),
 and `none` to clear a binding. Platform sections keep Mac Command+Option and
-Linux Ctrl+Shift conventions while sharing other preferences.
+Linux Super+Alt defaults while sharing other preferences, or retain older/custom
+Ctrl+Shift bindings explicitly.
 
 ## Terminal fonts
 

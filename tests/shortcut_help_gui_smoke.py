@@ -59,7 +59,7 @@ def main():
                 def catalog():return json.loads((state/'workspaces.json').read_text())
                 def palette(query,mouse=False,run=True):
                     if mouse:chrome_action(cmd,window,'Open Commands')
-                    else:key('ctrl+shift+p')
+                    else:key('super+alt+p')
                     text(query)
                     if run:key('Return')
                 line('keep=help; printf "%s" "$$" > original.pid');pid=marker('original.pid')
@@ -78,16 +78,16 @@ def main():
                 def safe(name):
                     line('printf "%s:%s" "$$" "$keep" > '+name);assert marker(name)==pid+':help'
                     assert geometry()==baseline
-                # '?' text from Shift+/ must be consumed along with the help chord.
-                key('ctrl+shift+slash');capture('shortcut-help-wide.png')
-                text('touch help-leak');key('ctrl+shift+t');key('ctrl+shift+Right');key('ctrl+shift+Down')
-                key('Down');key('Page_Down');key('Home');key('End');key('ctrl+shift+p');key('ctrl+shift+o')
+                # The slash chord and help overlay input must not leak into the shell.
+                key('super+alt+slash');capture('shortcut-help-wide.png')
+                text('touch help-leak');key('super+alt+t');key('super+alt+Right');key('super+alt+Down')
+                key('Down');key('Page_Down');key('Home');key('End');key('super+alt+p');key('super+alt+o')
                 assert geometry()==baseline and (state/'workspaces.json').read_bytes()==catalog_before
-                key('ctrl+shift+slash');safe('help-toggle-safe');assert not (root/'help-leak').exists()
+                key('super+alt+slash');safe('help-toggle-safe');assert not (root/'help-leak').exists()
                 palette('Show shortcuts',mouse=True);key('Escape');safe('help-palette-safe')
                 # Help is layered over Overview without losing its search or selection.
-                key('ctrl+shift+o');text('Main');key('ctrl+shift+slash');text('touch overview-leak')
-                key('ctrl+shift+o');key('Escape');key('Return');safe('help-overview-safe')
+                key('super+alt+o');text('Main');key('super+alt+slash');text('touch overview-leak')
+                key('super+alt+o');key('Escape');key('Return');safe('help-overview-safe')
                 assert not (root/'overview-leak').exists()
                 # Shortcut recorder accepts slash and saves a customized map.
                 palette('Shortcut settings');text('Next terminal');key('Return');key('ctrl+alt+slash');key('Return');key('Escape')
@@ -101,7 +101,7 @@ def main():
                 key('Return');text('Show shortcuts');key('Return');key('Escape');key('Escape');safe('help-settings-safe')
                 # Remapped slash navigation routes only outside the help overlay.
                 key('ctrl+alt+slash');line('printf "%s" "$$" > second.pid');other_pid=marker('second.pid');assert other_pid!=pid
-                key('ctrl+shift+Left');safe('slash-nav-return')
+                key('super+alt+Left');safe('slash-nav-return')
                 # Dialogs retain input ownership even if help's chord is pressed.
                 palette('Rename workspace');key('ctrl+shift+h');key('Escape');safe('help-dialog-safe')
                 # Minimum height uses a single scrollable column; headers/footer remain reachable.

@@ -40,7 +40,7 @@ def main():
                 def key(value):cmd('keydown','--window',window,value);time.sleep(.07);cmd('keyup','--window',window,value);time.sleep(.15)
                 def click(x,y):cmd('mousemove','--window',window,x,y);cmd('mousedown',1);time.sleep(.06);cmd('mouseup',1);time.sleep(.25)
                 def text(value):cmd('type','--clearmodifiers','--window',window,'--delay',5,'--',value)
-                def palette(query):key('ctrl+shift+p');text(query);key('Return');time.sleep(.3)
+                def palette(query):key('super+alt+p');text(query);key('Return');time.sleep(.3)
                 def geometry(p=0):
                     fd=os.open(f'/proc/{pids[p]}/fd/0',os.O_RDONLY|os.O_NOCTTY)
                     try:return struct.unpack('HHHH',fcntl.ioctl(fd,termios.TIOCGWINSZ,bytes(8)))[:2]
@@ -54,10 +54,10 @@ def main():
                     target=ROOT/'.local/test-results'/f'font-settings-{total}-{tag}.png';target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(image,target);key('ctrl+u');return target
                 safe(0,'initial');baseline=geometry();assert baseline==(41,82),baseline
                 # Default shortcuts change logical grids and are recorded in the help registry.
-                key('ctrl+shift+equal');wait_until(lambda:geometry()[0]==38);assert geometry()!=baseline
+                key('super+alt+equal');wait_until(lambda:geometry()[0]==38);assert geometry()!=baseline
                 saved('F 17 0\n');safe(0,'zoomed')
-                key('ctrl+shift+minus');wait_until(lambda:geometry()==baseline)
-                key('ctrl+shift+equal');key('ctrl+shift+0');wait_until(lambda:geometry()==baseline);saved('F 0 0\n')
+                key('super+alt+minus');wait_until(lambda:geometry()==baseline)
+                key('super+alt+equal');key('super+alt+0');wait_until(lambda:geometry()==baseline);saved('F 0 0\n')
                 # Live family/size preview doesn't get persisted by periodic save, and Cancel restores.
                 palette('Terminal text settings');click(756,295)
                 # Dialog 560x346 is centered at (340,207); Fira y=279..313, plus x=534..568/y=333..365.
@@ -79,18 +79,18 @@ def main():
                 palette('Terminal width: one third');assert geometry()[1]<chosen[1];safe(0,'third-width')
                 palette('Terminal width: one half');wait_until(lambda:geometry()==chosen)
                 if total>1:
-                    key('ctrl+shift+Right');safe(1,'next-at-zoom');key('ctrl+shift+Left');safe(0,'previous-at-zoom')
+                    key('super+alt+Right');safe(1,'next-at-zoom');key('super+alt+Left');safe(0,'previous-at-zoom')
                 # Retained help and overview/navigation canvases refresh at the selected logical size.
-                key('ctrl+shift+slash');capture('help')
+                key('super+alt+slash');capture('help')
                 for density in [2,1]:
                     scale.write_text(str(density)+'\n')
                     wait_until(lambda:f'Display backing scale updated: {density};' in (root/'test.log').read_text());time.sleep(.3)
                     assert geometry()==chosen
-                key('Escape');key('ctrl+shift+o');capture('overview');key('ctrl+shift+o');time.sleep(.5)
+                key('Escape');key('super+alt+o');capture('overview');key('super+alt+o');time.sleep(.5)
                 safe(0,'after-density');assert geometry()==chosen
                 if total>8:
-                    key('ctrl+shift+Down');safe(8,'background-font');assert geometry(8)[0]==38
-                    key('ctrl+shift+Up');safe(0,'returned')
+                    key('super+alt+Down');safe(8,'background-font');assert geometry(8)[0]==38
+                    key('super+alt+Up');safe(0,'returned')
                 close_window(window,env);assert process.wait(timeout=5)==0
                 process,window=start();assert geometry()==chosen;safe(0,'restored');saved('F 17 2\n')
                 # Explicit window choices win; a fresh slot inherits edited managed defaults.

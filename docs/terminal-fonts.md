@@ -51,9 +51,9 @@ both fields to your [dotfile defaults](dotfiles.md#terminal-fonts).
 
 | Action | Linux | macOS |
 | --- | --- | --- |
-| Increase terminal text size | Ctrl+Shift+= | Command+Option+= |
-| Decrease terminal text size | Ctrl+Shift+- | Command+Option+- |
-| Reset terminal text size | Ctrl+Shift+0 | Command+Option+0 |
+| Increase terminal text size | Super+Alt+= | Command+Option+= |
+| Decrease terminal text size | Super+Alt+- | Command+Option+- |
+| Reset terminal text size | Super+Alt+0 | Command+Option+0 |
 
 These use the Equal, Minus and 0 keys and are editable in Shortcut settings.
 They apply in the working view; dialogs, help and Overview retain their input

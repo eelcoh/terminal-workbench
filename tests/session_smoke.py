@@ -37,9 +37,19 @@ def read_frame(connection):
     return kind, exact(length)
 
 def attach(path):
-    connection = socket.socket(socket.AF_UNIX)
-    connection.settimeout(5)
-    connection.connect(str(path))
+    # bind publishes the path before listen is ready; path.exists is not readiness.
+    deadline = time.monotonic() + 5
+    while True:
+        connection = socket.socket(socket.AF_UNIX)
+        connection.settimeout(5)
+        try:
+            connection.connect(str(path))
+            break
+        except ConnectionRefusedError:
+            connection.close()
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.02)
     output = bytearray()
     sizes = []
     while True:

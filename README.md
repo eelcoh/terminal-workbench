@@ -74,7 +74,7 @@ Sessions started by earlier spike binaries lack the stop endpoint. Their close
 dialog asks you to exit their shells and reopen before using Stop; rebuilding
 does not replace running servers.
 
-Use **Overview** in the header or **Ctrl+Shift+O** on Linux to see terminals
+Use **Overview** in the header or **Super+Alt+O** on Linux to see terminals
 across all workspaces. The default **Spatial** view groups live terminal previews
 into workspace rows, with a short zoom transition when entering or leaving.
 **Left/Right** selects a terminal; **Up/Down** selects a

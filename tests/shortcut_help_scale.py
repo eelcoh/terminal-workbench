@@ -80,15 +80,15 @@ def main():
                     target=artifacts/f'help-scale-{env.get("WORKBENCH_RENDER_SCALE","1")}x-{total}-{mode}.png'; shutil.copyfile(image,target); key('ctrl+u'); return target
                 verify(0,'initial')
                 # Equal terminal estate: one full column versus two half columns.
-                if active==1: key('ctrl+shift+f');time.sleep(.3)
-                baseline=geometry();key('ctrl+shift+slash');key('Tab');time.sleep(.3);capture('help-scale')
+                if active==1: key('super+alt+f');time.sleep(.3)
+                baseline=geometry();key('super+alt+slash');key('Tab');time.sleep(.3);capture('help-scale')
                 ticks_per_second=os.sysconf('SC_CLK_TCK')
                 def ticks():return sum(map(int,Path(f'/proc/{viewer.pid}/stat').read_text().split(') ',1)[1].split()[11:13]))
                 started=time.monotonic();start=ticks();time.sleep(2)
                 cpu=(ticks()-start)/ticks_per_second/(time.monotonic()-started)*100
                 scale=int(env.get('WORKBENCH_RENDER_SCALE','1'))
                 log.flush();assert (root/'test.log').read_text().count(f'Texture loaded successfully ({920*scale}x{578*scale}')==1, 'idle help repeatedly allocated its body'
-                assert geometry()==baseline;key('ctrl+shift+slash');verify(0,'help-scale-input')
+                assert geometry()==baseline;key('super+alt+slash');verify(0,'help-scale-input')
                 alive();close_window(window,env);assert viewer.wait(timeout=5)==0
                 print(f'PASS ({total}, help at 1240x760 / {scale}x backing): populated panes, retained PID/socket/geometry, input after toggle; 2s idle CPU={cpu:.1f}%')
             except Exception:

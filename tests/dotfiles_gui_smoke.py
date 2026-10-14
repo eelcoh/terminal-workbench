@@ -39,7 +39,7 @@ def main():
                 process,window=start()
                 def key(value):cmd('keydown','--window',window,value);time.sleep(.08);cmd('keyup','--window',window,value);time.sleep(.1)
                 def text(value):cmd('type','--clearmodifiers','--window',window,'--delay',10,'--',value)
-                def palette(query):key('ctrl+shift+p');text(query);key('Return')
+                def palette(query):key('super+alt+p');text(query);key('Return')
                 def safe(name):
                     text(f'printf "%s:%s" "$$" "$keep" > {name}');key('Return')
                     assert wait_until(lambda:(root/name).exists() and (root/name).read_text())==f'{pid}:dotfiles'
@@ -92,9 +92,9 @@ def main():
                 image=capture('fixed-chrome');assert pixel(image,200,600)==(0x28,0x2a,0x36) and pixel(image,1200,600)==(0xf4,0xf1,0xeb)
                 safe('fixed-chrome-state')
                 # Workspace themes remain available when there are no terminals.
-                key('ctrl+shift+Down');palette('Change appearance');text('Workbench Dawn');key('Return')
+                key('super+alt+Down');palette('Change appearance');text('Workbench Dawn');key('Return')
                 assert '@workspace\tempty' in (state/'appearance.state').read_text()
-                key('ctrl+shift+Up');safe('after-empty-workspace');assert geometry()==baseline
+                key('super+alt+Up');safe('after-empty-workspace');assert geometry()==baseline
                 close_window(window,env);assert process.wait(timeout=5)==0
                 print('PASS: managed/symlink colors and shortcuts, sparse UI saves, workspace persistence and managed reset, malformed config/failed-save isolation and same shell/PID/socket/grid')
             except Exception:

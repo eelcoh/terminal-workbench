@@ -73,7 +73,7 @@ input acceptance remains pending.
    the owner. Resolve how much agent information should remain continuously visible.
 2. Add shared popup-menu presentation and keyboard focus, reusing the existing
    action registry and confirmation dialogs. Preserve configured Cmd+Option on
-   Mac and Ctrl+Shift on Linux, including navigation and shortcut help; keep
+   Mac and Super+Alt on Linux, including navigation and shortcut help; keep
    platform copy/paste behavior.
 3. Replace the existing working-view position controls with pane indicators,
    preserving continuous scrolling, focus/visibility distinction, independent

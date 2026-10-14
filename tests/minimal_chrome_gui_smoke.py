@@ -41,8 +41,8 @@ def main():
                     started=time.time_ns();key('F12');image=wait_until(lambda:next((p for p in root.glob('screenshot*.png') if p.stat().st_mtime_ns>=started),None))
                     dest=ROOT/'.local/test-results'/('minimal-'+name+'.png');dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(image,dest);key("ctrl+u");return dest
                 def app_menu(index):click(22,20);click(100,65+index*32+8*sum(index>=boundary for boundary in [2,5,10,12]))
-                def palette(query):key('ctrl+shift+p');text(query);key('Return')
-                def focus_first():key('ctrl+shift+Up');key('ctrl+shift+Left');time.sleep(.25)
+                def palette(query):key('super+alt+p');text(query);key('Return')
+                def focus_first():key('super+alt+Up');key('super+alt+Left');time.sleep(.25)
                 line('keep=chrome; echo $$ > original.pid');pid=marker('original.pid');inode=(state/f'{first}.sock').stat().st_ino
                 def geometry():
                     fd=os.open(f'/proc/{pid}/fd/0',os.O_RDONLY|os.O_NOCTTY)
@@ -65,7 +65,7 @@ def main():
                 wait_until(lambda:data()['workspaces'][0]['terminals'][0]['name']=='Implementation');safe('pane-rename-safe')
                 # Command registry presets remain mouse and keyboard accessible.
                 click(629,62);click(725,103+4*32+8);time.sleep(.25);assert geometry()!=baseline;palette('Terminal width: one half');time.sleep(.25);assert geometry()==baseline
-                key('ctrl+shift+r');assert geometry()!=baseline;key('ctrl+shift+r');key('ctrl+shift+r');time.sleep(.2);assert geometry()==baseline
+                key('super+alt+r');assert geometry()!=baseline;key('super+alt+r');key('super+alt+r');time.sleep(.2);assert geometry()==baseline
                 app_menu(0);text('Menu-created');key('Return');wait_until(lambda:len(data()['workspaces'][0]['terminals'])==3)
                 time.sleep(.5);line('echo $$ > disposable.pid');disposable=marker('disposable.pid')
                 palette('Stop terminal');key('Return');os.kill(int(disposable),0);key('Tab');key('Return');os.kill(int(disposable),0)
@@ -73,7 +73,7 @@ def main():
                 focus_first();safe('stop-safe')
                 # Agent activity is runtime-derived; named-process fixture verifies projection only.
                 fixture=root/'codex';shutil.copyfile('/usr/bin/sleep',fixture);fixture.chmod(0o700)
-                key('ctrl+shift+Down');line(f"sh -c 'echo $$ > agent.pid; exec {fixture} 120'")
+                key('super+alt+Down');line(f"sh -c 'echo $$ > agent.pid; exec {fixture} 120'")
                 agent_id=data()['workspaces'][1]['terminals'][0]['id'];sock=state/f'{agent_id}.sock'
                 def inspect():return json.loads(subprocess.run([str(runtime),'inspect',str(sock)],capture_output=True,text=True,check=True).stdout)
                 wait_until(lambda:inspect()['agent']=='codex')
@@ -81,9 +81,9 @@ def main():
                 def report(event,status):
                     subprocess.run([sys.executable,str(ROOT/'scripts/agent-hook.py'),'codex'],input=json.dumps({'hook_event_name':event,'notification_type':'permission_prompt'}),text=True,env=hook,check=True,capture_output=True)
                     wait_until(lambda:inspect()['status']==status);time.sleep(.35)
-                report('PermissionRequest','waiting');key('ctrl+shift+Up');click(22,108);click(210,112);screenshot('agents-attention');click(120,160)
+                report('PermissionRequest','waiting');key('super+alt+Up');click(22,108);click(210,112);screenshot('agents-attention');click(120,160)
                 key('ctrl+c');wait_until(lambda:inspect()['agent'] is None)
-                key('ctrl+shift+Up');safe('agent-jump-safe')
+                key('super+alt+Up');safe('agent-jump-safe')
                 # Menus bind to stable pane identity across catalog refresh and reject removed targets.
                 click(629,62);call('terminal.rename',first,'Renamed outside');time.sleep(.5);key('Return');key('Escape');safe('refresh-menu-safe')
                 # A real pane menu moves the sibling through the same catalog workflow.

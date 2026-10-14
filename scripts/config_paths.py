@@ -27,7 +27,7 @@ size = 16
 # forward = F8
 
 [linux.shortcuts]
-# commands = Ctrl+Shift+P
+# commands = Super+Alt+P
 
 [macos.shortcuts]
 # commands = Command+Option+P

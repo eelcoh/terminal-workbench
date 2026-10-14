@@ -162,7 +162,7 @@ def main():
                 key('ctrl+u')
                 choose(1,'Dawn',apply=False);(state/'appearance.state').mkdir();key('Return')
                 assert (state/'appearance.state').is_dir();capture('save-error');(state/'appearance.state').rmdir();key('Escape')
-                key('ctrl+shift+o');time.sleep(.25);before=geometry()
+                key('super+alt+o');time.sleep(.25);before=geometry()
                 click(292,74);key('Right');key('Return')
                 wait_until(lambda:(state/'appearance.state').exists())
                 assert preferences()['workspace\tw0']['background']=='#f4f1eb'
@@ -194,7 +194,7 @@ def main():
                 assert preferences()['terminal\tw0p0']['background']=='#eff1f5'
                 choose(1,'Dawn',apply=False);capture('workspace-with-exception');key('Escape')
                 assert preferences()['workspace\tw0']['background']=='#282a36'
-                key('ctrl+shift+o');time.sleep(.25);mixed=capture('mixed-follow')
+                key('super+alt+o');time.sleep(.25);mixed=capture('mixed-follow')
                 assert pixel(mixed,50,300)[0]>200,'terminal exception absent from overview'
                 if pane_count>1:assert pixel(mixed,343,300)[0]<80,'workspace palette absent from sibling'
                 assert 35<pixel(mixed,28,160)[0]<70,'chrome followed the terminal exception'
@@ -210,7 +210,7 @@ def main():
                     def catalog_move(identity,destination,position):
                         subprocess.run(['python3',env['WORKBENCH_CATALOG_SCRIPT'],'--state-dir',str(state),'--runtime',runtime,'--cwd',str(root),'--command','terminal.move','--id',identity,'--to',destination,'--position',str(position)],env=env,stdout=log,stderr=log,check=True,timeout=10)
                     catalog_move('w0p0','w1',0);catalog_move('w0p1','w1',1)
-                    viewer,window=start();key('ctrl+shift+o');time.sleep(.25);moved=capture('mixed-moved')
+                    viewer,window=start();key('super+alt+o');time.sleep(.25);moved=capture('mixed-moved')
                     assert pixel(moved,50,580)[0]>200 and pixel(moved,343,580)[0]<50
                     key('Escape');time.sleep(.25);chrome_workspace(click,1);verify('w0p0','after-theme-move');alive()
                     close_window(window,env);assert viewer.wait(timeout=5)==0

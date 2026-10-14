@@ -68,7 +68,7 @@ def main():
                 cmd('windowsize',a,1360,820);time.sleep(.3)
                 cmd('mousemove','--window',a,697,400);cmd('mousedown',1);time.sleep(.08)
                 cmd('mousemove','--window',a,490,400);time.sleep(.1);cmd('mouseup',1)
-                key(a,'ctrl+shift+r')
+                key(a,'super+alt+r')
                 before=saved(1,lambda s:'V 1360 820 ' in s and 'W main p3 ' in s and 'T p3 1 0' in s)
                 second,b=opened(2);chrome_workspace(lambda x,y:click(b,x,y),1)
                 second_view=saved(2,lambda s:' empty ' in s.splitlines()[1]);assert ' main ' in read(1).splitlines()[1]
@@ -84,7 +84,7 @@ def main():
                 assert wait_until(lambda:(root/'restored').exists() and (root/'restored').read_text())==pids[3]+':p3'
                 assert read(2).splitlines()[1].split()[1:5]==second_view.splitlines()[1].split()[1:5]
                 # Smaller geometry makes both overview axes nonzero.
-                cmd('windowsize',a,900,500);time.sleep(.3);key(a,'ctrl+shift+o')
+                cmd('windowsize',a,900,500);time.sleep(.3);key(a,'super+alt+o')
                 spatial=saved(1,lambda s:s.splitlines()[1].split()[6]=='1' and float(s.splitlines()[1].split()[10])>0
                     and any(line.startswith('W main ') and float(line.split()[4])>0 for line in s.splitlines()))
                 closed(first,a);first,a=opened(1)

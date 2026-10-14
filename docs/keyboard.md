@@ -20,7 +20,7 @@ The prototype supports **Cycle terminal width** (1/2 → 2/3 → 1/3), explicit 
 selection and **Toggle terminal full width** for the focused terminal. Full width
 restores its previous preset when toggled back; other terminals keep their widths.
 Commands offers each preset, Shortcut settings edits the bindings, and dragging
-a right gap previews a snapped guide. Defaults are Ctrl+Shift+R/F on Linux and
+a right gap previews a snapped guide. Defaults are Super+Alt+R/F on Linux and
 Command+Option+R/F on Mac. Niri's Super+R/Super+F interactions are references; using the same
 chords inside Workbench on Linux would compete with the window manager. Native
 application fullscreen remains distinct from one terminal filling its content area.
@@ -87,7 +87,7 @@ to detach without stopping any shell. No workspace close shortcut is frozen yet.
 
 ## Overview prototype
 
-Overview opens with its header button, Ctrl+Shift+O on Linux, or Command+Option+O
+Overview opens with its header button, Super+Alt+O on Linux, or Command+Option+O
 on macOS (unverified). This default follows the application modifier
 family and can now be changed through Shortcut settings. The chord toggles the
 overview. Spatial mode is the default: Left/Right selects a terminal in its
@@ -143,7 +143,7 @@ transitions. No new terminal-intercepting keyboard chord is added by this slice.
 
 ## Commands palette prototype
 
-Open Commands in the hamburger menu opens a searchable action list. Ctrl+Shift+P (Linux) and
+Open Commands in the hamburger menu opens a searchable action list. Super+Alt+P (Linux) and
 Command+Option+P (macOS, native acceptance pending) are editable default chords.
 Up/Down or wheel selects, Enter/click runs, and Escape/Done closes. Disabled actions
 explain their state; stop/replacement actions open the explicit confirmation dialogs.
@@ -162,7 +162,7 @@ See [Commands](commands.md) for the action set and validation.
 
 ## Shortcut help
 
-Command+Option+/ on Mac and Ctrl+Shift+/ on Linux open a grouped overlay using
+Command+Option+/ on Mac and Super+Alt+/ on Linux open a grouped overlay using
 the current configured map. It is available in the working view and Overview;
 existing editors and overlays retain precedence. Escape/Done/toggle return to the
 underlying view, and Enter/Edit shortcuts leads to settings. All help input is
@@ -210,7 +210,7 @@ or accept a newly opened confirmation. [Usage and layout](minimal-chrome.md).
 
 ## Terminal-output search
 
-Find in terminal uses Ctrl+Shift+S on Linux and Command+Option+S on Mac, with
+Find in terminal uses Super+Alt+S on Linux and Command+Option+S on Mac, with
 Commands/settings/help integration. Its query and navigation own keyboard input
 while shells keep parsing output. Enter/Down advances, Shift+Enter/Up goes back,
 Tab traverses query and buttons, and Escape restores the initial viewport and

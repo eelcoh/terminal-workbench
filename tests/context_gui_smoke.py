@@ -63,25 +63,25 @@ with tempfile.TemporaryDirectory(prefix='wb-context-ui-') as directory:
                     finally:os.close(fd)
                 return result
             def search(query):
-                key('ctrl+shift+o');time.sleep(.3);before=geometry();text(query);time.sleep(.2)
+                key('super+alt+o');time.sleep(.3);before=geometry();text(query);time.sleep(.2)
                 assert geometry()==before
                 key('Return');time.sleep(.4)
             # Start on the other shell. A branch-only search must select the repo.
-            key('ctrl+shift+Right');verify('second','before-context')
+            key('super+alt+Right');verify('second','before-context')
             search('context-main');verify('first','branch-selected')
             text('cd src');key('Return');time.sleep(1.4)
             subprocess.run(['git','-C',str(repo),'checkout','-b','changed-context'],check=True,capture_output=True);time.sleep(1.4)
-            key('ctrl+shift+Right');verify('second','before-branch-update')
+            key('super+alt+Right');verify('second','before-branch-update')
             search('changed-context');verify('first','updated-branch-selected')
-            key('ctrl+shift+Right');search(str(repo/'src'));verify('first','cwd-selected')
+            key('super+alt+Right');search(str(repo/'src'));verify('first','cwd-selected')
             artifacts=ROOT/'.local/artifacts/context';artifacts.mkdir(parents=True,exist_ok=True)
             key('F12');time.sleep(.2);shutil.copy(sorted(root.glob('screenshot*.png'))[-1],artifacts/'pane-headers.png')
             key('ctrl+u')
             # Explicit generic custom names remain visible, while branch/cwd are searchable.
             (state/'terminal-labels.tsv').write_text('workbench-terminal-labels-v1\nfirst\t1\nsecond\t0\n')
             projection=(state/'workspaces.tsv').read_text();(state/'next.tsv').write_text(projection);(state/'next.tsv').replace(state/'workspaces.tsv');time.sleep(.8)
-            key('ctrl+shift+Right');search('changed-context');verify('first','custom-branch-selected')
-            key('ctrl+shift+o');time.sleep(.5)
+            key('super+alt+Right');search('changed-context');verify('first','custom-branch-selected')
+            key('super+alt+o');time.sleep(.5)
             # Capture both layouts for manual visual review outside the user debug folder.
             artifacts=ROOT/'.local/artifacts/context';artifacts.mkdir(parents=True,exist_ok=True)
             key('F12');time.sleep(.2);shutil.copy(sorted(root.glob('screenshot*.png'))[-1],artifacts/'spatial.png')
