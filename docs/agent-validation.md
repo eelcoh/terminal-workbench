@@ -10,7 +10,8 @@ evidence. They are follow-up targets, not prerequisites for the first slice.
 
 Copilot now has native/npm foreground identification and an optional `wb-copilot`
 invocation-local plugin for lifecycle events. Runtime/socket and GUI fixtures
-validate the integration contracts; native macOS acceptance remains pending.
+validate the integration contracts; complete native macOS lifecycle acceptance
+remains pending.
 Ordinary input, trust and permissions are retained, with Unknown when lifecycle
 signals are unavailable. Record the installed CLI version and use
 the [official hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
@@ -81,22 +82,22 @@ a bounded process-argument prefix, with decoder tests on Linux.
 ## macOS identification — 2026-10-11
 
 The owner confirmed Copilot appears under Agents when launched in a terminal
-+whose runtime was created after the Copilot build. Native Homebrew Copilot
-+1.0.96-2 had a `copilot` executable name and a foreground group matching its PID.
-+Read-only diagnostics recorded `identity.agent: copilot` and viewer metadata
-+`agent_tag: 6` for the same running runtime, PID 33412. Its snapshot still reported
-+Unknown lifecycle status, so this confirms identity and delivery to the viewer,
-+not Working/Ready or Needs input hooks on macOS. In subsequent manual testing,
+whose runtime was created after the Copilot build. Native Homebrew Copilot
+1.0.96-2 had a `copilot` executable name and a foreground group matching its PID.
+Read-only diagnostics recorded `identity.agent: copilot` and viewer metadata
+`agent_tag: 6` for the same running runtime, PID 33412. Its snapshot still reported
+Unknown lifecycle status, so this confirms identity and delivery to the viewer,
+not Working/Ready or Needs input hooks on macOS. In subsequent manual testing,
 the owner confirmed the Needs input filter retains Copilot while it is waiting
 and is empty otherwise. This validates native waiting-state delivery and
 filtering. Working/Ready labels and the complete answer/exit sequence remain
 unconfirmed on Mac.
-+
+
 Older saved terminals retain their running code after rebuilding the viewer.
-+Creating a new terminal obtains the new runtime; restarting an agent inside an
-+older terminal does not update that runtime. The owner separately confirmed
-+plain Claude and Codex labels on Linux; their labels do not require `wb-*`.
-+
+Creating a new terminal obtains the new runtime; restarting an agent inside an
+older terminal does not update that runtime. The owner separately confirmed
+plain Claude and Codex labels on Linux; their labels do not require `wb-*`.
+
 ## Manual acceptance sequence
 
 1. Build with `just spike`; create a new terminal so it has current launchers.
@@ -120,3 +121,82 @@ version and repeats the relevant sequence on native macOS. Permission behavior,
 resume/interrupt/error paths, child-agent isolation, stale/missing signals and
 native input/GUI behavior remain part of the milestone; the table above does not
 close the release gate.
+
+## Linux permission and background-workspace review — 2026-10-14
+
+Runtime/viewer base: `b85c0bb`. Real Claude Code **2.1.299** and Codex **0.162.1**
+ran inside build-machine in disposable directories, with the actual Workbench GUI
+on isolated Xvfb displays. This establishes real CLI/hook/GUI behavior on Linux
+X11/software rendering; physical Wayland, Mac and other versions remain separate.
+
+Claude used default/manual permissions with an invocation-only `ask: ["Bash"]`
+rule merged into the observer settings. Codex used on-request approvals and a
+read-only sandbox; the probe explicitly requested approval for the harmless shell
+command `printf WB_PERMISSION_PROBE`. Claude's empty directory was trusted through
+the ordinary folder UI; Codex reused already-reviewed observer definitions.
+No trust-bypass flag, persistent permission rule or automated hook decision was
+used. Existing agent account/settings layers stayed applicable. Agent approval was
+granted once through each CLI's normal prompt; denial was tested separately.
+
+| Check | Claude 2.1.299 | Codex 0.162.1 |
+| --- | --- | --- |
+| Permission prompt | Working → Needs input | Working → Needs input |
+| Background Agents drawer/count | Waiting agent visible from another workspace | Waiting agent visible from another workspace |
+| Overview Agents + Needs input | Only waiting agent included | Only waiting agent included |
+| Jump back from overview | Same pending approval, no accidental acceptance | Same pending approval, no accidental acceptance |
+| Approve once | Working → Ready, command output | Working → Ready, command output |
+| Ready agent excluded by Needs input | Pass | Pass |
+| Deny/interrupt | Prompt canceled; last Needs input retained | Ready through Interrupt |
+| Follow-up no-tool turn | Working → Ready clears stale state | Working → Ready |
+| Normal `/exit` | Foreground identity/status clear | Foreground identity/status clear |
+
+Claude's denial interrupted the turn without an observed completion event. The
+observer cannot honestly infer Ready from screen text or a timeout; Needs input
+can remain until the next lifecycle event or foreground exit. This joins the
+previous Copilot cancellation limitation. Cancellation/event completeness remains
+an open gate. No observer/runtime behavior was changed to hide it.
+
+Private local screenshots under `.local/artifacts/agent-live/2026-10-14/` record
+waiting agents in background drawers/overview and empty waiting filters after
+completion. They are acceptance artifacts, not committed CLI-screen fixtures.
+
+## Read-only lifecycle trace
+
+Run `just agent-watch` in another terminal, then interact with a real agent in
+Workbench. The default observation is two minutes; `just agent-watch 300` records
+five minutes. Ctrl+C stops watching. Output is newline-delimited JSON with UTC
+timestamps, stable workspace/terminal IDs, agent identity and delivered status
+changes (`unknown`, `working`, `waiting`, `ready`). `waiting` is the UI's Needs input.
+Repeated identical states are omitted. The command captures runtime-delivered
+transitions, not every hook callback or a guarantee that events were emitted.
+
+The watcher reads the existing catalog once and subscribes through `WAT2` on
+user-owned control sockets. It never attaches a PTY, sends terminal input, starts
+services or agents, recovers terminals, or writes preferences/catalogs. It does
+not read terminal output, prompts, transcripts or credentials. Missing/stopped,
+unsupported or disconnected endpoints emit `unavailable` independently; a closed
+metadata connection is not a claim that its shell exited. No automatic reconnect
+or catalog refresh occurs: create terminals before starting the watcher, and
+restart it after adding terminals or restarting runtimes. Legacy endpoints may
+lack the subscription and retain normal terminal use.
+
+`WORKBENCH_STATE_DIR` selects an isolated/custom session directory. Direct use is
+`python3 scripts/agent_watch.py --state-dir PATH --seconds 120`. Durations are
+bounded to 1–3600 seconds; the validated catalog allows at most 64 subscriptions,
+with four bounded connection attempts at a time and fixed-size metadata frames.
+
+`just check` covers real runtime events alongside an attached/usable terminal,
+unchanged catalogs, failed-sibling isolation, fragmented/coalesced frames,
+deduplication, EOF, malformed lengths/tags, unsafe sockets and duration validation.
+A live Codex no-tool turn also delivered Ready → Working → Ready through the
+watcher while the GUI retained terminal ownership. Native Mac watcher acceptance
+remains pending; use Copilot there, without installing other agents.
+
+
+Rapid synthetic `xdotool type --delay 12` input in these live interactive CLIs
+produced garbled/duplicated prompt characters, including malformed slash commands.
+Paced individual key presses avoid that observation. This is an open input
+acceptance finding, not proof of physical keyboard failure or its root cause.
+Add a raw-input reproduction and compare legacy/Kitty modes before changing the
+adapter. Permission command names/output and lifecycle metadata were checked
+directly; transcript spelling alone was not used as compatibility evidence.

@@ -51,3 +51,14 @@ time and the built binary modification time: a process predating the new build
 may still be running older code. A new viewer does not replace that process.
 The reported Mac `copilot` executable name and matching PID/group are already
 recognized by the current detector; they do not establish which runtime is active.
+
+
+For the remaining Mac Working/Ready check, run `just agent-watch 180` from a
+second terminal after creating your test Workbench terminal. Then run `wb-copilot`
+and ask for a no-tool reply, a built-in question, and another reply after answering.
+Look for JSON `working`, `ready`, `waiting`, then `working`/`ready` for the Copilot
+terminal ID. Move to another workspace while waiting and check Agents/Overview's
+Needs input filter. Exit normally and check `agent: null` / `status: unknown`.
+Record the exact Copilot version with the trace. It contains no prompt text or
+terminal output. Ctrl+C ends only the watcher; it does not stop Copilot or shells.
+See [trace limits and options](agent-validation.md#read-only-lifecycle-trace).

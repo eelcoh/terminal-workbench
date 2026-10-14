@@ -32,6 +32,7 @@ check: runtime-build
     python3 tests/close_smoke.py target/debug/workbench-session
     python3 tests/agent_smoke.py target/debug/workbench-session
     python3 tests/attention_smoke.py target/debug/workbench-session
+    python3 tests/agent_watch_test.py target/debug/workbench-session
     python3 tests/copilot_observer_test.py
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
@@ -126,6 +127,10 @@ session-status:
 # Read agent identity/status and viewer metadata; never restart or attach terminals.
 agent-status:
     python3 scripts/agent_status.py
+
+# Capture delivered lifecycle transitions without attaching or changing sessions.
+agent-watch seconds="120":
+    python3 scripts/agent_watch.py --seconds "{{seconds}}"
 
 # Restart only an explicitly selected stopped terminal; preserves identity/themes.
 recover-terminal id:

@@ -72,11 +72,17 @@ Validated on Linux using named native-process fixtures, real runtime sockets,
 hook payloads and isolated GUI tests. Launcher argument capture verifies generated
 settings and environment. Real Linux Codex 0.161.0 and Claude Code 2.1.296 sessions now validate
 foreground identity, hook-driven Working/Ready, question-driven Needs input and
-same-process detach/reattach. Permission prompts and native macOS hook execution
-remain unverified; supported schemas vary by agent version. See
+same-process detach/reattach. Real Linux permission prompts, background
+Agents/Overview filters and accepted commands now pass with Claude 2.1.299 and Codex 0.162.1. Claude denial can interrupt
+without a completion event and retain Needs input until the next hook, as can
+Copilot question cancellation. Native Mac full lifecycle acceptance remains open;
+supported schemas vary by agent version. See
 [the live validation record](agent-validation.md). A container
 agent that cannot reach the host socket or inherit its environment will not report.
 
 Schemas: [Codex hooks](https://developers.openai.com/codex/hooks/) and
 [Claude Code hooks](https://code.claude.com/docs/en/hooks) and
 [Copilot hooks](https://docs.github.com/en/copilot/reference/hooks-reference).
+
+Use `just agent-watch` to trace delivered identity/status changes without taking
+terminal ownership. See [live review and trace usage](agent-validation.md#read-only-lifecycle-trace).

@@ -100,8 +100,10 @@ acceptance of the new bindings and forwarding remains pending. See [Commands](co
 Real agent validation now exercises installed Linux Codex 0.161.0 and Claude
 Code 2.1.296: foreground recognition, Ready/Working turns, interactive question
 Needs input and same-process detach/reattach. Codex's normal hook-trust prompt
-and untrusted Unknown fallback were observed. Permission-prompt behavior,
-graphical background-workspace flows and native Mac integration remain open.
+and untrusted Unknown fallback were observed. Real permission-prompt accept/deny and graphical background-workspace flows
+have now been reviewed with Claude 2.1.299 and Codex 0.162.1. Claude cancellation
+can retain stale Needs input without a completion event; cancellation completeness
+and native Mac full lifecycle integration remain open.
 GitHub Copilot CLI is the owner's only permitted agent on the Mac and is a
 required integration target. Native/npm identification and invocation-local hooks
 are implemented. The owner confirmed native Mac identity in a new runtime;
@@ -136,9 +138,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    confirmed session shutdown: sustained-session validation, snapshot responsiveness
    and service lifecycle. Native folder browsing and staged reconnection are now
    implemented; finish their Mac review, terminal-search review and invalid-path/recovery review.
-4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
-   background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
-   and full lifecycle transitions. Unsupported signals retain honest fallback.
+4. Complete the core real-agent matrix after Linux Codex/Claude permission and
+   background-workspace review: cancellation/event completeness, trust/setup
+   edge cases, plus Mac Copilot Working/Ready and full lifecycle transitions.
+   Unsupported signals retain honest fallback.
 5. Extend portable dotfiles as needed, then package/install outside the checkout. Decide the
    product name, installed-app lifecycle and update approach before release.
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
@@ -607,3 +610,23 @@ fallback boundaries remain. One/fifteen-runtime slow-transfer GUI checks and rea
 Ghostty staging tests pass; synchronous prefix/page calls and native rendering
 profiling remain limits. See [reconnection](runtime-hardening.md#reconnection-feedback-and-staged-decoding).
 The owner confirmed the sustained-session soak on Mac.
+
+## Current agent slice: permission/background review and lifecycle trace
+
+Real Linux Claude 2.1.299 and Codex 0.162.1 now validate permission-driven Needs
+input, background Agents counts/rows, filtered Overview return, approve-once
+Working/Ready, completed agents leaving the waiting filter, and normal exit.
+Claude denial can leave the last waiting state until a new lifecycle event;
+Codex interruption clears it. These limits remain explicit.
+
+`just agent-watch` now traces runtime-delivered identity/status transitions through
+read-only subscriptions, without attaching terminals, changing sessions or
+recording prompt/output content. It provides a simple native Mac Copilot follow-up
+for fast Working/Ready transitions. Real-runtime/malformed-stream tests and a live
+Codex trace pass; native Mac trace/full lifecycle review remains pending.
+See [agent review and tracing](agent-validation.md#linux-permission-and-background-workspace-review--2026-10-14).
+
+The live review also exposed garbled/duplicated fast synthetic typing in interactive
+agents. Reproduce with raw input under legacy/Kitty keyboard modes and compare
+physical keyboard behavior before an input-adapter change. Paced keys avoid the
+observed issue; the cause and native platform scope remain open.
