@@ -173,9 +173,20 @@ appropriate before performance acceptance.
 2. Synchronize query ownership, appearance defaults, pixel metrics and supported
    graphics state before treating restored snapshots as a full viewer replacement.
 3. Extend the initial organization service with creation/close
-   journaling, subscriptions, detailed exit reasons and installation lifecycle policy.
+   journaling, subscriptions and installation lifecycle policy. Confirmed exit
+   evidence is now recorded by new runtimes; unrecorded losses remain unknown.
 4. Define snapshot persistence/versioning and recovery without implying that a
    stopped runtime can resurrect arbitrary processes.
 
 These are the terminal-state and reattachment slices of roadmap milestone 4,
 not completion of daily-use runtime hardening.
+
+## Runtime lifecycle evidence
+
+New invocations persist bounded atomic lifecycle records and publish final exit
+evidence before viewers observe EOF. The organization service exposes optional
+details without changing legacy status/terminal transport or taking attachment
+ownership. Startup/recovery resets previous evidence, including when launching
+an earlier runtime. The UI uses confirmed facts for stopped-pane feedback and
+keeps unrecorded disappearance distinct from a known shell exit.
+See [stopped-shell reasons and validation](terminal-lifecycle.md).

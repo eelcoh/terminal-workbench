@@ -71,15 +71,18 @@ static bool management_poll(WorkspaceClient *client)
     client->management_busy = false;
     client->management_pid = -1;
     if (client->dialog_kind == DIALOG_TERMINAL_STATUS) {
-        char identity[41]={0}, state[24]={0};
+        char identity[41]={0}, state[24]={0},detail[181]={0};
         bool valid=result>0 && WIFEXITED(status) && WEXITSTATUS(status)==0
-            && sscanf(client->management_reply,"STATE\t%40[^\t]\t%23[^\r\n]",identity,state)==2
+            && (sscanf(client->management_reply,"LIFECYCLE\t%40[^\t]\t%23[^\t\r\n]\t%180[^\r\n]",identity,state,detail)>=2
+                || sscanf(client->management_reply,"STATE\t%40[^\t]\t%23[^\r\n]",identity,state)==2)
             && !strcmp(identity,client->management_target);
         for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++) {
             WorkbenchPane *pane=client->workspaces[w].panes[p];
             if (strcmp(pane->id,client->management_target) || !pane->closed) continue;
             pane->runtime_state=valid && !strcmp(state,"stopped") ? RUNTIME_STOPPED
                 : valid && !strcmp(state,"running") ? RUNTIME_RUNNING : RUNTIME_UNAVAILABLE;
+            snprintf(pane->runtime_detail,sizeof(pane->runtime_detail),"%s",valid ? detail : "");
+            fprintf(stderr,"Terminal lifecycle: %s (%s): %s\n",pane->id,valid ? state : "unavailable",pane->runtime_detail);
             pane->status_checked=true;
             if (pane->runtime_state==RUNTIME_STOPPED) pane->transport.attached_elsewhere=false;
         }
@@ -226,7 +229,7 @@ static void management_check_status(WorkspaceClient *client)
         client->dialog_kind=DIALOG_TERMINAL_STATUS;
         strcpy(client->management_target,pane->id);
         pane->status_checked=true; /* One bounded request per disconnection; retry is explicit. */
-        management_execute(client,"terminal.status",pane->id,"","",-1);
+        management_execute(client,"terminal.lifecycle",pane->id,"","",-1);
         if (!client->management_busy) pane->runtime_state=RUNTIME_UNAVAILABLE;
         return;
     }
@@ -352,7 +355,10 @@ static void dialog_draw(WorkspaceClient *client)
         BeginScissorMode((int)bounds.x + 24, (int)bounds.y + 58, 372, 90);
         DrawTextEx(client->ui_font, message, (Vector2){bounds.x + 24, bounds.y + 60},UI_TEXT_BODY, 0, ui.text);
         if (client->dialog_kind==DIALOG_TERMINAL_RECOVER) {
-            DrawTextEx(client->ui_font,"Previous shell has stopped. Starts a fresh shell.",(Vector2){bounds.x+24,bounds.y+86},UI_TEXT_CAPTION,0,ui.muted);
+            WorkbenchWorkspace *workspace=&client->workspaces[client->active];
+            WorkbenchPane *pane=workspace->count ? workspace->panes[workspace->focused] : NULL;
+            const char *reason=pane && pane->runtime_detail[0] ? pane->runtime_detail : "Previous shell has stopped. Starts a fresh shell.";
+            DrawTextEx(client->ui_font,reason,(Vector2){bounds.x+24,bounds.y+86},UI_TEXT_CAPTION,0,ui.muted);
             DrawTextEx(client->ui_font,"Keeps its name and theme; prior jobs do not resume.",(Vector2){bounds.x+24,bounds.y+104},UI_TEXT_CAPTION,0,ui.muted);
             DrawTextEx(client->ui_font,client->management_busy ? "Starting..." : client->dialog_error[0] ? client->dialog_error : "Tab selects a button; Enter / Space confirms.",
                 (Vector2){bounds.x+24,bounds.y+128},UI_TEXT_CAPTION,0,ui.waiting);

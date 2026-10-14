@@ -259,6 +259,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
     let control = UnixListener::bind(&control_path)?;
     let control_file = SocketFile(control_path.clone());
     fs::set_permissions(&control_path, fs::Permissions::from_mode(0o600))?;
+    let mut lifecycle = crate::lifecycle::Lifecycle::begin(&socket)?;
     let mut terminal = crate::terminal::Terminal::new()?;
     let pair = native_pty_system().openpty(PtySize {
         rows: 24,
@@ -287,6 +288,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
         }
     }
     let mut child = pair.slave.spawn_command(command)?;
+    lifecycle.running(child.process_id());
     drop(pair.slave);
     let mut output = pair.master.try_clone_reader()?;
     let mut input = pair.master.take_writer()?;
@@ -319,7 +321,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                 b"CAPS\n" => {
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let report = format!(
-                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\"]}}\n",
+                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\"]}}\n",
                         std::process::id()
                     );
                     let _ = stream.write_all(report.as_bytes());
@@ -639,12 +641,23 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
     if result.is_err() {
         let _ = child.kill();
     }
-    drop(client);
     let status = child.wait()?;
     eprintln!("shell exited: {status}");
+    lifecycle.finish(
+        if stop_reply.is_some() {
+            "stopped"
+        } else if result.is_err() {
+            "runtime_error"
+        } else {
+            "exited"
+        },
+        &status,
+    );
     drop(pair.master);
     drop(control_file);
     drop(_socket_file);
+    // Publish final evidence and remove endpoints before viewers observe EOF.
+    drop(client);
     if let Some(mut reply) = stop_reply {
         reply.set_write_timeout(Some(Duration::from_secs(2)))?;
         reply.write_all(if result.is_ok() { b"OK\n" } else { b"ERROR\n" })?;

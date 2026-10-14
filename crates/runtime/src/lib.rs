@@ -10,6 +10,8 @@ mod attention;
 #[cfg(unix)]
 mod context;
 #[cfg(unix)]
+mod lifecycle;
+#[cfg(unix)]
 mod platform;
 #[cfg(unix)]
 pub mod session;

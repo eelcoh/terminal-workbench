@@ -21,7 +21,7 @@ PROTOCOL = 1
 LIMIT = 256 * 1024
 METHODS = {"initialize", "workspace.create", "workspace.rename", "workspace.close",
            "terminal.create", "terminal.rename", "terminal.close", "terminal.move",
-           "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "health", "service.shutdown"}
+           "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "terminal.lifecycle", "health", "service.shutdown"}
 
 class Unavailable(Exception):
     pass
@@ -155,7 +155,10 @@ class Authority:
                     except (OSError, ValueError) as error:
                         state, issue = "unavailable", str(error)
                     compatibility = self.runtime_capabilities(path) if state == "running" else None
-                    terminals.append(dict(id=terminal["id"], workspace_id=workspace["id"],
+                    from terminal_lifecycle import detail
+                    lifecycle=detail(path,state)
+                    if state=="stopped":issue=lifecycle["message"]
+                    terminals.append(dict(lifecycle=lifecycle,id=terminal["id"], workspace_id=workspace["id"],
                         workspace_name=workspace["name"], name=terminal["name"], state=state,
                         runtime=compatibility, issue=issue))
         current_controls = {str(catalog.socket_path(self.directory, t).with_suffix(".ctl"))
@@ -207,7 +210,7 @@ class Authority:
             return dict(stopped=True)
         if method == "health":
             return self.health()
-        if method == "terminal.status":
+        if method in {"terminal.status","terminal.lifecycle"}:
             # Read one runtime fact without attachment or capability enumeration.
             with catalog.locked(self.directory):
                 data = catalog.load(self.directory)
@@ -227,6 +230,9 @@ class Authority:
                     state = "running" if alive else "stopped"
                 except (OSError, ValueError):
                     state = "unavailable"
+            if method=="terminal.lifecycle":
+                from terminal_lifecycle import detail
+                return dict(id=identity,state=state,lifecycle=detail(path,state))
             return dict(id=identity, state=state)
         if message.get("runtime") != str(self.runtime) or message.get("cwd") != str(self.cwd):
             raise ValueError("Session service configuration differs; stop the service before changing runtime or directory")

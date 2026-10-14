@@ -74,14 +74,15 @@ def _launch_viewer(viewer, root, environment, detach, log_path, slot_fd):
 def ensure_service(sessions,runtime,root):
     service = request(sessions, runtime, root)
     health = request(sessions, runtime, root, "health")
-    if "workspace.create_at" not in health.get("methods",[]):
+    required={"workspace.create_at","terminal.lifecycle"}
+    if not required.issubset(health.get("methods",[])):
         print("Updating the organization service; existing shells stay running.",flush=True)
         request(sessions,runtime,root,"service.shutdown")
         deadline=time.monotonic()+5
         while True:
             try:
                 current=exchange(sessions,dict(protocol=PROTOCOL,method="health"))
-                if "workspace.create_at" in current.get("methods",[]): break
+                if required.issubset(current.get("methods",[])): break
             except Unavailable:
                 break
             except (ReplyClosed,ConnectionResetError,BrokenPipeError):

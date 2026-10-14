@@ -42,14 +42,16 @@ service. Older running services fall back to their existing readonly health meth
 A cached stopped result is rechecked by the recovery operation: if another caller
 has already started a shell, the operation refuses to replace it. After recovery,
 the client attempts an ordinary attachment, without taking another window's owner.
-Detailed exit codes and distinction between shell exit, runtime crash and reboot
-still require persisted lifecycle evidence; the UI says stopped rather than guessing.
+New runtime lifecycle records now supply confirmed exit codes, signal termination
+and explicit-stop evidence to the footer, recovery confirmation and status CLI.
+Missing/unrecorded exits remain unknown; crash versus reboot is not inferred.
+See [stopped-shell reasons](terminal-lifecycle.md).
 
 ## Protocol and compatibility
 
 The private `service.rpc` Unix stream endpoint carries one bounded newline-terminated JSON request
 and reply per connection. Protocol 1 exposes catalog operations, `health`,
-`terminal.status` (readonly), `terminal.recover`, `session.recover` and service shutdown. Requests are serialized
+`terminal.status` (readonly), optional `terminal.lifecycle` (readonly), `terminal.recover`, `session.recover` and service shutdown. Requests are serialized
 and catalog writes retain the existing lock and JSON/TSV projection semantics.
 PTY input, snapshots and rendering do not travel through this service. Focus,
 selection and layout remain local to each window. There is no frame-time polling.

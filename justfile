@@ -39,6 +39,8 @@ check: runtime-build
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
     python3 tests/terminal_status_cli_test.py
+    python3 tests/lifecycle_record_test.py
+    python3 tests/lifecycle_smoke.py target/debug/workbench-session
     python3 tests/workspace_directories_test.py target/debug/workbench-session
     python3 tests/window_slots_test.py
     python3 tests/launch_diagnostics_test.py
@@ -192,3 +194,7 @@ text-edit-gui-test: spike-build
 search-gui-test: spike-build
     python3 tests/terminal_search_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
     python3 tests/terminal_search_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
+
+# Exit reason presentation and explicit replacement-shell confirmation.
+lifecycle-gui-test: spike-build
+    python3 tests/lifecycle_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

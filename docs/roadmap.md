@@ -68,7 +68,8 @@ An automatically reused organization service now routes window startup and catal
 commands, reports runtime health/capabilities, adopts surviving runtimes after service
 restart, and requires explicit recovery for stopped saved terminals. A graphical confirmation now starts a fresh shell only for a service-confirmed
 stopped entry, with local unavailable-status feedback and live-runtime protection.
-Detailed exit reasons, creation/close journaling and installation lifecycle remain open. See
+New runtimes now persist confirmed exit/signal/stop reasons, with unknown fallback
+for unrecorded losses. Creation/close journaling and installation lifecycle remain open. See
 [the session service slice](session-service.md).
 Session-service startup, shared PID, stop and live adoption are also confirmed
 on macOS; graphical stopped-terminal recovery is also owner-confirmed.
@@ -129,8 +130,7 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    swipes; the mixed-display hardware review is pending.
 2. Decide the production toolkit using those results and the approved minimal
    chrome/Overview flows. Complex text shaping and accessibility are still open.
-3. Harden daily-use runtime behavior: detailed exit reasons, creation/close
-   journaling, crash/recovery and long-running session validation. Finish native terminal-search
+3. Harden daily-use runtime behavior: creation/close journaling, crash/recovery and long-running session validation. Finish native terminal-search
    review, native folder browsing and invalid-path/recovery review.
 4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
    background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
@@ -530,3 +530,15 @@ until a brief pause. Queries are literal/case-sensitive, capped at 255 bytes and
 pass at ordinary and simulated doubled density; native Mac review remains open.
 See [terminal search](terminal-search.md). Cross-terminal search, regex and case
 folding are separate follow-ups, not part of this slice.
+
+## Current runtime slice: stopped-shell reasons
+
+Runtime-owned lifecycle evidence now distinguishes confirmed shell exit codes,
+signal termination and explicit Workbench stops. The service/status CLI and
+stopped-pane footer/recovery confirmation consume optional details. Service
+restart preserves receipts, recovery clears prior-invocation evidence, and live
+or uncertain endpoints remain authoritative. Unrecorded disappearance is not
+labelled a confirmed crash/reboot. Old runtimes/status methods retain fallback.
+Linux build/check cases pass; native Mac review remains pending. Creation/close
+journaling and application/session shutdown policy remain next hardening items.
+See [terminal lifecycle](terminal-lifecycle.md).

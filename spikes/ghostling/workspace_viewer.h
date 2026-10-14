@@ -55,7 +55,7 @@ typedef struct {
     uint64_t context_revision;
     int fd;
     bool closed, scrollbar_dragging, unread, focused, status_checked;
-    int runtime_state;
+    int runtime_state;char runtime_detail[256];
     PaneWidth width;
 } WorkbenchPane;
 
@@ -440,7 +440,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
         DrawRectangleRec(footer,ui.surface);
         BeginScissorMode((int)(8*client->raster_scale),(int)(footer.y*client->raster_scale),(int)((bounds.width-16)*client->raster_scale),(int)(34*client->raster_scale));
         const char *hint=client->managed && pane->runtime_state==RUNTIME_STOPPED
-            ? "Shell stopped. Start a new shell to continue; prior jobs do not resume."
+            ? (pane->runtime_detail[0] ? pane->runtime_detail : "Shell stopped. Start a new shell to continue; prior jobs do not resume.")
             : client->managed && pane->runtime_state==RUNTIME_UNAVAILABLE
             ? "Runtime status unavailable. Check again before recovering."
             : client->managed && pane->runtime_state==RUNTIME_CHECKING

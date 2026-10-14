@@ -168,6 +168,17 @@ def recover_sessions(directory, data):
         path.unlink()
 
 
+def prepare_launch(socket):
+    # Reset previous evidence even when an older runtime will be launched.
+    path=socket.with_suffix('.lifecycle')
+    try:
+        metadata=path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid!=os.getuid():
+            raise ValueError('Lifecycle path is not a user-owned regular file')
+    except FileNotFoundError:pass
+    atomic_write(path,json.dumps(dict(version=1,event='launching',runtime_pid=None,shell_pid=None,
+        started_ms=time.time_ns()//1_000_000,exit_code=None,signal=None))+'\n')
+
 def ensure_sessions(directory, data, runtime, cwd, *, on_spawn=None):
     started = []
     try:
@@ -178,6 +189,7 @@ def ensure_sessions(directory, data, runtime, cwd, *, on_spawn=None):
                     if not (endpoint_alive(path.with_suffix(".ctl")) or endpoint_alive(path)):
                         raise ValueError(f"Session {terminal['id']} has a socket but no listening server ({path}). Run just recover-sessions, then just spike")
                     continue
+                prepare_launch(path)
                 log_path = directory / f"{terminal['id']}.log"
                 with log_path.open("ab") as log:
                     process = subprocess.Popen([str(runtime), str(path)], cwd=directory_value(workspace.get("directory",str(cwd)),cwd,available=True),
@@ -391,20 +403,30 @@ def main():
     args = parser.parse_args()
     try:
         from session_service import request, exchange, PROTOCOL, Unavailable
-        if args.command == "terminal.status":
+        if args.command in {"terminal.status","terminal.lifecycle"}:
             # Background presentation checks do not restart an explicitly stopped service.
             try:
-                reply = exchange(args.state_dir.resolve(), dict(protocol=PROTOCOL, method="terminal.status", identity=args.id))
+                reply = exchange(args.state_dir.resolve(), dict(protocol=PROTOCOL, method=args.command, identity=args.id))
             except ValueError as error:
                 if str(error) != "Unknown session service method":
                     raise
                 # Live services keep their older Python code after git pull.
-                health = exchange(args.state_dir.resolve(), dict(protocol=PROTOCOL, method="health"))
+                if args.command=="terminal.lifecycle":
+                    try:reply=exchange(args.state_dir.resolve(),dict(protocol=PROTOCOL,method="terminal.status",identity=args.id))
+                    except ValueError as legacy_error:
+                        if str(legacy_error)!="Unknown session service method":raise
+                        reply=None
+                else:reply=None
+                health = exchange(args.state_dir.resolve(), dict(protocol=PROTOCOL, method="health")) if reply is None else {"terminals":[reply]}
                 terminal = next((t for t in health["terminals"] if t["id"] == args.id), None)
                 if terminal is None:
                     raise ValueError("Terminal no longer exists")
                 reply = dict(id=terminal["id"], state=terminal["state"])
-            print("STATE\t" + reply["id"] + "\t" + reply["state"], flush=True)
+            if args.command=="terminal.lifecycle":
+                message=reply.get("lifecycle",{}).get("message", "Runtime stopped; no exit reason was recorded." if reply["state"]=="stopped" else "")
+                message=str(message).replace("\t"," ").replace("\r"," ").replace("\n"," ").encode("utf-8")[:180].decode("utf-8",errors="ignore")
+                print("LIFECYCLE\t"+reply["id"]+"\t"+reply["state"]+"\t"+message,flush=True)
+            else:print("STATE\t" + reply["id"] + "\t" + reply["state"], flush=True)
             return 0
         data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position, project_directory=args.directory)["data"]
         # Return the identity from this operation's locked result, never infer
