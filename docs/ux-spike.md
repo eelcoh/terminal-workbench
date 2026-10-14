@@ -710,11 +710,11 @@ The standalone Mac executable now embeds an Info.plist with **Terminal Workbench
 as both its display name and bundle name. Cocoa consults bundle metadata before
 the process-name fallback, which previously left the menu showing Ghostling.
 The binary path remains `ghostling` for existing launch/test scripts. Rebuild and
-fully quit/reopen the viewer to review the app menu and its About/Hide/Quit labels;
-native acceptance remains pending. Final `.app` packaging is a separate milestone.
+fully quit/reopen the viewer to apply the identity. The owner confirmed that the
+Mac menu name is fixed. Final `.app` packaging is a separate milestone.
 
-Mac terminal glyph atlases now use a CoreText platform adapter, while preserving
-logical cell metrics. The owner accepted borders on an LG 35WN75C at 3440×1440,
-but reported softer text beside native Ghostty. The rasterizer change needs native
-1× external/Retina review; Linux and API-stand-in checks do not establish visual
-parity. See [terminal fonts](terminal-fonts.md#native-mac-rasterization-and-external-displays).
+The owner accepted borders on an LG 35WN75C at 3440×1440, but reported softer
+text beside native Ghostty. The CoreText atlas experiment did not improve native
+Mac text and may have worsened it; it has been reverted to the prior rasterizer.
+Sharpness remains open and needs a controlled native comparison before further
+rasterizer changes. See [terminal fonts](terminal-fonts.md#external-display-font-review).

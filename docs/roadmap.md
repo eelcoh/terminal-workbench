@@ -437,8 +437,10 @@ pane outlines stay inside their clipping area. Horizontal two-finger content
 swipes pan the working strip while vertical input retains terminal scrolling.
 The owner confirmed native Mac resizing and horizontal swipes, and correct pane
 borders on the LG 35WN75C at default 3440×1440. Text remained softer than native
-Ghostty on that display. A CoreText terminal-atlas adapter and embedded Mac app
-identity are implemented, with native build/menu/text review pending. The earlier
+Ghostty on that display. The owner confirmed the embedded Mac app/menu identity
+fix. The CoreText rasterizer experiment gave no improvement and possibly worse
+text; it has been reverted. Sharpness requires a controlled native comparison
+before adopting further renderer changes. The earlier
 external screen and unplug recovery remain pending; see
 [display details](interface-typography.md#display-changes-and-pane-outlines).
 

@@ -3,7 +3,6 @@
 #include "font_noto_symbols.h"
 #include "font_fira_code.h"
 #include "fira_font_codepoints.h"
-#include "platform_terminal_font.h"
 
 // Both atlases are loaded per window/backing density, never inside pane rendering. The
 // generated Unicode lists are sorted; Raylib preserves their glyph order.
@@ -23,10 +22,10 @@ static Font terminal_font_load_family(int family,int pixels) {
     int length=family ? sizeof(font_fira_code) : sizeof(font_jetbrains_mono);
     int *points=family ? fira_primary_codepoints : terminal_primary_codepoints;
     int count=family ? sizeof(fira_primary_codepoints)/sizeof(int) : sizeof(terminal_primary_codepoints)/sizeof(int);
-    Font font=platform_terminal_font_load(bytes,length,pixels,points,count);
+    Font font=LoadFontFromMemory(".ttf",bytes,length,pixels,points,count);
     points=family ? fira_fallback_codepoints : terminal_fallback_codepoints;
     count=family ? sizeof(fira_fallback_codepoints)/sizeof(int) : sizeof(terminal_fallback_codepoints)/sizeof(int);
-    terminal_fallback_font=platform_terminal_font_load(font_noto_symbols,sizeof(font_noto_symbols),pixels,points,count);
+    terminal_fallback_font=LoadFontFromMemory(".ttf",font_noto_symbols,sizeof(font_noto_symbols),pixels,points,count);
     SetTextureFilter(terminal_fallback_font.texture,TEXTURE_FILTER_BILINEAR);
     return font;
 }

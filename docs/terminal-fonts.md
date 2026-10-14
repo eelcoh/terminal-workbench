@@ -75,30 +75,32 @@ The full check suite, chrome, display and dotfile GUI regressions pass on Linux.
 Native macOS keyboard/visual review remains
 pending. Screenshots are retained under `.local/test-results/font-settings-*`.
 
-## Native Mac rasterization and external displays
+## External-display font review
 
 The owner reviewed a native Ghostty comparison on an LG 35WN75C at its default
 3440×1440 resolution. Pane borders look correct there; terminal text still looked
 softer than Ghostty. This does not complete review of the earlier external screen
 or unplug recovery.
 
-Mac terminal atlases now use CoreText grayscale glyph coverage at the current
-backing density, without synthetic font thickening. Bundled JetBrains Mono,
-Fira Code and the symbol fallback share this path. The existing rasterizer still
-provides logical advances/cell measurements and individual fallback glyphs if a
-native glyph cannot be drawn. Atlas packing accounts for padded native ink bounds.
-Linux retains its current rasterizer. No font/config migration or extra installed
-dependency is needed; CoreText/CoreGraphics are system frameworks.
+The subsequent CoreText terminal-atlas experiment built and loaded on Mac, but
+the owner reported no improvement and possibly worse text. It has been reverted.
+Terminal text again uses Raylib's original stb rasterizer on both platforms.
+The confirmed Mac application/menu-name fix remains in place. Bundled fonts,
+font-size preferences, logical cell geometry and backing-density handling retain
+their existing behavior.
 
-After rebuilding with `just spike`, the viewer log records `Terminal glyph
-rasterizer: CoreText N/M ...`. Compare the same font and size against Ghostty on
-the 1× external screen, then move to the MacBook display and back. Review sharpness,
-upright glyphs/bearings, Unicode symbols, selection alignment and unchanged grid
-on density-only moves. Native Mac build and visual acceptance remain pending.
-`just check` covers metric parsing, ink bounds, surrogate pairs and adapter
-fallback/resource cleanup using API stand-ins; these do not validate Apple's SDK
-or the resulting pixels on Mac hardware.
+External-screen sharpness remains an open UX gate. The next investigation needs
+the same font, actual glyph size, colors and geometry beside native Ghostty, with
+pixel-level evidence of any rasterization or texture-sampling difference before
+another renderer change is adopted. A successful build/atlas upload is not visual
+acceptance; Linux display checks do not prove native Mac appearance.
 
-The Linux spike build and `just check` pass. Font-settings and display GUI
-regressions pass with one and fifteen terminals, including simulated 1→2→1
-density, selection/clipboard, borders, resizing and retained shell/grid state.
+Source inspection also shows a size-comparison trap: Workbench currently uses
+stb pixel-height scaling and the selected size as cell height, while the pinned
+Ghostty CoreText face uses point/em sizing. Equal numbers in the two applications
+do not establish equal glyph size. Match the rendered glyph footprint before
+judging edge sharpness; changing Workbench's sizing semantics requires a separate
+grid/preferences migration decision.
+
+Rollback validation: the Linux spike build, `just check` (including Mac identity
+metadata wiring), and the primary/fallback Unicode font GUI check pass.
