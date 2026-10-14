@@ -77,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix='wb-edit-') as temporary:
             paste('x'*100);key('ctrl+c');assert clipboard()=='mouse edit';capture('rejected-paste.png');text('unsaved');key('Escape')
             assert (state/'workspaces.json').read_bytes()==before;safe('cancel-safe')
             key('ctrl+shift+n');text('Draft');key('End');key('Left');key('Tab');key('ctrl+a');paste(str(old));key('Home');key('shift+Tab');text('X');key('ctrl+a');key('ctrl+c');assert clipboard()=='DrafXt'
-            key('Tab');key('ctrl+a');key('ctrl+c');assert clipboard()==str(old);key('Tab');key('space');assert (state/'workspaces.json').read_bytes()==before;safe('dual-fields-safe')
+            key('Tab');key('ctrl+a');key('ctrl+c');assert clipboard()==str(old);key('Tab');key('Tab');key('space');assert (state/'workspaces.json').read_bytes()==before;safe('dual-fields-safe')
             palette('Rename terminal');key('End');text(' debug');key('Return');saved(lambda d:d['workspaces'][0]['terminals'][0]['name']=='Shell 1 debug');safe('terminal-rename-safe')
             close_window(window,env);assert process.wait(timeout=5)==0
             print('PASS: partial/Unicode edits, word navigation, clipboard copy/cut/paste, mouse caret/drag/double/triple clicks, long path scrolling, per-field caret preservation, rejected paste/cancel isolation and unchanged live shell/grid/cwd')

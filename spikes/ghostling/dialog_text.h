@@ -1,12 +1,14 @@
 /* Raylib adapter for the client-only name/path editor. */
+static bool dialog_text_is_field(WorkspaceClient *client)
+{ return client->dialog_focus.item==0 || (client->dialog_kind==DIALOG_WORKSPACE_CREATE && client->dialog_focus.item==1); }
 static int dialog_text_index(WorkspaceClient *client)
 { return client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY || client->dialog_focus.item==1 ? 1 : 0; }
 static char *dialog_text_value(WorkspaceClient *client,int index)
 { return index ? client->edit_directory : client->edit_name; }
 static size_t dialog_text_capacity(WorkspaceClient *client,int index)
 { return index ? sizeof(client->edit_directory) : sizeof(client->edit_name); }
-static Rectangle dialog_text_bounds(Rectangle bounds,bool second)
-{ return (Rectangle){bounds.x+24,bounds.y+(second ? 116 : 64),372,second ? 28 : 36}; }
+static Rectangle dialog_text_bounds(WorkspaceClient *client,Rectangle bounds,bool second)
+{ return (Rectangle){bounds.x+24,bounds.y+(second ? 116 : 64),second || client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY ? 288 : 372,second ? 28 : 36}; }
 static float dialog_text_width(WorkspaceClient *client,const char *text,size_t bytes)
 {
     char prefix[1024];bytes=bytes<sizeof(prefix) ? bytes : sizeof(prefix)-1;
@@ -39,11 +41,11 @@ static void dialog_text_mouse(WorkspaceClient *client,Rectangle bounds,bool dual
 {
     bool pressed=IsMouseButtonPressed(MOUSE_BUTTON_LEFT),down=IsMouseButtonDown(MOUSE_BUTTON_LEFT);
     bool shift=IsKeyDown(KEY_LEFT_SHIFT)||IsKeyDown(KEY_RIGHT_SHIFT);Vector2 pointer=GetMousePosition();
-    if(!down || client->management_busy) for(int i=0;i<2;i++) client->edit_fields[i].dragging=false;
-    if(client->management_busy) return;
+    if(!down || (client->management_busy || client->picker_busy)) for(int i=0;i<2;i++) client->edit_fields[i].dragging=false;
+    if((client->management_busy || client->picker_busy)) return;
     for(int field_index=0;field_index<(dual ? 2 : 1);field_index++) {
         int index=client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY ? 1 : field_index;
-        DialogFieldState *state=&client->edit_fields[index];Rectangle field=dialog_text_bounds(bounds,field_index==1);
+        DialogFieldState *state=&client->edit_fields[index];Rectangle field=dialog_text_bounds(client,bounds,field_index==1);
         char *value=dialog_text_value(client,index);
         if(pressed && CheckCollisionPointRec(pointer,field)) {
             client->dialog_focus.item=field_index;client->dialog_focus.visible=false;
@@ -69,7 +71,7 @@ static void dialog_text_mouse(WorkspaceClient *client,Rectangle bounds,bool dual
 }
 static void dialog_text_key(WorkspaceClient *client,int key)
 {
-    if(client->management_busy || client->dialog_focus.item>1 || client->dialog_focus.item<0) return;
+    if((client->management_busy || client->picker_busy) || !dialog_text_is_field(client)) return;
     int index=dialog_text_index(client);char *value=dialog_text_value(client,index);size_t capacity=dialog_text_capacity(client,index);
     DialogFieldState *state=&client->edit_fields[index];TextEdit *edit=&state->selection;
     bool modifier=text_edit_modifier_down(),shift=IsKeyDown(KEY_LEFT_SHIFT)||IsKeyDown(KEY_RIGHT_SHIFT);
@@ -99,7 +101,7 @@ static void dialog_text_characters(WorkspaceClient *client)
 {
     int character;
     while((character=GetCharPressed())!=0) {
-        if(client->management_busy || client->dialog_focus.item<0 || client->dialog_focus.item>1 || text_edit_modifier_down() || character<32 || character==127) continue;
+        if((client->management_busy || client->picker_busy) || !dialog_text_is_field(client) || text_edit_modifier_down() || character<32 || character==127) continue;
         int index=dialog_text_index(client);DialogFieldState *state=&client->edit_fields[index];
         char bytes[4];int count=utf8_encode((uint32_t)character,bytes);
         if(count>0 && text_edit_replace(&state->selection,dialog_text_value(client,index),dialog_text_capacity(client,index),bytes,(size_t)count)) {
@@ -113,7 +115,7 @@ static void dialog_field(WorkspaceClient *client,Rectangle field,const char *val
     DrawRectangleRounded(field,.2f,8,ui.background);DrawRectangleRoundedLinesEx(field,.2f,8,1,active ? ui.accent : ui.border);
     float x=field.x+8-state->scroll,text_y=field.y+(field.height-UI_TEXT_LEAD)/2;
     BeginScissorMode((int)field.x+8,(int)field.y,(int)field.width-16,(int)field.height);
-    bool selected=active && text_edit_selected(edit) && !client->management_busy;
+    bool selected=active && text_edit_selected(edit) && !(client->management_busy || client->picker_busy);
     float low=dialog_text_width(client,value,text_edit_low(edit)),high=dialog_text_width(client,value,text_edit_high(edit));
     if(selected) DrawRectangleRec((Rectangle){x+low,text_y-2,high-low,UI_TEXT_LEAD+4},ui_color(current_theme.selection_background));
     DrawTextEx(client->ui_font,value,(Vector2){x,text_y},UI_TEXT_LEAD,0,ui.text);
@@ -124,7 +126,7 @@ static void dialog_field(WorkspaceClient *client,Rectangle field,const char *val
         if(right>left) { BeginScissorMode((int)left,(int)field.y,(int)ceilf(right-left),(int)field.height);
             DrawTextEx(client->ui_font,value,(Vector2){x,text_y},UI_TEXT_LEAD,0,ui_color(current_theme.selection_foreground));EndScissorMode(); }
     }
-    if(active && !client->management_busy && fmod(GetTime()-state->blink,1)<.5) {
+    if(active && !(client->management_busy || client->picker_busy) && fmod(GetTime()-state->blink,1)<.5) {
         float caret=x+dialog_text_width(client,value,edit.caret);
         if(caret>=field.x+8 && caret<=field.x+field.width-8) DrawLine((int)caret,(int)field.y+6,(int)caret,(int)(field.y+field.height-6),ui.text);
     }

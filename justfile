@@ -36,6 +36,7 @@ check: runtime-build
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
     python3 tests/terminal_search_vt_test.py
+    python3 tests/snapshot_stage_test.py
     python3 tests/macos_metadata_test.py
     python3 tests/config_paths_test.py
     python3 tests/build_env_test.py
@@ -46,6 +47,7 @@ check: runtime-build
     python3 tests/lifecycle_record_test.py
     python3 tests/lifecycle_smoke.py target/debug/workbench-session
     python3 tests/workspace_directories_test.py target/debug/workbench-session
+    python3 tests/folder_picker_test.py
     python3 tests/window_slots_test.py
     python3 tests/launch_diagnostics_test.py
 
@@ -210,3 +212,12 @@ shutdown-gui-test: spike-build
 # Sustained runtime/ownership/service checks in disposable sessions (no GUI).
 session-soak seconds="300" terminals="15": runtime-build
     python3 tests/session_soak.py target/debug/workbench-session --seconds "{{seconds}}" --terminals "{{terminals}}"
+
+# Uses the actual Linux desktop folder chooser in an isolated Xvfb display.
+folder-picker-gui-test: spike-build
+    python3 tests/folder_picker_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Slow snapshot transport and interactive UI at one/fifteen-terminal cardinality.
+attachment-gui-test: spike-build
+    python3 tests/attachment_progress_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+    WORKBENCH_TEST_PANES=15 python3 tests/attachment_progress_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

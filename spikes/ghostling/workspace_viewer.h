@@ -145,6 +145,8 @@ typedef struct {
     char appearance_active[41];
     char theme_path[1024], theme_error[256];
     int dialog_kind, management_fd, dialog_terminal_count;
+    bool picker_busy,picker_discard;int picker_fd;pid_t picker_pid;
+    char picker_reply[1536];size_t picker_length;
     pid_t management_pid;
     char edit_directory[1024];
     char shutdown_targets[WORKBENCH_MAX_WORKSPACES*WORKBENCH_PANES*41+1];
@@ -203,6 +205,7 @@ static void pane_unbind(void)
 static void pane_free(WorkbenchPane *pane)
 {
     pane_bind(pane);
+    snapshot_stage_cancel(&pane->transport.snapshot_stage);
     free(pane->transport.snapshot);
     if (pane->fd >= 0) close(pane->fd);
     if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
@@ -229,6 +232,7 @@ static bool pane_attach(WorkspaceClient *client, WorkbenchPane *pane, bool takeo
     if (pane->fd >= 0) close(pane->fd);
     if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
     if (pane->transport.context_fd >= 0) close(pane->transport.context_fd);
+    snapshot_stage_cancel(&pane->transport.snapshot_stage);
     free(pane->transport.snapshot);
     bool earlier_runtime=takeover && pane->transport.takeover_unsupported;
     memset(&pane->transport,0,sizeof(pane->transport));
@@ -434,7 +438,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
                     client->cell_width, client->cell_height, client->text.size, 4,
                     &scrollbar, pane->terminal, pane->images);
     search_highlight(client,pane,bounds);
-    if (pane->closed) {
+    if (pane->closed || pane->transport.replaying) {
         /* Retain the frozen terminal screen, but keep connection feedback out
          * of its text. The opaque footer belongs to client chrome. */
         Rectangle footer={0,fmaxf(32,bounds.height-34),bounds.width,34};
@@ -451,6 +455,19 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
                 ? "Earlier runtime: close the owning window, then Reconnect."
                 : "Move here to continue in the live terminal.")
             : "Connection closed. Move here to try reconnecting.";
+        char progress[160];
+        if (!pane->closed && pane->transport.replaying) {
+            RemoteSession *remote=&pane->transport;
+            if (remote->snapshot_stage.decoder)
+                snprintf(progress,sizeof(progress),"Restoring scrollback... %d%%",(int)(100.0*remote->snapshot_stage.offset/remote->snapshot_stage.length));
+            else if (remote->snapshot_size && !remote->snapshot_done)
+                snprintf(progress,sizeof(progress),"Receiving terminal state... %d%%",(int)(100.0*remote->snapshot_used/remote->snapshot_size));
+            else snprintf(progress,sizeof(progress),"%s",remote->snapshot_done ? "Finishing connection..." : remote->snapshot_attempt ? "Connecting to terminal..." : "Restoring retained output...");
+            hint=progress;
+        } else if ((!client->managed || (pane->runtime_state!=RUNTIME_STOPPED && pane->runtime_state!=RUNTIME_UNAVAILABLE
+            && pane->runtime_state!=RUNTIME_CHECKING)) && !pane->transport.attached_elsewhere && pane->transport.error[0]) {
+            snprintf(progress,sizeof(progress),"Connection failed: %s. Reconnect to try again.",pane->transport.error);hint=progress;
+        }
         DrawTextEx(client->ui_font,hint,(Vector2){10,footer.y+10},UI_TEXT_CAPTION,0,ui.muted);
         EndScissorMode();
     }
@@ -639,6 +656,7 @@ static int workspace_main(const char *catalog)
             else overview_open(client);
         }
         bool modal_frame = search_frame || chrome_frame || help_frame || shortcut_frame || command_frame || text_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
+        folder_picker_poll(client);
         if (!management_poll(client)) { exit_code = 1; break; }
         if (command_frame) {
             if (command_started) {
@@ -808,6 +826,8 @@ static int workspace_main(const char *catalog)
     }
     window_view_save(client,true);
 cleanup:
+    folder_picker_cancel(client);
+    if (client->picker_busy) { while (waitpid(client->picker_pid,NULL,0)<0 && errno==EINTR) { } close(client->picker_fd); }
     search_close(client,false);free(client->search.paint);
     if (client->management_busy) {
         int status;

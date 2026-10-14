@@ -133,8 +133,8 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    chrome/Overview flows. Complex text shaping and accessibility are still open.
 3. Continue daily-use runtime hardening after creation/close journaling and
    confirmed session shutdown: sustained-session validation, snapshot responsiveness
-   and service lifecycle. Finish native terminal-search
-   review, native folder browsing and invalid-path/recovery review.
+   and service lifecycle. Native folder browsing and staged reconnection are now
+   implemented; finish their Mac review, terminal-search review and invalid-path/recovery review.
 4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
    background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
    and full lifecycle transitions. Unsupported signals retain honest fallback.
@@ -583,3 +583,21 @@ provides a longer one/fifteen-terminal workload with bounded diagnostics and
 resource observations. This is backend/protocol validation; native window/rendering,
 real-agent longevity and machine suspend/resume remain separate acceptance work.
 See [session soak](session-soak.md).
+
+## Current workspace/runtime slice: folder browsing and reconnection
+
+Browse now opens the native platform folder chooser from New workspace and Change
+project folder, keeping the selected path editable until explicit Save/Create.
+Cancellation/errors preserve state and window close dismisses pending helpers.
+Linux uses Zenity/the desktop dialog, with manual entry when unavailable; Mac uses
+Standard Additions with separate path arguments. Real Linux picker and existing
+editing/focus/ownership workflows pass; native Mac review remains pending.
+See [folder browsing](workspace-directories.md#native-folder-browsing).
+
+Snapshot reconnection now shows transfer/restore progress and bounded failure
+details. Transfer work and history decoding yield between frames; a separate VT is
+installed only after complete checksum validation. Existing input/ownership/legacy
+fallback boundaries remain. One/fifteen-runtime slow-transfer GUI checks and real
+Ghostty staging tests pass; synchronous prefix/page calls and native rendering
+profiling remain limits. See [reconnection](runtime-hardening.md#reconnection-feedback-and-staged-decoding).
+The owner confirmed the sustained-session soak on Mac.

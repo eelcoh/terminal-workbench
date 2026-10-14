@@ -117,7 +117,7 @@ def main():
                 # GUI creation claims new terminals for the creating window even
                 # if the other window observes the atomic catalog first.
                 (root/'race').touch()
-                chrome_action(cmd,b,'New workspace');type_text(b,'Shared project');key(b,'Tab');type_text(b,str(alternate));key(b,'Return')
+                chrome_action(cmd,b,'New workspace');type_text(b,'Shared project');key(b,'Tab');key(b,'ctrl+a');type_text(b,str(alternate));key(b,'Return')
                 wait_until(lambda:len(metadata()['workspaces'])==4);time.sleep(.65)
                 assert next(w for w in metadata()['workspaces'] if w['name']=='Shared project')['directory']==str(alternate)
                 line(b,'printf "%s" "$PWD" > created-workspace-cwd');assert read('created-workspace-cwd')==str(alternate)

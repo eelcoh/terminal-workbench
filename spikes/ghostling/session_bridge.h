@@ -4,6 +4,7 @@
 #include <sys/un.h>
 #include <stdint.h>
 #include "terminal_context.h"
+#include "snapshot_stage.h"
 
 /* Each pane owns transport state. Binding is confined to the UI thread. */
 typedef struct {
@@ -11,7 +12,8 @@ typedef struct {
     char session_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
     uint8_t *snapshot;
     size_t snapshot_size, snapshot_used;
-    double attach_started;
+    double attach_started,last_activity;
+    SnapshotStage snapshot_stage;char error[96];
     uint16_t cols, rows, wanted_cols, wanted_rows;
     uint32_t cell_width, cell_height;
     uint8_t send_buffer[1024 * 1024], receive_buffer[65541];
@@ -28,7 +30,7 @@ typedef struct {
     char agent_control[sizeof(((struct sockaddr_un *)0)->sun_path)];
     size_t agent_used;
 } RemoteSession;
-static bool remote_restore_terminal(GhosttyTerminal *terminal, const uint8_t *bytes, size_t length, void *effects);
+static bool remote_install_terminal(GhosttyTerminal *terminal,GhosttyTerminal restored,void *effects);
 static RemoteSession single_remote = { .replaying = true, .agent_fd = -1, .context_fd = -1 };
 static RemoteSession *active_remote = &single_remote;
 #define remote_replaying (active_remote->replaying)
@@ -47,6 +49,8 @@ static RemoteSession *active_remote = &single_remote;
 static void remote_fail(int fd, const char *reason)
 {
     fprintf(stderr, "session connection: %s\n", reason);
+    snprintf(active_remote->error,sizeof(active_remote->error),"%s",reason);
+    snapshot_stage_cancel(&active_remote->snapshot_stage);
     free(active_remote->snapshot); active_remote->snapshot = NULL;
     remote_failed = true;
     shutdown(fd, SHUT_RDWR);
@@ -233,7 +237,7 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
         strcpy(extension, ".ctl");
         active_remote->snapshot_attempt = true;
     }
-    active_remote->attach_started = GetTime();
+    active_remote->last_activity=active_remote->attach_started = GetTime();
     fprintf(stderr, "session attachment request: %s via %s (%s)\n", path,
         address.sun_path, active_remote->snapshot_attempt
             ? (active_remote->takeover ? "ATM1 transfer" : "ATS1 snapshot") : "legacy replay");
@@ -337,7 +341,7 @@ static bool remote_takeover_fallback(int fd)
     remote->takeover=false;
     remote->takeover_unsupported=true;
     remote->receive_length=0;
-    remote->attach_started=GetTime();
+    remote->last_activity=remote->attach_started=GetTime();
     fprintf(stderr,"Earlier runtime: retrying ordinary attachment without revoking its owner (%s).\n",remote->session_path);
     return true;
 }
@@ -347,11 +351,29 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
     remote_agent_read();
     remote_flush(fd);
     if (remote_failed) return PTY_READ_ERROR;
-    if (remote_replaying && GetTime() - active_remote->attach_started > 10.0) {
+    if (remote_replaying && (GetTime()-active_remote->last_activity>10.0 || GetTime()-active_remote->attach_started>60.0)) {
         remote_fail(fd, "attachment timed out"); return PTY_READ_ERROR;
     }
-    /* Bound work per frame, including when a large replay is arriving. */
+    /* Transfer/parsing and history decoding yield between bounded units. One
+     * library prefix/page operation remains synchronous; this is a soft budget. */
+    double slice_started=GetTime();size_t slice_bytes=0;int pages=0;
     for (int batch = 0; batch < 64; batch++) {
+        if (batch && (slice_bytes>=256*1024 || GetTime()-slice_started>=.002 || pages>=4)) return PTY_READ_OK;
+        RemoteSession *restoring=active_remote;
+        if (restoring->snapshot_stage.decoder) {
+            int result=snapshot_stage_step(&restoring->snapshot_stage);pages++;
+            if (result==SNAPSHOT_STAGE_ERROR) {remote_fail(fd,"invalid terminal snapshot");return PTY_READ_ERROR;}
+            restoring->last_activity=GetTime();
+            if (result==SNAPSHOT_STAGE_MORE) continue;
+            GhosttyTerminal restored=snapshot_stage_take(&restoring->snapshot_stage);
+            if (!remote_install_terminal(terminal,restored,effects)) {
+                ghostty_terminal_free(restored);remote_fail(fd,"could not restore terminal state");return PTY_READ_ERROR;
+            }
+            free(restoring->snapshot);restoring->snapshot=NULL;restoring->snapshot_done=true;
+            ghostty_terminal_get(*terminal,GHOSTTY_TERMINAL_DATA_COLS,&restoring->cols);
+            ghostty_terminal_get(*terminal,GHOSTTY_TERMINAL_DATA_ROWS,&restoring->rows);
+            restoring->output_revision++;
+        }
         if (receive_used >= 5) {
             size_t length = ((size_t)receive_queue[1] << 24)
                           | ((size_t)receive_queue[2] << 16)
@@ -370,19 +392,18 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
                     if (!remote->snapshot_size || remote->snapshot_size > 64*1024*1024) {
                         remote_fail(fd, "invalid snapshot size"); return PTY_READ_ERROR;
                     }
+                    fprintf(stderr,"session attachment: receiving snapshot (%zu bytes)\n",remote->snapshot_size);
                     remote->snapshot = malloc(remote->snapshot_size);
                     if (!remote->snapshot) { remote_fail(fd, "snapshot allocation failed"); return PTY_READ_ERROR; }
                 } else if (kind == 8 && length && remote->snapshot && length <= remote->snapshot_size-remote->snapshot_used) {
                     memcpy(remote->snapshot+remote->snapshot_used,payload,length);
                     remote->snapshot_used += length;
                 } else if (kind == 9 && !length && remote->snapshot && remote->snapshot_used == remote->snapshot_size) {
-                    if (!remote_restore_terminal(terminal,remote->snapshot,remote->snapshot_size,effects)) {
-                        remote_fail(fd, "invalid terminal snapshot"); return PTY_READ_ERROR;
+                    fprintf(stderr,"session attachment: decoding snapshot\n");
+                    if (!snapshot_stage_begin(&remote->snapshot_stage,remote->snapshot,remote->snapshot_size)) {
+                        remote_fail(fd,"invalid terminal snapshot");return PTY_READ_ERROR;
                     }
-                    free(remote->snapshot); remote->snapshot = NULL; remote->snapshot_done = true;
-                    ghostty_terminal_get(*terminal,GHOSTTY_TERMINAL_DATA_COLS,&remote->cols);
-                    ghostty_terminal_get(*terminal,GHOSTTY_TERMINAL_DATA_ROWS,&remote->rows);
-                    remote->output_revision++;
+                    remote->last_activity=GetTime();
                 } else if (remote->snapshot_attempt && !remote->snapshot_done && kind != 4) {
                     remote_fail(fd, "incomplete snapshot attachment"); return PTY_READ_ERROR;
                 } else if (kind == 1) {
@@ -413,14 +434,16 @@ static PtyReadResult pty_read(int fd, GhosttyTerminal *terminal, void *effects)
                 } else {
                     remote_fail(fd, "invalid output frame"); return PTY_READ_ERROR;
                 }
+                slice_bytes+=length+5;
                 receive_used -= length + 5;
                 memmove(receive_queue, receive_queue + length + 5, receive_used);
+                if (active_remote->snapshot_stage.decoder) return PTY_READ_OK;
                 continue;
             }
         }
         ssize_t n = recv(fd, receive_queue + receive_used,
                          sizeof(receive_queue) - receive_used, 0);
-        if (n > 0) { receive_used += (size_t)n; continue; }
+        if (n > 0) { active_remote->last_activity=GetTime();receive_used += (size_t)n; continue; }
         if (n == 0) {
             if (active_remote->snapshot_attempt && !active_remote->snapshot_seen && !receive_used
                 && (remote_takeover_fallback(fd) || remote_legacy_fallback(fd))) continue;

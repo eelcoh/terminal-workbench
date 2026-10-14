@@ -1,19 +1,7 @@
 /* Decode into a new VT, then bind client-only effects and appearance before
  * any live bytes arrive. Snapshot decoding never emits historical replies. */
-static bool remote_restore_terminal(GhosttyTerminal *terminal, const uint8_t *bytes, size_t length, void *userdata)
+static bool remote_install_terminal(GhosttyTerminal *terminal,GhosttyTerminal restored,void *userdata)
 {
-    GhosttySnapshotDecoder decoder = NULL;
-    GhosttyTerminal restored = NULL;
-    size_t continuation = 4096, consumed = 0;
-    if (ghostty_snapshot_decoder_new_buf(NULL,&decoder,bytes,length) != GHOSTTY_SUCCESS) return false;
-    GhosttyResult result = ghostty_snapshot_decoder_set(decoder,GHOSTTY_SNAPSHOT_DECODER_OPT_MAX_CONTINUATION_BYTES,&continuation);
-    if (result == GHOSTTY_SUCCESS) result = ghostty_snapshot_decoder_decode(decoder,&restored);
-    if (result == GHOSTTY_SUCCESS) result = ghostty_snapshot_decoder_get(decoder,GHOSTTY_SNAPSHOT_DECODER_DATA_SOURCE_OFFSET,&consumed);
-    ghostty_snapshot_decoder_free(decoder);
-    if (result != GHOSTTY_SUCCESS || consumed != length) {
-        if (restored) ghostty_terminal_free(restored);
-        return false;
-    }
     EffectsContext *effects = userdata;
     ghostty_terminal_get(restored,GHOSTTY_TERMINAL_DATA_COLS,&effects->cols);
     ghostty_terminal_get(restored,GHOSTTY_TERMINAL_DATA_ROWS,&effects->rows);
@@ -34,10 +22,10 @@ static bool remote_restore_terminal(GhosttyTerminal *terminal, const uint8_t *by
         ghostty_terminal_set(restored,GHOSTTY_TERMINAL_OPT_KITTY_IMAGE_MEDIUM_SHARED_MEM,&medium_enabled);
     }
     if (ghostty_terminal_resize(restored,effects->cols,effects->rows,effects->cell_width,effects->cell_height) != GHOSTTY_SUCCESS) {
-        ghostty_terminal_free(restored); return false;
+        return false;
     }
     ghostty_terminal_free(*terminal);
     *terminal = restored;
-    fprintf(stderr,"session attachment: restored terminal snapshot (%zu bytes)\n",length);
+    fprintf(stderr,"session attachment: restored terminal snapshot (%zu bytes)\n",active_remote->snapshot_size);
     return true;
 }

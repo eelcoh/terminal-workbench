@@ -15,7 +15,7 @@ just session-soak 60 15       # compare the populated case
 On this Linux workstation, use `distrobox enter build-machine -- just --justfile
 /var/home/eelco/Code/ideas/terminal-workbench/justfile session-soak 300 15`.
 On Mac, use `TMPDIR=/tmp just session-soak 300 15` to keep Unix socket paths short.
-The native Mac soak has not yet been validated.
+The owner confirmed the native Mac soak passed on 2026-10-14.
 
 The requested interval begins after startup; cleanup and at least two complete
 cycles can extend total execution. Existing protocol/query/subprocess deadlines
@@ -79,3 +79,7 @@ runtime moved from about 7.6 to 21.3 MiB. These samples include warmup/journal
 allocation and allocator retention; they do not prove absence of memory leaks.
 Intervals differ, so this table is coverage evidence, not a scaling comparison.
 The Ctrl+C check also passes and verifies failure reporting and dead fixture runtimes.
+
+The owner also confirmed the default sustained-session test passed on native Mac
+on 2026-10-14. Native folder-picker and staged-reconnection review are separate
+new slices; this confirmation does not establish their acceptance.

@@ -82,3 +82,39 @@ Check long paths at the beginning and end of the field, names/paths with spaces
 and Unicode, rejected multi-line/oversized paste, and switching between both New
 workspace fields with Tab. On Mac also check Command+C/X/V/A, Option+arrows,
 Command+Left/Right and Option+Backspace. Native Mac validation is pending.
+
+## Native folder browsing
+
+New workspace and Change project folder now offer **Browse** next to the editable
+path. The chosen folder fills the field and remains editable; Save/Create is still
+explicit. Cancel or a picker error preserves the previous value and saved catalog.
+The picker starts at the current folder, or the nearest existing parent of a
+partially entered/missing path. Selecting a folder never sends `cd` to live shells.
+
+The client runs a bounded-reply helper asynchronously. Dialog input stays modal
+while terminals continue parsing/rendering. Escape in the parent can cancel the
+picker, and window close terminates its private helper process group and detaches
+terminals normally. Native cancellation leaves the workbench dialog open.
+Folder controls participate in Tab/Shift+Tab: name, folder, Browse, Cancel, Create
+for New workspace; folder, Browse, Cancel, Save for Change project folder.
+
+Platform adapters are isolated under `scripts/platform_dialogs/`. Mac uses the
+Standard Additions [`choose folder` API](https://developer.apple.com/library/archive/documentation/LanguagesUtilities/Conceptual/MacAutomationScriptingGuide/PromptforaFileorFolder.html)
+via a fixed AppleScript file and separate path argument, with no Finder automation.
+Linux uses [Zenity's directory selection](https://help.gnome.org/users/zenity/stable/file-selection.html.fr),
+which can use the desktop portal. Zenity must be available where the viewer/helper
+runs (inside the build container for container launches). If unavailable, an inline
+error leaves manual entry working. No shell interpolation or new Python/Rust
+dependency is involved. OS/native dialog styling follows the desktop.
+
+`just folder-picker-gui-test` uses actual Zenity 4.2.2, an isolated Xvfb display,
+private D-Bus session and temporary desktop preferences. Selection, cancellation,
+keyboard Browse, explicit save/create, pending-picker close and sibling identity
+pass on Linux. Existing text-edit/focus/multiwindow tests pass. `just check` covers
+argument safety, platform cancellation/failure contracts, UTF-8/path bounds and
+nearest-existing-folder behavior. Mac native picker review remains pending.
+
+On Mac, open Change project folder, choose Browse, cancel once, then select a
+folder. Confirm the value remains editable before Save and existing shells keep
+their working directory. Repeat with New workspace; its first shell should start
+in the chosen folder. Also close a disposable window while its picker is open.

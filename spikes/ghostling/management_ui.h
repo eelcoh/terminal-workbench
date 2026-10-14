@@ -7,6 +7,7 @@ enum { DIALOG_WORKSPACE_CREATE = 1, DIALOG_WORKSPACE_RENAME,
        DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE, DIALOG_TERMINAL_RECOVER, DIALOG_TERMINAL_STATUS, DIALOG_WORKSPACE_DIRECTORY, DIALOG_SESSION_STOP };
 enum { RUNTIME_CHECKING, RUNTIME_RUNNING, RUNTIME_STOPPED, RUNTIME_UNAVAILABLE };
 #include "dialog_text.h"
+#include "folder_picker_ui.h"
 
 static void dialog_open_workspace(WorkspaceClient *client,int kind,int index)
 {
@@ -319,7 +320,7 @@ static Rectangle dialog_bounds(void)
 static void dialog_input(WorkspaceClient *client)
 {
     bool destructive=client->dialog_kind>=DIALOG_TERMINAL_CLOSE && client->dialog_kind!=DIALOG_WORKSPACE_DIRECTORY;
-    ui_focus_begin(&client->dialog_focus,client->management_busy ? 0 : destructive ? 12 : client->dialog_kind==DIALOG_WORKSPACE_CREATE ? 15 : 13,12);
+    ui_focus_begin(&client->dialog_focus,client->management_busy ? 0 : destructive ? 12 : client->dialog_kind==DIALOG_WORKSPACE_CREATE ? 31 : client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY ? 15 : 13,destructive ? 12 : client->dialog_kind==DIALOG_WORKSPACE_CREATE ? 28 : client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY ? 14 : 12);
     if (destructive) {
         bool escape = false;
         int key;
@@ -332,14 +333,21 @@ static void dialog_input(WorkspaceClient *client)
         return;
     }
     bool dual=client->dialog_kind==DIALOG_WORKSPACE_CREATE;
+    bool directory=client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY;
     Rectangle bounds=dialog_bounds();
+    if (client->picker_busy) {
+        int key;while ((key=GetKeyPressed())!=0) if (key==KEY_ESCAPE) folder_picker_cancel(client);
+        while (GetCharPressed()!=0) { }
+        return;
+    }
+
     dialog_text_mouse(client,bounds,dual);
     int key;bool enter=false,escape=false;
     const int repeating[]={KEY_LEFT,KEY_RIGHT,KEY_HOME,KEY_END,KEY_BACKSPACE,KEY_DELETE};
     unsigned handled=0;
     while((key=GetKeyPressed())!=0) {
         if(ui_focus_key(&client->dialog_focus,key)) {
-            if(client->dialog_focus.item>=0 && client->dialog_focus.item<=1)
+            if(dialog_text_is_field(client))
                 client->edit_fields[dialog_text_index(client)].blink=GetTime();
             continue;
         }
@@ -350,14 +358,15 @@ static void dialog_input(WorkspaceClient *client)
     for(size_t i=0;i<sizeof(repeating)/sizeof(repeating[0]);i++)
         if(!(handled&(1u<<i)) && IsKeyPressedRepeat(repeating[i])) dialog_text_key(client,repeating[i]);
     dialog_text_characters(client);
-    bool editing=client->dialog_focus.item==0 || client->dialog_focus.item==1;
-    dialog_text_scroll(client,client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY ? 1 : 0,dialog_text_bounds(bounds,false));
-    if(dual) dialog_text_scroll(client,1,dialog_text_bounds(bounds,true));
+    bool editing=dialog_text_is_field(client);
+    dialog_text_scroll(client,client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY ? 1 : 0,dialog_text_bounds(client,bounds,false));
+    if(dual) dialog_text_scroll(client,1,dialog_text_bounds(client,bounds,true));
     if(client->management_busy) return;
     Rectangle cancel = {bounds.x + 216, bounds.y + 162, 80, 30};
     Rectangle save = {bounds.x + 306, bounds.y + 162, 90, 30};
-    if (escape || ui_focus_hit(&client->dialog_focus,2,cancel)) client->dialog_open = false;
-    else if ((enter && editing) || ui_focus_hit(&client->dialog_focus,3,save)) management_start(client);
+    if ((dual || directory) && ui_focus_hit(&client->dialog_focus,dual ? 2 : 1,folder_picker_bounds(client,bounds))) folder_picker_start(client);
+    else if (escape || ui_focus_hit(&client->dialog_focus,dual ? 3 : 2,cancel)) client->dialog_open = false;
+    else if ((enter && editing) || ui_focus_hit(&client->dialog_focus,dual ? 4 : 3,save)) management_start(client);
 }
 
 static void dialog_draw(WorkspaceClient *client)
@@ -401,22 +410,23 @@ static void dialog_draw(WorkspaceClient *client)
     }
     bool dual=client->dialog_kind==DIALOG_WORKSPACE_CREATE;
     bool directory=client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY;
-    dialog_field(client,(Rectangle){bounds.x+24,bounds.y+64,372,36},directory ? client->edit_directory : client->edit_name,
+    dialog_field(client,dialog_text_bounds(client,bounds,false),directory ? client->edit_directory : client->edit_name,
         client->dialog_focus.item==0);
-    ui_focus_ring(client->dialog_focus,0,(Rectangle){bounds.x+24,bounds.y+64,372,36});
+    ui_focus_ring(client->dialog_focus,0,dialog_text_bounds(client,bounds,false));
     if (dual) {
         DrawTextEx(client->ui_font,"Project folder",
             (Vector2){bounds.x+24,bounds.y+104},UI_TEXT_CAPTION,0,ui.muted);
-        dialog_field(client,(Rectangle){bounds.x+24,bounds.y+116,372,28},client->edit_directory,client->dialog_focus.item==1);
-        ui_focus_ring(client->dialog_focus,1,(Rectangle){bounds.x+24,bounds.y+116,372,28});
+        dialog_field(client,dialog_text_bounds(client,bounds,true),client->edit_directory,client->dialog_focus.item==1);
+        ui_focus_ring(client->dialog_focus,1,dialog_text_bounds(client,bounds,true));
     } else if (directory)
         DrawTextEx(client->ui_font,"New and replacement shells start here.",
             (Vector2){bounds.x+24,bounds.y+104},UI_TEXT_CAPTION,0,ui.muted);
+    if (dual || directory) ui_focus_button(client->ui_font,client->dialog_focus,dual ? 2 : 1,folder_picker_bounds(client,bounds),"Browse",!client->management_busy && !client->picker_busy);
     BeginScissorMode((int)bounds.x+24,(int)bounds.y+(dual ? 146 : 110),372,dual ? 14 : 42);
-    DrawTextEx(client->ui_font,client->management_busy ? "Saving..." : client->dialog_error,
+    DrawTextEx(client->ui_font,client->picker_busy ? "Choosing folder..." : client->management_busy ? "Saving..." : client->dialog_error,
         (Vector2){bounds.x+24,bounds.y+(dual ? 146 : 128)},UI_TEXT_CAPTION,0,ui.waiting);
     EndScissorMode();
-    ui_focus_button(client->ui_font,client->dialog_focus,2,(Rectangle){bounds.x + 216, bounds.y + 162, 80, 30},"Cancel", !client->management_busy);
-    ui_focus_action(client->ui_font,client->dialog_focus,3,(Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},
-        client->dialog_kind == DIALOG_WORKSPACE_CREATE || client->dialog_kind == DIALOG_TERMINAL_CREATE ? "Create" : "Save", !client->management_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE || client->dialog_kind==DIALOG_SESSION_STOP);
+    ui_focus_button(client->ui_font,client->dialog_focus,dual ? 3 : 2,(Rectangle){bounds.x + 216, bounds.y + 162, 80, 30},"Cancel", !client->management_busy && !client->picker_busy);
+    ui_focus_action(client->ui_font,client->dialog_focus,dual ? 4 : 3,(Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},
+        client->dialog_kind == DIALOG_WORKSPACE_CREATE || client->dialog_kind == DIALOG_TERMINAL_CREATE ? "Create" : "Save", !client->management_busy && !client->picker_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE || client->dialog_kind==DIALOG_SESSION_STOP);
 }

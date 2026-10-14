@@ -48,7 +48,8 @@ Malformed/partial snapshot responses and revision mismatches fail locally and do
 not silently switch transports or restart a shell. A different VT revision needs
 an explicitly compatible attachment method. Existing live runtimes are never
 upgraded automatically; create a new terminal after rebuilding to try snapshots.
-The client allows ten seconds for initial attachment; socket writes have a
+The client allows ten seconds without attachment progress and a sixty-second
+overall ceiling; socket writes have a
 two-second deadline and queued live output remains bounded to 256 frames.
 
 ## Shared organization and window ownership
@@ -168,8 +169,9 @@ appropriate before performance acceptance.
 
 ## Remaining hardening
 
-1. Improve snapshot transfer/decoding responsiveness and lifecycle feedback;
-   the bounded complete-snapshot attachment is implemented, with legacy fallback.
+1. Continue snapshot transfer/decoding validation. Transfer work and history-page
+   decoding now yield across frames with progress feedback and legacy fallback.
+   The prefix and individual page operations still run synchronously.
 2. Synchronize query ownership, appearance defaults, pixel metrics and supported
    graphics state before treating restored snapshots as a full viewer replacement.
 3. Extend the initial organization service with subscriptions and installation
@@ -201,3 +203,36 @@ output, alternate-screen changes, ownership transfers, geometry changes and
 organization-service restarts/crashes while preserving shell identity and state.
 It adds no runtime or viewer behavior. A short case runs in `just check`; longer
 checks and honest coverage limits are in [session soak](session-soak.md).
+
+## Reconnection feedback and staged decoding
+
+Connecting panes now show waiting, receiving percentage, staged scrollback
+restoration and finishing feedback in the existing quiet footer. Connection
+failures retain a bounded reason. Status/ownership/recovery behavior stays separate.
+
+The transport retains its 64 MiB snapshot cap, 4096-byte continuation cap and exact
+VT revision negotiation. Per-pane receive/parsing work yields at 256 KiB or a soft
+2ms slice. Once the complete snapshot arrives, `snapshot_stage` restores the
+prefix into a separate VT and applies history one page at a time, at most four
+pages per slice. It validates FINISH/checksum and the exact consumed byte count
+before atomically replacing the existing terminal and binding viewer callbacks,
+appearance and pixel metrics. The previous terminal survives invalid/truncated
+data; staging is freed on errors, cancellation, reattachment and pane removal.
+Live bytes/keyboard/PTY resize stay behind the existing wire READY boundary.
+
+This is a soft work budget, not a hard frame-time guarantee: the renderable prefix,
+one history page and ordinary VT writes remain synchronous library calls. Work
+is still multiplied by connected panes; no filesystem I/O, process-tree queries
+or aggregate snapshot encoding is added to rendering. Renderer/native GPU profiling
+and prefix streaming remain follow-ups. Service/runtime protocol and ownership
+negotiation are unchanged, and older replay endpoints retain fallback.
+
+`just check` uses actual Ghostty pages, both screens, unfinished parser continuation,
+corrupt FINISH/trailing data, cancellation and old-terminal preservation contracts.
+`just attachment-gui-test` checks one and fifteen real runtimes behind slow snapshot
+proxies: progress, help/navigation while waiting, READY input isolation, successful
+staged install and live input. Captures live under `.local/artifacts/attachment/`.
+The measured fixture runs took 1.88s and 2.63s including process setup and scripted
+interaction (about 40% more); these are functional coverage numbers, not renderer
+scaling benchmarks. Existing snapshot GUI, management and multiwindow transfer
+checks pass. Native Mac reconnection review remains pending.
