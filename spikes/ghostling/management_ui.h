@@ -4,7 +4,7 @@
 extern char **environ;
 
 enum { DIALOG_WORKSPACE_CREATE = 1, DIALOG_WORKSPACE_RENAME,
-       DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE, DIALOG_TERMINAL_RECOVER, DIALOG_TERMINAL_STATUS, DIALOG_WORKSPACE_DIRECTORY };
+       DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE, DIALOG_TERMINAL_RECOVER, DIALOG_TERMINAL_STATUS, DIALOG_WORKSPACE_DIRECTORY, DIALOG_SESSION_STOP };
 enum { RUNTIME_CHECKING, RUNTIME_RUNNING, RUNTIME_STOPPED, RUNTIME_UNAVAILABLE };
 #include "dialog_text.h"
 
@@ -12,6 +12,15 @@ static void dialog_open_workspace(WorkspaceClient *client,int kind,int index)
 {
     WorkbenchWorkspace *workspace=&client->workspaces[index];
     client->dialog_terminal_count=workspace->count;
+    if (kind==DIALOG_SESSION_STOP) {
+        client->dialog_terminal_count=0;client->shutdown_targets[0]=0;
+        for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++) {
+            size_t length=strlen(client->shutdown_targets);
+            snprintf(client->shutdown_targets+length,sizeof(client->shutdown_targets)-length,"%s%s",
+                length ? "," : "",client->workspaces[w].panes[p]->id);
+            client->dialog_terminal_count++;
+        }
+    }
     client->dialog_open = true;
     client->dialog_kind = kind;
     client->dialog_focus=(UiFocus){.item=kind>=DIALOG_TERMINAL_CLOSE && kind!=DIALOG_WORKSPACE_DIRECTORY ? -1 : 0};
@@ -22,7 +31,9 @@ static void dialog_open_workspace(WorkspaceClient *client,int kind,int index)
     client->management_target[0]=0;
     if (kind==DIALOG_WORKSPACE_DIRECTORY) strcpy(client->management_target,workspace->id);
     if (kind == DIALOG_TERMINAL_RECOVER) strcpy(client->management_target,workspace->panes[workspace->focused]->id);
-    if (kind == DIALOG_WORKSPACE_CLOSE) {
+    if (kind==DIALOG_SESSION_STOP) {
+        snprintf(client->edit_name,sizeof(client->edit_name),"%d terminals across all windows",client->dialog_terminal_count);
+    } else if (kind == DIALOG_WORKSPACE_CLOSE) {
         strcpy(client->management_target,workspace->id);
         strcpy(client->edit_name, workspace->name);
     } else if (kind == DIALOG_TERMINAL_CLOSE || kind == DIALOG_TERMINAL_RECOVER) {
@@ -128,6 +139,10 @@ static bool management_poll(WorkspaceClient *client)
                 if (!strcmp(pane->id,client->management_target)) attached=pane_attach(client,pane,false);
             }
             clipboard_notice(attached ? "New shell started" : "Shell started; reconnect to continue");
+        } else if (client->dialog_kind==DIALOG_SESSION_STOP) {
+            for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++)
+                client->workspaces[w].panes[p]->status_checked=false;
+            clipboard_notice("Terminals stopped; workspaces kept");
         } else clipboard_notice("Saved");
     } else {
         const char *message = strstr(client->management_reply, "ERROR\t");
@@ -164,7 +179,7 @@ static void management_execute(WorkspaceClient *client, const char *method, cons
     char *arguments[] = {"python3", (char *)script, "--state-dir", (char *)directory,
         "--runtime", (char *)runtime, "--cwd", (char *)cwd,
         "--command", (char *)method, "--id", (char *)identity,
-        name_argument, directory_argument, "--to", (char *)destination, "--position", position_argument, NULL};
+        name_argument, directory_argument, "--to", (char *)destination, "--position", position_argument, "--terminals", client->dialog_kind==DIALOG_SESSION_STOP ? client->shutdown_targets : "", NULL};
     int pipe_fds[2];
     if (pipe(pipe_fds) < 0) { strcpy(client->dialog_error, "Could not start save"); return; }
     posix_spawn_file_actions_t actions;
@@ -202,6 +217,9 @@ static void management_execute(WorkspaceClient *client, const char *method, cons
 static void management_start(WorkspaceClient *client)
 {
     WorkbenchWorkspace *workspace = &client->workspaces[client->active];
+    if (client->dialog_kind==DIALOG_SESSION_STOP) {
+        management_execute(client,"session.stop","","","",-1);return;
+    }
     if (client->dialog_kind == DIALOG_TERMINAL_RECOVER) {
         management_execute(client,"terminal.recover",client->management_target,"","",-1);
         return;
@@ -345,7 +363,7 @@ static void dialog_input(WorkspaceClient *client)
 static void dialog_draw(WorkspaceClient *client)
 {
     Rectangle bounds = dialog_bounds();
-    const char *titles[] = {"", "New workspace", "Rename workspace", "New terminal", "Rename terminal", "Stop terminal?", "Stop workspace?", "", "Start new shell?", "", "Project folder"};
+    const char *titles[] = {"", "New workspace", "Rename workspace", "New terminal", "Rename terminal", "Stop terminal?", "Stop workspace?", "", "Start new shell?", "", "Project folder", "Stop all terminals?"};
     DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 160});
     ui_panel(bounds,ui.surface,true);
     DrawTextEx(client->ui_font, titles[client->dialog_kind], (Vector2){bounds.x + 24, bounds.y + 22},UI_TEXT_TITLE,0,ui.text);
@@ -364,10 +382,13 @@ static void dialog_draw(WorkspaceClient *client)
                 (Vector2){bounds.x+24,bounds.y+128},UI_TEXT_CAPTION,0,ui.waiting);
             EndScissorMode();
             ui_focus_button(client->ui_font,client->dialog_focus,2,(Rectangle){bounds.x+180,bounds.y+162,80,30},"Cancel",!client->management_busy);
-            ui_focus_action(client->ui_font,client->dialog_focus,3,(Rectangle){bounds.x+270,bounds.y+162,126,30},"Start new shell",!client->management_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE);
+            ui_focus_action(client->ui_font,client->dialog_focus,3,(Rectangle){bounds.x+270,bounds.y+162,126,30},"Start new shell",!client->management_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE || client->dialog_kind==DIALOG_SESSION_STOP);
             return;
         }
-        snprintf(message, sizeof(message), "Removes %d shell%s; stops foreground jobs.",
+        if (client->dialog_kind==DIALOG_SESSION_STOP) {
+            snprintf(message,sizeof(message),"Stops running shells and their foreground jobs.");
+            DrawTextEx(client->ui_font,"Keeps workspaces, names and themes for restart.",(Vector2){bounds.x+24,bounds.y+104},UI_TEXT_CAPTION,0,ui.muted);
+        } else snprintf(message, sizeof(message), "Removes %d shell%s; stops foreground jobs.",
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE ? client->dialog_terminal_count : 1,
             client->dialog_kind == DIALOG_WORKSPACE_CLOSE && client->dialog_terminal_count != 1 ? "s" : "");
         DrawTextEx(client->ui_font, message, (Vector2){bounds.x + 24, bounds.y + 86},UI_TEXT_CAPTION, 0, ui.muted);
@@ -375,7 +396,7 @@ static void dialog_draw(WorkspaceClient *client)
             (Vector2){bounds.x + 24, bounds.y + 116},UI_TEXT_CAPTION, 0, ui.waiting);
         EndScissorMode();
         ui_focus_button(client->ui_font,client->dialog_focus,2,(Rectangle){bounds.x + 216, bounds.y + 162, 80, 30},"Cancel", !client->management_busy);
-        ui_focus_action(client->ui_font,client->dialog_focus,3,(Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},"Stop", !client->management_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE);
+        ui_focus_action(client->ui_font,client->dialog_focus,3,(Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},"Stop", !client->management_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE || client->dialog_kind==DIALOG_SESSION_STOP);
         return;
     }
     bool dual=client->dialog_kind==DIALOG_WORKSPACE_CREATE;
@@ -397,5 +418,5 @@ static void dialog_draw(WorkspaceClient *client)
     EndScissorMode();
     ui_focus_button(client->ui_font,client->dialog_focus,2,(Rectangle){bounds.x + 216, bounds.y + 162, 80, 30},"Cancel", !client->management_busy);
     ui_focus_action(client->ui_font,client->dialog_focus,3,(Rectangle){bounds.x + 306, bounds.y + 162, 90, 30},
-        client->dialog_kind == DIALOG_WORKSPACE_CREATE || client->dialog_kind == DIALOG_TERMINAL_CREATE ? "Create" : "Save", !client->management_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE);
+        client->dialog_kind == DIALOG_WORKSPACE_CREATE || client->dialog_kind == DIALOG_TERMINAL_CREATE ? "Create" : "Save", !client->management_busy,client->dialog_kind==DIALOG_TERMINAL_CLOSE || client->dialog_kind==DIALOG_WORKSPACE_CLOSE || client->dialog_kind==DIALOG_SESSION_STOP);
 }

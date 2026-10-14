@@ -215,6 +215,8 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
             WorkbenchPane *pane=updated[w].panes[p];
             CatalogTerminal *terminal=&snapshot->workspaces[w].terminals[p];
             strcpy(pane->name,terminal->name);pane->custom_name=terminal->custom_name;
+            /* A catalog operation may stop a runtime owned by another window. */
+            if (pane->closed) pane->status_checked=false;
             terminal_context_label(&pane->transport.context,pane->name,pane->custom_name,
                 pane->overview_label,sizeof(pane->overview_label));
             terminal_context_pane_label(&pane->transport.context,pane->name,pane->custom_name,

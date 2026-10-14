@@ -21,7 +21,7 @@ PROTOCOL = 1
 LIMIT = 256 * 1024
 METHODS = {"initialize", "workspace.create", "workspace.rename", "workspace.close",
            "terminal.create", "terminal.rename", "terminal.close", "terminal.move",
-           "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "terminal.lifecycle", "health", "service.shutdown"}
+           "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "terminal.lifecycle", "health", "service.shutdown", "session.stop"}
 
 class Unavailable(Exception):
     pass
@@ -89,10 +89,12 @@ def prepare_directory(directory):
         raise ValueError("Session directory must be owned by you and not writable by other users")
 
 
-def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None):
+def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None, terminal_ids=None):
     directory, runtime, cwd = directory.resolve(), runtime.resolve(), cwd.resolve()
     message = dict(protocol=PROTOCOL, method=method, identity=identity, title=title,
                    destination=destination, position=position, runtime=str(runtime), cwd=str(cwd), project_directory=project_directory)
+    if method == "session.stop":
+        message["terminal_ids"] = terminal_ids
     try:
         return exchange(directory, message)
     except Unavailable:
@@ -244,13 +246,24 @@ class Authority:
                 if (self.directory / "workspaces.json").exists() or (self.directory / "workspaces.tsv").exists():
                     data = catalog.load(self.directory)
                     catalog.finish_create(self.directory, data)
+                    catalog.finish_stop(self.directory, self.runtime, data)
                     catalog.finish_close(self.directory, self.runtime, data)
                     catalog.save(self.directory, data)
                     return dict(data=data, service_pid=os.getpid())
+        if method == "session.stop":
+            import session_shutdown
+            with catalog.locked(self.directory):
+                data = catalog.load(self.directory)
+                catalog.finish_create(self.directory, data)
+                catalog.finish_stop(self.directory, self.runtime, data)
+                catalog.finish_close(self.directory, self.runtime, data)
+                session_shutdown.begin(self.directory, self.runtime, data, message.get("terminal_ids"))
+            return dict(data=data, service_pid=os.getpid())
         if method == "terminal.recover":
             with catalog.locked(self.directory):
                 data = catalog.load(self.directory)
                 catalog.finish_create(self.directory, data)
+                catalog.finish_stop(self.directory, self.runtime, data)
                 catalog.finish_close(self.directory, self.runtime, data)
                 terminal = next((t for w in data["workspaces"] for t in w["terminals"] if t["id"] == identity), None)
                 if terminal is None:

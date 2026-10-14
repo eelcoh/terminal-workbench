@@ -12,7 +12,7 @@ typedef struct {
     char id[41], name[64], socket_path[108];
     int fd;
     char overview_label[4097], pane_label[4097];
-    bool custom_name;
+    bool custom_name, closed, status_checked;
     struct { int agent_fd, context_fd; bool replaying; TerminalContext context; } transport;
     int retained_parser_marker, width_preset;
     bool full;
@@ -58,7 +58,9 @@ int main(void) {
     strcpy(s.workspaces[1].id,"b"); strcpy(s.workspaces[1].name,"Target");
     terminal(&s,0,0,&two); terminal(&s,1,0,&one); terminal(&s,1,1,&three);
     client.workspaces[0].manual_scroll=true;
+    one.closed=true;one.status_checked=true;two.status_checked=true;
     assert(catalog_apply(&client,&s,true));
+    assert(!one.status_checked && two.status_checked);
     assert(client.workspaces[0].manual_scroll);
     assert(client.workspaces[0].panes[0]==&two && client.workspaces[0].focused==0);
     assert(client.workspaces[1].panes[0]==&one && client.workspaces[1].focused==1);

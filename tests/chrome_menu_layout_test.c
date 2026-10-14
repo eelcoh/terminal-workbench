@@ -1,7 +1,7 @@
 #include <assert.h>
 #include "chrome_menu_layout.h"
 int main(void) {
-    for (int kind=1;kind<=3;kind++) for (int count=1;count<=13;count++) {
+    for (int kind=1;kind<=3;kind++) for (int count=1;count<=14;count++) {
         int height=chrome_menu_height(kind,count);
         assert(chrome_menu_fits(kind,0,count-1,height));
         for (int limit=120;limit<=height;limit+=8) {

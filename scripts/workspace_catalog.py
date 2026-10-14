@@ -119,11 +119,15 @@ def validate(data):
 def validate_pending(data):
     terminals = {t["id"] for w in data["workspaces"] for t in w["terminals"]}
     workspaces = {w["id"]: w for w in data["workspaces"]}
-    if "pending_create" in data and "pending_close" in data:
+    if sum(key in data for key in ("pending_create", "pending_close", "pending_stop")) > 1:
         raise ValueError("Conflicting pending catalog operations")
     def identities(value, known):
         if not isinstance(value, list) or any(not isinstance(i, str) or i not in known for i in value) or len(set(value)) != len(value):
             raise ValueError("Invalid pending catalog identities")
+    if "pending_stop" in data:
+        identities(data["pending_stop"], terminals)
+        if not data["pending_stop"]:
+            raise ValueError("Empty pending shutdown")
     if "pending_create" in data:
         identities(data["pending_create"], terminals)
         if not data["pending_create"]:
@@ -368,6 +372,11 @@ def finish_close(directory, runtime, data):
     del data["pending_close"]
     save(directory, data)
 
+def finish_stop(directory, runtime, data):
+    if "pending_stop" in data:
+        import session_shutdown
+        session_shutdown.finish(directory, runtime, data)
+
 def close_sessions(directory, runtime, data, method, identity):
     workspaces = data["workspaces"]
     affected = [terminal for workspace in workspaces for terminal in workspace["terminals"]
@@ -393,6 +402,7 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
         saved_catalog = (directory / "workspaces.json").exists()
         data = load(directory)
         finish_create(directory, data)
+        finish_stop(directory, runtime, data)
         explicit_recovery = method == "session.recover"
         # Recover interrupted close before any startup, never resurrect its shells.
         if method == "session.recover":
@@ -453,6 +463,7 @@ def main():
     parser.add_argument("--to", default="")
     parser.add_argument("--directory", default=None)
     parser.add_argument("--position", type=int, default=-1)
+    parser.add_argument("--terminals", default="")
     args = parser.parse_args()
     try:
         from session_service import request, exchange, PROTOCOL, Unavailable
@@ -481,7 +492,7 @@ def main():
                 print("LIFECYCLE\t"+reply["id"]+"\t"+reply["state"]+"\t"+message,flush=True)
             else:print("STATE\t" + reply["id"] + "\t" + reply["state"], flush=True)
             return 0
-        data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position, project_directory=args.directory)["data"]
+        data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position, project_directory=args.directory, terminal_ids=args.terminals.split(",") if args.terminals else None)["data"]
         # Return the identity from this operation's locked result, never infer
         # it from a later projection that another window may have changed.
         if args.command in {"workspace.create", "workspace.create_at", "terminal.create"}:

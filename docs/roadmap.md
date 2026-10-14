@@ -132,13 +132,13 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
 2. Decide the production toolkit using those results and the approved minimal
    chrome/Overview flows. Complex text shaping and accessibility are still open.
 3. Continue daily-use runtime hardening after creation/close journaling: shutdown
-   policy, broader crash/recovery and long-running session validation. Finish native terminal-search
+   validation of the explicit shutdown policy, broader crash/recovery and long-running sessions. Finish native terminal-search
    review, native folder browsing and invalid-path/recovery review.
 4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
    background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
    and full lifecycle transitions. Unsupported signals retain honest fallback.
 5. Extend portable dotfiles as needed, then package/install outside the checkout. Decide the
-   product name, app/session shutdown policy and update approach before release.
+   product name, installed-app lifecycle and update approach before release.
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither
    direction is a first-release gate. Finish native font-controls review and the
@@ -555,5 +555,18 @@ Partial launch errors preserve already-started shells. Saved initialization neve
 silently starts replacement shells. Close intent is validated before stopping
 anything; interrupted workspace closes finish without resurrecting removed entries.
 Linux process-kill tests cover transaction boundaries, partial launch errors,
-invalid intent, projection repair and sibling PID/state preservation. Native Mac
-review remains pending. See [catalog transactions](catalog-transactions.md).
+invalid intent, projection repair and sibling PID/state preservation. The owner
+confirmed the automated catalog-interruption suite on native Mac; broader
+graphical review remains open. See [catalog transactions](catalog-transactions.md).
+
+## Current runtime slice: explicit session shutdown
+
+Stop all terminals is available in Commands and the Workbench menu, with an
+unbound configurable action in Shortcut settings/help. Confirmation captures
+stable terminal IDs across workspaces/windows; terminals created afterward are
+excluded. Cancel and unfocused Enter preserve shells. Confirmed shutdown keeps
+workspace organization, names, directories, themes and window layouts; stopped
+entries require explicit fresh-shell recovery. Window close continues to detach.
+Interrupted shutdown intent is reconciled before subsequent mutations/recovery,
+and old/unsafe endpoints fail before any initial stop. Linux backend and two-window
+GUI validation pass; native Mac review remains pending. See [session shutdown](session-shutdown.md).

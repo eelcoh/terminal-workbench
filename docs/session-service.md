@@ -51,7 +51,8 @@ See [stopped-shell reasons](terminal-lifecycle.md).
 
 The private `service.rpc` Unix stream endpoint carries one bounded newline-terminated JSON request
 and reply per connection. Protocol 1 exposes catalog operations, `health`,
-`terminal.status` (readonly), optional `terminal.lifecycle` (readonly), `terminal.recover`, `session.recover` and service shutdown. Requests are serialized
+`terminal.status` (readonly), optional `terminal.lifecycle` (readonly), optional
+`session.stop` (explicit terminal IDs, organization retained), `terminal.recover`, `session.recover` and service shutdown. Requests are serialized
 and catalog writes retain the existing lock and JSON/TSV projection semantics.
 PTY input, snapshots and rendering do not travel through this service. Focus,
 selection and layout remain local to each window. There is no frame-time polling.
@@ -78,7 +79,8 @@ validated intent prevents incomplete workspace-removal plans from stopping shell
 Health optionally advertises `features: ["catalog-journal-v1"]`; the launcher
 updates an older organization service while keeping its terminal runtimes alive.
 See [catalog transactions](catalog-transactions.md). Subscriptions, background
-health snapshots and graceful application-wide shutdown policy remain further hardening. Removing a disposable
+health snapshots and installed-app lifecycle remain further hardening. An explicit
+confirmed terminal shutdown is now available; see [session shutdown](session-shutdown.md). Removing a disposable
 state directory lets its service exit; it never kills independent terminal runtimes.
 
 ## Validation

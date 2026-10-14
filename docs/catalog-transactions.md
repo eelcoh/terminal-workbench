@@ -44,10 +44,13 @@ after JSON commit before projection, and before/partway through workspace stop.
 Tests verify identity/projection repair, repeated initialization, explicit recovery,
 same-PID live adoption, sibling shell variables/socket identity and appearance.
 They also cover normal launch errors, failed intent writes and malformed intent.
-All tests use disposable states and shells. Native Mac review is pending.
+All tests use disposable states and shells. The owner confirmed this automated
+crash suite on native Mac on 2026-10-14; broader graphical review remains open.
 
 For native review, create a workspace and another terminal, close a disposable
 workspace, then reopen the app. Existing/stopped terminals should keep their state
 and removed entries should stay removed. Destructive crash-boundary verification
 is automated in temporary state; it is not necessary to kill your daily-use service.
-Subscriptions, application-wide shutdown and installation lifecycle remain open.
+Explicit organization-preserving terminal shutdown is now available; see
+[session shutdown](session-shutdown.md). Subscriptions and installation lifecycle
+remain open.

@@ -4,7 +4,7 @@ int main(void)
 {
     int counts[COMMAND_COUNT]={0};
     for (int g=0;g<SHORTCUT_HELP_GROUPS;g++) {
-        assert(shortcut_help_groups[g].title && shortcut_help_groups[g].count>0 && shortcut_help_groups[g].count<=8);
+        assert(shortcut_help_groups[g].title && shortcut_help_groups[g].count>0 && shortcut_help_groups[g].count<=(int)(sizeof(shortcut_help_groups[g].actions)/sizeof(shortcut_help_groups[g].actions[0])));
         for (int i=0;i<shortcut_help_groups[g].count;i++) {
             int action=shortcut_help_groups[g].actions[i];assert(action>=0 && action<COMMAND_COUNT);
             assert(command_ids[action][0] && command_definitions[action].title[0] && command_definitions[action].detail[0]);counts[action]++;

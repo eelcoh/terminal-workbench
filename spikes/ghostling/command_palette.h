@@ -44,6 +44,10 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
     default: break;
     }
     if (!client->managed) return "Session management requires the workspace launcher";
+    if (command==COMMAND_SESSION_STOP) {
+        for (int w=0;w<client->count;w++) if (client->workspaces[w].count) return NULL;
+        return "There are no saved terminals";
+    }
     if (command==COMMAND_WORKSPACE_CREATE)
         return client->count<WORKBENCH_MAX_WORKSPACES ? NULL : "Eight-workspace limit; close one to create another";
     if (command==COMMAND_TERMINAL_CREATE)
@@ -114,6 +118,7 @@ static void command_dispatch(WorkspaceClient *client, int command)
     case COMMAND_TERMINAL_RENAME: dialog_open(client,DIALOG_TERMINAL_RENAME); break;
     case COMMAND_TERMINAL_STOP: dialog_open(client,DIALOG_TERMINAL_CLOSE); break;
     case COMMAND_TERMINAL_RECOVER: dialog_open(client,DIALOG_TERMINAL_RECOVER); break;
+    case COMMAND_SESSION_STOP: dialog_open(client,DIALOG_SESSION_STOP); break;
     case COMMAND_TERMINAL_PREVIOUS: case COMMAND_TERMINAL_NEXT:
         workspace_focus(workspace,workspace->focused+(command==COMMAND_TERMINAL_NEXT ? 1 : -1));
         break;

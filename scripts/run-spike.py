@@ -74,7 +74,7 @@ def _launch_viewer(viewer, root, environment, detach, log_path, slot_fd):
 def ensure_service(sessions,runtime,root):
     service = request(sessions, runtime, root)
     health = request(sessions, runtime, root, "health")
-    required={"workspace.create_at","terminal.lifecycle"}
+    required={"workspace.create_at","terminal.lifecycle","session.stop"}
     def current_service(value):
         return required.issubset(value.get("methods", [])) and "catalog-journal-v1" in value.get("features", [])
     if not current_service(health):
@@ -102,7 +102,7 @@ def ensure_service(sessions,runtime,root):
 def main():
     runtime = ROOT / "target/debug/workbench-session"
     viewer = ROOT / ".local/build/viewer/ghostling"
-    sessions = ROOT / ".local/sessions"
+    sessions = Path(os.environ.get("WORKBENCH_STATE_DIR", str(ROOT / ".local/sessions"))).expanduser().resolve()
     if not runtime.exists() or not viewer.exists():
         print("Build the spike first with: just spike-build", file=sys.stderr)
         return 1
@@ -113,7 +113,7 @@ def main():
         stopped = sum(terminal["state"] != "running" for terminal in health["terminals"])
         print(f"Session service: {service['service_pid']}; {len(health['terminals']) - stopped} running, {stopped} stopped/unavailable", flush=True)
         if stopped:
-            print("Saved terminals were preserved. Use just session-status and just recover-terminal ID to start a replacement shell.", flush=True)
+            print("Saved terminals were preserved. Use Start new shell to explicitly restart a stopped terminal.", flush=True)
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
         print(f"Workspace startup failed: {error}. Existing state and sockets are preserved.", file=sys.stderr)
         return 1

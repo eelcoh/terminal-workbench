@@ -147,6 +147,7 @@ typedef struct {
     int dialog_kind, management_fd, dialog_terminal_count;
     pid_t management_pid;
     char edit_directory[1024];
+    char shutdown_targets[WORKBENCH_MAX_WORKSPACES*WORKBENCH_PANES*41+1];
     DialogFieldState edit_fields[2];
     char edit_name[64], dialog_error[256], management_reply[512], management_target[41];
     size_t management_length;

@@ -24,6 +24,7 @@ check: runtime-build
     python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
     python3 tests/catalog_test.py
     python3 tests/catalog_journal_test.py target/debug/workbench-session
+    python3 tests/session_shutdown_test.py target/debug/workbench-session
     python3 tests/socket_path_test.py target/debug/workbench-session
     python3 tests/move_test.py
     python3 tests/close_smoke.py target/debug/workbench-session
@@ -199,3 +200,7 @@ search-gui-test: spike-build
 # Exit reason presentation and explicit replacement-shell confirmation.
 lifecycle-gui-test: spike-build
     python3 tests/lifecycle_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Explicit session shutdown, confirmed selection and surviving peer windows.
+shutdown-gui-test: spike-build
+    python3 tests/shutdown_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

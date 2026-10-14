@@ -72,7 +72,8 @@ footer, confirmation, cancellation/Enter guards and fresh-shell recovery with
 live siblings. Captures are under `.local/artifacts/lifecycle/`.
 
 Creation/close intent is now journaled; see [catalog transactions](catalog-transactions.md).
-Full shutdown policy, durable terminal snapshots,
+Explicit session shutdown is now implemented; see [session shutdown](session-shutdown.md).
+Installed-app lifecycle, durable terminal snapshots,
 subscriptions and installed-daemon lifecycle remain separate hardening work.
 
 The Linux lifecycle GUI and existing management GUI checks pass: stopped-pane

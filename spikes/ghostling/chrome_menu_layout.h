@@ -3,7 +3,7 @@
 #define WORKBENCH_CHROME_MENU_LAYOUT_H
 #include <stdbool.h>
 static inline bool chrome_menu_separator(int kind,int index)
-{return kind==1 ? index==2 || index==5 || index==10 || index==12 : kind==2 && (index==2 || index==6 || index==7);}
+{return kind==1 ? index==2 || index==5 || index==10 || index==12 || index==13 : kind==2 && (index==2 || index==6 || index==7);}
 static inline int chrome_menu_offset(int kind,int index)
 {
     int offset=index*32;
