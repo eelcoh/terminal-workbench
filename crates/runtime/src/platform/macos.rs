@@ -69,17 +69,5 @@ pub fn working_directory(pid: i32) -> Option<PathBuf> {
         return None;
     }
     let info = unsafe { info.assume_init() };
-    let bytes: Vec<u8> = info
-        .pvi_cdir
-        .vip_path
-        .iter()
-        .take_while(|byte| **byte != 0)
-        .map(|byte| *byte as u8)
-        .collect();
-    if bytes.is_empty() || bytes.len() == info.pvi_cdir.vip_path.len() {
-        return None;
-    }
-    use std::os::unix::ffi::OsStringExt;
-    let path = PathBuf::from(std::ffi::OsString::from_vec(bytes));
-    path.is_absolute().then_some(path)
+    super::macos_path::decode(&info.pvi_cdir.vip_path)
 }

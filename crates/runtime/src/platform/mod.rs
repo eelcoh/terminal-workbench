@@ -20,6 +20,8 @@ mod linux;
 mod macos;
 #[cfg(any(target_os = "macos", test))]
 mod macos_arguments;
+#[cfg(any(target_os = "macos", test))]
+mod macos_path;
 
 #[derive(Debug)]
 pub struct ProcessIdentity {
