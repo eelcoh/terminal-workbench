@@ -82,7 +82,7 @@ def main():
         finally:cleanup(state)
         # An old organization service can be replaced while retaining live shells.
         legacy_state=root/'upgrade';legacy_state.mkdir()
-        wrapper="import sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);import session_service as s;original=s.Authority.health;s.Authority.health=lambda self:{k:v for k,v in original(self).items() if k!='methods'};s.serve(Path(sys.argv[2]),Path(sys.argv[3]),Path(sys.argv[4]))"
+        wrapper="import sys;from pathlib import Path;sys.path.insert(0,sys.argv[1]);import session_service as s;original=s.Authority.health;s.Authority.health=lambda self:{k:v for k,v in original(self).items() if k!='features'};s.serve(Path(sys.argv[2]),Path(sys.argv[3]),Path(sys.argv[4]))"
         legacy=subprocess.Popen([sys.executable,'-c',wrapper,str(ROOT/'scripts'),str(legacy_state),str(runtime),str(root)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         try:
             wait_until(lambda:endpoint(legacy_state).exists())
@@ -106,6 +106,7 @@ def main():
                 launcher.exchange=original_exchange
             assert len(probes)>=2 and set(probes)=={'health'}
             assert service['service_pid']!=legacy.pid and 'workspace.create_at' in health['methods']
+            assert 'catalog-journal-v1' in health['features']
             legacy.wait(timeout=5)
             send(connection,16,('printf "%s:%s" "$$" "$keep" > '+shlex.quote(str(root/'upgraded'))+'\n').encode())
             assert wait_until(lambda:(root/'upgraded').exists() and (root/'upgraded').read_text())==pid+':upgrade'

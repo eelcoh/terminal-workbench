@@ -165,7 +165,8 @@ class Authority:
                             for w in data["workspaces"] for t in w["terminals"]}
         self.capabilities = {key: value for key, value in self.capabilities.items() if key in current_controls}
         return dict(service_pid=os.getpid(), terminals=terminals,
-                    runtime_binary=str(self.runtime), directory=str(self.cwd), methods=sorted(METHODS))
+                    runtime_binary=str(self.runtime), directory=str(self.cwd), methods=sorted(METHODS),
+                    features=["catalog-journal-v1"])
 
     def runtime_capabilities(self, path):
         control = path.with_suffix(".ctl")
@@ -242,12 +243,15 @@ class Authority:
             with catalog.locked(self.directory):
                 if (self.directory / "workspaces.json").exists() or (self.directory / "workspaces.tsv").exists():
                     data = catalog.load(self.directory)
+                    catalog.finish_create(self.directory, data)
                     catalog.finish_close(self.directory, self.runtime, data)
                     catalog.save(self.directory, data)
                     return dict(data=data, service_pid=os.getpid())
         if method == "terminal.recover":
             with catalog.locked(self.directory):
                 data = catalog.load(self.directory)
+                catalog.finish_create(self.directory, data)
+                catalog.finish_close(self.directory, self.runtime, data)
                 terminal = next((t for w in data["workspaces"] for t in w["terminals"] if t["id"] == identity), None)
                 if terminal is None:
                     raise ValueError("Terminal no longer exists")

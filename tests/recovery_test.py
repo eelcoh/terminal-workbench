@@ -40,9 +40,9 @@ def main():
                 connection.close()
                 dead_socket(state/'dead.sock'); dead_socket(state/'dead.ctl')
                 saved=(state/'workspaces.json').read_bytes()
-                try: catalog.manage(state,runtime,state)
-                except ValueError as error: assert 'just recover-sessions' in str(error)
-                else: raise AssertionError('stale socket silently reused')
+                assert catalog.manage(state,runtime,state)==data
+                assert not catalog.endpoint_alive(state/'dead.sock')
+                assert not catalog.endpoint_alive(state/'dead.ctl')
                 assert (state/'workspaces.json').read_bytes()==saved and (state/'dead.sock').exists()
                 recovered=catalog.manage(state,runtime,state,'session.recover')
                 assert recovered==data and preferences.read_bytes()==b'untouched settings'
@@ -71,7 +71,7 @@ def main():
                     except ValueError: pass
                     else: raise AssertionError('non-socket recovered')
                     assert (state/'safe.sock').exists() and preferences.read_bytes()==b'untouched settings'
-                print('PASS: refused startup diagnosed, dead endpoints recovered, live PID/shell state retained, stable catalog/themes, control-only listener protected, regular files/symlinks preserved')
+                print('PASS: saved startup leaves stale endpoints stopped, explicit recovery restores dead endpoints, live PID/shell state retained, stable catalog/themes, control-only listener protected, regular files/symlinks preserved')
             finally:
                 for identity in ('live','dead'):
                     subprocess.run([str(runtime),'stop',str(state/f'{identity}.sock')],capture_output=True,timeout=15)

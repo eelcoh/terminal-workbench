@@ -81,7 +81,7 @@ def main():
             recovered = catalog.manage(state, Path("runtime"), state)
             assert "pending_close" not in recovered
             assert terminal_id not in {t["id"] for w in recovered["workspaces"] for t in w["terminals"]}
-            assert terminal_id not in {t["id"] for w in spawn.call_args.args[1]["workspaces"] for t in w["terminals"]}
+            spawn.assert_not_called()  # Initialization never resurrects saved shells.
             for workspace in list(recovered["workspaces"]):
                 catalog.manage(state, Path("runtime"), state, "workspace.close", workspace["id"])
             assert catalog.load(state)["workspaces"] == []

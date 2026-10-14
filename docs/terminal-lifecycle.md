@@ -66,11 +66,13 @@ The Linux build and `just check` cover real code-0/code-42 exits, shell signal
 termination versus an explicit stop, runtime SIGKILL with unrecorded exit,
 service adoption, fresh recovery, legacy launch invalidation, startup failure,
 private/unsafe metadata paths and optional-method fallback. Native Mac build and
-visual acceptance remain pending. Use `just lifecycle-gui-test` to exercise the
+visual acceptance of the exit-code footer and restart confirmation were confirmed
+by the owner on 2026-10-14; broader Mac signal/crash checks remain pending. Use `just lifecycle-gui-test` to exercise the
 footer, confirmation, cancellation/Enter guards and fresh-shell recovery with
 live siblings. Captures are under `.local/artifacts/lifecycle/`.
 
-Creation/close journaling, full shutdown policy, durable terminal snapshots,
+Creation/close intent is now journaled; see [catalog transactions](catalog-transactions.md).
+Full shutdown policy, durable terminal snapshots,
 subscriptions and installed-daemon lifecycle remain separate hardening work.
 
 The Linux lifecycle GUI and existing management GUI checks pass: stopped-pane

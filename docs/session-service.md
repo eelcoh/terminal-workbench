@@ -71,10 +71,14 @@ reported locally and requires an explicit service stop before replacement.
 
 A client retries only before establishing a connection. It never automatically
 replays a mutation after sending it: if the reply is lost, inspect the catalog before
-retrying. Runtime startup and metadata persistence are not one transaction; a
-service crash during creation can leave an orphan runtime before metadata commit.
-Creation/close journaling, subscriptions, background health snapshots and graceful
-application-wide shutdown policy remain further hardening. Removing a disposable
+retrying. Creation saves stable identities and pending intent before spawning any shell.
+Reopening reconciles that intent, adopts survivors and leaves absent launches
+stopped. Interrupted closes complete before further mutations or recovery;
+validated intent prevents incomplete workspace-removal plans from stopping shells.
+Health optionally advertises `features: ["catalog-journal-v1"]`; the launcher
+updates an older organization service while keeping its terminal runtimes alive.
+See [catalog transactions](catalog-transactions.md). Subscriptions, background
+health snapshots and graceful application-wide shutdown policy remain further hardening. Removing a disposable
 state directory lets its service exit; it never kills independent terminal runtimes.
 
 ## Validation

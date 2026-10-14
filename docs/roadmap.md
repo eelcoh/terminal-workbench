@@ -69,7 +69,8 @@ commands, reports runtime health/capabilities, adopts surviving runtimes after s
 restart, and requires explicit recovery for stopped saved terminals. A graphical confirmation now starts a fresh shell only for a service-confirmed
 stopped entry, with local unavailable-status feedback and live-runtime protection.
 New runtimes now persist confirmed exit/signal/stop reasons, with unknown fallback
-for unrecorded losses. Creation/close journaling and installation lifecycle remain open. See
+for unrecorded losses. Creation and close now retain validated intent across interrupted operations;
+installation lifecycle remains open. See
 [the session service slice](session-service.md).
 Session-service startup, shared PID, stop and live adoption are also confirmed
 on macOS; graphical stopped-terminal recovery is also owner-confirmed.
@@ -130,7 +131,8 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    swipes; the mixed-display hardware review is pending.
 2. Decide the production toolkit using those results and the approved minimal
    chrome/Overview flows. Complex text shaping and accessibility are still open.
-3. Harden daily-use runtime behavior: creation/close journaling, crash/recovery and long-running session validation. Finish native terminal-search
+3. Continue daily-use runtime hardening after creation/close journaling: shutdown
+   policy, broader crash/recovery and long-running session validation. Finish native terminal-search
    review, native folder browsing and invalid-path/recovery review.
 4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
    background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
@@ -539,6 +541,19 @@ stopped-pane footer/recovery confirmation consume optional details. Service
 restart preserves receipts, recovery clears prior-invocation evidence, and live
 or uncertain endpoints remain authoritative. Unrecorded disappearance is not
 labelled a confirmed crash/reboot. Old runtimes/status methods retain fallback.
-Linux build/check cases pass; native Mac review remains pending. Creation/close
-journaling and application/session shutdown policy remain next hardening items.
+Linux build/check cases pass. The owner confirmed the exit-code footer and
+restart confirmation on native Mac. Application/session shutdown policy remains
+a further hardening item.
 See [terminal lifecycle](terminal-lifecycle.md).
+
+## Current runtime slice: interrupted creation and close
+
+Catalog creation now saves stable identities and pending intent before launching
+shells. Reopening reconciles an interrupted operation, keeps surviving runtimes,
+repairs projections and leaves missing launches stopped for explicit recovery.
+Partial launch errors preserve already-started shells. Saved initialization never
+silently starts replacement shells. Close intent is validated before stopping
+anything; interrupted workspace closes finish without resurrecting removed entries.
+Linux process-kill tests cover transaction boundaries, partial launch errors,
+invalid intent, projection repair and sibling PID/state preservation. Native Mac
+review remains pending. See [catalog transactions](catalog-transactions.md).

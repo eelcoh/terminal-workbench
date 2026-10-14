@@ -23,6 +23,7 @@ check: runtime-build
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
     python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
     python3 tests/catalog_test.py
+    python3 tests/catalog_journal_test.py target/debug/workbench-session
     python3 tests/socket_path_test.py target/debug/workbench-session
     python3 tests/move_test.py
     python3 tests/close_smoke.py target/debug/workbench-session

@@ -52,6 +52,16 @@ def atomic_write(path, value):
             file.flush()
             os.fsync(file.fileno())
         os.replace(temporary, path)
+        # Persist the renamed catalog/intent, where directory fsync is supported.
+        parent = os.open(path.parent, os.O_RDONLY)
+        try:
+            try:
+                os.fsync(parent)
+            except OSError as error:
+                if error.errno not in (errno.EINVAL, errno.ENOTSUP):
+                    raise
+        finally:
+            os.close(parent)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
@@ -103,7 +113,31 @@ def validate(data):
                 raise ValueError("Invalid custom terminal name flag")
         if not isinstance(workspace.get("terminals"), list) or not 0 <= len(workspace["terminals"]) <= MAX_TERMINALS:
             raise ValueError("Invalid terminal count")
+    validate_pending(data)
     return data
+
+def validate_pending(data):
+    terminals = {t["id"] for w in data["workspaces"] for t in w["terminals"]}
+    workspaces = {w["id"]: w for w in data["workspaces"]}
+    if "pending_create" in data and "pending_close" in data:
+        raise ValueError("Conflicting pending catalog operations")
+    def identities(value, known):
+        if not isinstance(value, list) or any(not isinstance(i, str) or i not in known for i in value) or len(set(value)) != len(value):
+            raise ValueError("Invalid pending catalog identities")
+    if "pending_create" in data:
+        identities(data["pending_create"], terminals)
+        if not data["pending_create"]:
+            raise ValueError("Empty pending creation")
+    if "pending_close" in data:
+        pending = data["pending_close"]
+        if not isinstance(pending, dict) or set(pending) != {"terminals", "workspaces"}:
+            raise ValueError("Invalid pending close metadata")
+        identities(pending["terminals"], terminals)
+        identities(pending["workspaces"], workspaces)
+        if not pending["terminals"] and not pending["workspaces"]:
+            raise ValueError("Empty pending close")
+        if any(t["id"] not in pending["terminals"] for i in pending["workspaces"] for t in workspaces[i]["terminals"]):
+            raise ValueError("Pending workspace close omits terminals")
 
 def load(directory):
     path = directory / "workspaces.json"
@@ -179,8 +213,9 @@ def prepare_launch(socket):
     atomic_write(path,json.dumps(dict(version=1,event='launching',runtime_pid=None,shell_pid=None,
         started_ms=time.time_ns()//1_000_000,exit_code=None,signal=None))+'\n')
 
-def ensure_sessions(directory, data, runtime, cwd, *, on_spawn=None):
+def ensure_sessions(directory, data, runtime, cwd, *, on_spawn=None, keep_started=False):
     started = []
+    ready = set()
     try:
         for workspace in data["workspaces"]:
             for terminal in workspace["terminals"]:
@@ -202,12 +237,13 @@ def ensure_sessions(directory, data, runtime, cwd, *, on_spawn=None):
                     if process.poll() is not None or time.monotonic() >= deadline:
                         raise ValueError(f"Shell failed to start; inspect {log_path.name}")
                     time.sleep(0.02)
+                ready.add(process.pid)
                 if on_spawn is not None:
                     on_spawn(terminal["id"], process)
         return started
     except Exception:
         for process in started:
-            if process.poll() is None:
+            if (not keep_started or process.pid not in ready) and process.poll() is None:
                 process.terminate()
                 process.wait(timeout=5)
         raise
@@ -299,7 +335,19 @@ def save(directory, data):
     atomic_write(directory / "terminal-labels.tsv", labels)
     atomic_write(directory / "workspaces.tsv", snapshot(directory, data))
 
+def finish_create(directory, data):
+    """Reconcile durable creation intent without starting or stopping a shell."""
+    validate(data)
+    if "pending_create" not in data:
+        return False
+    # A saved identity survives whether its launch succeeded, failed or never ran.
+    # Live endpoints are adopted normally; absent ones require explicit recovery.
+    del data["pending_create"]
+    save(directory, data)
+    return True
+
 def finish_close(directory, runtime, data):
+    validate(data)
     pending = data.get("pending_close")
     if not pending:
         return
@@ -342,7 +390,10 @@ def close_sessions(directory, runtime, data, method, identity):
 def manage(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, on_spawn=None, project_directory=None):
     directory = directory.resolve()
     with locked(directory):
+        saved_catalog = (directory / "workspaces.json").exists()
         data = load(directory)
+        finish_create(directory, data)
+        explicit_recovery = method == "session.recover"
         # Recover interrupted close before any startup, never resurrect its shells.
         if method == "session.recover":
             recover_sessions(directory, data)
@@ -366,27 +417,29 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
             method="initialize-new"
         if method not in {"initialize","initialize-new"}:
             mutate(data, method, identity, title, destination, position)
-        rendered = snapshot(directory, data)
+        snapshot(directory, data)  # Validate all socket paths before committing intent.
         startup = data if method == "initialize" else {"workspaces": [
             {**workspace, "terminals": [terminal for terminal in workspace["terminals"] if terminal["id"] not in old_ids]}
             for workspace in data["workspaces"]
         ]}
-        started = ensure_sessions(directory, startup, runtime, cwd, **({"on_spawn": on_spawn} if on_spawn else {})) if method == "initialize" or method.endswith(".create") or method=="initialize-new" else []
-        committed = False
-        try:
-            labels = terminal_labels(data)
+        launch = method == "initialize" or method.endswith(".create") or method == "initialize-new"
+        if saved_catalog and method == "initialize" and not explicit_recovery:
+            launch = False
+        launch_ids = [t["id"] for w in startup["workspaces"] for t in w["terminals"]] if launch else []
+        if launch_ids:
+            # Commit identities BEFORE spawning. The TSV projection is published
+            # after launch, or repaired on the next initialization after a crash.
+            # A partial launch must not kill successful independent shells.
+            for workspace in startup["workspaces"]:
+                if workspace["terminals"]:
+                    directory_value(workspace.get("directory", str(cwd)), cwd, available=True)
+            data["pending_create"] = launch_ids
+            validate(data)
             atomic_write(directory / "workspaces.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-            committed = True
-            atomic_write(directory / "terminal-labels.tsv", labels)
-            atomic_write(directory / "workspaces.tsv", rendered)
-        finally:
-            # Before metadata commit these are unused new sessions; afterward
-            # retain them so a later initialize can recover a failed projection.
-            if not committed:
-                for process in started:
-                    if process.poll() is None:
-                        process.terminate()
-                        process.wait(timeout=5)
+            ensure_sessions(directory, startup, runtime, cwd, keep_started=True,
+                            **({"on_spawn": on_spawn} if on_spawn else {}))
+            del data["pending_create"]
+        save(directory, data)
         return data
 
 def main():

@@ -172,8 +172,9 @@ appropriate before performance acceptance.
    the bounded complete-snapshot attachment is implemented, with legacy fallback.
 2. Synchronize query ownership, appearance defaults, pixel metrics and supported
    graphics state before treating restored snapshots as a full viewer replacement.
-3. Extend the initial organization service with creation/close
-   journaling, subscriptions and installation lifecycle policy. Confirmed exit
+3. Extend the initial organization service with subscriptions and installation
+   lifecycle policy. Creation/close intent now survives interrupted operations;
+   see [catalog transactions](catalog-transactions.md). Confirmed exit
    evidence is now recorded by new runtimes; unrecorded losses remain unknown.
 4. Define snapshot persistence/versioning and recovery without implying that a
    stopped runtime can resurrect arbitrary processes.

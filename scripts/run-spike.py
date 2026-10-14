@@ -75,14 +75,16 @@ def ensure_service(sessions,runtime,root):
     service = request(sessions, runtime, root)
     health = request(sessions, runtime, root, "health")
     required={"workspace.create_at","terminal.lifecycle"}
-    if not required.issubset(health.get("methods",[])):
+    def current_service(value):
+        return required.issubset(value.get("methods", [])) and "catalog-journal-v1" in value.get("features", [])
+    if not current_service(health):
         print("Updating the organization service; existing shells stay running.",flush=True)
         request(sessions,runtime,root,"service.shutdown")
         deadline=time.monotonic()+5
         while True:
             try:
                 current=exchange(sessions,dict(protocol=PROTOCOL,method="health"))
-                if required.issubset(current.get("methods",[])): break
+                if current_service(current): break
             except Unavailable:
                 break
             except (ReplyClosed,ConnectionResetError,BrokenPipeError):
