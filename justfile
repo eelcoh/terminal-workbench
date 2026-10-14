@@ -181,3 +181,7 @@ dotfiles-gui-test: spike-build
 # Live Overview context and search with real shells and independent runtime metadata.
 context-gui-test: spike-build
     python3 tests/context_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Native cursor/selection editing and clipboard isolation with real live shells.
+text-edit-gui-test: spike-build
+    python3 tests/text_edit_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

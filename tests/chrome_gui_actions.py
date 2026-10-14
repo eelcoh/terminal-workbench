@@ -9,6 +9,8 @@ def action(command,window,title):
     key('ctrl+shift+p')
     command('type','--clearmodifiers','--window',window,'--delay',15,'--',title)
     key('Return')
+    # These legacy whole-value workflows explicitly select the editable value.
+    if title in {'Rename workspace','Rename terminal','Change project folder'}:key('ctrl+a')
 
 def workspace(click,index):
     click(22,66)

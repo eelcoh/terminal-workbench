@@ -674,3 +674,32 @@ reduced-motion navigation, 64-terminal Overview, legacy snapshot attachment and
 multiple windows. The context GUI check also passes at simulated 2x density.
 Captures are under `.local/artifacts/context/`. Native Mac context acceptance
 remains pending. See [terminal context](terminal-context.md) for testing and limits.
+
+## Cursor and selection editing in workspace fields
+
+Workspace/terminal names and project folders now use a shared bounded UTF-8 text
+editor, replacing the append-or-replace-only dialog state. Existing values open
+unselected with the caret at the end. Generated new names start selected. Click
+positions the caret, dragging selects, double-click selects a word and triple-click
+selects the value. Keyboard navigation, Shift selection, word movement/deletion
+and platform-standard Select all / copy / cut / paste use the same model.
+
+The caret scrolls into view for long paths, independent name/folder positions
+survive Tab, and selection colors come from the active theme. Rejected paste
+preserves value and selection. Save/Cancel and busy dialogs retain their existing
+stable targets, validation and input isolation; editing a folder never changes
+live shell cwd or terminal geometry. Pointer hit testing takes one pass through
+the text. State and discovery remain outside rendering and the runtime protocol.
+
+Linux `just check` covers Unicode boundaries, partial replacements, reversed
+selections and transactional clipboard limits. Native checks cover mouse caret/
+drag/word/value selection, long Unicode paths, clipboard editing, independent
+field positions, create/rename, Save/Cancel, Commands and focus traversal, with
+unchanged live shell PID/cwd/grid. The simulated 2x editor check passed on rerun
+after one rapid-input timing failure; the failure did not reproduce with added
+diagnostics. Native Mac acceptance remains pending. Complex shaping/IME remains
+part of the production toolkit gate.
+
+Use `just text-edit-gui-test` for the isolated Linux fixture. Review captures are
+under `.local/artifacts/text-edit/`. See [project folders](workspace-directories.md)
+for the editing shortcuts and existing/new value behavior.

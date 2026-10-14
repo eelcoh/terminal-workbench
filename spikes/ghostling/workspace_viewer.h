@@ -17,6 +17,7 @@
 #include "window_state.h"
 #include "shortcut_state.h"
 #include "ui_focus.h"
+#include "text_edit.h"
 #include <sys/stat.h>
 #include <limits.h>
 
@@ -66,6 +67,14 @@ typedef struct {
 } WorkbenchWorkspace;
 
 typedef struct { RenderTexture2D canvas; uint64_t epoch; } NavigationTile;
+typedef struct {
+    TextEdit selection;
+    float scroll;
+    bool dragging;
+    double blink, clicked;
+    Vector2 click_position;
+    int clicks;
+} DialogFieldState;
 
 typedef struct {
     WorkbenchWorkspace workspaces[WORKBENCH_MAX_WORKSPACES];
@@ -87,7 +96,7 @@ typedef struct {
     const char *catalog_path;
     struct stat catalog_stamp;
     double catalog_checked;
-    bool managed, dialog_open, dialog_all, management_busy, refreshing;
+    bool managed, dialog_open, management_busy, refreshing;
     char claim_new[41];
     UiFocus dialog_focus, command_focus, help_focus, theme_focus, overview_focus, shortcut_focus;
     bool command_open, command_all, help_open;
@@ -125,7 +134,7 @@ typedef struct {
     int dialog_kind, management_fd, dialog_terminal_count;
     pid_t management_pid;
     char edit_directory[1024];
-    bool edit_folder;
+    DialogFieldState edit_fields[2];
     char edit_name[64], dialog_error[256], management_reply[512], management_target[41];
     size_t management_length;
     int sidebar_first;

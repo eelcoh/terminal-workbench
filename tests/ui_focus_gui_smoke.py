@@ -85,13 +85,13 @@ def main():
                 palette('Rename workspace',run=False);key('shift+Tab');key('space');safe('focus-command-cancel')
                 assert (state/'workspaces.json').read_bytes()==catalog_before
                 # Creation visits both fields and both buttons, skips absent folder field in rename.
-                key('ctrl+shift+n');text('Focus project');key('Tab');text(str(root))
+                key('ctrl+shift+n');text('Focus project');key('Tab');key('ctrl+a');text(str(root))
                 key('Tab');capture('focus-create-cancel.png');key('space')
                 assert (state/'workspaces.json').read_bytes()==catalog_before
                 palette('Rename workspace');key('Tab');key('space')
                 assert (state/'workspaces.json').read_bytes()==catalog_before
                 # Explicit button activation creates a workspace with the chosen directory.
-                key('ctrl+shift+n');text('Focus project');key('Tab');text(str(root));key('Tab');key('Tab');capture('focus-create-confirm.png');key('space')
+                key('ctrl+shift+n');text('Focus project');key('Tab');key('ctrl+a');text(str(root));key('Tab');key('Tab');capture('focus-create-confirm.png');key('space')
                 wait_until(lambda:len(catalog()['workspaces'])==3)
                 assert catalog()['workspaces'][-1]['name']=='Focus project'
                 assert catalog()['workspaces'][-1]['directory']==str(root)

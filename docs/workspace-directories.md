@@ -5,9 +5,20 @@ enter a name and a Project folder; Tab visits the fields, Cancel and Create; Shi
 existing workspace, use **Folder** beside Rename in the sidebar. Type or paste an
 absolute path, `~/...`, or a path relative to the Workbench project directory.
 The focused field has an outline; selected text uses the theme's selection colors.
-Opening the folder editor selects its current path, and typing replaces that
-selection. The dialog labels this behavior. This slice provides a path editor;
-a native folder browser remains follow-up.
+Existing names and paths open with the caret at the end, retaining the full value.
+Click to place the caret or drag to select part of the text; double-click selects
+a word and triple-click selects the whole value. Arrows move the caret; Shift
+extends selection. Home/End reach the start/end, and Ctrl+arrows on Linux or
+Option+arrows on Mac move by word. Mac Command+Left/Right also reach the start/end.
+Backspace and Delete remove characters or selected text. Long paths scroll to
+keep the caret visible. Each field keeps its own position when using Tab.
+
+Copy, cut, paste and Select all use Ctrl+C/X/V/A on Linux and Command+C/X/V/A on
+Mac, independently of terminal shortcuts. To replace an entire existing value,
+use Select all explicitly. Generated names for **New workspace/terminal** start
+selected. Rejected multi-line, malformed UTF-8 or oversized paste preserves the
+existing value and selection. Escape/Cancel discards edits. A native folder
+browser remains follow-up.
 
 The spike currently supports eight workspaces. At capacity, New workspace changes
 to **Workspace limit (8)**; hovering or clicking explains that closing a workspace
@@ -59,3 +70,15 @@ creation, capacity release, folder editing and new-terminal directory behavior w
 confirmed by the owner. Native recovery-directory and invalid-path checks remain
 pending. The owner also confirmed the selection and capacity cues on Linux and
 macOS.
+
+## Cursor editing acceptance
+
+Open Rename workspace or Change project folder. Check that the existing value
+remains visible with an unselected caret; click within it or use arrows to insert
+and remove part of the value. Exercise Shift selection and drag selection, then
+copy/cut/paste a selected span. Verify that Select all is needed for full-value
+replacement and that Cancel leaves saved metadata and shell input untouched.
+Check long paths at the beginning and end of the field, names/paths with spaces
+and Unicode, rejected multi-line/oversized paste, and switching between both New
+workspace fields with Tab. On Mac also check Command+C/X/V/A, Option+arrows,
+Command+Left/Right and Option+Backspace. Native Mac validation is pending.

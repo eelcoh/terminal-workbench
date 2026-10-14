@@ -59,9 +59,9 @@ def main():
                 wait_until(lambda:'C 1 0 0' in (root/'window.view').read_text());screenshot('pinned')
                 click(235,65);time.sleep(.3);assert geometry()==baseline;safe('pin-safe')
                 # Explicit menu action reuses rename dialog and does not fall through into it.
-                app_menu(3);text('Workbench project');key('Return');wait_until(lambda:data()['workspaces'][0]['name']=='Workbench project')
+                app_menu(3);key('ctrl+a');text('Workbench project');key('Return');wait_until(lambda:data()['workspaces'][0]['name']=='Workbench project')
                 safe('rename-safe')
-                click(629,62);screenshot('pane-menu');key('Return');text('Implementation');key('Return')
+                click(629,62);screenshot('pane-menu');key('Return');key('ctrl+a');text('Implementation');key('Return')
                 wait_until(lambda:data()['workspaces'][0]['terminals'][0]['name']=='Implementation');safe('pane-rename-safe')
                 # Command registry presets remain mouse and keyboard accessible.
                 click(629,62);click(725,103+4*32+8);time.sleep(.25);assert geometry()!=baseline;palette('Terminal width: one half');time.sleep(.25);assert geometry()==baseline

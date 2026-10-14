@@ -74,7 +74,7 @@ def main():
                 # Dispatch consumes Enter: it cannot immediately save the opened dialog.
                 palette('Rename workspace');time.sleep(.2)
                 assert (state/'workspaces.json').read_bytes()==before
-                text('Palette project');key('Return')
+                key('ctrl+a');text('Palette project');key('Return')
                 wait_until(lambda:catalog()['workspaces'][0]['name']=='Palette project');time.sleep(.3)
                 line('printf "%s:%s" "$$" "$keep" > renamed');assert marker('renamed')==pid+':palette'
                 palette('New terminal');text('Palette shell');key('Return')

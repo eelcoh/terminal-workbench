@@ -336,13 +336,13 @@ workspace's stable identity and no navigation on Cancel. Menu separators are
 non-interactive; narrow-window scrolling and keyboard traversal retain actions.
 Native Mac review remains pending.
 
-Workspace name and project-folder fields currently behave like replacement-only
-inputs: typing replaces the existing value, and a caret cannot be placed within
-it. Add normal text editing with pointer caret placement, selection, insertion
-and deletion, and standard keyboard navigation/selection. Preserve the existing
-value on opening; make whole-value replacement an explicit Select all action.
-Validate long paths, spaces and Unicode, clipboard editing, Apply/Cancel and
-keyboard access on Mac/Linux. This is a reported polish issue.
+Workspace name and project-folder fields now support caret placement, pointer/
+keyboard selection, insertion/deletion and copy/cut/paste. Existing values open
+with the caret at the end; Select all explicitly replaces the whole value.
+Generated new names start selected. Long paths scroll with the caret and each
+field retains its position through Tab. Linux checks cover Unicode, mouse/word
+selection, clipboard limits, Save/Cancel, and unchanged live shell PID/cwd/grid.
+Native Mac editing acceptance remains pending. See [project folders](workspace-directories.md).
 
 ## Overview polish and terminal context
 
