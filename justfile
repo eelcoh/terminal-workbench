@@ -31,6 +31,7 @@ check: runtime-build
     python3 tests/copilot_observer_test.py
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
+    python3 tests/terminal_search_vt_test.py
     python3 tests/macos_metadata_test.py
     python3 tests/config_paths_test.py
     python3 tests/build_env_test.py
@@ -186,3 +187,8 @@ context-gui-test: spike-build
 # Native cursor/selection editing and clipboard isolation with real live shells.
 text-edit-gui-test: spike-build
     python3 tests/text_edit_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Focused-terminal output/scrollback search with live shell and grid continuity.
+search-gui-test: spike-build
+    python3 tests/terminal_search_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
+    python3 tests/terminal_search_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15

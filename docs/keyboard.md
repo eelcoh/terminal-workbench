@@ -207,3 +207,12 @@ navigate drawer controls. Menu items support arrows, Tab/Shift+Tab, Enter/Space,
 Escape, outside-click dismissal and wheel scrolling in short windows. Their
 opening, dismissal and dispatch frames stay modal so input cannot reach a shell
 or accept a newly opened confirmation. [Usage and layout](minimal-chrome.md).
+
+## Terminal-output search
+
+Find in terminal uses Ctrl+Shift+S on Linux and Command+Option+S on Mac, with
+Commands/settings/help integration. Its query and navigation own keyboard input
+while shells keep parsing output. Enter/Down advances, Shift+Enter/Up goes back,
+Tab traverses query and buttons, and Escape restores the initial viewport and
+returns input to the shell. Desktop field editing/copy/paste conventions apply.
+See [terminal search](terminal-search.md).

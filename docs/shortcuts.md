@@ -18,6 +18,7 @@ saved binding. Commands displays the active binding beside each action.
 | Previous / next workspace | Ctrl+Shift+Up / Down | Command+Option+Up / Down |
 | Cycle focused terminal width | Ctrl+Shift+R | Command+Option+R |
 | Toggle focused terminal full width | Ctrl+Shift+F | Command+Option+F |
+| Find in terminal | Ctrl+Shift+S | Command+Option+S |
 | Show shortcuts | Ctrl+Shift+/ | Command+Option+/ |
 | Copy selection | Ctrl+Shift+C | Command+C |
 | Paste clipboard | Ctrl+Shift+V | Command+V |
@@ -33,7 +34,7 @@ uses the existing scrolling transition, and workspace navigation retains each
 workspace's focused terminal. Holding a navigation chord permits key repeat.
 
 Modifiers must match exactly. The working view owns application shortcuts;
-existing dialogs, palette, settings and appearance own their input first.
+existing dialogs, palette, settings, terminal search and appearance own their input first.
 Overview additionally accepts its toggle and shortcut-help bindings. Help captures
 its own input; other application bindings do not run underneath it. Global navigation is not active
 inside an overlay. Stop/recovery chords only open the existing confirmation:
@@ -167,3 +168,5 @@ Ctrl+Shift+= / - / 0 on Linux, Command+Option+= / - / 0 on Mac. Equal/Minus
 are accepted key names for configuration and recording. The settings action
 is unbound by default and accessible in Commands and the hamburger menu.
 See [terminal font controls](terminal-fonts.md#choosing-a-font-and-size).
+
+See [terminal search](terminal-search.md) for match navigation, input ownership and viewport restoration.

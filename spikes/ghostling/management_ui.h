@@ -217,7 +217,7 @@ static void management_start(WorkspaceClient *client)
 }
 static void management_check_status(WorkspaceClient *client)
 {
-    if (!client->managed || client->chrome_menu || client->chrome_keyboard || client->management_busy || client->dialog_open || client->theme_open || client->command_open || client->help_open || client->overview_open) return;
+    if (client->search.open || !client->managed || client->chrome_menu || client->chrome_keyboard || client->management_busy || client->dialog_open || client->theme_open || client->command_open || client->help_open || client->overview_open) return;
     WorkbenchWorkspace *workspace=&client->workspaces[client->active];
     for (int p=0;p<workspace->count;p++) {
         if (!workspace_visible(workspace,p)) continue;

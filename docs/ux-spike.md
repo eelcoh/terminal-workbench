@@ -718,3 +718,19 @@ text beside native Ghostty. The CoreText atlas experiment did not improve native
 Mac text and may have worsened it; it has been reverted to the prior rasterizer.
 Sharpness remains open and needs a controlled native comparison before further
 rasterizer changes. See [terminal fonts](terminal-fonts.md#external-display-font-review).
+
+## Compact terminal-output search
+
+Find in terminal keeps the underlying panes visible while a small themed bar owns
+input. A shared UTF-8 editor model supports caret/selection and clipboard editing;
+the selected match gets a stronger fill/outline than surrounding matches. A
+counter and previous/next/close controls have pointer and keyboard focus paths.
+No-match and capped-result states explain the outcome. Closing restores the
+starting viewport rather than persisting a query or resizing the terminal grid.
+
+Queries search retained terminal cells, including soft wraps and wide/combining
+characters. Incremental work stays outside rendering and is confined to one pane;
+new output/resize invalidates stale results. Shells and background parsing continue.
+Linux actual-VT and one/fifteen-terminal GUI checks pass at 1x and simulated 2x,
+including highlights, input isolation, live refresh and retained PID/socket/grid.
+Native Mac acceptance remains pending. See [terminal search](terminal-search.md).

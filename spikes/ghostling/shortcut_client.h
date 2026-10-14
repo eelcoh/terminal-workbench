@@ -91,7 +91,7 @@ static bool shortcut_route(WorkspaceClient *client, bool *bypass)
     for (int key=0;key<512;key++) if (workbench_key_blocked[key] && !IsKeyDown(key) && !IsKeyReleased(key)) workbench_key_blocked[key]=false;
     if (client->passthrough_key && !IsKeyDown(client->passthrough_key) && !IsKeyReleased(client->passthrough_key)) client->passthrough_key=0;
     if (!IsWindowFocused()) { client->forwarding=false;return false; }
-    if (client->command_open || client->text_open || client->theme_open || client->dialog_open) return false;
+    if (client->search.open || client->command_open || client->text_open || client->theme_open || client->dialog_open) return false;
     WorkbenchWorkspace *w=&client->workspaces[client->active];WorkbenchPane *pane=w->count ? w->panes[w->focused] : NULL;
     if (client->forwarding) {
         if (!pane || pane->closed || pane->transport.replaying || strcmp(pane->id,client->forward_terminal) || GetTime()>client->forward_deadline || client->overview_open || IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {

@@ -34,6 +34,7 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
     case COMMAND_APPEARANCE: return client->count ? NULL : "Create a workspace to choose a theme";
     case COMMAND_WIDTH_CYCLE: case COMMAND_WIDTH_FULL: case COMMAND_WIDTH_THIRD: case COMMAND_WIDTH_HALF: case COMMAND_WIDTH_TWO_THIRDS:
         return pane ? NULL : "This workspace has no terminals";
+    case COMMAND_SEARCH: return pane && pane->terminal && !pane->transport.replaying ? NULL : "Wait for a terminal to finish connecting";
     case COMMAND_COPY: return pane && selection_active(pane->terminal) ? NULL : "Select terminal text to copy";
     case COMMAND_PASTE: case COMMAND_FORWARD: return pane && !pane->closed && !pane->transport.replaying ? NULL : "Focused terminal is not available for input";
     case COMMAND_TERMINAL_PREVIOUS: return workspace->focused>0 ? NULL : "Already at the first terminal";
@@ -100,6 +101,7 @@ static void command_dispatch(WorkspaceClient *client, int command)
         client->forwarding=true;strcpy(client->forward_terminal,workspace->panes[workspace->focused]->id);client->forward_deadline=GetTime()+10;break;
     case COMMAND_OVERVIEW: overview_open(client); break;
     case COMMAND_APPEARANCE: theme_open(client); break;
+    case COMMAND_SEARCH: search_open(client);break;
     case COMMAND_FONT_SETTINGS: text_open(client);break;
     case COMMAND_FONT_INCREASE: text_adjust(client,1);break;
     case COMMAND_FONT_DECREASE: text_adjust(client,-1);break;

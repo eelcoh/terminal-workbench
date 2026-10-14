@@ -57,3 +57,9 @@ Use Shortcut settings to change their bindings.
 Tab/Shift+Tab moves between search, results and Done. Enter/Space on Done closes;
 on results it runs the selected action. Arrow keys choose results, and Enter in
 search retains quick dispatch. See [overlay focus](keyboard.md#dialog-and-overlay-focus).
+
+**Find in terminal** opens a compact search bar for the focused pane's retained
+output and scrollback. Enter moves to the next match; Shift+Enter moves back;
+Escape restores the starting view. The action is configurable and listed in
+shortcut help. See [terminal search](terminal-search.md) for literal matching,
+Unicode/wrapping, live refresh and bounds.

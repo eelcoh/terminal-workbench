@@ -18,6 +18,7 @@
 #include "shortcut_state.h"
 #include "ui_focus.h"
 #include "text_edit.h"
+#include "terminal_search_vt.h"
 #include <sys/stat.h>
 #include <limits.h>
 
@@ -77,6 +78,18 @@ typedef struct {
 } DialogFieldState;
 
 typedef struct {
+    TerminalSearchScan scan;
+    char query[TERMINAL_SEARCH_QUERY],id[41],error[128];
+    TextEdit edit;UiFocus focus;
+    GhosttyTerminal terminal;GhosttyTrackedGridRef restore;GhosttyTerminalScreen screen;
+    uint64_t revision;double changed,blink;
+    bool open,dirty,bottom,dragging,paint_valid;
+    float scroll;
+    unsigned char *paint;size_t paint_size,paint_offset;int paint_selected;
+} SearchView;
+
+typedef struct {
+    SearchView search;
     WorkbenchWorkspace workspaces[WORKBENCH_MAX_WORKSPACES];
     int count, active;
     const char *window_state_path;
@@ -342,6 +355,7 @@ static void shortcut_help_open(WorkspaceClient *client);
 static void text_open(WorkspaceClient *client);
 static void text_adjust(WorkspaceClient *client,int direction);
 static bool text_font_replace(WorkspaceClient *client,FontPreferences next,float scale);
+#include "terminal_search_ui.h"
 #include "shortcut_client.h"
 #include "command_palette.h"
 #include "shortcut_help_ui.h"
@@ -418,6 +432,7 @@ static void pane_render_canvas(WorkspaceClient *client, WorkbenchPane *pane, Ren
     render_terminal(pane->render, pane->rows, pane->cells, client->font,
                     client->cell_width, client->cell_height, client->text.size, 4,
                     &scrollbar, pane->terminal, pane->images);
+    search_highlight(client,pane,bounds);
     if (pane->closed) {
         /* Retain the frozen terminal screen, but keep connection feedback out
          * of its text. The opaque footer belongs to client chrome. */
@@ -458,7 +473,7 @@ static void workspace_refresh(WorkspaceClient *client)
     double now=GetTime();
     if (now-client->catalog_checked<.25) return;
     client->catalog_checked=now;
-    if (client->management_busy || client->dialog_open || client->text_open || client->theme_open || client->command_open || client->help_open
+    if (client->search.open || client->management_busy || client->dialog_open || client->text_open || client->theme_open || client->command_open || client->help_open
         || client->overview_drag_armed || client->overview_closing || client->divider_dragging
         || navigation_moving(client) || overview_animation_busy(&client->overview_animation,now)) return;
     for (int w=0;w<client->count;w++) for (int p=0;p<client->workspaces[w].count;p++)
@@ -599,28 +614,30 @@ static int workspace_main(const char *catalog)
 
         bool shortcut_bypass=false;
         chrome_pane_count=client->workspaces[client->active].count;
-        bool chrome_frame=chrome_input(client);
+        bool search_frame=client->search.open;
+        bool chrome_frame=search_frame ? false : chrome_input(client);
         if (client->chrome_quit) break;
         bool shortcut_frame=chrome_frame ? false : shortcut_route(client,&shortcut_bypass);
+        search_frame|=client->search.open;
         bool help_frame=client->help_open;
         bool command_started=shortcut_frame && client->command_open;
-        if (!chrome_frame && !shortcut_frame && !help_frame && !client->command_open && !client->text_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
+        if (!search_frame && !chrome_frame && !shortcut_frame && !help_frame && !client->command_open && !client->text_open && !client->theme_open && !client->dialog_open && !client->overview_open && !client->management_busy && command_requested()) {
             command_open(client); command_started=true;
         }
         bool command_frame=client->command_open;
         bool text_frame=client->text_open;
         bool theme_frame=client->theme_open;
-        if (!chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
+        if (!search_frame && !chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
             && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
             && !client->overview_open && CheckCollisionPointRec(GetMousePosition(),theme_button())) {
             theme_open(client); theme_frame=true;
         }
-        bool toggled_overview = !chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
+        bool toggled_overview = !search_frame && !chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();
         if (toggled_overview) {
             if (client->overview_open && !client->overview_closing) overview_close(client, -1, -1);
             else overview_open(client);
         }
-        bool modal_frame = chrome_frame || help_frame || shortcut_frame || command_frame || text_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
+        bool modal_frame = search_frame || chrome_frame || help_frame || shortcut_frame || command_frame || text_frame || theme_frame || client->dialog_open || client->overview_open || toggled_overview;
         if (!management_poll(client)) { exit_code = 1; break; }
         if (command_frame) {
             if (command_started) {
@@ -743,6 +760,7 @@ static int workspace_main(const char *catalog)
         if (!chrome_frame && !help_frame && !shortcut_frame && !command_frame && client->dialog_open) dialog_input(client);
         bool overview_jumped = false;
         if (chrome_frame || shortcut_frame || command_frame) { /* The entire action-dispatch frame stays modal. */ }
+        else if (search_frame && client->search.open) search_input(client);
         else if (help_frame) shortcut_help_input(client);
         else if (text_frame) text_input(client);
         else if (theme_frame) theme_input(client);
@@ -758,6 +776,7 @@ static int workspace_main(const char *catalog)
         workspace = &client->workspaces[client->active];
         if (((overview_jumped && !client->overview_closing) || (layout_deferred && !help_frame && !client->help_open && !client->text_open && !client->theme_open && (!client->overview_open || client->overview_list))) && !workspace_layout(client)) { exit_code = 1; break; }
         theme_sync(client);
+        search_tick(client);
         if (overview_jumped) { navigation_finish(client); client->navigation_valid=false; }
         if (client->overview_open && !client->overview_list) overview_previews_refresh(client);
         if (client->help_open) shortcut_help_prepare(client);
@@ -780,6 +799,7 @@ static int workspace_main(const char *catalog)
         if (client->text_open) text_draw(client);
         if (client->command_open) command_draw(client);
         if (client->help_open) shortcut_help_draw(client);
+        if (client->search.open) search_draw(client);
         EndDrawing();
         flush_deferred_textures();
         window_view_save(client,false);
@@ -787,6 +807,7 @@ static int workspace_main(const char *catalog)
     }
     window_view_save(client,true);
 cleanup:
+    search_close(client,false);free(client->search.paint);
     if (client->management_busy) {
         int status;
         while (waitpid(client->management_pid, &status, 0) < 0 && errno == EINTR) { }

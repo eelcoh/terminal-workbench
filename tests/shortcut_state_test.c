@@ -31,6 +31,7 @@ int main(void)
     assert(shortcut_parse("Command+Option+Equal",&chord) && chord.key==61 && chord.mods==12);
     assert(shortcut_parse("Ctrl+Shift+-",&chord) && chord.key==45 && chord.mods==3);
     assert(linux_state.bindings[COMMAND_FONT_INCREASE].key==61 && mac.bindings[COMMAND_FONT_RESET].key==48);
+    assert(linux_state.bindings[COMMAND_SEARCH].key=='S' && mac.bindings[COMMAND_SEARCH].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
     assert(shortcut_parse("F8",&chord));assert(shortcut_parse("none",&chord));
     char path[1024];snprintf(path,sizeof(path),"%s/shortcuts.conf",getenv("WB_TEST_DIRECTORY"));
     assert(shortcut_write(path,&linux_state,error,sizeof(error)));struct stat statbuf;assert(!stat(path,&statbuf) && (statbuf.st_mode&0777)==0600);
@@ -55,6 +56,10 @@ int main(void)
     assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && !loaded.bindings[COMMAND_PALETTE].key);
     assert(loaded.bindings[COMMAND_COPY].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
     assert(!shortcut_read(getenv("WB_TEST_DIRECTORY"),false,&loaded,error,sizeof(error)));
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\nterminal.new=Ctrl+Shift+S\n",file);fclose(file);
+    assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_TERMINAL_CREATE].key=='S' && !loaded.bindings[COMMAND_SEARCH].key);
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\nterminal.new=Command+Option+S\n",file);fclose(file);
+    assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_TERMINAL_CREATE].key=='S' && !loaded.bindings[COMMAND_SEARCH].key);
     unlink(path);assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && !memcmp(&loaded,&mac,sizeof(mac)));
     puts("PASS: platform navigation defaults, shortcut roundtrip, reserved controls, unknown/duplicate/version/truncated rejection, atomic private save, collisions, partial overrides, unbinding and transactional fallback");return 0;
 }

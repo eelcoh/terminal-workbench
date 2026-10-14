@@ -130,8 +130,8 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
 2. Decide the production toolkit using those results and the approved minimal
    chrome/Overview flows. Complex text shaping and accessibility are still open.
 3. Harden daily-use runtime behavior: detailed exit reasons, creation/close
-   journaling, crash/recovery and long-running session validation. Finish terminal
-   search, native folder browsing and invalid-path/recovery review.
+   journaling, crash/recovery and long-running session validation. Finish native terminal-search
+   review, native folder browsing and invalid-path/recovery review.
 4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
    background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
    and full lifecycle transitions. Unsupported signals retain honest fallback.
@@ -515,3 +515,18 @@ support remains local Ghostty files. Font controls remain the active slice.
 [Integration findings](integration-findings.md) records current evidence and limits.
 [Architecture](architecture.md) and [keyboard requirements](keyboard.md) remain
 implementation references; this document is the milestone sequence.
+
+## Current daily-use slice: terminal-output search
+
+Find in terminal is implemented for the focused pane's retained output/scrollback,
+with a compact query field, visible matches/counter, wrapping next/previous
+navigation, Escape viewport restoration and Commands/settings/help integration.
+Defaults are Ctrl+Shift+S on Linux and Command+Option+S on Mac; existing custom
+bindings keep precedence. Soft wraps, wide/combining Unicode and alternate-screen
+isolation use the existing Ghostty state, with bounded incremental scans and
+stale-result invalidation outside rendering. Continuous output can delay results
+until a brief pause. Queries are literal/case-sensitive, capped at 255 bytes and
+1024 retained matches. The Linux build/check and one/fifteen-terminal GUI cases
+pass at ordinary and simulated doubled density; native Mac review remains open.
+See [terminal search](terminal-search.md). Cross-terminal search, regex and case
+folding are separate follow-ups, not part of this slice.
