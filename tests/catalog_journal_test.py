@@ -53,7 +53,8 @@ def main():
     runtime = Path(sys.argv[1]).resolve()
     os.environ["SHELL"] = "/bin/sh"
     with tempfile.TemporaryDirectory(prefix="wb-journal-") as temporary:
-        root = Path(temporary)
+        # The service canonicalizes state paths (Mac /tmp -> /private/tmp).
+        root = Path(temporary).resolve()
         # Initial partial seed, new terminal before/after launch, workspace and
         # metadata committed before projection: all retain stable identities.
         cases = [("initialize", "first-spawn"), ("terminal.create", "intent"),
