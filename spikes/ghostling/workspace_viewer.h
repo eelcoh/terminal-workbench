@@ -48,7 +48,7 @@ typedef struct {
     Rectangle bounds;
     char socket_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
     char id[41], name[64];
-    char overview_label[4097], overview_directory[4097];
+    char overview_label[4097], overview_directory[4097], pane_label[4097];
     bool custom_name;
     uint64_t context_revision;
     int fd;
@@ -689,6 +689,8 @@ static int workspace_main(const char *catalog)
                     terminal_context_display(pane->transport.context.cwd,pane->overview_directory,sizeof(pane->overview_directory));
                     terminal_context_label(&pane->transport.context,pane->name,pane->custom_name,
                         pane->overview_label,sizeof(pane->overview_label));
+                    terminal_context_pane_label(&pane->transport.context,pane->name,pane->custom_name,
+                        pane->pane_label,sizeof(pane->pane_label));
                 }
                 if (!pane->closed) {
                     uint64_t before = pane->transport.output_revision;

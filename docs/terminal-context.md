@@ -3,6 +3,10 @@
 New terminals show their repository and branch in Overview. A linked Git worktree
 adds its checkout name, and a detached HEAD shows its short commit hash. The
 current directory appears underneath. Outside Git, the directory is the title.
+Pane headers use the same live repository/branch/worktree context. Outside Git,
+they show the folder name to keep the header compact; Overview retains the full
+path. Pane-position tooltips follow these labels too. Long headers are ellipsized
+without displacing agent status or pane controls.
 An explicitly renamed terminal keeps its title; its current directory remains
 visible. Search matches the context as well as workspace, custom name and agent.
 

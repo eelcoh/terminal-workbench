@@ -345,9 +345,9 @@ static void minimal_chrome_draw(WorkspaceClient *client)
         if (CheckCollisionPointRec(pointer,chrome_menu_button())) hint="Workbench menu";
         if (CheckCollisionPointRec(pointer,chrome_add_button())) hint=command_unavailable(client,COMMAND_TERMINAL_CREATE) ? command_unavailable(client,COMMAND_TERMINAL_CREATE) : "New terminal";
         if (CheckCollisionPointRec(pointer,chrome_workspace_button())) hint="Choose workspace";
-        for (int p=0;p<workspace->count;p++) if (CheckCollisionPointRec(pointer,terminal_position(p))) hint=workspace->panes[p]->name;
-        if (hint) { float width=MeasureTextEx(client->ui_font,hint,UI_TEXT_CAPTION,0).x+16;Rectangle b={fminf(pointer.x+12,GetScreenWidth()-width-8),fminf(pointer.y+28,GetScreenHeight()-32),width,24};
-            DrawRectangleRounded(b,ui_roundness(b,6),8,ui.raised);DrawTextEx(client->ui_font,hint,(Vector2){b.x+8,b.y+6},UI_TEXT_CAPTION,0,ui.text); }
+        for (int p=0;p<workspace->count;p++) if (CheckCollisionPointRec(pointer,terminal_position(p))) hint=workspace->panes[p]->pane_label[0] ? workspace->panes[p]->pane_label : workspace->panes[p]->name;
+        if (hint) { float width=fminf(MeasureTextEx(client->ui_font,hint,UI_TEXT_CAPTION,0).x+16,fmaxf(16,GetScreenWidth()-16));Rectangle b={fminf(pointer.x+12,GetScreenWidth()-width-8),fminf(pointer.y+28,GetScreenHeight()-32),width,24};
+            DrawRectangleRounded(b,ui_roundness(b,6),8,ui.raised);chrome_name(client->ui_font,hint,(Rectangle){b.x+8,b.y+6,b.width-16,16},UI_TEXT_CAPTION,ui.text); }
     }
     chrome_popup_draw(client);
 }

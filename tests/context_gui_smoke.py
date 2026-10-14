@@ -74,6 +74,9 @@ with tempfile.TemporaryDirectory(prefix='wb-context-ui-') as directory:
             key('ctrl+shift+Right');verify('second','before-branch-update')
             search('changed-context');verify('first','updated-branch-selected')
             key('ctrl+shift+Right');search(str(repo/'src'));verify('first','cwd-selected')
+            artifacts=ROOT/'.local/artifacts/context';artifacts.mkdir(parents=True,exist_ok=True)
+            key('F12');time.sleep(.2);shutil.copy(sorted(root.glob('screenshot*.png'))[-1],artifacts/'pane-headers.png')
+            key('ctrl+u')
             # Explicit generic custom names remain visible, while branch/cwd are searchable.
             (state/'terminal-labels.tsv').write_text('workbench-terminal-labels-v1\nfirst\t1\nsecond\t0\n')
             projection=(state/'workspaces.tsv').read_text();(state/'next.tsv').write_text(projection);(state/'next.tsv').replace(state/'workspaces.tsv');time.sleep(.8)

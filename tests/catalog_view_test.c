@@ -11,7 +11,7 @@
 typedef struct {
     char id[41], name[64], socket_path[108];
     int fd;
-    char overview_label[4097];
+    char overview_label[4097], pane_label[4097];
     bool custom_name;
     struct { int agent_fd, context_fd; bool replaying; TerminalContext context; } transport;
     int retained_parser_marker, width_preset;

@@ -65,4 +65,13 @@ static void terminal_context_label(const TerminalContext *context,const char *na
     /* Paths may contain controls. Preserve raw API data, sanitize visible text. */
     for(char *p=label;*p;p++) if((unsigned char)*p<32 || *p==127) *p=' ';
 }
+static inline void terminal_context_pane_label(const TerminalContext *context,const char *name,bool custom,char *label,size_t size)
+{
+    if(custom || !context->available || context->repository[0]) {
+        terminal_context_label(context,name,custom,label,size);
+        return;
+    }
+    const char *folder=strrchr(context->cwd,'/');
+    terminal_context_display(folder && folder[1] ? folder+1 : context->cwd,label,size);
+}
 #endif

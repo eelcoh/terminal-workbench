@@ -217,6 +217,8 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
             strcpy(pane->name,terminal->name);pane->custom_name=terminal->custom_name;
             terminal_context_label(&pane->transport.context,pane->name,pane->custom_name,
                 pane->overview_label,sizeof(pane->overview_label));
+            terminal_context_pane_label(&pane->transport.context,pane->name,pane->custom_name,
+                pane->pane_label,sizeof(pane->pane_label));
         }
     memcpy(client->workspaces, updated, sizeof(updated));
     client->count = snapshot->count;

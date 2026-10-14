@@ -118,7 +118,16 @@ def main():
                 click(22,66);click(259,169)
                 call('workspace.rename',scratch_id,'Renamed during confirmation')
                 key('Tab');key('Tab');key('Return');wait_until(lambda:len(data()['workspaces'])==1)
-                assert data()['workspaces'][0]['id']==main_id;safe('workspace-close-target-safe')
+                assert data()['workspaces'][0]['id']==main_id
+                # Shared metadata commits before the window consumes the save reply.
+                # Wait for its own persisted catalog before typing into the shell.
+                def window_removed_workspace():
+                    view=root/'window.view'
+                    if not view.exists():return False
+                    identities={row.split()[1] for row in view.read_text().splitlines() if row.startswith('W ')}
+                    return identities=={main_id}
+                wait_until(window_removed_workspace)
+                safe('workspace-close-target-safe')
                 wait_until(lambda:not Path(f'/proc/{scratch_pid}').exists())
                 # Empty workspace removal uses the same confirmation, with zero affected shells.
                 call('workspace.create',title='Empty removal');empty=data()['workspaces'][-1]

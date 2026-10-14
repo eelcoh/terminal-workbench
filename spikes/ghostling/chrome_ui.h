@@ -49,7 +49,7 @@ static void pane_header(WorkspaceClient *client, WorkbenchPane *pane, Rectangle 
     float agent_width=agent[0] ? MeasureTextEx(client->ui_font,agent,UI_TEXT_CAPTION,0).x : 0;
     bool show_agent=agent_width>0 && space>=agent_width+12+44;
     float name_space=space-(show_agent ? agent_width+12 : 0);
-    float name_width=chrome_name(client->ui_font,pane->name,(Rectangle){12,8,name_space,20},UI_TEXT_BODY,focused ? ui.text : ui_mix(ui.surface,ui.text,.85f));
+    float name_width=chrome_name(client->ui_font,pane->pane_label[0] ? pane->pane_label : pane->name,(Rectangle){12,8,name_space,20},UI_TEXT_BODY,focused ? ui.text : ui_mix(ui.surface,ui.text,.85f));
     if (show_agent)
         DrawTextEx(client->ui_font,agent,(Vector2){12+name_width+12,10},UI_TEXT_CAPTION,0,ui.muted);
     if (pane->closed) {
