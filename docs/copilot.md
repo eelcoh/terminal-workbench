@@ -33,8 +33,9 @@ separately from cancellation.
 
 Check the agent remains the same process when closing/reopening the viewer or
 moving it to another window. Normal `/exit` should clear its label and status.
-macOS native recognition and hook execution need this manual acceptance; Linux
-fixtures do not prove them. Report the CLI version, installation method, label
+The owner confirmed native Mac recognition, Working/Ready, Needs input and
+return from waiting using the lifecycle trace on 2026-10-14. Normal exit and
+remaining edge cases still need manual acceptance; Linux fixtures do not prove them. Report the CLI version, installation method, label
 and observed transitions if something differs.
 
 The generated plugin is `.local/integrations/copilot/plugin.json` with its
@@ -53,7 +54,7 @@ The reported Mac `copilot` executable name and matching PID/group are already
 recognized by the current detector; they do not establish which runtime is active.
 
 
-For the remaining Mac Working/Ready check, run `just agent-watch 180` from a
+To repeat the confirmed Mac Working/Ready check, run `just agent-watch 180` from a
 second terminal after creating your test Workbench terminal. Then run `wb-copilot`
 and ask for a no-tool reply, a built-in question, and another reply after answering.
 Look for JSON `working`, `ready`, `waiting`, then `working`/`ready` for the Copilot

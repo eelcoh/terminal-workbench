@@ -90,8 +90,9 @@ Unknown lifecycle status, so this confirms identity and delivery to the viewer,
 not Working/Ready or Needs input hooks on macOS. In subsequent manual testing,
 the owner confirmed the Needs input filter retains Copilot while it is waiting
 and is empty otherwise. This validates native waiting-state delivery and
-filtering. Working/Ready labels and the complete answer/exit sequence remain
-unconfirmed on Mac.
+filtering. Working/Ready and return from waiting were subsequently confirmed by
+the 2026-10-14 trace below; normal exit and the remaining native edge cases are
+still separate checks.
 
 Older saved terminals retain their running code after rebuilding the viewer.
 Creating a new terminal obtains the new runtime; restarting an agent inside an
@@ -189,8 +190,8 @@ with four bounded connection attempts at a time and fixed-size metadata frames.
 unchanged catalogs, failed-sibling isolation, fragmented/coalesced frames,
 deduplication, EOF, malformed lengths/tags, unsafe sockets and duration validation.
 A live Codex no-tool turn also delivered Ready → Working → Ready through the
-watcher while the GUI retained terminal ownership. Native Mac watcher acceptance
-remains pending; use Copilot there, without installing other agents.
+watcher while the GUI retained terminal ownership. The owner also confirmed
+native Mac Copilot tracing on 2026-10-14, as recorded below.
 
 
 Rapid synthetic `xdotool type --delay 12` input in these live interactive CLIs
@@ -200,3 +201,27 @@ acceptance finding, not proof of physical keyboard failure or its root cause.
 Add a raw-input reproduction and compare legacy/Kitty modes before changing the
 adapter. Permission command names/output and lifecycle metadata were checked
 directly; transcript spelling alone was not used as compatibility evidence.
+
+
+## macOS Copilot lifecycle trace — 2026-10-14
+
+The owner confirmed `wb-copilot` and `just agent-watch 180` on native Mac.
+The supplied trace shows a single terminal changing from ordinary shell/Unknown
+to Copilot/Unknown, then Working → Ready → Needs input → Working → Ready.
+The first Working interval lasted about 67 ms, so it can be hard to see in the
+header; the later Working interval lasted about 1.59 seconds. This confirms
+native lifecycle hook delivery, the runtime subscription, and return from waiting.
+It does not establish a specific permission/question source because the trace
+deliberately contains no prompt or tool content.
+
+The earlier all-Unknown result came from plain `copilot`, which the owner
+confirmed had been launched without the Workbench observer wrapper. No code fix
+was needed. Existing Mac Needs input filter acceptance remains recorded above.
+The latest reported Mac version is 1.0.96-2; this trace did not include a fresh
+version check. Normal exit, cancellation, permission accept/deny, disabled-hook
+policy, and full background/handoff edge cases remain follow-up native checks.
+The user-owned debug files are retained locally and are not committed.
+
+The rapid synthetic-input finding above is now reproduced and fixed locally on
+Linux with ordered native events and batched Ghostty input. See
+[terminal input](terminal-input.md) for the regression and remaining native gates.

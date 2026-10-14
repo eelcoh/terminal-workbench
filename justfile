@@ -226,3 +226,8 @@ folder-picker-gui-test: spike-build
 attachment-gui-test: spike-build
     python3 tests/attachment_progress_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
     WORKBENCH_TEST_PANES=15 python3 tests/attachment_progress_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Ordered native keyboard input with actual Ghostty legacy/Kitty encoders.
+keyboard-gui-test: spike-build
+    python3 tests/keyboard_input_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 12
+    python3 tests/keyboard_input_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1

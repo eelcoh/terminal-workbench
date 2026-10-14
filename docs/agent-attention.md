@@ -75,7 +75,9 @@ foreground identity, hook-driven Working/Ready, question-driven Needs input and
 same-process detach/reattach. Real Linux permission prompts, background
 Agents/Overview filters and accepted commands now pass with Claude 2.1.299 and Codex 0.162.1. Claude denial can interrupt
 without a completion event and retain Needs input until the next hook, as can
-Copilot question cancellation. Native Mac full lifecycle acceptance remains open;
+Copilot question cancellation. The owner confirmed native Mac Copilot
+Working/Ready, Needs input and return from waiting through the watcher. Full
+native lifecycle edge-case acceptance remains open;
 supported schemas vary by agent version. See
 [the live validation record](agent-validation.md). A container
 agent that cannot reach the host socket or inherit its environment will not report.

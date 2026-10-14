@@ -96,23 +96,14 @@ static bool handle_clipboard(int fd, GhosttyTerminal terminal, bool can_paste)
     return false;
 }
 
-/* Raylib's event queue retains short presses that can begin and end within
- * one frame. Keep these when draining the queue to reset the viewport. */
-static bool terminal_pressed_keys[512];
-static bool terminal_key_pressed(int key)
-{
-    return (key >= 0 && key < 512 && terminal_pressed_keys[key]) || IsKeyPressed(key);
-}
-
+/* Native ordered input is consumed by the terminal adapter. Raylib queues remain
+ * available to UI routing and are drained here only to reset the viewport. */
+#include "platform_keyboard.h"
 static void prepare_terminal_keyboard_input(GhosttyTerminal terminal)
 {
-    int key;
-    bool input = false;
-    memset(terminal_pressed_keys, 0, sizeof(terminal_pressed_keys));
-    while ((key = GetKeyPressed()) != 0) {
-        if (key >= 0 && key < 512) terminal_pressed_keys[key] = true;
-        if (key < KEY_LEFT_SHIFT || key > KEY_RIGHT_SUPER)
-            input = true;
-    }
-    if (input) terminal_return_to_live(terminal);
+    while(GetKeyPressed()!=0) { }
+    WbKeyboardEvent event;bool input=false;
+    for(int i=0;i<wb_keyboard_event_count();i++) if(wb_keyboard_event_get(i,&event)
+        && (event.kind==WB_TEXT_EVENT || event.key<KEY_LEFT_SHIFT || event.key>KEY_RIGHT_SUPER)) {input=true;break;}
+    if(input) terminal_return_to_live(terminal);
 }

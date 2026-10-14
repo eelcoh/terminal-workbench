@@ -108,7 +108,8 @@ GitHub Copilot CLI is the owner's only permitted agent on the Mac and is a
 required integration target. Native/npm identification and invocation-local hooks
 are implemented. The owner confirmed native Mac identity in a new runtime;
 The owner also confirmed the Mac Needs input filter tracks waiting agents;
-Working/Ready and the complete native lifecycle sequence remain pending. See [Copilot testing](copilot.md).
+The native Mac trace now confirms Working → Ready → Needs input → Working → Ready.
+Normal exit, cancellation and other native edge cases remain follow-up. See [Copilot testing](copilot.md).
 Additional Linux agents can follow after this core matrix is reliable.
 See [the live validation record](agent-validation.md).
 
@@ -140,7 +141,8 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    implemented; finish their Mac review, terminal-search review and invalid-path/recovery review.
 4. Complete the core real-agent matrix after Linux Codex/Claude permission and
    background-workspace review: cancellation/event completeness, trust/setup
-   edge cases, plus Mac Copilot Working/Ready and full lifecycle transitions.
+   edge cases, plus the remaining Mac Copilot exit/cancellation/permission and
+   background/handoff acceptance after confirmed Working/Ready and waiting transitions.
    Unsupported signals retain honest fallback.
 5. Extend portable dotfiles as needed, then package/install outside the checkout. Decide the
    product name, installed-app lifecycle and update approach before release.
@@ -623,10 +625,23 @@ Codex interruption clears it. These limits remain explicit.
 read-only subscriptions, without attaching terminals, changing sessions or
 recording prompt/output content. It provides a simple native Mac Copilot follow-up
 for fast Working/Ready transitions. Real-runtime/malformed-stream tests and a live
-Codex trace pass; native Mac trace/full lifecycle review remains pending.
+Codex trace pass. The owner confirmed native Mac Copilot tracing, including
+Working/Ready and return from Needs input; the remaining native lifecycle edge
+cases stay open.
 See [agent review and tracing](agent-validation.md#linux-permission-and-background-workspace-review--2026-10-14).
 
 The live review also exposed garbled/duplicated fast synthetic typing in interactive
 agents. Reproduce with raw input under legacy/Kitty keyboard modes and compare
 physical keyboard behavior before an input-adapter change. Paced keys avoid the
 observed issue; the cause and native platform scope remain open.
+
+
+## Current input slice: ordered keyboard events
+
+The rapid-agent-input finding now has a raw-PTY reproduction and a client fix.
+An ordered GLFW callback bridge pairs each key with its own text/release/modifiers;
+Ghostty's encoded bytes are batched to avoid overflowing the PTY packet queue.
+Legacy/Kitty paused-window bursts preserve exact text and Enter order at 12 ms and
+1 ms. Existing shortcut/dialog/clipboard behavior remains covered. Native Mac
+typing/composition and physical keyboard/IME acceptance stay open. See
+[terminal input](terminal-input.md).

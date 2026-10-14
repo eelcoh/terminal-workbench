@@ -216,3 +216,9 @@ while shells keep parsing output. Enter/Down advances, Shift+Enter/Up goes back,
 Tab traverses query and buttons, and Escape restores the initial viewport and
 returns input to the shell. Desktop field editing/copy/paste conventions apply.
 See [terminal search](terminal-search.md).
+
+## Rapid terminal input
+
+Terminal typing now uses ordered GLFW key/text/release callbacks rather than
+frame-wide text batching. Ghostty still owns legacy/Kitty encoding. See
+[the input fix, regression and native acceptance](terminal-input.md).

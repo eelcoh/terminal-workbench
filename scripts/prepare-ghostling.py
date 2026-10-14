@@ -68,6 +68,8 @@ cmake = cmake[:start_raylib] + 'find_package(Python3 COMPONENTS Interpreter REQU
 write_if_changed(destination / "embed-font.py", (ROOT / "scripts/embed-font.py").read_bytes())
 write_if_changed(destination / "patch-raylib-input.py", (ROOT / "scripts/patch-raylib-input.py").read_bytes())
 write_if_changed(destination / "patch-raylib-display.py", (ROOT / "scripts/patch-raylib-display.py").read_bytes())
+write_if_changed(destination / "patch-raylib-keyboard.py", (ROOT / "scripts/patch-raylib-keyboard.py").read_bytes())
+cmake += '\nexecute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/patch-raylib-keyboard.py" "${raylib_SOURCE_DIR}"\n  COMMAND_ERROR_IS_FATAL ANY)\n'
 cmake = cmake.replace("# --- Our Project", """set(SYMBOL_FONT_INPUT "${CMAKE_SOURCE_DIR}/fonts/NotoSansSymbols2-Regular.ttf")
 set(SYMBOL_FONT_HEADER "${CMAKE_BINARY_DIR}/font_noto_symbols.h")
 add_custom_command(OUTPUT "${SYMBOL_FONT_HEADER}"
@@ -184,31 +186,17 @@ replace_once('            Color ray_fg = { fg.r, fg.g, fg.b, 255 };', """       
             }
             Color ray_fg = { fg.r, fg.g, fg.b, 255 };""")
 
-# Preserve queued short key presses and do not attach a preceding character
-# to Enter or another non-printable key delivered in the same frame.
-replace_once('bool pressed  = IsKeyPressed(rl_key);', 'bool pressed  = terminal_key_pressed(rl_key);')
-replace_once('bool released = IsKeyReleased(rl_key);', 'bool released = IsKeyReleased(rl_key) && !pressed;')
-replace_once('        ghostty_key_event_set_unshifted_codepoint(event, ucp);', """        ghostty_key_event_set_unshifted_codepoint(event, ucp);
-        // Raylib suppresses text for Ctrl+Shift+letters. Supply the same
-        // US-layout letter used by this adapter so Ghostty can distinguish
-        // the shifted chord and encode CSI-u instead of dropping it.
-        if (!released && char_utf8_len == 0 && ucp >= 'a' && ucp <= 'z'
-            && (mods & GHOSTTY_MODS_CTRL) && (mods & GHOSTTY_MODS_SHIFT)) {
-            char_utf8[0] = (char)(ucp - 'a' + 'A');
-            char_utf8_len = 1;
-        }
-        if (ucp == 0 && !released && char_utf8_len > 0) {
-            pty_write(pty_fd, char_utf8, (size_t)char_utf8_len);
-            char_utf8_len = 0;
-        }""")
+# Replace frame-wide text batching with the callback-order input adapter.
+keyboard_start=text.index('static void handle_input(')
+keyboard_end=text.index('// Handle scrollbar drag-to-scroll.',keyboard_start)
+text=text[:keyboard_start]+'#include "terminal_keyboard.h"\n\n'+text[keyboard_end:]
 replace_once('    uint16_t rows;\n} EffectsContext;', '    uint16_t rows;\n    const Theme *theme;\n} EffectsContext;')
 replace_once('    (void)out_scheme;\n    return false;', '    const EffectsContext *context = userdata;\n    const Theme *theme = context && context->theme ? context->theme : &current_theme;\n    *out_scheme = theme_light(theme) ? GHOSTTY_COLOR_SCHEME_LIGHT : GHOSTTY_COLOR_SCHEME_DARK;\n    return true;')
-replace_once('        int rl_key = keys_to_check[i];', '        int rl_key = keys_to_check[i];\n        if (rl_key >= 0 && rl_key < 512 && workbench_key_blocked[rl_key]) continue;')
 replace_once('int main(void)', '#include "snapshot_restore.h"\n\nstatic int single_terminal_main(void)')
 text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    platform_app_name();\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
 write_if_changed(destination / "main.c", text.encode())
 write_if_changed(destination / "session_bridge.h", (ROOT / "spikes/ghostling/session_bridge.h").read_bytes())
-for name in ["snapshot_stage.h", "folder_picker_ui.h", "terminal_search.h", "terminal_search_vt.h", "terminal_search_ui.h", "macos-Info.plist", "text_edit.h", "dialog_text.h", "terminal_context.h", "platform_app_name.h", "chrome_menu_layout.h", "font_preferences.h", "font_client.h", "portable_config.h", "terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "ui_font.h", "chrome_ui.h", "minimal_chrome.h", "pixel_geometry.h", "display_geometry.h", "platform_display.h", "display_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
+for name in ["platform_keyboard.h", "terminal_keyboard.h", "snapshot_stage.h", "folder_picker_ui.h", "terminal_search.h", "terminal_search_vt.h", "terminal_search_ui.h", "macos-Info.plist", "text_edit.h", "dialog_text.h", "terminal_context.h", "platform_app_name.h", "chrome_menu_layout.h", "font_preferences.h", "font_client.h", "portable_config.h", "terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "ui_font.h", "chrome_ui.h", "minimal_chrome.h", "pixel_geometry.h", "display_geometry.h", "platform_display.h", "display_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
     write_if_changed(destination / name, (ROOT / "spikes/ghostling" / name).read_bytes())
 for collection in ["catppuccin", "dracula"]:
     target = destination / "theme-licenses" / collection / "LICENSE"

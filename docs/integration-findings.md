@@ -244,3 +244,12 @@ Copilot integration now adds native/npm identity and an invocation-local hook
 plugin, with runtime/socket and overview fixture coverage. No user/project hook
 settings are edited; native Mac agent acceptance is pending. See
 [Copilot testing](copilot.md).
+
+### Ordered terminal input
+
+The live-agent rapid-input finding was reproduced with a raw PTY: legacy input
+passed, while Kitty reporting duplicated/reordered text. A marked GLFW callback
+bridge now pairs each key with its own text in native order and batches encoded
+bytes to avoid per-key packet backpressure. Paused-viewer regressions pass across
+legacy and three Kitty configurations at 12 ms and 1 ms. Native Mac typing,
+composition, focus and IME acceptance remain open. [Implementation and checks](terminal-input.md).

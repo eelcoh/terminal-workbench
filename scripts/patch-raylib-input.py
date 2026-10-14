@@ -37,8 +37,8 @@ def main():
     source=Path(sys.argv[1])/'src'
     paths=[source/'rcore.c',source/'platforms/rcore_desktop_glfw.c']
     texts=[path.read_text() for path in paths]
-    if not all(text.startswith(MARKER) for text in texts):
-        if any(text.startswith(MARKER) for text in texts):
+    if not all(MARKER in text for text in texts):
+        if any(MARKER in text for text in texts):
             raise RuntimeError('Partially patched Raylib input; recreate the viewer build directory')
         texts=list(adapt(*texts))
     scroll_marker='// Terminal Workbench alteration: accumulate fractional wheel events within one poll.'
