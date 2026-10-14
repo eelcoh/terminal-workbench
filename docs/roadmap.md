@@ -435,8 +435,11 @@ logical terminal cells; the marked GLFW adapter fixes Mac scale callback
 transforms and framebuffer refresh. Window recovery uses logical work areas and
 pane outlines stay inside their clipping area. Horizontal two-finger content
 swipes pan the working strip while vertical input retains terminal scrolling.
-The owner confirmed native Mac resizing and horizontal swipes. External-monitor
-text/borders and unplug recovery remain pending; see
+The owner confirmed native Mac resizing and horizontal swipes, and correct pane
+borders on the LG 35WN75C at default 3440×1440. Text remained softer than native
+Ghostty on that display. A CoreText terminal-atlas adapter and embedded Mac app
+identity are implemented, with native build/menu/text review pending. The earlier
+external screen and unplug recovery remain pending; see
 [display details](interface-typography.md#display-changes-and-pane-outlines).
 
 ## UX spike: a product-quality gate

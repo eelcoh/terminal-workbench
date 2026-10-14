@@ -74,3 +74,31 @@ selection/clipboard, variable-width navigation, modal input and shell continuity
 The full check suite, chrome, display and dotfile GUI regressions pass on Linux.
 Native macOS keyboard/visual review remains
 pending. Screenshots are retained under `.local/test-results/font-settings-*`.
+
+## Native Mac rasterization and external displays
+
+The owner reviewed a native Ghostty comparison on an LG 35WN75C at its default
+3440×1440 resolution. Pane borders look correct there; terminal text still looked
+softer than Ghostty. This does not complete review of the earlier external screen
+or unplug recovery.
+
+Mac terminal atlases now use CoreText grayscale glyph coverage at the current
+backing density, without synthetic font thickening. Bundled JetBrains Mono,
+Fira Code and the symbol fallback share this path. The existing rasterizer still
+provides logical advances/cell measurements and individual fallback glyphs if a
+native glyph cannot be drawn. Atlas packing accounts for padded native ink bounds.
+Linux retains its current rasterizer. No font/config migration or extra installed
+dependency is needed; CoreText/CoreGraphics are system frameworks.
+
+After rebuilding with `just spike`, the viewer log records `Terminal glyph
+rasterizer: CoreText N/M ...`. Compare the same font and size against Ghostty on
+the 1× external screen, then move to the MacBook display and back. Review sharpness,
+upright glyphs/bearings, Unicode symbols, selection alignment and unchanged grid
+on density-only moves. Native Mac build and visual acceptance remain pending.
+`just check` covers metric parsing, ink bounds, surrogate pairs and adapter
+fallback/resource cleanup using API stand-ins; these do not validate Apple's SDK
+or the resulting pixels on Mac hardware.
+
+The Linux spike build and `just check` pass. Font-settings and display GUI
+regressions pass with one and fifteen terminals, including simulated 1→2→1
+density, selection/clipboard, borders, resizing and retained shell/grid state.

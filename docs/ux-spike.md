@@ -703,3 +703,18 @@ part of the production toolkit gate.
 Use `just text-edit-gui-test` for the isolated Linux fixture. Review captures are
 under `.local/artifacts/text-edit/`. See [project folders](workspace-directories.md)
 for the editing shortcuts and existing/new value behavior.
+
+## Mac menu identity and external-screen text
+
+The standalone Mac executable now embeds an Info.plist with **Terminal Workbench**
+as both its display name and bundle name. Cocoa consults bundle metadata before
+the process-name fallback, which previously left the menu showing Ghostling.
+The binary path remains `ghostling` for existing launch/test scripts. Rebuild and
+fully quit/reopen the viewer to review the app menu and its About/Hide/Quit labels;
+native acceptance remains pending. Final `.app` packaging is a separate milestone.
+
+Mac terminal glyph atlases now use a CoreText platform adapter, while preserving
+logical cell metrics. The owner accepted borders on an LG 35WN75C at 3440×1440,
+but reported softer text beside native Ghostty. The rasterizer change needs native
+1× external/Retina review; Linux and API-stand-in checks do not establish visual
+parity. See [terminal fonts](terminal-fonts.md#native-mac-rasterization-and-external-displays).

@@ -5,8 +5,8 @@
 static inline void platform_app_name(void)
 {
 #ifdef __APPLE__
-    /* Cocoa's non-bundle menu fallback uses Darwin's program name. Static storage
-     * is required: setprogname retains this pointer for the process lifetime. */
+    /* Retain a process-name fallback. Cocoa's authoritative display name now
+     * comes from the embedded macos-Info.plist; binary paths stay compatible. */
     setprogname("Terminal Workbench");
 #endif
 }

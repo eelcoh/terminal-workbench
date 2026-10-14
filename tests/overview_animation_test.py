@@ -7,9 +7,13 @@ import tempfile
 
 root = Path(__file__).resolve().parent.parent
 with tempfile.TemporaryDirectory(prefix='wb-motion-test-') as directory:
-    for name in ('text_edit', 'terminal_context', 'overview_animation', 'input_lookahead', 'catalog_view', 'theme_core', 'appearance_state', 'pane_navigation', 'pane_width', 'overview_scroll', 'window_state', 'shortcut_state', 'shortcut_help', 'ui_focus', 'pixel_geometry', 'display_geometry', 'portable_config', 'font_preferences', 'chrome_menu_layout', 'platform_app_name'):
+    for framework in ('CoreText', 'CoreGraphics'):
+        folder=Path(directory)/framework
+        folder.mkdir()
+        (folder/f'{framework}.h').write_text('/* API stand-ins are declared by the fixture. */\n')
+    for name in ('native_font_adapter', 'font_raster', 'text_edit', 'terminal_context', 'overview_animation', 'input_lookahead', 'catalog_view', 'theme_core', 'appearance_state', 'pane_navigation', 'pane_width', 'overview_scroll', 'window_state', 'shortcut_state', 'shortcut_help', 'ui_focus', 'pixel_geometry', 'display_geometry', 'portable_config', 'font_preferences', 'chrome_menu_layout', 'platform_app_name'):
         binary = str(Path(directory) / name)
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c11', '-Wall', '-Wextra', '-Werror',
-            '-I', str(root / 'spikes/ghostling'), str(root / f'tests/{name}_test.c'), '-o', binary, '-lm'], check=True)
+            '-I', directory, '-I', str(root / 'spikes/ghostling'), str(root / f'tests/{name}_test.c'), '-o', binary, '-lm'], check=True)
         subprocess.run([binary], check=True, env=dict(os.environ, WB_TEST_DIRECTORY=directory))
 print('PASS: bounded/reversible animation, reduced motion, stalled frames, queued short presses, Unicode text, bounded lookahead and normal input bypass; cross-workspace pane reuse without reconnect/free; fractional overview scrolling, reversal, boundaries and frame-rate independent easing')

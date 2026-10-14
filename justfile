@@ -31,6 +31,7 @@ check: runtime-build
     python3 tests/copilot_observer_test.py
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
+    python3 tests/macos_metadata_test.py
     python3 tests/config_paths_test.py
     python3 tests/build_env_test.py
     python3 tests/font_assets_test.py
