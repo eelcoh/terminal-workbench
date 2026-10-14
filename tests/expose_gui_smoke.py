@@ -71,7 +71,7 @@ def main():
         (state / 'workspaces.json').write_text(json.dumps(metadata))
         processes = []
         environment = dict(os.environ, SHELL='/bin/sh', LIBGL_ALWAYS_SOFTWARE='1',
-            WORKBENCH_WORKSPACES=str(state / 'workspaces.tsv'))
+            WORKBENCH_WORKSPACES=str(state / 'workspaces.tsv'),WORKBENCH_WINDOW_STATE=str(root/'window.view'))
         environment.pop('WAYLAND_DISPLAY', None); environment.pop('WORKBENCH_SOCKET', None)
         with (root / 'test.log').open('w+') as log:
             try:
@@ -148,6 +148,19 @@ def main():
                 assert geometry() == before, 'opening overview changed PTY geometry'
                 log.flush()
                 assert (root / 'test.log').read_text().count('Texture loaded successfully (384x240') == 8, 'offscreen previews allocated or live updates reallocated'
+                # Explicit filters expose their state and never strand the all-terminal view.
+                click(1100,74);time.sleep(.2)
+                empty=capture('overview-agents-empty.png');assert red_pixels(empty,box)==0
+                click(932,74);time.sleep(.2) # Needs input active, no agents in this fixture.
+                capture('overview-needs-input-empty.png')
+                click(1030,74);time.sleep(.2) # All terminals clears Needs input as well.
+                recovered=capture('overview-all-recovered.png');assert red_pixels(recovered,box)>20
+                assert geometry()==before
+                click(500,133);text('does-not-match-any-terminal');time.sleep(.2)
+                empty=capture('overview-search-empty.png');assert red_pixels(empty,box)==0
+                click(135,232);time.sleep(.2) # Clear filters also clears the query.
+                recovered=capture('overview-clear-recovered.png');assert red_pixels(recovered,box)>20
+                assert geometry()==before
                 # One notch moves only 40 pixels, preserving a partial workspace
                 # rather than snapping to the next row. Trackpad fractions use the
                 # same path; callback and pure tests exercise sub-notch values.

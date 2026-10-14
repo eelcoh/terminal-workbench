@@ -1,11 +1,6 @@
 /* A client-only live appearance preview. Cancel restores the exact prior theme. */
 /* Focus order: search, gallery, close, brightness filters, clear, reset, Cancel, Apply. */
 static Rectangle theme_button(void) { return (Rectangle){-1000,-1000,0,0}; }
-static Rectangle overview_theme_button(WorkspaceClient *client)
-{
-    Rectangle bounds=overview_bounds(client);
-    return (Rectangle){bounds.x+224,bounds.y+14,88,24};
-}
 static Rectangle theme_bounds(void)
 {
     float width=GetScreenWidth()-40, height=GetScreenHeight()-40;

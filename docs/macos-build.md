@@ -389,3 +389,12 @@ Use a pane's Terminal theme menu for an exception. The workspace picker should
 report it and preserve its colors; Use workspace clears it only on Apply.
 Verify reopening, Tab/Shift+Tab, Enter/Escape, dotfile defaults and explicitly
 fixed chrome (`follow-workspace = false`). Native acceptance is pending.
+
+## Standalone viewer menu name
+
+The prototype sets its Darwin program name to **Terminal Workbench** before
+GLFW creates the Cocoa menu, replacing the inherited `ghostling` menu label.
+The existing build/launcher executable path stays compatible. This uses
+[Darwin's setprogname](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/setprogname.3.html)
+and a process-lifetime string. Linux builds compile a no-op platform adapter.
+A mocked adapter contract is included in `just check`; native Mac review is pending.

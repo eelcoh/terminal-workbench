@@ -636,3 +636,19 @@ Review captures include `.local/test-results/ux-{1,15}-workspace-picker-preview.
 `ux-15-workspace-with-exception.png`, `dotfiles-fixed-picker.png` and focus/Retina
 captures. Native Mac review remains pending; see the Mac workspace-theme steps.
 Font-size controls remain the next slice.
+
+## Menu sections and Overview filter polish
+
+Application and pane menus now separate related actions with quiet non-interactive
+lines. Keyboard traversal skips gaps; scrolling fits grouped rows in narrow
+windows. Workspace rows have a quiet close control and tooltip, also reachable
+by keyboard. Removal reuses explicit Stop workspace confirmation with the chosen
+workspace name and shell count; Cancel preserves current workspace/focus and
+only the confirmed stable workspace identity is removed.
+
+Overview has explicit All terminals and Agents choices, an always-labelled Needs
+input filter with active styling, filtered/total counts and Clear filters for
+empty results. All terminals clears Needs input, and reset consumes its click
+before new cards can receive it. Theme is removed from Overview. Appearance stays
+in the Workbench menu and Commands. Runtime-owned cwd/repo/branch/worktree labels
+are the next context slice; see the roadmap. Native Mac review remains pending.

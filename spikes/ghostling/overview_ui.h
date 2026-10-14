@@ -1,5 +1,5 @@
 /* Client-only spatial overview and searchable list. */
-/* Focus order: search, terminals, Theme, layout, states, agents, Done. */
+/* Focus order: search, terminals, layout, needs input, all terminals, agents, Done, optional reset. */
 typedef struct { int workspace, pane; } OverviewItem;
 
 static Rectangle overview_button(void) { return (Rectangle){GetScreenWidth()-92, 6, 84, 28}; }
@@ -49,13 +49,24 @@ static bool overview_agent_matches(WorkspaceClient *client, WorkbenchPane *pane)
 static Rectangle overview_agents_button(WorkspaceClient *client)
 {
     Rectangle bounds = overview_bounds(client);
-    return (Rectangle){bounds.x + bounds.width - 184, bounds.y + 14, 96, 24};
+    return (Rectangle){bounds.x + bounds.width - 140, bounds.y + 14, 52, 24};
 }
 
+static Rectangle overview_all_button(WorkspaceClient *client)
+{Rectangle b=overview_bounds(client);return (Rectangle){b.x+b.width-228,b.y+14,84,24};}
+static Rectangle overview_clear_button(WorkspaceClient *client)
+{Rectangle b=overview_bounds(client);return (Rectangle){b.x+24,b.y+168,184,30};}
+static void overview_filter_button(WorkspaceClient *client,int focus,Rectangle bounds,const char *label,bool selected)
+{
+    UiStyle original=ui;
+    if (selected) {ui.raised=ui_mix(ui.surface,ui.accent,.20f);ui.hover=ui_mix(ui.surface,ui.accent,.28f);}
+    ui_focus_button(client->ui_font,client->overview_focus,focus,bounds,label,true);ui=original;
+    if (selected) DrawRectangleRoundedLinesEx(bounds,ui_roundness(bounds,6),8,1,ui.accent);
+}
 static Rectangle overview_waiting_button(WorkspaceClient *client)
 {
     Rectangle bounds = overview_bounds(client);
-    return (Rectangle){bounds.x + bounds.width - 288, bounds.y + 14, 96, 24};
+    return (Rectangle){bounds.x + bounds.width - 332, bounds.y + 14, 96, 24};
 }
 
 static int overview_items(WorkspaceClient *client, OverviewItem *items)
@@ -83,14 +94,13 @@ static int overview_items(WorkspaceClient *client, OverviewItem *items)
 static Rectangle overview_view_button(WorkspaceClient *client)
 {
     Rectangle bounds = overview_bounds(client);
-    return (Rectangle){bounds.x + bounds.width - 392, bounds.y + 14, 96, 24};
+    return (Rectangle){bounds.x + bounds.width - 436, bounds.y + 14, 96, 24};
 }
 #include "overview_spatial.h"
 static void overview_apply_jump(WorkspaceClient *client, int workspace_index, int pane_index);
 static bool overview_requested(void);
 static void overview_draw(WorkspaceClient *client);
 static void overview_jump(WorkspaceClient *client, OverviewItem item);
-static Rectangle overview_theme_button(WorkspaceClient *client);
 static void theme_open(WorkspaceClient *client);
 #include "overview_motion.h"
 #include "overview_drag.h"
@@ -158,7 +168,11 @@ static bool overview_input(WorkspaceClient *client)
     }
     if (client->overview_drag_armed) return overview_drag_input(client);
     Rectangle focus_bounds=overview_bounds(client);
-    ui_focus_begin(&client->overview_focus,127,126);
+    OverviewItem items[WORKBENCH_MAX_WORKSPACES*WORKBENCH_PANES];
+    int count=overview_items(client,items);
+    bool reset=!count && (client->overview_agents || client->overview_waiting || client->overview_query[0]);
+    uint32_t controls=(255 & ~ui_focus_bit(2))|(reset ? ui_focus_bit(8) : 0);
+    ui_focus_begin(&client->overview_focus,controls,controls & ~ui_focus_bit(0));
     ui_focus_hit(&client->overview_focus,0,(Rectangle){focus_bounds.x+24,focus_bounds.y+70,focus_bounds.width-48,30});
     ui_focus_hit(&client->overview_focus,1,overview_content(client));
     bool escape = false, enter = false, backspace = false;
@@ -216,9 +230,16 @@ static bool overview_input(WorkspaceClient *client)
         client->overview_query[length] = '\0';
         changed = true; client->overview_all = false;
     }
-    OverviewItem items[WORKBENCH_MAX_WORKSPACES * WORKBENCH_PANES];
-    if (ui_focus_hit(&client->overview_focus,5,overview_agents_button(client))) {
-        client->overview_agents = !client->overview_agents; changed = true;
+    if (ui_focus_hit(&client->overview_focus,6,overview_agents_button(client))) {
+        client->overview_agents=true;changed=true;
+    }
+    if (ui_focus_hit(&client->overview_focus,5,overview_all_button(client))) {
+        client->overview_agents=false;client->overview_waiting=false;changed=true;
+    }
+    bool cleared=reset && ui_focus_hit(&client->overview_focus,8,overview_clear_button(client));
+    if (cleared) {
+        client->overview_agents=false;client->overview_waiting=false;client->overview_query[0]=0;
+        client->overview_all=false;client->overview_focus.item=0;changed=true;
     }
     if (ui_focus_hit(&client->overview_focus,4,overview_waiting_button(client))) {
         client->overview_waiting = !client->overview_waiting; changed = true;
@@ -229,8 +250,8 @@ static bool overview_input(WorkspaceClient *client)
         client->overview_first = 0;
         client->overview_scroll = (OverviewScroll){0};
     }
-    if (ui_focus_hit(&client->overview_focus,2,overview_theme_button(client))) { theme_open(client);return false; }
-    int count = overview_items(client, items), rows = overview_visible_rows(client);
+    if (changed) count=overview_items(client,items);
+    int rows=overview_visible_rows(client);
     if (changed) { client->overview_selected = client->overview_first = 0; client->overview_scroll = (OverviewScroll){0}; }
     if (client->overview_list) client->overview_selected += direction;
     if (client->overview_selected < 0) client->overview_selected = 0;
@@ -238,6 +259,7 @@ static bool overview_input(WorkspaceClient *client)
     if (!client->overview_list) overview_spatial_move(client, items, count, horizontal, direction);
     if (changed || direction || horizontal) overview_reveal(client, items, count);
     overview_scroll_update(client,items,count,changed);
+    if (cleared) return false; /* A recovered card must not receive the reset-button click. */
     Rectangle bounds = overview_bounds(client);
     Vector2 pointer = GetMousePosition();
     overview_scroll_input(client,items,count);
@@ -250,7 +272,7 @@ static bool overview_input(WorkspaceClient *client)
     } else overview_spatial_clamp(client, items, count);
     bool click = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     Rectangle dismiss = {bounds.x + bounds.width - 80, bounds.y + 14, 64, 24};
-    if (escape || ui_focus_hit(&client->overview_focus,6,dismiss)) overview_close(client, -1, -1);
+    if (escape || ui_focus_hit(&client->overview_focus,7,dismiss)) overview_close(client, -1, -1);
     else if (((enter && client->overview_focus.item<=1) || client->overview_focus.activated==1) && count) { overview_jump(client, items[client->overview_selected]); return true; }
     else if (click && !client->overview_list) {
         for (int i = 0; i < count; i++) {
@@ -281,11 +303,11 @@ static void overview_draw(WorkspaceClient *client)
     ui_panel(bounds, ui.surface, true);
     DrawTextEx(client->ui_font, client->overview_list ? "Terminal overview" : "Workspace overview", (Vector2){bounds.x + 24, bounds.y + 20},UI_TEXT_TITLE,0,ui.text);
     DrawTextEx(client->ui_font, client->overview_list ? "All workspaces / click a terminal to jump" : "Live previews / click to enter / scroll workspaces / swipe sideways or Shift+scroll terminals", (Vector2){bounds.x + 24, bounds.y + 47},UI_TEXT_CAPTION, 0, ui.muted);
-    ui_focus_button(client->ui_font,client->overview_focus,2, overview_theme_button(client), "Theme", true);
     ui_focus_button(client->ui_font,client->overview_focus,3, overview_view_button(client), client->overview_list ? "Spatial" : "List", true);
-    ui_focus_button(client->ui_font,client->overview_focus,4, overview_waiting_button(client), client->overview_waiting ? "All states" : "Needs input", true);
-    ui_focus_button(client->ui_font,client->overview_focus,5, overview_agents_button(client), client->overview_agents ? "All terminals" : "Agents", true);
-    ui_focus_button(client->ui_font,client->overview_focus,6, (Rectangle){bounds.x + bounds.width - 80, bounds.y + 14, 64, 24}, "Done", true);
+    overview_filter_button(client,4,overview_waiting_button(client),"Needs input",client->overview_waiting);
+    overview_filter_button(client,5,overview_all_button(client),"All terminals",!client->overview_agents);
+    overview_filter_button(client,6,overview_agents_button(client),"Agents",client->overview_agents);
+    ui_focus_button(client->ui_font,client->overview_focus,7, (Rectangle){bounds.x + bounds.width - 80, bounds.y + 14, 64, 24}, "Done", true);
     Rectangle field = {bounds.x + 24, bounds.y + 70, bounds.width - 48, 30};
     DrawRectangleRounded(field,.22f,8,client->overview_focus.item==0 && client->overview_all ? ui.selected : ui.background);
     ui_focus_ring(client->overview_focus,0,field);
@@ -325,8 +347,12 @@ static void overview_draw(WorkspaceClient *client)
     if (!client->overview_list) overview_drag_draw(client, items, count);
     if (!count && (client->overview_list || !client->overview_group_count)) DrawTextEx(client->ui_font, client->overview_waiting ? "No agents need input" : client->overview_agents ? "No identified agents" : client->overview_query[0] ? "No matching terminals" : "No terminals yet",
         (Vector2){bounds.x + 24, bounds.y + 124},UI_TEXT_BODY, 0, ui.muted);
+    if (!count && (client->overview_agents || client->overview_waiting || client->overview_query[0]))
+        ui_focus_button(client->ui_font,client->overview_focus,8,overview_clear_button(client),"Clear filters",true);
     char footer[256];
-    snprintf(footer, sizeof(footer), "%d terminals / %s + Enter / Esc / dot: unseen output", count, client->overview_list ? "arrows" : "Left/Right: terminal / Up/Down: workspace");
+    int total=0;for (int w=0;w<client->count;w++) total+=client->workspaces[w].count;
+    snprintf(footer, sizeof(footer), "%d of %d terminals · %s%s / %s + Enter / Esc / dot: unseen output", count,total,
+        client->overview_agents ? "Agents" : "All terminals",client->overview_waiting ? " · Needs input" : "", client->overview_list ? "arrows" : "Left/Right: terminal / Up/Down: workspace");
     if (client->management_busy && client->dialog_kind == DIALOG_TERMINAL_MOVE)
         snprintf(footer, sizeof(footer), "Moving terminal...");
     else if (client->overview_notice_until > GetTime())

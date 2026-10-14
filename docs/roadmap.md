@@ -305,6 +305,14 @@ Long UTF-8 names use ellipses; pane geometry, action targets, terminal input and
 keyboard bindings stay unchanged. See [the chrome refinement](interface-typography.md#pane-headers-and-workspace-sidebar).
 Native Mac and owner visual review of this slice remain open.
 
+## Keyboard polish: matching Linux and Mac modifiers
+
+The owner prefers Super+Alt on Linux, matching Command+Option on a Mac keyboard.
+Evaluate these as the common application/navigation defaults while preserving
+saved custom bindings and platform clipboard conventions. Check compositor
+shortcut conflicts, keyboard layouts, labels, help and migration before changing
+defaults. This is a requested roadmap item.
+
 ## Chrome polish: menu sections and workspace removal
 
 Restore the subtle separators between action groups in the hamburger menu,
@@ -318,7 +326,10 @@ each workspace row, invoking the existing Stop workspace confirmation. Make
 the workspace name and affected shells clear in the Are you sure dialog; only
 confirmation removes the workspace. Keep row navigation distinct from the close
 target, with keyboard access, a tooltip and visible hover/focus treatment. These
-are planned polish items.
+are implemented in the native prototype, with confirmation tied to the chosen
+workspace's stable identity and no navigation on Cancel. Menu separators are
+non-interactive; narrow-window scrolling and keyboard traversal retain actions.
+Native Mac review remains pending.
 
 Workspace name and project-folder fields currently behave like replacement-only
 inputs: typing replaces the existing value, and a caret cannot be placed within
@@ -327,6 +338,25 @@ and deletion, and standard keyboard navigation/selection. Preserve the existing
 value on opening; make whole-value replacement an explicit Select all action.
 Validate long paths, spaces and Unicode, clipboard editing, Apply/Cancel and
 keyboard access on Mac/Linux. This is a reported polish issue.
+
+## Overview polish and terminal context
+
+The owner traced the empty Overview to reversed filter labels: All states was
+shown while Needs input was active. The native prototype now uses explicit All
+terminals / Agents choices and an always-labelled Needs input chip with active
+styling. All terminals clears the status filter; empty filtered results offer
+Clear filters and a filtered/total count. Theme is removed from Overview; use
+the Workbench menu or Commands for appearance.
+
+Next, replace generic shell names in Overview with live context: repository
+name and branch, with the worktree folder where needed to distinguish checkouts;
+outside Git, show the current working directory. Retain an explicit custom name
+as an override. The current viewer only knows configured launch directories, so
+this requires reliable runtime-owned cwd/context metadata and bounded refresh
+outside rendering. Cover directory/branch changes, detached HEAD, ordinary and
+linked worktrees, multiple checkouts, non-Git folders, SSH/remote context and
+missing permissions on Mac/Linux. Keep stable terminal identity independent of
+display labels. This context slice is planned, not implemented.
 
 ## Design question: do terminal panes need names?
 

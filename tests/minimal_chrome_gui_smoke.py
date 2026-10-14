@@ -40,7 +40,7 @@ def main():
                 def screenshot(name):
                     started=time.time_ns();key('F12');image=wait_until(lambda:next((p for p in root.glob('screenshot*.png') if p.stat().st_mtime_ns>=started),None))
                     dest=ROOT/'.local/test-results'/('minimal-'+name+'.png');dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(image,dest);key("ctrl+u");return dest
-                def app_menu(index):click(22,20);click(100,65+index*32)
+                def app_menu(index):click(22,20);click(100,65+index*32+8*sum(index>=boundary for boundary in [2,5,10,12]))
                 def palette(query):key('ctrl+shift+p');text(query);key('Return')
                 def focus_first():key('ctrl+shift+Up');key('ctrl+shift+Left');time.sleep(.25)
                 line('keep=chrome; echo $$ > original.pid');pid=marker('original.pid');inode=(state/f'{first}.sock').stat().st_ino
@@ -54,7 +54,7 @@ def main():
                 # Drawer opening and dismissal consume text and pointer events but never resize PTYs.
                 click(22,66);text('touch_sentinel');assert geometry()==baseline
                 key('Escape');safe('drawer-safe')
-                click(22,20);text('menu_sentinel');key('Escape');safe('menu-safe')
+                click(22,20);screenshot('app-menu-sections');text('menu_sentinel');key('Escape');safe('menu-safe')
                 click(22,66);click(235,65);time.sleep(.3);assert geometry()!=baseline
                 wait_until(lambda:'C 1 0 0' in (root/'window.view').read_text());screenshot('pinned')
                 click(235,65);time.sleep(.3);assert geometry()==baseline;safe('pin-safe')
@@ -64,7 +64,7 @@ def main():
                 click(629,62);screenshot('pane-menu');key('Return');text('Implementation');key('Return')
                 wait_until(lambda:data()['workspaces'][0]['terminals'][0]['name']=='Implementation');safe('pane-rename-safe')
                 # Command registry presets remain mouse and keyboard accessible.
-                click(629,62);click(725,103+4*32);time.sleep(.25);assert geometry()!=baseline;palette('Terminal width: one half');time.sleep(.25);assert geometry()==baseline
+                click(629,62);click(725,103+4*32+8);time.sleep(.25);assert geometry()!=baseline;palette('Terminal width: one half');time.sleep(.25);assert geometry()==baseline
                 key('ctrl+shift+r');assert geometry()!=baseline;key('ctrl+shift+r');key('ctrl+shift+r');time.sleep(.2);assert geometry()==baseline
                 app_menu(0);text('Menu-created');key('Return');wait_until(lambda:len(data()['workspaces'][0]['terminals'])==3)
                 time.sleep(.5);line('echo $$ > disposable.pid');disposable=marker('disposable.pid')
@@ -88,7 +88,7 @@ def main():
                 click(629,62);call('terminal.rename',first,'Renamed outside');time.sleep(.5);key('Return');key('Escape');safe('refresh-menu-safe')
                 # A real pane menu moves the sibling through the same catalog workflow.
                 sibling=data()['workspaces'][0]['terminals'][1]['id'];main_id=data()['workspaces'][0]['id'];scratch_id=data()['workspaces'][1]['id']
-                click(1210,62);click(1040,103+6*32);click(1040,135)
+                click(1210,62);click(1040,103+6*32+16);click(1040,135)
                 wait_until(lambda:len(data()['workspaces'][0]['terminals'])==1)
                 assert data()['workspaces'][1]['terminals'][-1]['id']==sibling
                 call('terminal.move',sibling,destination=main_id,position=1)
@@ -106,6 +106,27 @@ def main():
                 click(556,62);time.sleep(.7);line('printf "%s:%s" "$$" "$keep" > transferred.pid');assert marker('transferred.pid')==pid+':chrome'
                 close_window(window,env);assert second.wait(timeout=5)==0
                 window=first_window;cmd('windowfocus',window);click(556,62);time.sleep(.7);safe('transfer-back-safe')
+                # Cross on another workspace never navigates to it or stops shells before confirmation.
+                scratch_pid=marker('drawer-keyboard.pid')
+                click(22,66);cmd('mousemove','--window',window,259,169);screenshot('workspace-close-hover');click(259,169);screenshot('workspace-close-confirm')
+                key('Return');assert len(data()['workspaces'])==2;os.kill(int(scratch_pid),0)
+                key('Tab');key('Return');safe('workspace-close-cancel');assert geometry()==baseline
+                # Keyboard reaches close affordances after the navigation rows; Escape is safe.
+                click(22,66)
+                for _ in range(5):key('Tab')
+                key('Return');key('Escape');safe('keyboard-workspace-close-cancel')
+                click(22,66);click(259,169)
+                call('workspace.rename',scratch_id,'Renamed during confirmation')
+                key('Tab');key('Tab');key('Return');wait_until(lambda:len(data()['workspaces'])==1)
+                assert data()['workspaces'][0]['id']==main_id;safe('workspace-close-target-safe')
+                wait_until(lambda:not Path(f'/proc/{scratch_pid}').exists())
+                # Empty workspace removal uses the same confirmation, with zero affected shells.
+                call('workspace.create',title='Empty removal');empty=data()['workspaces'][-1]
+                for terminal in empty['terminals']:call('terminal.close',terminal['id'])
+                time.sleep(.5);click(22,66);click(259,169);screenshot('empty-workspace-close')
+                key('Tab');key('Tab');key('Return');wait_until(lambda:len(data()['workspaces'])==1);safe('empty-close-safe')
+                # A move menu with no available destinations still opens and dismisses normally.
+                click(629,62);click(725,103+6*32+16);key('Down');key('Return');key('Escape');safe('disabled-menu-safe')
                 # Empty workspace uses only the application background and the visible + action.
                 palette('Stop workspace');key('Escape')
                 app_menu(1);text('Empty candidate');key('Escape');safe('create-cancel-safe')

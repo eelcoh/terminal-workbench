@@ -1,4 +1,5 @@
 /* Per-window presentation. Runtime actions reuse the existing registry. */
+#include "chrome_menu_layout.h"
 static Rectangle chrome_menu_button(void) { return (Rectangle){8,6,28,28}; }
 static Rectangle chrome_workspace_button(void) { return (Rectangle){44,6,160,28}; }
 static Rectangle chrome_rail_button(int i) { return (Rectangle){8,52+i*42,28,28}; }
@@ -9,6 +10,16 @@ static int chrome_rows(WorkspaceClient *client)
 { return (int)fmaxf(1,fminf(24,(GetScreenHeight()-(client->chrome_agents ? 160 : 150))/52)); }
 static Rectangle chrome_row(WorkspaceClient *client,int i)
 { return (Rectangle){56,(client->chrome_agents ? 140 : 94)+i*52,220,46}; }
+static Rectangle chrome_workspace_close(WorkspaceClient *client,int row)
+{Rectangle b=chrome_row(client,row);return (Rectangle){b.x+b.width-30,b.y+10,26,26};}
+static void chrome_remove_workspace(WorkspaceClient *client,int workspace)
+{
+    if (!client->managed || client->management_busy || workspace<0 || workspace>=client->count) return;
+    navigation_finish(client);client->divider_dragging=false;
+    dialog_open_workspace(client,DIALOG_WORKSPACE_CLOSE,workspace);
+    if (!client->chrome_pinned) client->chrome_drawer=false;
+    client->chrome_keyboard=false;
+}
 static void chrome_close_transient(WorkspaceClient *client)
 { client->chrome_menu=0;client->chrome_keyboard=false;if (!client->chrome_pinned) client->chrome_drawer=false; }
 static void chrome_pin(WorkspaceClient *client)
@@ -52,12 +63,12 @@ static int chrome_menu_actions(WorkspaceClient *client,int *actions)
 static Rectangle chrome_popup(WorkspaceClient *client)
 {
     int actions[16],count=chrome_menu_actions(client,actions);
-    float height=fminf(count*32+12,GetScreenHeight()-52);
+    float height=fminf(chrome_menu_height(client->chrome_menu,count),GetScreenHeight()-52);
     return (Rectangle){fmaxf(8,fminf(client->chrome_anchor.x,GetScreenWidth()-288)),
         fmaxf(44,fminf(client->chrome_anchor.y+client->chrome_anchor.height+4,GetScreenHeight()-height-8)),280,height};
 }
 static Rectangle chrome_menu_row(WorkspaceClient *client,int i)
-{ Rectangle b=chrome_popup(client);return (Rectangle){b.x+6,b.y+6+(i-client->chrome_menu_first)*32,b.width-12,30}; }
+{ Rectangle b=chrome_popup(client);return (Rectangle){b.x+6,b.y+6+chrome_menu_offset(client->chrome_menu,i)-chrome_menu_offset(client->chrome_menu,client->chrome_menu_first),b.width-12,30}; }
 static void chrome_open_menu(WorkspaceClient *client,int kind,Rectangle anchor)
 {
     navigation_finish(client);client->chrome_menu=kind;client->chrome_anchor=anchor;client->chrome_menu_first=0;
@@ -107,15 +118,17 @@ static bool chrome_input(WorkspaceClient *client)
         }
         while (GetCharPressed()!=0) { }
         if (escape || (pressed && !CheckCollisionPointRec(pointer,chrome_popup(client)))) { client->chrome_menu=0;return true; }
-        int rows=(int)((chrome_popup(client).height-12)/32);
+        int height=(int)chrome_popup(client).height;
+        int last_first=chrome_menu_last_first(client->chrome_menu,count,height);
         float wheel=GetMouseWheelMove();
         if (wheel && CheckCollisionPointRec(pointer,chrome_popup(client))) {
-            client->chrome_menu_first=(int)fmaxf(0,fminf(fmaxf(0,count-rows),client->chrome_menu_first+(wheel>0 ? -1 : 1)));
+            client->chrome_menu_first=(int)fmaxf(0,fminf(last_first,client->chrome_menu_first+(wheel>0 ? -1 : 1)));
             client->chrome_focus.item=ui_focus_next(client->chrome_menu_first-1,1,enabled);client->chrome_focus.visible=false;
         }
-        if (client->chrome_focus.item<client->chrome_menu_first) client->chrome_menu_first=client->chrome_focus.item;
-        if (client->chrome_focus.item>=client->chrome_menu_first+rows) client->chrome_menu_first=client->chrome_focus.item-rows+1;
-        for (int i=client->chrome_menu_first;i<count && i<client->chrome_menu_first+rows;i++)
+        if (client->chrome_focus.item>=0 && client->chrome_focus.item<client->chrome_menu_first) client->chrome_menu_first=client->chrome_focus.item;
+        while (client->chrome_focus.item>=0 && client->chrome_menu_first<last_first && !chrome_menu_fits(client->chrome_menu,client->chrome_menu_first,client->chrome_focus.item,height)) client->chrome_menu_first++;
+        client->chrome_menu_first=(int)fmaxf(0,fminf(last_first,client->chrome_menu_first));
+        for (int i=client->chrome_menu_first;i<count && chrome_menu_fits(client->chrome_menu,client->chrome_menu_first,i,height);i++)
             if (ui_focus_hit(&client->chrome_focus,i,chrome_menu_row(client,i))) { chrome_activate(client,actions[i],i);break; }
         return true;
     }
@@ -126,16 +139,19 @@ static bool chrome_input(WorkspaceClient *client)
     uint32_t enabled=ui_focus_bit(0);
     if (client->chrome_agents) enabled|=ui_focus_bit(1)|ui_focus_bit(2);
     else if (client->managed && !command_unavailable(client,COMMAND_WORKSPACE_CREATE)) enabled|=ui_focus_bit(3);
-    for (int i=0;i<drawer_rows && i+client->chrome_first<drawer_count;i++) enabled|=ui_focus_bit(i+4);
+    for (int i=0;i<drawer_rows && i+client->chrome_first<drawer_count;i++) {
+        enabled|=ui_focus_bit(i+4);
+        if (!client->chrome_agents && client->managed && !client->management_busy) enabled|=ui_focus_bit(i+12);
+    }
     ui_focus_begin(&client->chrome_focus,enabled,enabled);
     if (transient) {
         int key;bool escape=false;
         while ((key=GetKeyPressed())!=0) {
             escape|=key==KEY_ESCAPE;
             if (key==KEY_DOWN || key==KEY_UP) {
-                if (key==KEY_DOWN && client->chrome_focus.item==drawer_rows+3 && client->chrome_first+drawer_rows<drawer_count)
+                if (key==KEY_DOWN && (client->chrome_focus.item==drawer_rows+3 || (!client->chrome_agents && client->chrome_focus.item==drawer_rows+11)) && client->chrome_first+drawer_rows<drawer_count)
                     client->chrome_first++;
-                else if (key==KEY_UP && client->chrome_focus.item==4 && client->chrome_first>0) client->chrome_first--;
+                else if (key==KEY_UP && (client->chrome_focus.item==4 || (!client->chrome_agents && client->chrome_focus.item==12)) && client->chrome_first>0) client->chrome_first--;
                 else ui_focus_step(&client->chrome_focus,key==KEY_UP);
                 client->chrome_focus.visible=true;continue;
             }
@@ -148,6 +164,9 @@ static bool chrome_input(WorkspaceClient *client)
             client->chrome_waiting=client->chrome_focus.activated==2;client->chrome_first=0;return true;
         }
         if (client->chrome_focus.activated==3) { command_dispatch(client,COMMAND_WORKSPACE_CREATE);return true; }
+        if (!client->chrome_agents && client->chrome_focus.activated>=12) {
+            chrome_remove_workspace(client,client->chrome_focus.activated-12+client->chrome_first);return true;
+        }
         if (client->chrome_focus.activated>=4) {
             int i=client->chrome_focus.activated-4+client->chrome_first;
             if (i<drawer_count) {
@@ -181,6 +200,9 @@ static bool chrome_input(WorkspaceClient *client)
                 command_dispatch(client,COMMAND_WORKSPACE_CREATE);return true;
             }
             for (int i=client->chrome_first;i<count && i<client->chrome_first+rows;i++) if (pressed && CheckCollisionPointRec(pointer,chrome_row(client,i-client->chrome_first))) {
+                if (!client->chrome_agents && CheckCollisionPointRec(pointer,chrome_workspace_close(client,i-client->chrome_first))) {
+                    chrome_remove_workspace(client,i);return true;
+                }
                 client->active=client->chrome_agents ? items[i].workspace : i;
                 WorkbenchWorkspace *workspace=&client->workspaces[client->active];
                 workspace_focus(workspace,client->chrome_agents ? items[i].pane : workspace->focused);
@@ -199,9 +221,12 @@ static void chrome_popup_draw(WorkspaceClient *client)
     int actions[16],count=chrome_menu_actions(client,actions);Rectangle popup=chrome_popup(client);
     DrawRectangleRounded(popup,ui_roundness(popup,10),12,ui.surface);
     DrawRectangleRoundedLinesEx(popup,ui_roundness(popup,10),12,1,ui.border);
-    int rows=(int)((popup.height-12)/32);const char *unavailable=NULL;
-    for (int i=client->chrome_menu_first;i<count && i<client->chrome_menu_first+rows;i++) {
-        int action=actions[i];Rectangle row=chrome_menu_row(client,i);bool enabled=client->chrome_focus.enabled & ui_focus_bit(i);
+    int height=(int)popup.height;const char *unavailable=NULL;
+    for (int i=client->chrome_menu_first;i<count && chrome_menu_fits(client->chrome_menu,client->chrome_menu_first,i,height);i++) {
+        Rectangle section=chrome_menu_row(client,i);
+        if (i>client->chrome_menu_first && chrome_menu_separator(client->chrome_menu,i))
+            DrawLineEx((Vector2){section.x+8,section.y-5},(Vector2){section.x+section.width-8,section.y-5},1,ui_mix(ui.surface,ui.border,.7f));
+        int action=actions[i];Rectangle row=section;bool enabled=client->chrome_focus.enabled & ui_focus_bit(i);
         if (CheckCollisionPointRec(GetMousePosition(),row) || client->chrome_focus.item==i)
             DrawRectangleRounded(row,ui_roundness(row,6),8,ui.hover);
         const char *title=action>=0 ? command_definitions[action].title : action==-1 ? "Close window" : action==-2 ? "Move to workspace…" : client->workspaces[i].name;
@@ -279,10 +304,18 @@ static void minimal_chrome_draw(WorkspaceClient *client)
             if (client->chrome_keyboard || !client->chrome_pinned) ui_focus_ring(client->chrome_focus,i-client->chrome_first+4,row);
             if (selected) DrawRectangleRounded((Rectangle){row.x+2,row.y+10,3,26},1,6,ui.accent);
             if (!pane) {
-                chrome_name(client->ui_font,client->workspaces[w].name,(Rectangle){row.x+12,row.y+14,170,20},UI_TEXT_BODY,ui.text);
+                chrome_name(client->ui_font,client->workspaces[w].name,(Rectangle){row.x+12,row.y+14,142,20},UI_TEXT_BODY,ui.text);
                 bool unread=false;for (int p=0;p<client->workspaces[w].count;p++) unread|=client->workspaces[w].panes[p]->unread;
-                if (unread) DrawCircle(row.x+row.width-7,row.y+row.height/2,2,ui.waiting);
-                char n[8];snprintf(n,sizeof(n),"%d",client->workspaces[w].count);DrawTextEx(client->ui_font,n,(Vector2){row.x+196,row.y+15},UI_TEXT_CAPTION,0,ui.muted);
+                if (unread) DrawCircle(row.x+183,row.y+row.height/2,2,ui.waiting);
+                char n[8];snprintf(n,sizeof(n),"%d",client->workspaces[w].count);DrawTextEx(client->ui_font,n,(Vector2){row.x+162,row.y+15},UI_TEXT_CAPTION,0,ui.muted);
+                Rectangle close=chrome_workspace_close(client,i-client->chrome_first);
+                bool enabled=client->managed && !client->management_busy;
+                bool hover=enabled && CheckCollisionPointRec(GetMousePosition(),close);
+                if (hover) DrawRectangleRounded(close,ui_roundness(close,6),8,ui_mix(ui.surface,ui.danger,.12f));
+                Color ink=hover ? ui.danger : enabled ? ui.muted : ui_mix(ui.surface,ui.muted,.35f);
+                DrawLineEx((Vector2){close.x+9,close.y+9},(Vector2){close.x+17,close.y+17},1.3f,ink);
+                DrawLineEx((Vector2){close.x+17,close.y+9},(Vector2){close.x+9,close.y+17},1.3f,ink);
+                if (client->chrome_keyboard || !client->chrome_pinned) ui_focus_ring(client->chrome_focus,i-client->chrome_first+12,close);
             } else {
                 chrome_name(client->ui_font,remote_agent_name(pane->transport.agent),(Rectangle){row.x+12,row.y+7,82,20},UI_TEXT_BODY,ui.text);
                 const char *status=pane->closed ? (pane->transport.attached_elsewhere ? "Elsewhere" : pane->runtime_state==RUNTIME_STOPPED ? "Stopped" : "Unavailable") : remote_attention_name(pane->transport.attention);
@@ -300,7 +333,12 @@ static void minimal_chrome_draw(WorkspaceClient *client)
         DrawRectangleRounded(b,ui_roundness(b,8),8,ui.surface);DrawTextEx(client->ui_font,notice,(Vector2){b.x+10,b.y+7},UI_TEXT_CAPTION,0,ui.muted);
     }
     if (!client->chrome_menu && !client->dialog_open && !client->overview_open && !client->text_open && !client->theme_open && !client->help_open && !client->command_open) {
-        const char *hint=NULL;Vector2 pointer=GetMousePosition();
+        char remove_hint[128];const char *hint=NULL;Vector2 pointer=GetMousePosition();
+        if (client->chrome_drawer && !client->chrome_agents) for (int i=client->chrome_first;i<client->count && i<client->chrome_first+chrome_rows(client);i++)
+            if (CheckCollisionPointRec(pointer,chrome_workspace_close(client,i-client->chrome_first))) {
+                snprintf(remove_hint,sizeof(remove_hint),"Remove %s…",client->workspaces[i].name);
+                hint=client->management_busy ? "A session change is still being saved" : client->managed ? remove_hint : "Workspace management requires the launcher";
+            }
         if (CheckCollisionPointRec(pointer,chrome_rail_button(0))) hint="Workspaces";
         if (CheckCollisionPointRec(pointer,chrome_rail_button(1))) hint="Agents across workspaces";
         if (CheckCollisionPointRec(pointer,chrome_help_button())) hint="Shortcut help";

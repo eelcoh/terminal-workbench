@@ -7,9 +7,10 @@ enum { DIALOG_WORKSPACE_CREATE = 1, DIALOG_WORKSPACE_RENAME,
        DIALOG_TERMINAL_CREATE, DIALOG_TERMINAL_RENAME, DIALOG_TERMINAL_CLOSE, DIALOG_WORKSPACE_CLOSE, DIALOG_TERMINAL_MOVE, DIALOG_TERMINAL_RECOVER, DIALOG_TERMINAL_STATUS, DIALOG_WORKSPACE_DIRECTORY };
 enum { RUNTIME_CHECKING, RUNTIME_RUNNING, RUNTIME_STOPPED, RUNTIME_UNAVAILABLE };
 
-static void dialog_open(WorkspaceClient *client, int kind)
+static void dialog_open_workspace(WorkspaceClient *client,int kind,int index)
 {
-    WorkbenchWorkspace *workspace = &client->workspaces[client->active];
+    WorkbenchWorkspace *workspace=&client->workspaces[index];
+    client->dialog_terminal_count=workspace->count;
     client->dialog_open = true;
     client->dialog_kind = kind;
     client->dialog_focus=(UiFocus){.item=kind>=DIALOG_TERMINAL_CLOSE && kind!=DIALOG_WORKSPACE_DIRECTORY ? -1 : 0};
@@ -23,6 +24,7 @@ static void dialog_open(WorkspaceClient *client, int kind)
     if (kind==DIALOG_WORKSPACE_DIRECTORY) strcpy(client->management_target,workspace->id);
     if (kind == DIALOG_TERMINAL_RECOVER) strcpy(client->management_target,workspace->panes[workspace->focused]->id);
     if (kind == DIALOG_WORKSPACE_CLOSE) {
+        strcpy(client->management_target,workspace->id);
         strcpy(client->edit_name, workspace->name);
     } else if (kind == DIALOG_TERMINAL_CLOSE || kind == DIALOG_TERMINAL_RECOVER) {
         strcpy(client->edit_name, workspace->panes[workspace->focused]->name);
@@ -35,6 +37,9 @@ static void dialog_open(WorkspaceClient *client, int kind)
             kind == DIALOG_WORKSPACE_CREATE ? "Workspace" : "Shell",
             kind == DIALOG_WORKSPACE_CREATE ? client->count + 1 : workspace->count + 1);
 }
+
+static void dialog_open(WorkspaceClient *client,int kind)
+{dialog_open_workspace(client,kind,client->active);}
 
 static void management_read(WorkspaceClient *client)
 {
@@ -193,6 +198,9 @@ static void management_start(WorkspaceClient *client)
     if (client->dialog_kind == DIALOG_TERMINAL_RECOVER) {
         management_execute(client,"terminal.recover",client->management_target,"","",-1);
         return;
+    }
+    if (client->dialog_kind==DIALOG_WORKSPACE_CLOSE) {
+        management_execute(client,"workspace.close",client->management_target,"","",-1);return;
     }
     if (client->dialog_kind==DIALOG_WORKSPACE_DIRECTORY) {
         management_execute(client,"workspace.directory",client->management_target,"","",-1);
@@ -388,7 +396,6 @@ static void dialog_draw(WorkspaceClient *client)
     ui_panel(bounds,ui.surface,true);
     DrawTextEx(client->ui_font, titles[client->dialog_kind], (Vector2){bounds.x + 24, bounds.y + 22},UI_TEXT_TITLE,0,ui.text);
     if (client->dialog_kind >= DIALOG_TERMINAL_CLOSE && client->dialog_kind!=DIALOG_WORKSPACE_DIRECTORY) {
-        WorkbenchWorkspace *workspace = &client->workspaces[client->active];
         char message[160];
         snprintf(message, sizeof(message), "%s", client->edit_name);
         BeginScissorMode((int)bounds.x + 24, (int)bounds.y + 58, 372, 90);
@@ -404,8 +411,8 @@ static void dialog_draw(WorkspaceClient *client)
             return;
         }
         snprintf(message, sizeof(message), "Removes %d shell%s; stops foreground jobs.",
-            client->dialog_kind == DIALOG_WORKSPACE_CLOSE ? workspace->count : 1,
-            client->dialog_kind == DIALOG_WORKSPACE_CLOSE && workspace->count != 1 ? "s" : "");
+            client->dialog_kind == DIALOG_WORKSPACE_CLOSE ? client->dialog_terminal_count : 1,
+            client->dialog_kind == DIALOG_WORKSPACE_CLOSE && client->dialog_terminal_count != 1 ? "s" : "");
         DrawTextEx(client->ui_font, message, (Vector2){bounds.x + 24, bounds.y + 86},UI_TEXT_CAPTION, 0, ui.muted);
         DrawTextEx(client->ui_font, client->management_busy ? "Stopping..." : client->dialog_error[0] ? client->dialog_error : "Tab selects a button; Enter / Space confirms.",
             (Vector2){bounds.x + 24, bounds.y + 116},UI_TEXT_CAPTION, 0, ui.waiting);

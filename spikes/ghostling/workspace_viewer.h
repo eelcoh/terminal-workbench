@@ -119,7 +119,7 @@ typedef struct {
     int theme_exceptions;
     char appearance_active[41];
     char theme_path[1024], theme_error[256];
-    int dialog_kind, management_fd;
+    int dialog_kind, management_fd, dialog_terminal_count;
     pid_t management_pid;
     char edit_directory[1024];
     bool edit_folder;
@@ -598,7 +598,7 @@ static int workspace_main(const char *catalog)
         bool theme_frame=client->theme_open;
         if (!chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->management_busy && !client->overview_drag_armed
             && !client->overview_closing && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)
-            && CheckCollisionPointRec(GetMousePosition(),client->overview_open ? overview_theme_button(client) : theme_button())) {
+            && !client->overview_open && CheckCollisionPointRec(GetMousePosition(),theme_button())) {
             theme_open(client); theme_frame=true;
         }
         bool toggled_overview = !chrome_frame && !shortcut_frame && !help_frame && !command_frame && !client->text_open && !client->theme_open && !client->dialog_open && !client->overview_drag_armed && !client->management_busy && overview_requested();

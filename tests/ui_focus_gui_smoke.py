@@ -57,7 +57,7 @@ def main():
                 def marker(name):return wait_until(lambda:(root/name).exists() and (root/name).read_text())
                 def catalog():return json.loads((state/'workspaces.json').read_text())
                 def palette(query,mouse=False,run=True):
-                    if mouse:click(22,20);click(90,225)
+                    if mouse:click(22,20);click(90,241)
                     else:key('ctrl+shift+p')
                     text(query)
                     if run:key('Return')
@@ -91,7 +91,7 @@ def main():
                 palette('Rename workspace');key('Tab');key('space')
                 assert (state/'workspaces.json').read_bytes()==catalog_before
                 # Explicit button activation creates a workspace with the chosen directory.
-                key('ctrl+shift+n');text('Focus project');key('Tab');text(str(root));key('Tab');key('Tab');key('space')
+                key('ctrl+shift+n');text('Focus project');key('Tab');text(str(root));key('Tab');key('Tab');capture('focus-create-confirm.png');key('space')
                 wait_until(lambda:len(catalog()['workspaces'])==3)
                 assert catalog()['workspaces'][-1]['name']=='Focus project'
                 assert catalog()['workspaces'][-1]['directory']==str(root)
@@ -105,8 +105,8 @@ def main():
                 key('ctrl+shift+slash');key('shift+Tab');key('Return');safe('focus-help-done')
                 # Overview filter buttons retain focus and query; help restores that exact focus.
                 key('ctrl+shift+o');key('Tab');key('Tab');key('Tab');key('Tab');key('Tab');key('space') # Agents.
-                key('ctrl+shift+slash');key('Escape');key('space') # All terminals again.
-                key('Tab');key('space');safe('focus-overview-done')
+                key('ctrl+shift+slash');key('Escape');key('shift+Tab');key('space') # All terminals.
+                key('Tab');key('Tab');key('space');safe('focus-overview-done')
                 # Workspace picker traversal reaches filters/close/reset without scope tabs.
                 palette('Change appearance');key('Tab');key('Tab');key('space') # Close.
                 assert not (state/'appearance.state').exists()

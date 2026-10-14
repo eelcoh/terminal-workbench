@@ -99,7 +99,7 @@ def replace_once(old, new):
     assert text.count(old) == 1, f"pinned source adaptation no longer applies: {old}"
     text = text.replace(old, new)
 
-replace_once('#include "font_jetbrains_mono.h"', '#include "font_jetbrains_mono.h"\n#include "terminal_font.h"')
+replace_once('#include "font_jetbrains_mono.h"', '#include "font_jetbrains_mono.h"\n#include "terminal_font.h"\n#include "platform_app_name.h"')
 replace_once('Font mono_font = LoadFontFromMemory(".ttf", font_jetbrains_mono,\n                         (int)sizeof(font_jetbrains_mono), font_size_px, NULL, 0);',
     'Font mono_font = terminal_font_load(font_size_px);')
 replace_once('UnloadFont(mono_font);', 'terminal_font_unload(mono_font);')
@@ -202,10 +202,10 @@ replace_once('    uint16_t rows;\n} EffectsContext;', '    uint16_t rows;\n    c
 replace_once('    (void)out_scheme;\n    return false;', '    const EffectsContext *context = userdata;\n    const Theme *theme = context && context->theme ? context->theme : &current_theme;\n    *out_scheme = theme_light(theme) ? GHOSTTY_COLOR_SCHEME_LIGHT : GHOSTTY_COLOR_SCHEME_DARK;\n    return true;')
 replace_once('        int rl_key = keys_to_check[i];', '        int rl_key = keys_to_check[i];\n        if (rl_key >= 0 && rl_key < 512 && workbench_key_blocked[rl_key]) continue;')
 replace_once('int main(void)', '#include "snapshot_restore.h"\n\nstatic int single_terminal_main(void)')
-text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
+text += '\n#include "workspace_viewer.h"\n\nint main(void) {\n    platform_app_name();\n    ui_theme_set(theme_preset(false));\n    const char *catalog = getenv("WORKBENCH_WORKSPACES");\n    return catalog ? workspace_main(catalog) : single_terminal_main();\n}\n'
 write_if_changed(destination / "main.c", text.encode())
 write_if_changed(destination / "session_bridge.h", (ROOT / "spikes/ghostling/session_bridge.h").read_bytes())
-for name in ["font_preferences.h", "font_client.h", "portable_config.h", "terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "ui_font.h", "chrome_ui.h", "minimal_chrome.h", "pixel_geometry.h", "display_geometry.h", "platform_display.h", "display_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
+for name in ["platform_app_name.h", "chrome_menu_layout.h", "font_preferences.h", "font_client.h", "portable_config.h", "terminal_font.h", "window_state.h", "window_state_client.h", "overview_scroll.h", "snapshot_restore.h", "window_controls.h", "platform_shortcuts.h", "selection_ui.h", "clipboard_actions.h", "surface_geometry.h", "workspace_viewer.h", "catalog_view.h", "management_ui.h", "command_palette.h", "command_actions.h", "shortcut_state.h", "shortcut_client.h", "shortcut_help.h", "shortcut_help_ui.h", "ui_focus.h", "ui_focus_draw.h", "ui_font.h", "chrome_ui.h", "minimal_chrome.h", "pixel_geometry.h", "display_geometry.h", "platform_display.h", "display_client.h", "overview_ui.h", "overview_spatial.h", "terminal_preview.h", "overview_animation.h", "overview_motion.h", "overview_drag.h", "input_lookahead.h", "theme_core.h", "ui_style.h", "theme_ui.h", "theme_catalog.h", "theme_catalog_data.h", "appearance_state.h", "appearance_client.h", "pane_navigation.h", "pane_width.h", "navigation_ui.h"]:
     write_if_changed(destination / name, (ROOT / "spikes/ghostling" / name).read_bytes())
 for collection in ["catppuccin", "dracula"]:
     target = destination / "theme-licenses" / collection / "LICENSE"
