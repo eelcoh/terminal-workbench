@@ -25,6 +25,8 @@ check: runtime-build
     python3 tests/catalog_test.py
     python3 tests/catalog_journal_test.py target/debug/workbench-session
     python3 tests/session_shutdown_test.py target/debug/workbench-session
+    python3 tests/session_soak.py target/debug/workbench-session --seconds 3 --terminals 1 --report .local/test-results/session-soak-check.json
+    python3 tests/session_soak_interrupt_test.py target/debug/workbench-session
     python3 tests/socket_path_test.py target/debug/workbench-session
     python3 tests/move_test.py
     python3 tests/close_smoke.py target/debug/workbench-session
@@ -204,3 +206,7 @@ lifecycle-gui-test: spike-build
 # Explicit session shutdown, confirmed selection and surviving peer windows.
 shutdown-gui-test: spike-build
     python3 tests/shutdown_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Sustained runtime/ownership/service checks in disposable sessions (no GUI).
+session-soak seconds="300" terminals="15": runtime-build
+    python3 tests/session_soak.py target/debug/workbench-session --seconds "{{seconds}}" --terminals "{{terminals}}"

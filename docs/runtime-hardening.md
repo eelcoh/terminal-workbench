@@ -193,3 +193,11 @@ ownership. Startup/recovery resets previous evidence, including when launching
 an earlier runtime. The UI uses confirmed facts for stopped-pane feedback and
 keeps unrecorded disappearance distinct from a known shell exit.
 See [stopped-shell reasons and validation](terminal-lifecycle.md).
+
+## Sustained runtime validation
+
+A disposable soak repeats snapshot capture/real decoding, attached and detached
+output, alternate-screen changes, ownership transfers, geometry changes and
+organization-service restarts/crashes while preserving shell identity and state.
+It adds no runtime or viewer behavior. A short case runs in `just check`; longer
+checks and honest coverage limits are in [session soak](session-soak.md).

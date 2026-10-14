@@ -131,8 +131,9 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    swipes; the mixed-display hardware review is pending.
 2. Decide the production toolkit using those results and the approved minimal
    chrome/Overview flows. Complex text shaping and accessibility are still open.
-3. Continue daily-use runtime hardening after creation/close journaling: shutdown
-   validation of the explicit shutdown policy, broader crash/recovery and long-running sessions. Finish native terminal-search
+3. Continue daily-use runtime hardening after creation/close journaling and
+   confirmed session shutdown: sustained-session validation, snapshot responsiveness
+   and service lifecycle. Finish native terminal-search
    review, native folder browsing and invalid-path/recovery review.
 4. Complete the core real-agent matrix: Linux Codex/Claude permission prompts,
    background-workspace behavior and trust/setup, plus Mac Copilot Working/Ready
@@ -569,4 +570,16 @@ workspace organization, names, directories, themes and window layouts; stopped
 entries require explicit fresh-shell recovery. Window close continues to detach.
 Interrupted shutdown intent is reconciled before subsequent mutations/recovery,
 and old/unsafe endpoints fail before any initial stop. Linux backend and two-window
-GUI validation pass; native Mac review remains pending. See [session shutdown](session-shutdown.md).
+GUI validation pass; the owner also confirmed native Mac shutdown/restart.
+See [session shutdown](session-shutdown.md).
+
+## Current runtime slice: sustained-session validation
+
+A disposable session soak now exercises continuous styled output, primary/alternate
+screens, repeated snapshot decode/reattach and owner transfer, geometry changes,
+detached cursor/size queries, orderly/forced organization-service loss and same-shell
+state retention. A short case is required by `just check`; `just session-soak`
+provides a longer one/fifteen-terminal workload with bounded diagnostics and
+resource observations. This is backend/protocol validation; native window/rendering,
+real-agent longevity and machine suspend/resume remain separate acceptance work.
+See [session soak](session-soak.md).

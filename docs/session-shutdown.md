@@ -54,7 +54,8 @@ service requests and parallel stop processes, not a renderer or throughput bench
 `just shutdown-gui-test` covers two real Linux windows, Cancel/unfocused Enter,
 new-terminal exclusion while confirmation is open, other-window stopped feedback,
 explicit recovery and unchanged close-detach behavior. Captures are under
-`.local/artifacts/shutdown/`. Native Mac acceptance remains pending.
+`.local/artifacts/shutdown/`. The owner confirmed native Mac shutdown/restart
+on 2026-10-14.
 
 For Mac review, first try Cancel in your normal session. For a confirmed stop,
 use a disposable state so no daily-use jobs are affected:
