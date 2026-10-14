@@ -113,6 +113,11 @@ passes. The owner confirmed glyphs on Linux and native macOS in Copilot.
 Specific Retina scaling coverage, full shaping and broader font preferences
 remain open. See [terminal fonts](terminal-fonts.md).
 
+Live Overview context now follows local foreground-process directories, Git
+branches and linked worktrees through optional runtime metadata. Custom names
+remain overrides, and old runtimes retain their labels. Linux automated coverage
+passes; native Mac context acceptance remains pending. See [terminal context](terminal-context.md).
+
 ## Remaining work and next priorities
 
 The core prototype workflows are implemented; the milestone table describes
@@ -348,15 +353,13 @@ styling. All terminals clears the status filter; empty filtered results offer
 Clear filters and a filtered/total count. Theme is removed from Overview; use
 the Workbench menu or Commands for appearance.
 
-Next, replace generic shell names in Overview with live context: repository
-name and branch, with the worktree folder where needed to distinguish checkouts;
-outside Git, show the current working directory. Retain an explicit custom name
-as an override. The current viewer only knows configured launch directories, so
-this requires reliable runtime-owned cwd/context metadata and bounded refresh
-outside rendering. Cover directory/branch changes, detached HEAD, ordinary and
-linked worktrees, multiple checkouts, non-Git folders, SSH/remote context and
-missing permissions on Mac/Linux. Keep stable terminal identity independent of
-display labels. This context slice is planned, not implemented.
+Overview now replaces generic shell names with live repository/branch/worktree
+context, or the local working directory outside Git. Explicit custom names remain
+overrides; directory and branch changes refresh through cached runtime metadata
+outside rendering. Linux checks cover foreground-process cwd, linked worktrees,
+detached HEAD, remote/unavailable fallback and stable shell/grid identity. Existing
+runtimes retain their saved names. Native Mac acceptance and broader permissions/
+remote integration remain open. See [terminal context](terminal-context.md).
 
 ## Design question: do terminal panes need names?
 

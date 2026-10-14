@@ -51,3 +51,35 @@ pub fn identity(group: i32) -> Option<ProcessIdentity> {
         script: None,
     })
 }
+
+pub fn working_directory(pid: i32) -> Option<PathBuf> {
+    // A single process query, not lsof/ps or a process-tree walk.
+    let mut info = std::mem::MaybeUninit::<libc::proc_vnodepathinfo>::zeroed();
+    let size = std::mem::size_of::<libc::proc_vnodepathinfo>();
+    let read = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDVNODEPATHINFO,
+            0,
+            info.as_mut_ptr().cast(),
+            size as i32,
+        )
+    };
+    if read != size as i32 {
+        return None;
+    }
+    let info = unsafe { info.assume_init() };
+    let bytes: Vec<u8> = info
+        .pvi_cdir
+        .vip_path
+        .iter()
+        .take_while(|byte| **byte != 0)
+        .map(|byte| *byte as u8)
+        .collect();
+    if bytes.is_empty() || bytes.len() == info.pvi_cdir.vip_path.len() {
+        return None;
+    }
+    use std::os::unix::ffi::OsStringExt;
+    let path = PathBuf::from(std::ffi::OsString::from_vec(bytes));
+    path.is_absolute().then_some(path)
+}

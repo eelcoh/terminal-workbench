@@ -19,6 +19,7 @@ check: runtime-build
     cargo test --workspace
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
+    python3 tests/context_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
     python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
     python3 tests/catalog_test.py
@@ -50,6 +51,7 @@ spike-run socket:
 spike-test: runtime-build
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
+    python3 tests/context_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
     python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
 
@@ -175,3 +177,7 @@ font-settings-gui-test: spike-build
 
 dotfiles-gui-test: spike-build
     python3 tests/dotfiles_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
+
+# Live Overview context and search with real shells and independent runtime metadata.
+context-gui-test: spike-build
+    python3 tests/context_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling

@@ -1,6 +1,7 @@
 /* Read a complete metadata projection before touching live pane identities. */
 typedef struct {
     char id[41], name[64], path[sizeof(((struct sockaddr_un *)0)->sun_path)];
+    bool custom_name;
 } CatalogTerminal;
 typedef struct {
     char id[41], name[64], directory[1024];
@@ -20,6 +21,34 @@ static bool catalog_field(char *destination, size_t capacity, const char *source
         if ((unsigned char)source[i] < 32 || source[i] == 127) return false;
     memcpy(destination, source, length + 1);
     return true;
+}
+
+static void catalog_context_names(CatalogSnapshot *snapshot,const char *path)
+{
+    for(int w=0;w<snapshot->count;w++) for(int t=0;t<snapshot->workspaces[w].count;t++) {
+        CatalogTerminal *terminal=&snapshot->workspaces[w].terminals[t];
+        terminal->custom_name=!terminal_context_default_name(terminal->name);
+    }
+    char companion[4096];
+    const char *slash=strrchr(path,'/');
+    int directory=slash ? (int)(slash-path+1) : 0;
+    if(snprintf(companion,sizeof(companion),"%.*sterminal-labels.tsv",directory,path)>=(int)sizeof(companion)) return;
+    FILE *file=fopen(companion,"r");if(!file) return;
+    char line[96],ids[64][41];bool flags[64];int count=0;
+    bool valid=fgets(line,sizeof(line),file) && !strcmp(line,"workbench-terminal-labels-v1\n");
+    while(valid && fgets(line,sizeof(line),file)) {
+        char *tab=strchr(line,'\t');
+        if(!tab || (strcmp(tab+1,"0\n") && strcmp(tab+1,"1\n")) || count==64) { valid=false;break; }
+        *tab=0;
+        if(!catalog_field(ids[count],sizeof(ids[count]),line)) { valid=false;break; }
+        for(int i=0;i<count;i++) if(!strcmp(ids[i],line)) valid=false;
+        flags[count++]=tab[1]=='1';
+    }
+    valid=valid && !ferror(file);fclose(file);
+    if(!valid) return;
+    for(int w=0;w<snapshot->count;w++) for(int t=0;t<snapshot->workspaces[w].count;t++)
+        for(int i=0;i<count;i++) if(!strcmp(snapshot->workspaces[w].terminals[t].id,ids[i]))
+            snapshot->workspaces[w].terminals[t].custom_name=flags[i];
 }
 
 static bool catalog_read(CatalogSnapshot *snapshot, const char *path)
@@ -113,7 +142,9 @@ static bool catalog_read(CatalogSnapshot *snapshot, const char *path)
     }
     if (ferror(file)) valid = false;
     fclose(file);
-    return valid && (snapshot->count > 0 || version3);
+    valid=valid && (snapshot->count > 0 || version3);
+    if(valid) catalog_context_names(snapshot,path);
+    return valid;
 }
 
 static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bool initialize)
@@ -149,7 +180,7 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
             if (fresh) {
                 strcpy(pane->id, terminal->id); strcpy(pane->name, terminal->name);
                 strcpy(pane->socket_path, terminal->path);
-                pane->fd = pane->transport.agent_fd = -1; pane->transport.replaying = true;
+                pane->fd = pane->transport.agent_fd = pane->transport.context_fd = -1; pane->transport.replaying = true;
                 if (initialize && !pane_init(client, pane)) { valid = false; break; }
             }
             if (!strcmp(focused_id, pane->id)) next->focused = p;
@@ -180,7 +211,13 @@ static bool catalog_apply(WorkspaceClient *client, CatalogSnapshot *snapshot, bo
     if (!valid) return false;
     for (int w=0;w<snapshot->count;w++)
         for (int p=0;p<snapshot->workspaces[w].count;p++)
-            strcpy(updated[w].panes[p]->name,snapshot->workspaces[w].terminals[p].name);
+        {
+            WorkbenchPane *pane=updated[w].panes[p];
+            CatalogTerminal *terminal=&snapshot->workspaces[w].terminals[p];
+            strcpy(pane->name,terminal->name);pane->custom_name=terminal->custom_name;
+            terminal_context_label(&pane->transport.context,pane->name,pane->custom_name,
+                pane->overview_label,sizeof(pane->overview_label));
+        }
     memcpy(client->workspaces, updated, sizeof(updated));
     client->count = snapshot->count;
     if (client->active >= client->count) client->active = client->count > 0 ? client->count - 1 : 0;

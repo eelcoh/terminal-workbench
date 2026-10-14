@@ -7,7 +7,7 @@ import tempfile
 
 root = Path(__file__).resolve().parent.parent
 with tempfile.TemporaryDirectory(prefix='wb-motion-test-') as directory:
-    for name in ('overview_animation', 'input_lookahead', 'catalog_view', 'theme_core', 'appearance_state', 'pane_navigation', 'pane_width', 'overview_scroll', 'window_state', 'shortcut_state', 'shortcut_help', 'ui_focus', 'pixel_geometry', 'display_geometry', 'portable_config', 'font_preferences', 'chrome_menu_layout', 'platform_app_name'):
+    for name in ('terminal_context', 'overview_animation', 'input_lookahead', 'catalog_view', 'theme_core', 'appearance_state', 'pane_navigation', 'pane_width', 'overview_scroll', 'window_state', 'shortcut_state', 'shortcut_help', 'ui_focus', 'pixel_geometry', 'display_geometry', 'portable_config', 'font_preferences', 'chrome_menu_layout', 'platform_app_name'):
         binary = str(Path(directory) / name)
         subprocess.run([os.environ.get('CC', 'cc'), '-std=c11', '-Wall', '-Wextra', '-Werror',
             '-I', str(root / 'spikes/ghostling'), str(root / f'tests/{name}_test.c'), '-o', binary, '-lm'], check=True)

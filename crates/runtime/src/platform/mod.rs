@@ -43,3 +43,22 @@ pub fn identity(group: Option<i32>) -> Option<ProcessIdentity> {
         None
     }
 }
+
+pub fn working_directory(pid: i32) -> Option<std::path::PathBuf> {
+    if pid <= 1 {
+        return None;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        linux::working_directory(pid)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        macos::working_directory(pid)
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        let _ = pid;
+        None
+    }
+}

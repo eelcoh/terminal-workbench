@@ -651,4 +651,26 @@ input filter with active styling, filtered/total counts and Clear filters for
 empty results. All terminals clears Needs input, and reset consumes its click
 before new cards can receive it. Theme is removed from Overview. Appearance stays
 in the Workbench menu and Commands. Runtime-owned cwd/repo/branch/worktree labels
-are the next context slice; see the roadmap. Native Mac review remains pending.
+are implemented in the context slice below. Native Mac review remains pending.
+
+## Live context in Overview
+
+Generic shell names now give way to repository · branch · linked worktree, or the
+current folder outside Git. Detached HEADs show a short commit hash. Explicit
+custom names remain overrides, including a deliberately renamed `Shell 1`.
+Spatial cards add a quiet folder subtitle for Git/custom titles; list rows use
+their existing detail line. Search includes repository, branch, worktree and cwd
+even when a custom title is shown. Terminal grids and shell identity stay intact.
+
+Discovery belongs to a bounded runtime worker, with optional control watches and
+cached client labels. Hidden panes and Open elsewhere entries keep receiving
+context. Remote clients retain an honest saved-name fallback; older live runtimes
+continue running with their original labels. No Git subprocesses, process trees
+or filesystem discovery are added to rendering.
+
+Linux checks pass for real cwd/branch/worktree/detached changes, custom-name and
+legacy projection compatibility, live Overview search, both layouts, animated/
+reduced-motion navigation, 64-terminal Overview, legacy snapshot attachment and
+multiple windows. The context GUI check also passes at simulated 2x density.
+Captures are under `.local/artifacts/context/`. Native Mac context acceptance
+remains pending. See [terminal context](terminal-context.md) for testing and limits.

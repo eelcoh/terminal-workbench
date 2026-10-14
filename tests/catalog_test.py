@@ -27,6 +27,14 @@ def main():
             assert renamed["workspaces"][0]["id"] == workspace_id
             assert renamed_terminal["workspaces"][0]["terminals"][0]["id"] == "spike"
             assert json.loads((state / "workspaces.json").read_text()) == renamed_terminal
+            assert renamed_terminal['workspaces'][0]['terminals'][0]['custom_name'] is True
+            assert 'spike\t1\n' in (state/'terminal-labels.tsv').read_text()
+            # Explicitly choosing a generic name still overrides live context.
+            catalog.mutate(renamed_terminal,'terminal.rename','spike','Shell 1')
+            catalog.save(state,renamed_terminal)
+            assert 'spike\t1\n' in (state/'terminal-labels.tsv').read_text()
+            assert catalog.custom_terminal_name({'name':'Shell 2'}) is False
+            assert catalog.custom_terminal_name({'name':'Builder'}) is True
             created = catalog.manage(state, Path("runtime"), state, "workspace.create", "", "Research")
             assert len(created["workspaces"]) == 3 and len(created["workspaces"][-1]["terminals"]) == 1
             created = catalog.manage(state, Path("runtime"), state, "terminal.create", workspace_id, "Tests")

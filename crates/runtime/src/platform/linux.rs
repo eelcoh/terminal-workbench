@@ -25,3 +25,9 @@ pub fn identity(group: i32) -> Option<ProcessIdentity> {
     };
     Some(ProcessIdentity { executable, script })
 }
+
+pub fn working_directory(pid: i32) -> Option<PathBuf> {
+    fs::read_link(format!("/proc/{pid}/cwd"))
+        .ok()
+        .filter(|path| path.is_absolute() && path.is_dir())
+}

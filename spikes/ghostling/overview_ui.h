@@ -77,6 +77,11 @@ static int overview_items(WorkspaceClient *client, OverviewItem *items)
             if (overview_agent_matches(client, client->workspaces[w].panes[p])
                 && (overview_matches(client->workspaces[w].name, client->overview_query)
                 || overview_matches(client->workspaces[w].panes[p]->name, client->overview_query)
+                || overview_matches(client->workspaces[w].panes[p]->overview_label, client->overview_query)
+                || overview_matches(client->workspaces[w].panes[p]->transport.context.cwd, client->overview_query)
+                || overview_matches(client->workspaces[w].panes[p]->transport.context.repository, client->overview_query)
+                || overview_matches(client->workspaces[w].panes[p]->transport.context.branch, client->overview_query)
+                || overview_matches(client->workspaces[w].panes[p]->transport.context.worktree, client->overview_query)
                 || (!client->workspaces[w].panes[p]->closed && remote_agent_name(client->workspaces[w].panes[p]->transport.agent)[0]
                     && overview_matches(remote_agent_name(client->workspaces[w].panes[p]->transport.agent), client->overview_query))))
                 items[count++] = (OverviewItem){w, p};
@@ -312,7 +317,7 @@ static void overview_draw(WorkspaceClient *client)
     DrawRectangleRounded(field,.22f,8,client->overview_focus.item==0 && client->overview_all ? ui.selected : ui.background);
     ui_focus_ring(client->overview_focus,0,field);
     BeginScissorMode((int)field.x + 8, (int)field.y, (int)field.width - 16, (int)field.height);
-    DrawTextEx(client->ui_font, client->overview_query[0] ? client->overview_query : "Filter by workspace or terminal name...",
+    DrawTextEx(client->ui_font, client->overview_query[0] ? client->overview_query : "Filter by workspace, folder, repository or branch...",
         (Vector2){field.x + 8, field.y + 8},UI_TEXT_BODY, 0, client->overview_query[0] ? ui.text : ui.muted);
     if (client->overview_focus.item==0 && ((int)(GetTime() * 2) % 2 == 0) && !client->overview_all) {
         Vector2 width = MeasureTextEx(client->ui_font, client->overview_query,UI_TEXT_BODY, 0);
@@ -332,10 +337,10 @@ static void overview_draw(WorkspaceClient *client)
         DrawRectangleRec(row, selected ? ui.selected : ui.raised);
         EndScissorMode();
         overview_clip(client,(Rectangle){row.x+8,row.y,row.width-164,row.height});
-        DrawTextEx(client->ui_font, pane->name, (Vector2){row.x + 10, row.y + 5},UI_TEXT_BODY, 0, ui.text);
-        char detail[128];
+        DrawTextEx(client->ui_font, pane->overview_label[0] ? pane->overview_label : pane->name, (Vector2){row.x + 10, row.y + 5},UI_TEXT_BODY, 0, ui.text);
+        char detail[4352];
         const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);
-        snprintf(detail, sizeof(detail), "%s%s%s", workspace->name, agent[0] ? " / " : "", agent);
+        snprintf(detail, sizeof(detail), "%s%s%s%s%s", workspace->name, agent[0] ? " / " : "", agent, pane->transport.context.available ? " · " : "", pane->overview_directory);
         DrawTextEx(client->ui_font, detail, (Vector2){row.x + 10, row.y + 23},UI_TEXT_CAPTION, 0, ui.muted);
         EndScissorMode();
         overview_clip(client,overview_content(client));

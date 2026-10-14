@@ -48,6 +48,9 @@ typedef struct {
     Rectangle bounds;
     char socket_path[sizeof(((struct sockaddr_un *)0)->sun_path)];
     char id[41], name[64];
+    char overview_label[4097], overview_directory[4097];
+    bool custom_name;
+    uint64_t context_revision;
     int fd;
     bool closed, scrollbar_dragging, unread, focused, status_checked;
     int runtime_state;
@@ -180,6 +183,7 @@ static void pane_free(WorkbenchPane *pane)
     free(pane->transport.snapshot);
     if (pane->fd >= 0) close(pane->fd);
     if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
+    if (pane->transport.context_fd >= 0) close(pane->transport.context_fd);
     if (pane->canvas.id) UnloadRenderTexture(pane->canvas);
     if (pane->preview.id) UnloadRenderTexture(pane->preview);
     if (pane->images) ghostty_kitty_graphics_placement_iterator_free(pane->images);
@@ -201,10 +205,11 @@ static bool pane_attach(WorkspaceClient *client, WorkbenchPane *pane, bool takeo
     pane_bind(pane);
     if (pane->fd >= 0) close(pane->fd);
     if (pane->transport.agent_fd >= 0) close(pane->transport.agent_fd);
+    if (pane->transport.context_fd >= 0) close(pane->transport.context_fd);
     free(pane->transport.snapshot);
     bool earlier_runtime=takeover && pane->transport.takeover_unsupported;
     memset(&pane->transport,0,sizeof(pane->transport));
-    pane->transport.agent_fd=-1;
+    pane->transport.agent_fd=pane->transport.context_fd=-1;
     pane->transport.replaying=true;
     pane->transport.takeover=takeover && !earlier_runtime;
     pane->transport.takeover_unsupported=earlier_runtime;
@@ -678,6 +683,13 @@ static int workspace_main(const char *catalog)
                 WorkbenchPane *pane = client->workspaces[w].panes[p];
                 bool focused = !modal_frame && w == client->active && p == workspace->focused && IsWindowFocused();
                 pane_bind(pane);
+                remote_context_read();
+                if(pane->context_revision!=pane->transport.context_revision) {
+                    pane->context_revision=pane->transport.context_revision;
+                    terminal_context_display(pane->transport.context.cwd,pane->overview_directory,sizeof(pane->overview_directory));
+                    terminal_context_label(&pane->transport.context,pane->name,pane->custom_name,
+                        pane->overview_label,sizeof(pane->overview_label));
+                }
                 if (!pane->closed) {
                     uint64_t before = pane->transport.output_revision;
                     if (pty_read(pane->fd, &pane->terminal, &pane->effects) != PTY_READ_OK) {

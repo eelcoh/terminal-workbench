@@ -170,13 +170,20 @@ static void overview_spatial_draw(WorkspaceClient *client, OverviewItem *items, 
         bool hovered = CheckCollisionPointRec(GetMousePosition(), card);
         overview_clip(client,overview_content(client));
         ui_panel(card,ui.background,false);
+        bool context_subtitle=pane->transport.context.available && (pane->transport.context.repository[0] || pane->custom_name);
+        float header=context_subtitle ? 42 : 24;
         /* Previews were refreshed before drawing; clip only their presentation. */
-        pane_preview_draw(client, pane, (Rectangle){card.x + 4, card.y + 26, card.width - 8, card.height - 52});
-        DrawRectangleRec((Rectangle){card.x, card.y, card.width, 24}, ui.raised);
+        pane_preview_draw(client, pane, (Rectangle){card.x + 4, card.y + header + 2, card.width - 8, card.height - header - 28});
+        DrawRectangleRec((Rectangle){card.x, card.y, card.width, header}, ui.raised);
         EndScissorMode();
-        overview_clip(client,(Rectangle){card.x+8,card.y,card.width-24,24});
-        DrawTextEx(client->ui_font, pane->name, (Vector2){card.x + 8, card.y + 5},UI_TEXT_BODY, 0, ui.text);
+        overview_clip(client,(Rectangle){card.x+8,card.y,card.width-24,header});
+        DrawTextEx(client->ui_font, pane->overview_label[0] ? pane->overview_label : pane->name, (Vector2){card.x + 8, card.y + 5},UI_TEXT_BODY, 0, ui.text);
         EndScissorMode();
+        if(context_subtitle) {
+            overview_clip(client,(Rectangle){card.x+8,card.y+23,card.width-24,18});
+            DrawTextEx(client->ui_font,pane->overview_directory,(Vector2){card.x+8,card.y+25},UI_TEXT_CAPTION,0,ui.muted);
+            EndScissorMode();
+        }
         overview_clip(client,overview_content(client));
         if (pane->unread) DrawCircle((int)(card.x + card.width - 12), (int)(card.y + 12), 3, ui.waiting);
         const char *agent = pane->closed ? "" : remote_agent_name(pane->transport.agent);

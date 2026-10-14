@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <stdint.h>
+#include "terminal_context.h"
 
 /* Each pane owns transport state. Binding is confined to the UI thread. */
 typedef struct {
@@ -16,6 +17,11 @@ typedef struct {
     uint8_t send_buffer[1024 * 1024], receive_buffer[65541];
     size_t send_length, receive_length;
     uint64_t output_revision;
+    int context_fd;
+    TerminalContext context;
+    uint8_t context_buffer[8197];
+    size_t context_used;
+    uint64_t context_revision;
     int agent_fd;
     uint8_t agent, attention, agent_buffer[7];
     bool agent_fallback, agent_v2_received;
@@ -23,7 +29,7 @@ typedef struct {
     size_t agent_used;
 } RemoteSession;
 static bool remote_restore_terminal(GhosttyTerminal *terminal, const uint8_t *bytes, size_t length, void *effects);
-static RemoteSession single_remote = { .replaying = true };
+static RemoteSession single_remote = { .replaying = true, .agent_fd = -1, .context_fd = -1 };
 static RemoteSession *active_remote = &single_remote;
 #define remote_replaying (active_remote->replaying)
 #define remote_failed (active_remote->failed)
@@ -89,6 +95,50 @@ static void remote_resize(int fd, uint16_t cols, uint16_t rows)
     uint8_t payload[4] = { (uint8_t)(cols >> 8), (uint8_t)cols,
                            (uint8_t)(rows >> 8), (uint8_t)rows };
     remote_send(fd, 17, payload, sizeof(payload));
+}
+
+static void remote_context_open(void)
+{
+    RemoteSession *remote=active_remote;
+    remote->context_fd=-1;remote->context_used=0;
+    struct sockaddr_un address={.sun_family=AF_UNIX};
+    snprintf(address.sun_path,sizeof(address.sun_path),"%s",remote->agent_control);
+    int fd=socket(AF_UNIX,SOCK_STREAM,0);
+    if(fd<0) return;
+    int flags=fcntl(fd,F_GETFL);
+    if(flags<0 || fcntl(fd,F_SETFL,flags|O_NONBLOCK)<0 || fcntl(fd,F_SETFD,FD_CLOEXEC)<0
+        || connect(fd,(struct sockaddr *)&address,sizeof(address))<0 || send(fd,"CTX1\n",5,0)!=5) {
+        close(fd);return;
+    }
+    remote->context_fd=fd;
+}
+static void remote_context_read(void)
+{
+    RemoteSession *remote=active_remote;
+    if(remote->context_fd<0) return;
+    /* Bounded independent watch; errors never close the PTY transport. */
+    for(int batch=0;batch<4;batch++) {
+        ssize_t n=recv(remote->context_fd,remote->context_buffer+remote->context_used,
+            sizeof(remote->context_buffer)-remote->context_used,0);
+        if(n<0 && (errno==EAGAIN || errno==EWOULDBLOCK)) return;
+        if(n<0 && errno==EINTR) continue;
+        if(n<=0) goto invalid;
+        remote->context_used+=(size_t)n;
+        while(remote->context_used>=5) {
+            uint8_t *p=remote->context_buffer;
+            size_t size=((size_t)p[1]<<24)|((size_t)p[2]<<16)|((size_t)p[3]<<8)|p[4];
+            if(p[0]!=10 || size>8192) goto invalid;
+            if(remote->context_used<size+5) break;
+            TerminalContext next;
+            if(!terminal_context_decode(&next,p+5,size)) goto invalid;
+            if(memcmp(&next,&remote->context,sizeof(next))) { remote->context=next;remote->context_revision++; }
+            remote->context_used-=size+5;
+            memmove(p,p+size+5,remote->context_used);
+        }
+    }
+    return;
+invalid:
+    close(remote->context_fd);remote->context_fd=-1;remote->context_used=0;
 }
 
 static void remote_agent_open(void)
@@ -216,6 +266,7 @@ static int remote_connect(const char *path, uint16_t cols, uint16_t rows,
     remote_cell_height = (uint32_t)cell_height;
     remote_resize(fd, cols, rows);
     remote_agent_connect(path);
+    remote_context_open();
     return fd;
 }
 

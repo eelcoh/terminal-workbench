@@ -5,12 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/un.h>
+#include "terminal_context.h"
 #define WORKBENCH_MAX_WORKSPACES 8
 #define WORKBENCH_PANES 8
 typedef struct {
     char id[41], name[64], socket_path[108];
     int fd;
-    struct { int agent_fd; bool replaying; } transport;
+    char overview_label[4097];
+    bool custom_name;
+    struct { int agent_fd, context_fd; bool replaying; TerminalContext context; } transport;
     int retained_parser_marker, width_preset;
     bool full;
 } WorkbenchPane;
@@ -38,6 +41,10 @@ static void terminal(CatalogSnapshot *s, int w, int p, WorkbenchPane *pane) {
     s->workspaces[w].count++;
 }
 int main(void) {
+    TerminalContext decoded;
+    const uint8_t empty[]={1,0,0,0,0,0,0,0,0,0};
+    assert(terminal_context_decode(&decoded,empty,sizeof(empty)));
+    char display[8];terminal_context_display("cwd",display,sizeof(display));assert(!strcmp(display,"cwd"));
     WorkbenchPane one = {.id="one",.name="One",.socket_path="/tmp/one.sock",.fd=77,.retained_parser_marker=123,.width_preset=1,.full=true},
         two = {.id="two",.name="Two",.socket_path="/tmp/two.sock",.fd=88,.retained_parser_marker=456},
         three = {.id="three",.name="Three",.socket_path="/tmp/three.sock",.fd=99};
@@ -71,6 +78,12 @@ int main(void) {
     strcpy(client.catalog_path,path);
     assert(workspace_reload(&client));
     assert(workspace_catalog(&client,path));
+    char labels[108];snprintf(labels,sizeof(labels),"%s/terminal-labels.tsv",getenv("WB_TEST_DIRECTORY"));
+    f=fopen(labels,"w");assert(f);fprintf(f,"workbench-terminal-labels-v1\none\t0\n");fclose(f);
+    assert(workspace_reload(&client) && !one.custom_name);
+    f=fopen(labels,"w");assert(f);fprintf(f,"workbench-terminal-labels-v1\none\t0\none\t1\n");fclose(f);
+    assert(workspace_reload(&client) && one.custom_name);
+    assert(remove(labels)==0);
     assert(initializations==0 && frees==0);
     /* Failed projections must not partially rename retained panes. */
     strcpy(s.workspaces[1].terminals[0].name,"Partial rename");

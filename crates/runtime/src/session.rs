@@ -8,6 +8,7 @@ use std::net::Shutdown;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::mpsc::{self, SyncSender};
 use std::sync::Arc;
 use std::thread;
@@ -47,6 +48,9 @@ enum Event {
     Watch(u64, UnixStream, bool),
     Signal(UnixStream, [u8; 30]),
     Unwatch(u64),
+    ContextUpdated(crate::context::Context),
+    ContextRead(UnixStream),
+    ContextWatch(u64, UnixStream),
 }
 
 fn frame(kind: u8, payload: &[u8]) -> Frame {
@@ -195,6 +199,53 @@ fn start_agent_watch(
     Ok(tx)
 }
 
+struct ContextWorker(Arc<AtomicBool>);
+impl Drop for ContextWorker {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+}
+fn start_context_worker(pid: Arc<AtomicI32>, events: SyncSender<Event>) -> ContextWorker {
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let stop = cancelled.clone();
+    thread::spawn(move || {
+        let mut cache = crate::context::Cache::default();
+        let mut previous = None;
+        while !stop.load(Ordering::Relaxed) {
+            let target = pid.load(Ordering::Relaxed);
+            let is_remote = target < 0;
+            let cwd = if is_remote {
+                None
+            } else {
+                crate::platform::working_directory(target)
+            };
+            let next = cache.sample(cwd, is_remote);
+            if previous.as_ref() != Some(&next) {
+                match events.try_send(Event::ContextUpdated(next.clone())) {
+                    Ok(()) => previous = Some(next),
+                    Err(mpsc::TrySendError::Full(_)) => {}
+                    Err(mpsc::TrySendError::Disconnected(_)) => return,
+                }
+            }
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
+    ContextWorker(cancelled)
+}
+fn context_target(
+    pid: &AtomicI32,
+    group: Option<i32>,
+    shell: i32,
+    process: Option<&crate::platform::ProcessIdentity>,
+) {
+    let is_remote = process
+        .and_then(|p| p.executable.file_name())
+        .and_then(|s| s.to_str())
+        .is_some_and(|name| matches!(name, "ssh" | "mosh-client" | "telnet" | "rlogin"));
+    let target = group.filter(|value| *value > 1).unwrap_or(shell);
+    pid.store(if is_remote { -target } else { target }, Ordering::Relaxed);
+}
+
 /// Run a foreground server. Closing its client never closes the PTY.
 ///
 /// The caller supplies an existing private directory for the socket. An existing
@@ -249,6 +300,9 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
         }
     });
     let (events_tx, events_rx) = mpsc::sync_channel(128);
+    let shell_pid = child.process_id().map(|pid| pid as i32).unwrap_or(0);
+    let context_pid = Arc::new(AtomicI32::new(shell_pid));
+    let _context_worker = start_context_worker(context_pid.clone(), events_tx.clone());
     let control_events = events_tx.clone();
     thread::spawn(move || {
         for (id, connection) in control.incoming().enumerate() {
@@ -265,13 +319,15 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                 b"CAPS\n" => {
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let report = format!(
-                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\"]}}\n",
+                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\"]}}\n",
                         std::process::id()
                     );
                     let _ = stream.write_all(report.as_bytes());
                     continue;
                 }
                 b"INFO\n" => Event::Inspect(stream),
+                b"CWD1\n" => Event::ContextRead(stream),
+                b"CTX1\n" => Event::ContextWatch(id as u64, stream),
                 b"TEXT\n" => Event::TerminalRead(stream, false),
                 b"SNAP\n" => Event::TerminalRead(stream, true),
                 b"ATS1\n" | b"ATM1\n" => {
@@ -363,6 +419,8 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
     let mut stop_reply = None;
     let mut attention = crate::attention::Attention::new();
     let mut watchers: AgentWatchers = Vec::new();
+    let mut context = crate::context::Context::default();
+    let mut context_watchers: Vec<(u64, SyncSender<Frame>)> = Vec::new();
     let result = (|| -> Result<(), Failure> {
         for event in events_rx {
             let packet = match event {
@@ -450,7 +508,9 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                 }
                 Event::AgentTick => {
                     let group = pair.master.process_group_leader();
-                    let next = crate::agent::identify(crate::platform::identity(group));
+                    let process = crate::platform::identity(group);
+                    context_target(&context_pid, group, shell_pid, process.as_ref());
+                    let next = crate::agent::identify(process);
                     let old = attention.agent;
                     if attention.sample(next, group) {
                         publish_attention(&mut watchers, &attention, old != next);
@@ -459,7 +519,9 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                 }
                 Event::Signal(mut stream, report) => {
                     let group = pair.master.process_group_leader();
-                    let next = crate::agent::identify(crate::platform::identity(group));
+                    let process = crate::platform::identity(group);
+                    context_target(&context_pid, group, shell_pid, process.as_ref());
+                    let next = crate::agent::identify(process);
                     let old = attention.agent;
                     if attention.sample(next, group) {
                         publish_attention(&mut watchers, &attention, old != next);
@@ -515,7 +577,32 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                     }
                     continue;
                 }
+                Event::ContextUpdated(next) => {
+                    let packet = frame(10, &next.payload());
+                    context_watchers.retain(|(_, frames)| frames.try_send(packet.clone()).is_ok());
+                    context = next;
+                    continue;
+                }
+                Event::ContextRead(mut stream) => {
+                    let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                    let _ = stream.write_all(context.json().as_bytes());
+                    continue;
+                }
+                Event::ContextWatch(id, stream) => {
+                    if context_watchers.len() < 8 {
+                        if let Ok(frames) = start_agent_watch(
+                            id,
+                            stream,
+                            events_tx.clone(),
+                            frame(10, &context.payload()),
+                        ) {
+                            context_watchers.push((id, frames));
+                        }
+                    }
+                    continue;
+                }
                 Event::Unwatch(id) => {
+                    context_watchers.retain(|(current, _)| *current != id);
                     watchers.retain(|(current, _, _)| *current != id);
                     continue;
                 }
@@ -621,6 +708,19 @@ pub fn stop(socket: PathBuf) -> Result<(), Failure> {
         return Err("session stop failed".into());
     }
     Ok(())
+}
+
+pub fn context(socket: PathBuf) -> Result<String, Failure> {
+    let mut stream = UnixStream::connect(socket.with_extension("ctl"))?;
+    stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(1)))?;
+    stream.write_all(b"CWD1\n")?;
+    let mut result = String::new();
+    stream.take(65537).read_to_string(&mut result)?;
+    if result.len() > 65536 || !result.ends_with("}\n") || !result.starts_with("{\"available\":") {
+        return Err("terminal context unavailable".into());
+    }
+    Ok(result)
 }
 
 #[cfg(test)]

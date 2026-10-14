@@ -31,6 +31,23 @@ fn main() {
         }
         return;
     }
+    if socket == "context" {
+        let Some(path) = args.next() else {
+            eprintln!("usage: workbench-session context SOCKET");
+            std::process::exit(2);
+        };
+        if args.next().is_some() {
+            std::process::exit(2);
+        }
+        match terminal_workbench_runtime::session::context(path.into()) {
+            Ok(snapshot) => print!("{snapshot}"),
+            Err(error) => {
+                eprintln!("context: {error}");
+                std::process::exit(1);
+            }
+        }
+        return;
+    }
     if socket == "inspect" {
         let Some(path) = args.next() else {
             eprintln!("usage: workbench-session inspect SOCKET");

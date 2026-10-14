@@ -8,6 +8,8 @@ mod agent;
 #[cfg(unix)]
 mod attention;
 #[cfg(unix)]
+mod context;
+#[cfg(unix)]
 mod platform;
 #[cfg(unix)]
 pub mod session;

@@ -99,6 +99,8 @@ def validate(data):
             ids.add(identity)
             if name(entity.get("name")) != entity["name"]:
                 raise ValueError("Invalid saved name")
+            if "custom_name" in entity and not isinstance(entity["custom_name"], bool):
+                raise ValueError("Invalid custom terminal name flag")
         if not isinstance(workspace.get("terminals"), list) or not 0 <= len(workspace["terminals"]) <= MAX_TERMINALS:
             raise ValueError("Invalid terminal count")
     return data
@@ -258,13 +260,31 @@ def mutate(data, method, identity, title, destination='', position=-1):
         if terminal is None:
             raise ValueError("Terminal no longer exists")
         terminal["name"] = title
+        terminal["custom_name"] = True
     else:
         raise ValueError("Unknown management action")
     validate(data)
 
+def custom_terminal_name(terminal):
+    value = terminal.get('custom_name')
+    if value is not None:
+        if not isinstance(value, bool):
+            raise ValueError('Invalid custom terminal name flag')
+        return value
+    title = terminal['name']
+    return not any(title.startswith(prefix) and title[len(prefix):].isascii() and title[len(prefix):].isdigit()
+                   for prefix in ('Shell ', 'Terminal '))
+
+def terminal_labels(data):
+    return 'workbench-terminal-labels-v1\n' + ''.join(
+        f"{terminal['id']}\t{int(custom_terminal_name(terminal))}\n"
+        for workspace in data['workspaces'] for terminal in workspace['terminals'])
+
 def save(directory, data):
     validate(data)
+    labels = terminal_labels(data)
     atomic_write(directory / "workspaces.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+    atomic_write(directory / "terminal-labels.tsv", labels)
     atomic_write(directory / "workspaces.tsv", snapshot(directory, data))
 
 def finish_close(directory, runtime, data):
@@ -342,8 +362,10 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
         started = ensure_sessions(directory, startup, runtime, cwd, **({"on_spawn": on_spawn} if on_spawn else {})) if method == "initialize" or method.endswith(".create") or method=="initialize-new" else []
         committed = False
         try:
+            labels = terminal_labels(data)
             atomic_write(directory / "workspaces.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
             committed = True
+            atomic_write(directory / "terminal-labels.tsv", labels)
             atomic_write(directory / "workspaces.tsv", rendered)
         finally:
             # Before metadata commit these are unused new sessions; afterward
