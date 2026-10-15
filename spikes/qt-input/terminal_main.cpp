@@ -11,6 +11,7 @@
 #include <QJsonArray>
 #include <QSaveFile>
 #include <QImage>
+#include <QFile>
 
 int main(int argc,char **argv)
 {
@@ -48,14 +49,19 @@ int main(int argc,char **argv)
             const auto pos=terminal->mapToScene(QPointF());
             QJsonObject data{{"ready",terminal->ready()},{"status",terminal->status()},
                 {"text",terminal->viewportText()},{"ime_done",imeDone},
+                {"platform",QGuiApplication::platformName()},
+                {"device_pixel_ratio",window->devicePixelRatio()},
+                {"window_width",window->width()},{"window_height",window->height()},
                 {"cell_width",cell.width()},{"cell_height",cell.height()},
                 {"x",pos.x()},{"y",pos.y()},{"width",terminal->width()},{"height",terminal->height()},
                 {"caret",QJsonArray{caret.x(),caret.y(),caret.width(),caret.height()}}};
             QSaveFile file(report);
             if(file.open(QIODevice::WriteOnly)){file.write(QJsonDocument(data).toJson());file.commit();}
             static bool captured=false;
-            if(terminal->ready() && !captured && terminal->viewportText().contains("QT-SNAPSHOT")) {
+            const QString request=report+".capture";
+            if(terminal->ready() && ((!captured && terminal->viewportText().contains("QT-SNAPSHOT")) || QFile::exists(request))) {
                 captured=window->grabWindow().save(report+".png");
+                if(captured)QFile::remove(request);
             }
         });
         reportTimer.start();

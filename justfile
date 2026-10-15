@@ -274,3 +274,7 @@ toolkit-terminal: runtime-build
 # Real PTY, snapshot, input, selection/clipboard, resize and same-PID reopen.
 toolkit-terminal-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-test
+
+# Native Qt Wayland in private nested Niri: fractional scale, input, clipboard.
+toolkit-terminal-wayland-test: runtime-build
+    python3 scripts/toolkit-probe.py terminal-wayland-test

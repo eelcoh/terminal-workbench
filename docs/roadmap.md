@@ -714,3 +714,14 @@ The main Workbench viewer is unchanged. Native Qt Wayland, real IME, terminal
 accessibility, performance and Mac acceptance remain open; external Mac display
 comparison is deferred until the owner has the screen again (about 2026-10-19).
 See [toolkit readiness](toolkit-readiness.md#second-proof-an-existing-runtime-terminal-hosted-by-qt).
+
+
+## Current toolkit slice: native Qt Wayland
+
+The Qt host now has private native Wayland coverage for scale transitions,
+backing pixels, stable logical geometry/grid, fresh pointer selection and Unicode
+clipboard round trips, keyboard/composition injection, scrollback, exact PTY
+resize and fractional-scale same-process reopen. The owner confirmed basic Mac
+terminal-host launch/input. The main viewer is unchanged; physical display,
+real IME, terminal accessibility and production performance gates remain open.
+See [Qt Wayland validation](toolkit-readiness.md#native-qt-wayland-and-scale-validation).

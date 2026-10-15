@@ -111,9 +111,10 @@ decode is still synchronous and each changed screen is copied in full; this
 single-terminal experiment does not establish fifteen-pane scaling. Qt documents
 [QQuickPaintedItem's image-to-texture path and performance tradeoffs](https://doc.qt.io/qt-6/qquickpainteditem.html).
 
-Open gates include native Wayland Qt input/display checks, real platform IME,
-terminal accessibility, cross-cell shaping, app mouse/graphics support, protocol
-coverage, multi-pane performance and native Mac builds. The owner cannot compare
+Remaining gates include real platform IME, terminal accessibility, cross-cell
+shaping, app mouse/graphics support, protocol coverage, multi-pane performance
+and native Mac interaction/display acceptance. Later Wayland and basic Mac
+launch/input results are recorded below. The owner cannot compare
 on the external Mac display for four days (approximately 2026-10-19); sharper
 text, scale changes and unplug recovery stay explicitly pending until then.
 
@@ -129,8 +130,8 @@ sample shaping and font fallback still need visual review. This does not prove
 real IME service integration or VoiceOver behavior.
 
 This log is from the standard-control input probe, not `just toolkit-terminal`.
-The custom terminal host's native Mac build, rendering and input acceptance are
-still pending, along with the later external-display comparison.
+The later terminal-host launch/input result is recorded below; this input-probe
+log does not establish terminal-host behavior or external-display quality.
 
 
 ## Linux portal warning during interactive launch
@@ -149,3 +150,31 @@ paths. Do not disable the session bus or hide all Qt warnings to work around it.
 The Mac search-log format warnings were corrected using `PRIu64` for the VT's
 64-bit viewport offset. Linux viewer build and full `just check` passed after the
 correction; native Mac compilation of this small logging change is pending.
+
+
+## Native Qt Wayland and scale validation
+
+On 2026-10-15 the native Wayland suite passed with Qt 6.11.2, nested Niri
+and software rendering. The X11 terminal-host suite, standard-control input
+probe and full `just check` also passed. Captures were visually inspected for
+layout; they are not evidence of physical-display sharpness.
+
+`just toolkit-terminal-wayland-test` exercises a disposable Qt terminal host in
+private nested Niri, with the Qt backend reported as `wayland` and `DISPLAY`
+removed. It checks exact keyboard and Unicode bracketed-paste bytes, injected
+composition/cancel/commit, live output, pointer selection in both directions,
+Unicode clipboard round trips, scrollback and return to live, compositor-driven
+PTY resize, and reopening at fractional density with the same reader process.
+
+Scale transitions 1 → 1.25 → 1.5 → 2 → 1 preserved an 800×500 logical window and
+16×65 PTY grid. Qt window captures measured 800×500, 1000×625, 1200×750,
+1600×1000 and 800×500 pixels respectively. Selection/copy/paste was exercised
+with a fresh clipboard sentinel at every scale, plus fresh-window 1.5×. A
+single-shot screenshot request and backing-scale fields exist only in opt-in
+test reporting; normal interactive launches do not perform these captures.
+
+The owner also confirmed that the Qt terminal host builds, opens and accepts
+commands on Mac. Clipboard, selection, scrolling and resizing there still need
+manual confirmation. Real platform IME, terminal accessibility, cross-cell
+shaping, physical GPU/mixed-display behavior and Mac external-screen sharpness
+remain open. This evidence does not select Qt as the production toolkit.

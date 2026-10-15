@@ -15,7 +15,8 @@ just toolkit-probe-test
 
 On macOS install Qt development tools using your approved package source and
 set `CMAKE_PREFIX_PATH` to that Qt installation if CMake cannot locate it. The
-build creates an application bundle. Native Mac execution has not been verified.
+build creates an application bundle. The owner confirmed that the input-probe
+API test passes on Mac; native IME and VoiceOver acceptance remain open.
 Linux automated tests also need `xvfb-run`; interactive runs use the available
 Qt platform backend (Wayland/X11). No download occurs in these recipes.
 
@@ -44,7 +45,8 @@ Both recipes prepare the existing pinned VT/runtime first. The first opens a
 **disposable shell** using the bundled Fira Code Regular at 18 logical pixels.
 Closing it stops that temporary shell. It never loads your workspace catalog.
 The automated test is Linux-only (Xvfb, xdotool and xclip); `toolkit-terminal`
-also has a Mac app-bundle launch path, which still needs native validation.
+also has a Mac app-bundle launch path: the owner confirmed launch and basic
+command input. Other Mac interactions and display acceptance remain open.
 
 The host uses Qt QPainter text on a QQuickPaintedItem, rather than Raylib font
 textures. It restores a pinned Ghostty binary snapshot, then applies live output
@@ -78,3 +80,29 @@ complete graphemes per cell but does not shape across cells. Terminal semantic
 accessibility, app mouse reporting, images, full query callbacks, selection
 word/autoscroll tracking, multi-pane performance and display acceptance remain
 open. QPainter's image-to-texture upload also needs profiling before adoption.
+
+
+## Native Wayland and scale transitions
+
+Linux test dependencies: Niri, Xvfb, xdotool, wl-clipboard, a C compiler,
+wayland-scanner, and Wayland/xkbcommon development packages. These are the same
+private-compositor tools used by the existing viewer tests. Run:
+
+```sh
+just toolkit-terminal-wayland-test
+```
+
+This starts private Xvfb/Niri instances without importing anything into your
+session. Qt receives `QT_QPA_PLATFORM=wayland` and no `DISPLAY`; the opt-in report
+must confirm the Wayland backend. A virtual Wayland keyboard supplies text and
+Ctrl/Tab/arrow input. Pointer events enter through the nested compositor.
+
+The test checks composition/cancel/commit injection and live output, transitions
+through 1×, 1.25×, 1.5×, 2× and back, captured backing pixel dimensions, stable
+logical window/grid, fresh forward/reverse/Unicode selection and clipboard/paste
+at each scale, scrollback/live return, compositor PTY resize, and reopening at
+1.5× onto the same process. Reports/screenshots are under
+`.local/artifacts/qt-wayland-terminal/`. Composition injection does not establish
+native input-method protocol compatibility or real candidate-window placement.
+The no-CSD floating test window isolates client coordinates; decorated desktop
+windows and physical mixed-display/GPU behavior remain separate gates.
