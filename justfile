@@ -256,3 +256,13 @@ wayland-display-gui-test: wayland-build
 wayland-pointer-gui-test: wayland-build
     python3 tests/wayland_pointer_callback_test.py .local/build/viewer-wayland/_deps/raylib-src
     WORKBENCH_TEST_POINTER=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
+
+# Isolated Qt Quick text/semantic API probe; does not launch Workbench sessions.
+toolkit-probe-build:
+    python3 scripts/toolkit-probe.py build
+
+toolkit-probe:
+    python3 scripts/toolkit-probe.py run
+
+toolkit-probe-test:
+    python3 scripts/toolkit-probe.py test

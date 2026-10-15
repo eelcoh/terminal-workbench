@@ -14,22 +14,23 @@ an explicit policy and cannot imply resurrection of arbitrary processes.
 
 ## Terminal and platform integration
 
-Ghostty is the first terminal foundation to investigate. Its macOS and Linux
-applications use a shared core with different native interfaces. Its full
+Ghostty VT is the terminal foundation used by the experimental runtime. Ghostty
+applications on macOS and Linux use a shared core with different native interfaces. Its full
 embedding API and the VT-only library are different integration surfaces:
 VT parsing alone does not provide fonts, rendering, selection, or native input.
 
 Reference: <https://ghostty.org/docs/about>
 
 SwiftUI/AppKit on macOS and GTK4 on Linux are candidates, not final choices.
-A shared UI toolkit remains an option if it can host the renderer reliably on
-both platforms. The workspace layout remains a prototype until both platform integrations are demonstrated.
+Qt Quick is now the first shared-toolkit candidate under an isolated input probe;
+see the [readiness audit](toolkit-readiness.md). No toolkit has been selected.
+The workspace layout remains experimental pending the remaining platform gates.
 
-The first spike must establish whether the selected embedding surface permits
-the runtime to own PTYs while clients attach to terminal output and input.
-If it owns child processes internally, document the required adaptation before
-promising detached sessions. Avoid two unsynchronized authoritative terminal
-states, especially for agent detection and resize handling.
+The current VT integration permits runtime-owned PTYs with clients attaching
+to output and input. A replacement rendering surface must preserve this boundary.
+If it owns child processes internally, establish the required adaptation first.
+Avoid two unsynchronized authoritative terminal states, especially for agent
+detection and resize handling.
 
 ## Herdr reuse
 
@@ -45,19 +46,19 @@ after examining the API and completing the terminal spike.
 ## Decisions still open
 
 See [the roadmap](roadmap.md) for the current sequence. The [UX spike](ux-spike.md)
-and native platform/input checks inform the final toolkit decision; theme loading
-and matching application colors are planned features, not provided by VT parsing.
+and native platform/input checks inform the final toolkit decision. Theme loading
+and matching application colors are implemented by the viewer, not VT parsing.
 
 - Full renderer integration and version pinning.
 - Native per-platform clients versus a shared toolkit.
-- PTY ownership, attachment, and reconnect protocol.
-- Agent signal source and detection-state authority.
 - macOS application bundle and Linux packaging.
-- Final product name and project license.
+- Final product name. The project uses MIT; dependency notices remain separate.
 
 ## Spike outcome
 
-A separate Rust-owned PTY and Ghostty VT viewer now work together on Linux.
+A separate Rust-owned PTY and Ghostty VT viewer now work together on Linux and
+macOS. Runtime ownership, attachment and reconnect have dedicated validation;
+agent observations use runtime metadata and explicit integration signals.
 See [integration findings](integration-findings.md) for the inspected API gaps,
 measured behavior, and remaining platform/input checks. The final UI toolkit
 remains undecided.

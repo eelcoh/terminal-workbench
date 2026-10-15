@@ -691,3 +691,14 @@ scaling. Checks cover drag/reverse/Unicode clipboard round trips, SGR terminal
 mouse input and Shift selection at 1×, dynamic 1.5× and fresh-window 1.5×,
 with the same shell-side process. Physical trackpad and native Mac input review
 remain separate. See [Wayland pointer validation](wayland.md#pointer-selection-and-clipboard).
+
+
+## Current toolkit slice: input and semantic APIs
+
+The [readiness audit](toolkit-readiness.md) identifies missing composition,
+caret-aware IME positioning, accessibility and shaping integration in the
+experimental viewer. An isolated Qt Quick probe now exercises preedit/cancel/
+commit, caret geometry and accessible control roles/text/actions. Qt is the first
+candidate to test, not an adopted frontend. Native IME, screen readers, Mac
+execution and a real terminal-host proof remain acceptance gates. Run
+`just toolkit-probe` for the window or `just toolkit-probe-test` for API checks.

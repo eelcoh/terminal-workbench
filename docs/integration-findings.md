@@ -253,3 +253,10 @@ bridge now pairs each key with its own text in native order and batches encoded
 bytes to avoid per-key packet backpressure. Paused-viewer regressions pass across
 legacy and three Kitty configurations at 12 ms and 1 ms. Native Mac typing,
 composition, focus and IME acceptance remain open. [Implementation and checks](terminal-input.md).
+
+
+## Toolkit readiness audit (2026-10-15)
+
+See [production toolkit readiness](toolkit-readiness.md) for the current input,
+accessibility and shaping source audit and the isolated Qt Quick probe. Passing
+keyboard/display checks does not close native IME or screen-reader acceptance.
