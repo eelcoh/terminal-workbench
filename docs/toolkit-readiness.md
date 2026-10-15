@@ -85,3 +85,34 @@ AT-SPI/VoiceOver end-to-end, shaping correctness, or production typography.
    one and fifteen terminals, rendering retained/hidden sources only as needed.
 6. Demonstrate packaging on both targets and review the result with the owner
    before replacing the experimental viewer or selecting the toolkit.
+
+
+## Second proof: an existing runtime terminal hosted by Qt
+
+`just toolkit-terminal` opens one disposable runtime-owned shell. It restores
+Ghostty's pinned snapshot and applies live output to a presentation replica.
+Qt QPainter draws the cell graphemes using bundled Fira Code; Raylib glyph
+textures are absent from this path. This makes it a useful future comparison
+for Mac sharpness, without claiming a rendering fix.
+
+`just toolkit-terminal-test` exercises the real runtime and a private Linux Xvfb
+window. It covers snapshot restoration, Unicode and styled text presentation,
+live output, exact keyboard bytes, injected composition/cancel/commit, native
+selection/copy and bracketed paste, scrollback, PTY resize, occupied-session
+rejection and same-process reopen. The final suite passed with Qt 6.11.2 on
+Linux on 2026-10-15, alongside the original input probe and full `just check`. See the [probe instructions](../spikes/qt-input/README.md).
+The test exposed and corrected Qt Tab traversal stealing shell input and Ctrl
+text being interpreted twice by the terminal encoder.
+
+Painting uses immutable cell snapshots prepared on the GUI thread, coalescing
+terminal changes with a single-shot 16 ms refresh rather than idle repainting.
+The transport bounds frame sizes, snapshot bytes and queued input. Snapshot
+decode is still synchronous and each changed screen is copied in full; this
+single-terminal experiment does not establish fifteen-pane scaling. Qt documents
+[QQuickPaintedItem's image-to-texture path and performance tradeoffs](https://doc.qt.io/qt-6/qquickpainteditem.html).
+
+Open gates include native Wayland Qt input/display checks, real platform IME,
+terminal accessibility, cross-cell shaping, app mouse/graphics support, protocol
+coverage, multi-pane performance and native Mac builds. The owner cannot compare
+on the external Mac display for four days (approximately 2026-10-19); sharper
+text, scale changes and unplug recovery stay explicitly pending until then.

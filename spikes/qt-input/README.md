@@ -32,3 +32,49 @@ and the advertised press action invokes the button. It does not test the native
 IME service or OS accessibility bridge. See [readiness audit](../../docs/toolkit-readiness.md).
 
 The test captures `.local/artifacts/toolkit-probe/qt-input.png` for visual inspection.
+
+## Existing-runtime terminal host
+
+```sh
+just toolkit-terminal
+just toolkit-terminal-test
+```
+
+Both recipes prepare the existing pinned VT/runtime first. The first opens a
+**disposable shell** using the bundled Fira Code Regular at 18 logical pixels.
+Closing it stops that temporary shell. It never loads your workspace catalog.
+The automated test is Linux-only (Xvfb, xdotool and xclip); `toolkit-terminal`
+also has a Mac app-bundle launch path, which still needs native validation.
+
+The host uses Qt QPainter text on a QQuickPaintedItem, rather than Raylib font
+textures. It restores a pinned Ghostty binary snapshot, then applies live output
+to a client presentation replica. The existing Rust process owns the PTY, VT and
+resize authority. The client never creates a second PTY or writes catalog state.
+The bundled font and OFL notice are embedded as resources; system font fallback
+handles missing glyphs.
+
+Copy/Paste buttons work on both targets. Linux shortcuts are Ctrl-Shift-C/V;
+Mac uses the standard Command-C/V. Ordinary Ctrl-C goes through Ghostty to the
+shell. Drag selects, the wheel scrolls Ghostty history, and typing returns live.
+The probe supports basic composition/cancel/commit and provides a caret rectangle.
+It rejects surrounding-text replacement requests rather than editing shell-owned
+input. Native IME service behavior, composition attribute/caret details, physical
+keyboard layouts and negotiated Kitty composition remain unverified.
+
+The Linux test checks snapshot/Unicode text and live output, exact ASCII/Enter/
+Ctrl-C/Tab/arrow input, injected IME commit without preedit leakage, native pointer
+selection and clipboard/bracketed-paste round trips, scrollback, PTY resize,
+second-owner rejection, and same-reader-PID reopen. Artifacts are under
+`.local/artifacts/qt-terminal/`; reports are opt-in and contain only disposable
+test data. They are not enabled by the interactive recipe.
+
+For developer-controlled attachment to a disposable existing runtime, run the
+built `workbench-terminal-probe --control /path/to/session.ctl`. It refuses an
+occupied session and closing this window merely detaches. There is no takeover
+button. On Mac the executable is inside `workbench-terminal-probe.app/Contents/MacOS/`.
+
+This is a one-terminal compatibility proof, not production rendering. It draws
+complete graphemes per cell but does not shape across cells. Terminal semantic
+accessibility, app mouse reporting, images, full query callbacks, selection
+word/autoscroll tracking, multi-pane performance and display acceptance remain
+open. QPainter's image-to-texture upload also needs profiling before adoption.

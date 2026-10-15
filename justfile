@@ -266,3 +266,11 @@ toolkit-probe:
 
 toolkit-probe-test:
     python3 scripts/toolkit-probe.py test
+
+# Disposable single-terminal Qt host; closes its temporary shell on exit.
+toolkit-terminal: runtime-build
+    python3 scripts/toolkit-probe.py terminal
+
+# Real PTY, snapshot, input, selection/clipboard, resize and same-PID reopen.
+toolkit-terminal-test: runtime-build
+    python3 scripts/toolkit-probe.py terminal-test

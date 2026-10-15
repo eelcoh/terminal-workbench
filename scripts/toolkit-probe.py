@@ -4,6 +4,8 @@ import argparse
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / ".local/build/qt-input"
@@ -11,15 +13,44 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test"))
     args = parser.parse_args()
-    subprocess.run(["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(BUILD)], check=True)
+    if args.mode == "terminal-test" and not sys.platform.startswith("linux"):
+        parser.error("terminal-test uses Linux Xvfb/xdotool; use toolkit-terminal for native Mac testing")
+    subprocess.run(["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(BUILD), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if args.mode.startswith("terminal") else "OFF")], check=True)
     subprocess.run(["cmake", "--build", str(BUILD), "--parallel"], check=True)
     if args.mode == "build":
         return
-    binary = BUILD / "workbench-input-probe"
+    name = "workbench-terminal-probe" if args.mode.startswith("terminal") else "workbench-input-probe"
+    binary = BUILD / name
     if sys.platform == "darwin":
-        binary = BUILD / "workbench-input-probe.app/Contents/MacOS/workbench-input-probe"
+        binary = BUILD / (name + ".app/Contents/MacOS") / name
+    if args.mode == "terminal-test":
+        subprocess.run([sys.executable, str(ROOT / "tests/qt_terminal_gui_smoke.py"),
+                        str(ROOT / "target/debug/workbench-session"), str(binary)], check=True)
+        return
+    if args.mode == "terminal":
+        # Disposable shell only: no catalog, ownership transfer or saved sessions.
+        with tempfile.TemporaryDirectory(prefix="wb-qt-") as directory:
+            socket = Path(directory) / "terminal.sock"
+            runtime = ROOT / "target/debug/workbench-session"
+            with (Path(directory) / "runtime.log").open("w") as log:
+                server = subprocess.Popen([str(runtime), str(socket)], cwd=Path.home(), stdout=log, stderr=log)
+                try:
+                    deadline = time.monotonic() + 10
+                    while not socket.with_suffix(".ctl").exists():
+                        if server.poll() is not None or time.monotonic() > deadline:
+                            raise RuntimeError("Disposable terminal runtime did not start")
+                        time.sleep(.02)
+                    subprocess.run([str(binary), "--control", str(socket.with_suffix(".ctl")), "--disposable"], check=True)
+                finally:
+                    subprocess.run([str(runtime), "stop", str(socket)], capture_output=True, timeout=12)
+                    try:
+                        server.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        server.terminate()
+                        server.wait(timeout=5)
+        return
     command = [str(binary)]
     if args.mode == "test":
         artifact = ROOT / ".local/artifacts/toolkit-probe/qt-input.png"

@@ -702,3 +702,15 @@ commit, caret geometry and accessible control roles/text/actions. Qt is the firs
 candidate to test, not an adopted frontend. Native IME, screen readers, Mac
 execution and a real terminal-host proof remain acceptance gates. Run
 `just toolkit-probe` for the window or `just toolkit-probe-test` for API checks.
+
+
+## Current toolkit slice: Qt terminal host
+
+An isolated single-terminal host now connects to the existing Rust runtime and
+renders Ghostty cells through Qt QPainter with bundled Fira Code. Its disposable
+Linux test covers snapshot/live output, keyboard and injected composition,
+selection/clipboard, scrollback, PTY resize, owner rejection and same-PID reopen.
+The main Workbench viewer is unchanged. Native Qt Wayland, real IME, terminal
+accessibility, performance and Mac acceptance remain open; external Mac display
+comparison is deferred until the owner has the screen again (about 2026-10-19).
+See [toolkit readiness](toolkit-readiness.md#second-proof-an-existing-runtime-terminal-hosted-by-qt).
