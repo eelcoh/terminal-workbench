@@ -1,4 +1,5 @@
 /* Search owns keyboard/pointer input; VT parsing and shell lifetime continue. */
+#include <inttypes.h>
 static WorkbenchPane *search_pane(WorkspaceClient *client)
 {
     WorkbenchWorkspace *w=&client->workspaces[client->active];
@@ -18,7 +19,7 @@ static void search_close(WorkspaceClient *client,bool restore)
             ghostty_terminal_scroll_viewport(pane->terminal,(GhosttyTerminalScrollViewport){.tag=GHOSTTY_SCROLL_VIEWPORT_ROW,.value.row=point.y});
     }
     if(pane) {GhosttyTerminalScrollbar bar={0};ghostty_terminal_get(pane->terminal,GHOSTTY_TERMINAL_DATA_SCROLLBAR,&bar);
-        fprintf(stderr,"Terminal search closed: viewport %zu\n",bar.offset);}
+        fprintf(stderr,"Terminal search closed: viewport %" PRIu64 "\n",bar.offset);}
     ghostty_tracked_grid_ref_free(s->restore);s->restore=NULL;s->open=false;s->terminal=NULL;
     s->paint_valid=false;
 }
@@ -72,7 +73,7 @@ static void search_reveal(WorkspaceClient *client)
     size_t center=s->scan.rows/2,row=match.start.row>center ? match.start.row-center : 0;
     ghostty_terminal_scroll_viewport(pane->terminal,(GhosttyTerminalScrollViewport){.tag=GHOSTTY_SCROLL_VIEWPORT_ROW,.value.row=row});
     GhosttyTerminalScrollbar bar={0};ghostty_terminal_get(pane->terminal,GHOSTTY_TERMINAL_DATA_SCROLLBAR,&bar);
-    fprintf(stderr,"Terminal search selected: %d/%zu; viewport %zu\n",r->selected+1,r->count,bar.offset);
+    fprintf(stderr,"Terminal search selected: %d/%zu; viewport %" PRIu64 "\n",r->selected+1,r->count,bar.offset);
     s->paint_valid=false;
 }
 static void search_input(WorkspaceClient *client)

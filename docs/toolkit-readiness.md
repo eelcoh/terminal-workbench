@@ -116,3 +116,36 @@ terminal accessibility, cross-cell shaping, app mouse/graphics support, protocol
 coverage, multi-pane performance and native Mac builds. The owner cannot compare
 on the external Mac display for four days (approximately 2026-10-19); sharper
 text, scale changes and unplug recovery stay explicitly pending until then.
+
+
+## Native Mac input-probe result (2026-10-15)
+
+The owner supplied native Mac output from `just toolkit-probe-test`. CMake
+configured and the binary built successfully; the composition/cancel/commit,
+caret geometry and accessible roles/text/action checks passed. Optional Vulkan
+header discovery did not prevent this build or test. Qt reported missing OpenType
+support for script 11 in `.AppleSystemUIFont` and `.AppleIndicFont`; multilingual
+sample shaping and font fallback still need visual review. This does not prove
+real IME service integration or VoiceOver behavior.
+
+This log is from the standard-control input probe, not `just toolkit-terminal`.
+The custom terminal host's native Mac build, rendering and input acceptance are
+still pending, along with the later external-display comparison.
+
+
+## Linux portal warning during interactive launch
+
+The owner reported `qt.qpa.services: Failed to register with host portal` with
+`App info not found for 'terminal-workbench-terminal-probe'` from
+`just toolkit-terminal`. The probe advertises that desktop ID without installing
+a corresponding desktop entry. The [portal Registry contract](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.host.portal.Registry.html)
+requires an ID matching a desktop-file basename. In
+[Qt 6.11's registration code](https://raw.githubusercontent.com/qt/qtbase/6.11/src/gui/platform/unix/qdesktopunixservices.cpp),
+this asynchronous failure is logged through `qCWarning`, not an application
+exit. The message alone therefore does not establish a launch failure. A proper
+host-visible desktop entry remains a packaging task, including Distrobox launch
+paths. Do not disable the session bus or hide all Qt warnings to work around it.
+
+The Mac search-log format warnings were corrected using `PRIu64` for the VT's
+64-bit viewport offset. Linux viewer build and full `just check` passed after the
+correction; native Mac compilation of this small logging change is pending.
