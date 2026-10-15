@@ -5,7 +5,15 @@ import sys
 
 MARKER = '// Terminal Workbench alteration: ordered terminal keyboard events.\n'
 
+def adapt_layout(text):
+    old='    wb_keyboard_push_key(key, action, mods);'
+    new='    wb_keyboard_push_key(key, action, mods, wb_keyboard_layout_codepoint(glfwGetKeyName(key, scancode)));'
+    if new in text:return text
+    assert text.count(old)==1, 'Pinned Raylib layout keyboard anchor changed'
+    return text.replace(old,new)
+
 def adapt(text):
+    if MARKER in text:return adapt_layout(text)
     edits = {
         '    CORE.Input.Keyboard.keyPressedQueueCount = 0;':
             '    wb_keyboard_reset();\n    CORE.Input.Keyboard.keyPressedQueueCount = 0;',
@@ -19,7 +27,7 @@ def adapt(text):
     for old, new in edits.items():
         assert text.count(old)==1, 'Pinned Raylib keyboard anchor changed: '+old
         text=text.replace(old,new)
-    return MARKER+'#define WB_KEYBOARD_IMPLEMENTATION\n#include "workbench_keyboard_events.h"\n'+text
+    return adapt_layout(MARKER+'#define WB_KEYBOARD_IMPLEMENTATION\n#include "workbench_keyboard_events.h"\n'+text)
 
 def main():
     source=Path(sys.argv[1])/'src/platforms'
@@ -27,6 +35,7 @@ def main():
     target=source/'workbench_keyboard_events.h'
     if not target.exists() or target.read_bytes()!=header.read_bytes():target.write_bytes(header.read_bytes())
     path=source/'rcore_desktop_glfw.c';text=path.read_text()
-    if MARKER not in text:path.write_text(adapt(text))
+    patched=adapt(text)
+    if patched!=text:path.write_text(patched)
 
 if __name__=='__main__':main()

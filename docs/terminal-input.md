@@ -56,3 +56,33 @@ key repeat, Ctrl-C, clipboard paste and application shortcuts. Separately check
 Option/dead-key composition, IME and focus changes with a native keyboard. The
 Linux synthetic test does not complete those native input gates, nor does it
 choose Raylib/GLFW as the final toolkit.
+
+## Keyboard layouts and composed text
+
+A native Wayland raw-PTY check reproduced German QWERTZ Ctrl-Z sending Ctrl-Y.
+Ordinary text already used the OS character callback, but modified keys used
+US-position codepoints. Key events now retain a single validated Unicode scalar
+from GLFW's layout-specific key name, including releases. Ghostty receives that
+unmodified scalar for Kitty reporting and Alt encoding. For suppressed ASCII Ctrl
+text, the adapter supplies the layout character to Ghostty's existing control
+encoder. Non-Latin control keys keep Ghostty's physical-key fallback; missing or
+unsupported key names retain the previous fallback.
+
+This follows [GLFW's layout-specific key-name contract](https://www.glfw.org/docs/latest/group__input.html#ga98293ec4493cfe8e7df8ff22ee402b46).
+Character callbacks remain authoritative for ordinary text and dead-key commits.
+This does not change application shortcut positions, add a composition UI, or
+establish general IME support. No runtime/session protocol changes are involved.
+The layout lookup occurs once per native key callback, outside pane/render loops.
+
+`just keyboard-layout-gui-test` uses the private nested Niri seat and standard
+XKB keymaps without changing the user's keyboard layout. It validates German
+text/Ctrl-Z/Alt-Z, German Ctrl-Z under Kitty flags 1/3/31 including releases,
+French AZERTY text/Ctrl-A, and US-international dead-acute + E yielding exactly é.
+The same test retains Unicode clipboard, resizing and same-process reattachment
+checks. Its artifacts are under `.local/artifacts/keyboard-layouts/`.
+The existing X11 rapid legacy/Kitty tests and application routing checks remain
+separate regressions.
+
+This is automated Linux input evidence. Physical non-US keyboards, native Mac
+Option/dead keys, candidate-window IMEs, layout-switching behavior, accessibility
+and broader modifier combinations still need native acceptance.

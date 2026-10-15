@@ -66,3 +66,8 @@ The owner confirmed that the opt-in Wayland spike works on their Linux desktop
 on 2026-10-15. This is a general desktop smoke confirmation; detailed physical
 input, selection/copy, trackpad, GPU performance, input-method and display-scaling
 acceptance remains separate.
+
+Keyboard-layout validation now has a separate `just keyboard-layout-gui-test`
+recipe using the same private compositor. It covers German/French modified keys,
+Kitty reporting and a US-international dead-key commit. See
+[layout behavior and limits](terminal-input.md#keyboard-layouts-and-composed-text).

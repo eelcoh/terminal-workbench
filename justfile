@@ -243,3 +243,7 @@ wayland-spike: wayland-build
 # Requires niri, Xvfb, wl-clipboard and Wayland/xkbcommon development tools; uses no existing desktop/session.
 wayland-gui-test: wayland-build
     python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
+
+# Non-US text and modified-key routing in a disposable native Wayland seat.
+keyboard-layout-gui-test: wayland-build
+    WORKBENCH_TEST_LAYOUTS=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling

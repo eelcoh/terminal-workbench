@@ -1,4 +1,4 @@
-/* Test-only physical US keyboard for a private virtual-keyboard Wayland seat. */
+/* Test-only physical keyboard for a private virtual-keyboard Wayland seat. */
 #define _GNU_SOURCE
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
@@ -25,7 +25,7 @@ int main(int argc,char **argv) {
     wl_registry_add_listener(registry,&listener,NULL);assert(wl_display_roundtrip(display)>=0);assert(manager&&seat);
     struct zwp_virtual_keyboard_v1 *keyboard=zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager,seat);
     struct xkb_context *context=xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    struct xkb_rule_names names={.layout="us"};
+    struct xkb_rule_names names={.variant=getenv("WORKBENCH_TEST_KEYBOARD_VARIANT"),.layout=getenv("WORKBENCH_TEST_KEYBOARD_LAYOUT") ? getenv("WORKBENCH_TEST_KEYBOARD_LAYOUT") : "us"};
     struct xkb_keymap *map=xkb_keymap_new_from_names(context,&names,XKB_KEYMAP_COMPILE_NO_FLAGS);assert(map);
     char *serialized=xkb_keymap_get_as_string(map,XKB_KEYMAP_FORMAT_TEXT_V1);assert(serialized);
     int fd=memfd_create("wb-test-keymap",MFD_CLOEXEC);assert(fd>=0);
@@ -42,10 +42,13 @@ int main(int argc,char **argv) {
     }
     zwp_virtual_keyboard_v1_modifiers(keyboard,held,0,0,0);
     assert(wl_display_roundtrip(display)>=0);usleep(60000);
-    int text=!strcmp(argv[1],"text");assert(text||!strcmp(argv[1],"key"));
-    size_t count=text?strlen(argv[2]):1;
+    int text=!strcmp(argv[1],"text"),sequence=!strcmp(argv[1],"sequence");
+    assert(text||sequence||!strcmp(argv[1],"key"));
+    size_t count=text||sequence?strlen(argv[2]):1;
+    char *next=NULL,*token=sequence?strtok_r(argv[2]," ",&next):NULL;
     for(size_t i=0;i<count;i++) {
-        xkb_keysym_t wanted=text?(unsigned char)argv[2][i]:xkb_keysym_from_name(argv[2],XKB_KEYSYM_NO_FLAGS);
+        if(sequence && !token)break;
+        xkb_keysym_t wanted=text?(unsigned char)argv[2][i]:xkb_keysym_from_name(sequence?token:argv[2],XKB_KEYSYM_NO_FLAGS);
         xkb_keycode_t found=0;uint32_t modifiers=held;
         for(xkb_keycode_t code=xkb_keymap_min_keycode(map);code<=xkb_keymap_max_keycode(map)&&!found;code++)
             for(int level=0;level<2;level++) {
@@ -63,6 +66,7 @@ int main(int argc,char **argv) {
         zwp_virtual_keyboard_v1_key(keyboard,0,found-8,WL_KEYBOARD_KEY_STATE_RELEASED);
         zwp_virtual_keyboard_v1_modifiers(keyboard,0,0,0,0);
         assert(wl_display_roundtrip(display)>=0);usleep(1000);
+        if(sequence)token=strtok_r(NULL," ",&next);
     }
     assert(wl_display_roundtrip(display)>=0);usleep(60000);
     for(int i=argc-1;i>=3;i--) {

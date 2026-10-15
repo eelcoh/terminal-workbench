@@ -633,9 +633,8 @@ cases stay open.
 See [agent review and tracing](agent-validation.md#linux-permission-and-background-workspace-review--2026-10-14).
 
 The live review also exposed garbled/duplicated fast synthetic typing in interactive
-agents. Reproduce with raw input under legacy/Kitty keyboard modes and compare
-physical keyboard behavior before an input-adapter change. Paced keys avoid the
-observed issue; the cause and native platform scope remain open.
+agents. The ordered-input slice below fixes the reproduced callback-order and
+packet-queue problems; broader physical keyboard acceptance remains open.
 
 
 ## Current input slice: ordered keyboard events
@@ -659,3 +658,15 @@ rendering and close/reopen without restarting the shell-side process.
 The owner confirmed the Wayland desktop smoke check on 2026-10-15. Detailed
 GPU performance, physical input/IME, selection/copy, trackpad and mixed-display
 acceptance remain open. See [Wayland spike](wayland.md).
+
+
+## Current input slice: non-US keyboard layouts
+
+Native Wayland testing reproduced QWERTZ Ctrl-Z sending Ctrl-Y. The terminal
+adapter now retains layout-specific unmodified characters and supplies suppressed
+ASCII Ctrl text to Ghostty, preserving character callbacks for ordinary/composed
+text and existing application shortcut positions. Private-seat checks cover
+German text/Ctrl/Alt, Kitty press/release reporting, French AZERTY text/Ctrl-A,
+and a US-international dead-key commit. Physical layouts, native Mac Option/dead
+keys and full IME/accessibility acceptance remain open. See
+[keyboard layouts](terminal-input.md#keyboard-layouts-and-composed-text).

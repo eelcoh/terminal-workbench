@@ -21,8 +21,15 @@ saved = termios.tcgetattr(0)
 tty.setraw(0)
 Path('reader-pid').write_text(str(os.getpid()))
 os.write(1, b'\x1b[?2004hWayland input ready\r\n')
+flags=0
 try:
     while True:
+        requested=int(Path('keyboard-flags').read_text()) if Path('keyboard-flags').exists() else 0
+        if requested!=flags:
+            if flags:os.write(1,b'\x1b[<u')
+            flags=requested
+            if flags:os.write(1,b'\x1b[>'+str(flags).encode()+b'u')
+        Path('flags-ack').write_text(str(flags))
         Path('size').write_text(str(termios.tcgetwinsize(0)))
         if select.select([0], [], [], .1)[0]:
             with open('received', 'ab') as output:
@@ -44,7 +51,8 @@ def stop(process):
 
 def main():
     runtime, viewer = [Path(arg).resolve() for arg in sys.argv[1:3]]
-    report = ROOT / '.local/artifacts/wayland'
+    layouts = os.environ.get('WORKBENCH_TEST_LAYOUTS') == '1'
+    report = ROOT / ('.local/artifacts/keyboard-layouts' if layouts else '.local/artifacts/wayland')
     report.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='wb-wayland-') as directory:
         root = Path(directory)
@@ -134,6 +142,44 @@ def main():
                 return (root/'received').read_bytes() if (root/'received').exists() else b''
             wait_until(lambda: received() == expected)
             print('PASS: native Wayland exact text and Enter order', flush=True)
+            if layouts:
+                def set_flags(flags):
+                    pending=root/'keyboard-flags-next'
+                    pending.write_text(str(flags));pending.replace(root/'keyboard-flags')
+                    wait_until(lambda:(root/'flags-ack').read_text()==str(flags))
+                    time.sleep(.2)
+                env['WORKBENCH_TEST_KEYBOARD_LAYOUT']='de'
+                text('z y Z Y');expected+=b'z y Z Y'
+                wait_until(lambda: received()==expected)
+                key('z','Control');expected+=b'\x1a'
+                try:wait_until(lambda: received()==expected)
+                except AssertionError:raise AssertionError(('German Ctrl-Z',received(),expected))
+                key('z','Mod1');expected+=b'\x1bz'
+                wait_until(lambda: received()==expected)
+                print('PASS: German text, Ctrl-Z and Alt-Z follow the active layout',flush=True)
+                for flags in (1,3,31):
+                    # The fixture's acknowledgement precedes viewer VT parsing.
+                    set_flags(flags)
+                    before=len(received());key('z','Control');time.sleep(.2)
+                    encoded=received()[before:]
+                    events=re.findall(rb'\x1b\[([0-9]+)(?::[0-9:]+)?;([0-9]+)(?::([0-9]+))?(?:;[0-9:]+)?u',encoded)
+                    assert events and all(cp==b'122' and mods==b'5' for cp,mods,_ in events),(flags,encoded)
+                    assert any(action!=b'3' for _,_,action in events)
+                    if flags in (3,31):assert any(action==b'3' for _,_,action in events),(flags,encoded)
+                    expected+=encoded
+                set_flags(0)
+                env['WORKBENCH_TEST_KEYBOARD_LAYOUT']='fr'
+                text('azerty');expected+=b'azerty'
+                key('a','Control');expected+=b'\x01'
+                wait_until(lambda:received()==expected)
+                env['WORKBENCH_TEST_KEYBOARD_LAYOUT']='us'
+                env['WORKBENCH_TEST_KEYBOARD_VARIANT']='intl'
+                run(str(root/'keyboard'),'sequence','dead_acute e')
+                expected+='é'.encode()
+                wait_until(lambda:received()==expected)
+                env.pop('WORKBENCH_TEST_KEYBOARD_VARIANT')
+                env.pop('WORKBENCH_TEST_KEYBOARD_LAYOUT')
+                print('PASS: German Ctrl-Z Kitty flags 1/3/31, French text/Ctrl-A and US-international dead-key composition',flush=True)
             clip = 'Wayland clipboard café λ\nsecond line'
             spawn(['wl-copy', '--foreground', '--', clip], env=env,
                   stdin=subprocess.DEVNULL, stdout=log, stderr=log)

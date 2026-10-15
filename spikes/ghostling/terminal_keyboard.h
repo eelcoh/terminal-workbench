@@ -14,13 +14,18 @@ static GhosttyResult terminal_encode_event(GhosttyKeyEncoder encoder,GhosttyKeyE
     if (input.key>=0 && input.key<512 && workbench_key_blocked[input.key]) return GHOSTTY_SUCCESS;
     GhosttyMods mods=terminal_event_mods(input.mods);
     GhosttyKey key=raylib_key_to_ghostty(input.key);
-    uint32_t unshifted=raylib_key_unshifted_codepoint(input.key);
+    uint32_t unshifted=input.kind==WB_KEY_EVENT && input.codepoint ? input.codepoint : raylib_key_unshifted_codepoint(input.key);
     char shifted[4];
-    /* GLFW suppresses character callbacks for Ctrl chords. Retain the existing
-     * adapter's US-layout Ctrl+Shift fallback for Ghostty's legacy CSI-u path. */
-    if (!length && input.action!=0 && unshifted>='a' && unshifted<='z'
-        && (mods&GHOSTTY_MODS_CTRL) && (mods&GHOSTTY_MODS_SHIFT)) {
-        length=utf8_encode(unshifted-'a'+'A',shifted);text=shifted;
+    /* GLFW suppresses text for Ctrl chords. Supply layout ASCII for legacy
+     * control encoding; retain physical-key fallback for non-Latin layouts.
+     * Shifted punctuation needs its actual text, never an invented US symbol. */
+    if (!length && input.action!=0 && (mods&GHOSTTY_MODS_CTRL)) {
+        uint32_t control=0;
+        if(unshifted>='a' && unshifted<='z')
+            control=(mods&GHOSTTY_MODS_SHIFT) ? unshifted-'a'+'A' : unshifted;
+        else if(!(mods&GHOSTTY_MODS_SHIFT) && input.codepoint>=0x20 && input.codepoint<0x7f)
+            control=input.codepoint;
+        if(control) {length=utf8_encode(control,shifted);text=shifted;}
     }
     /* A printable press without text can be a dead/IME key. Its eventual text
      * callback is authoritative. Control/Alt/Super chords still encode normally. */
