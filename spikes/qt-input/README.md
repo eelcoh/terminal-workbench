@@ -76,8 +76,7 @@ occupied session and closing this window merely detaches. There is no takeover
 button. On Mac the executable is inside `workbench-terminal-probe.app/Contents/MacOS/`.
 
 This is a one-terminal compatibility proof, not production rendering. It draws
-complete graphemes per cell but does not shape across cells. Terminal semantic
-accessibility, app mouse reporting, images, full query callbacks, selection
+complete graphemes per cell but does not shape across cells. Full terminal screen-reader usability, app mouse reporting, images, full query callbacks, selection
 word/autoscroll tracking, multi-pane performance and display acceptance remain
 open. QPainter's image-to-texture upload also needs profiling before adoption.
 
@@ -106,3 +105,41 @@ at each scale, scrollback/live return, compositor PTY resize, and reopening at
 native input-method protocol compatibility or real candidate-window placement.
 The no-CSD floating test window isolates client coordinates; decorated desktop
 windows and physical mixed-display/GPU behavior remain separate gates.
+
+
+## Terminal accessibility proof
+
+```sh
+just toolkit-terminal-accessibility-test
+```
+
+This Linux check needs `dbus-run-session`, AT-SPI2 and Python GObject bindings
+(`python3-gobject` in build-machine), plus the existing Xvfb/xclip tools. It uses
+private session/accessibility buses and a temporary runtime directory. Unrelated
+portal activation is disabled only within this test environment; ordinary probe
+launches keep the normal desktop services.
+
+The custom terminal exposes a Terminal role, stable name, focused/busy/read-only
+state, visible text, caret position, character geometry, selection and focus
+action. Text ranges use Qt's UTF-16 offsets, mapping combining marks and surrogate
+pairs to the corresponding terminal cell. Wide-character spacer cells do not
+introduce fake spaces. Trailing blank cells/rows are omitted except where the
+caret or selection needs them. Accessibility selection uses the same Ghostty
+selection as mouse selection and Copy. Shell cursor movement and document
+editing are not offered through this output-text interface.
+
+The test checks Qt interfaces against a real PTY, then independently traverses
+the AT-SPI tree, reads Unicode text and a line/emoji range, selects/removes a
+range, focuses the terminal,
+and receives a live-output text-change event. Existing exact-byte keyboard,
+clipboard, resize and same-process checks then continue, detecting unintended
+PTY input from accessibility actions. Artifacts include
+`.local/artifacts/qt-terminal/atspi.json` and `run.log`.
+
+Accessibility text is built lazily from the client grid. When accessibility is
+active, visible terminal changes produce coalesced minimal text/caret/selection
+notifications; the draw method only paints. This prototype exposes the viewport,
+not a separate full-history document. It is not an Orca or VoiceOver usability
+sign-off; speech volume, history navigation and native Mac bridging remain open.
+On Mac use `just toolkit-terminal` and inspect the Terminal object with
+Accessibility Inspector/VoiceOver. Native revalidation of this adapter is pending.

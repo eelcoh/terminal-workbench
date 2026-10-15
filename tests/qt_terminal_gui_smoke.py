@@ -15,6 +15,7 @@ from gui_smoke import close_window
 runtime, viewer = [Path(arg).resolve() for arg in sys.argv[1:3]]
 artifacts = Path(__file__).resolve().parent.parent / ".local/artifacts/qt-terminal"
 artifacts.mkdir(parents=True, exist_ok=True)
+accessibility = os.environ.get("WORKBENCH_TEST_ACCESSIBILITY") == "1"
 processes = []
 with tempfile.TemporaryDirectory(prefix="wb-qt-test-") as directory:
     root = Path(directory)
@@ -32,7 +33,7 @@ original=termios.tcgetattr(0);tty.setraw(0)
 try:
  Path('reader-pid').write_text(str(os.getpid()))
  os.write(1,b''.join(b'history-%03d\\r\\n'%i for i in range(80)))
- os.write(1,'\\x1b[2J\\x1b[Hcopy sample\\r\\ncafé λ\\r\\nQT-SNAPSHOT\\r\\n\\x1b[32mgreen text\\x1b[0m\\x1b[?2004h'.encode())
+ os.write(1,'\\x1b[2J\\x1b[Hcopy sample\\r\\ncafé λ\\r\\nQT-SNAPSHOT\\r\\n\\x1b[32mgreen text\\x1b[0m\\r\\ncluster: é 漢 😀\\x1b[?2004h'.encode())
  Path('ready').touch();data=bytearray();updated=False
  while True:
   if select.select([0],[],[],.02)[0]:
@@ -68,6 +69,7 @@ finally:termios.tcsetattr(0,termios.TCSANOW,original)
                 path.unlink(missing_ok=True)
                 args=[str(viewer),"--control",str(sock.with_suffix(".ctl")),"--test-report",str(path)]
                 if ime:args.append("--test-ime")
+                if accessibility:args.append("--test-accessibility")
                 v=subprocess.Popen(args,cwd=root,env=env,stdout=log,stderr=log)
                 processes.append(v)
                 wait_until(lambda:report(path).get("ready"),timeout=10)
@@ -77,6 +79,9 @@ finally:termios.tcsetattr(0,termios.TCSANOW,original)
                 return v,found,path
             v,window,path=start("first",True)
             wait_until(lambda:report(path).get("ime_done"))
+            if accessibility:
+                wait_until(lambda:report(path).get("accessibility_ok"))
+                subprocess.run([sys.executable,str(Path(__file__).with_name("qt_atspi_probe.py")),str(artifacts/"atspi.json"),str(root/"live")],env=env,check=True,timeout=25)
             wait_until(lambda:(root/"input").exists())
             assert (root/"input").read_bytes()=="日本".encode(), "preedit/cancel leaked or commit duplicated"
             initial=report(path)

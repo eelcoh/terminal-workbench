@@ -278,3 +278,7 @@ toolkit-terminal-test: runtime-build
 # Native Qt Wayland in private nested Niri: fractional scale, input, clipboard.
 toolkit-terminal-wayland-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-wayland-test
+
+# Qt terminal text/focus/selection semantics with a real disposable PTY.
+toolkit-terminal-accessibility-test: runtime-build
+    python3 tests/qt_accessibility_gui_smoke.py

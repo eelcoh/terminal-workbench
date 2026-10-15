@@ -8,6 +8,8 @@ ApplicationWindow {
     color: "#191d24"
     property bool disposable: false
     ColumnLayout {
+        Accessible.role: Accessible.Pane
+        Accessible.name: "Terminal workspace"
         anchors.fill: parent; spacing: 0
         RowLayout {
             Layout.fillWidth: true; Layout.margins: 12
@@ -15,7 +17,10 @@ ApplicationWindow {
             Button { text: "Copy"; onClicked: terminal.copy() }
             Button { text: "Paste"; onClicked: terminal.paste() }
         }
-        TerminalItem { id: terminal; objectName: "terminal"; Layout.fillWidth: true; Layout.fillHeight: true; focus: true }
+        TerminalItem { id: terminal; objectName: "terminal"; Layout.fillWidth: true; Layout.fillHeight: true; focus: true
+            Accessible.role: Accessible.Terminal
+            Accessible.name: "Terminal"
+        }
         Label { text: disposable ? "Disposable test shell · closing the probe stops this shell" : "Terminal host experiment · closing the window detaches"; color: "#abb5c7"; Layout.margins: 10 }
     }
 }

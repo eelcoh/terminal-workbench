@@ -1,4 +1,5 @@
 #include "terminal_item.h"
+#include "terminal_accessibility.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
@@ -21,7 +22,7 @@ int main(int argc,char **argv)
     auto args=app.arguments();int control=args.indexOf("--control");
     if(control<0 || control+1>=args.size()) {std::fputs("usage: workbench-terminal-probe --control SESSION.ctl\n",stderr);return 2;}
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");
-    QQmlApplicationEngine engine;engine.load(QUrl("qrc:/Terminal.qml"));
+    QQmlApplicationEngine engine;installTerminalAccessibility();engine.load(QUrl("qrc:/Terminal.qml"));
     if(engine.rootObjects().isEmpty())return 1;
     auto *terminal=engine.rootObjects().first()->findChild<TerminalItem *>("terminal");
     if(!terminal)return 1;
@@ -31,7 +32,7 @@ int main(int argc,char **argv)
     int reportIndex=args.indexOf("--test-report");
     QTimer reportTimer;
     int imeStage=0;
-    bool imeDone=false;
+    bool imeDone=false, accessibilityDone=false, accessibilityOk=false;
     if(reportIndex>=0 && reportIndex+1<args.size()) {
         const QString report=args.at(reportIndex+1);
         auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());
@@ -45,10 +46,16 @@ int main(int argc,char **argv)
                 QGuiApplication::sendEvent(terminal,&event);
                 imeDone=++imeStage==3;
             }
+            if(args.contains("--test-accessibility") && !accessibilityDone && terminal->ready()
+                && terminal->viewportText().contains(QString::fromUtf8("漢"))) {
+                accessibilityOk=terminalAccessibilitySelfTest(terminal);accessibilityDone=true;
+                if(!accessibilityOk) {app.exit(1);return;}
+            }
             const auto caret=terminal->caret();const auto cell=terminal->cellSize();
             const auto pos=terminal->mapToScene(QPointF());
             QJsonObject data{{"ready",terminal->ready()},{"status",terminal->status()},
                 {"text",terminal->viewportText()},{"ime_done",imeDone},
+                {"accessibility_ok",accessibilityDone && accessibilityOk},
                 {"platform",QGuiApplication::platformName()},
                 {"device_pixel_ratio",window->devicePixelRatio()},
                 {"window_width",window->width()},{"window_height",window->height()},

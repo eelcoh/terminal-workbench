@@ -725,3 +725,14 @@ resize and fractional-scale same-process reopen. The owner confirmed basic Mac
 terminal-host launch/input. The main viewer is unchanged; physical display,
 real IME, terminal accessibility and production performance gates remain open.
 See [Qt Wayland validation](toolkit-readiness.md#native-qt-wayland-and-scale-validation).
+
+
+## Current toolkit slice: accessible terminal text
+
+The custom Qt terminal now exposes visible output text, cell-aware Unicode
+geometry, caret/selection and focus semantics through an accessibility adapter.
+Linux tests cover Qt interfaces plus real AT-SPI discovery, readable text,
+selection/focus and live-output events using private buses/runtime paths.
+Existing PTY input/clipboard/resize/reopen coverage remains part of the check.
+Native Mac bridging, Orca/VoiceOver usability, sustained-output speech and history
+navigation remain open. See [terminal accessibility proof](toolkit-readiness.md#terminal-text-accessibility-proof).

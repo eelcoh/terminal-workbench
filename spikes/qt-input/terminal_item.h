@@ -19,6 +19,15 @@ public:
     QString viewportText() const;
     QRectF caret() const { return caret_; }
     QSizeF cellSize() const { return QSizeF(cellWidth_,cellHeight_); }
+    struct AccessibleCharacter { QPoint cell; int width=1; bool selected=false; };
+    struct AccessibleSnapshot {
+        QString text;
+        QVector<AccessibleCharacter> characters; // one entry per UTF-16 code unit
+        int cursor=-1, selectionStart=-1, selectionEnd=-1;
+    };
+    const AccessibleSnapshot &accessibleSnapshot() const;
+    void accessibleSelect(int start,int end);
+    void accessibleClearSelection();
     void paint(QPainter *) override;
     QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
     Q_INVOKABLE void copy();
@@ -36,7 +45,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *) override;
     void wheelEvent(QWheelEvent *) override;
 private:
-    struct Cell { QString text; QColor fg, bg; bool bold=false, italic=false, underline=false; };
+    struct Cell { QString text; QColor fg, bg; bool bold=false, italic=false, underline=false, selected=false; GhosttyCellWide wide=GHOSTTY_CELL_WIDE_NARROW; };
     void fail(const QString &);
     void receive();
     bool frame(quint8, const QByteArray &);
@@ -68,4 +77,6 @@ private:
     QRectF caret_;
     bool cursorVisible_=false, dragging_=false;
     QPoint anchor_;
+    mutable AccessibleSnapshot accessible_;
+    mutable bool accessibleDirty_=true;
 };

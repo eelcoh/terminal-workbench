@@ -178,3 +178,40 @@ commands on Mac. Clipboard, selection, scrolling and resizing there still need
 manual confirmation. Real platform IME, terminal accessibility, cross-cell
 shaping, physical GPU/mixed-display behavior and Mac external-screen sharpness
 remain open. This evidence does not select Qt as the production toolkit.
+
+
+## Terminal text accessibility proof
+
+On 2026-10-15, Qt interface and real AT-SPI checks passed with Qt 6.11.2
+and AT-SPI2 2.60.7 in build-machine. Native Wayland/scale regressions, the
+standard-control input probe and full `just check` also passed.
+
+The Qt terminal host now has a custom public-API accessibility adapter, distinct
+from the standard-control input probe. It exposes a Terminal role and visible
+output text with cell-aware geometry, caret/selection information and a focus
+action. The output text is read-only; document editing and arbitrary shell cursor
+movement are not synthesized. Unicode combining marks, wide cells and UTF-16
+surrogate pairs map back to the rendered cells. Selection delegates to the same
+Ghostty state used by mouse selection and Copy.
+
+The adapter uses [QAccessibleTextInterface](https://doc.qt.io/qt-6/qaccessibletextinterface.html)
+and [QAccessibleObject](https://doc.qt.io/qt-6/qaccessibleobject.html) without private
+Qt headers. A lazy viewport snapshot avoids formatting text when accessibility
+is unused; rendering remains pure. Active accessibility receives coalesced text,
+caret and selection events, with unchanged prefix/suffix text excluded from
+update notifications. No per-byte announcements or full-history scans are added.
+
+`just toolkit-terminal-accessibility-test` checks role/tree links, readable
+Unicode text, combining/wide/emoji geometry, selection/copy, focus changes and
+absence of a document-editing interface. A second process traverses the real
+Linux AT-SPI tree over private session/accessibility buses, reads the terminal,
+navigates a line and an emoji range, changes selection/focus, and observes an event from new real PTY output. The
+same runtime then passes the existing exact-byte/clipboard/resize/reopen checks.
+The test isolates runtime paths and suppresses unrelated desktop portal startup
+only inside the disposable harness.
+
+Native Mac build/VoiceOver review of this adapter, Orca interaction, reading order,
+speech policy during sustained output and full-history accessibility remain open.
+The pinned Qt AT-SPI bridge exposes Qt UTF-16 text offsets; interoperability around
+supplementary characters needs assistive-tool review before production adoption.
+This completes a bounded API/bridge proof rather than the accessibility gate.

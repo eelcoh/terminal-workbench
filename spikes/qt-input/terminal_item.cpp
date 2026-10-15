@@ -1,5 +1,6 @@
 #include "terminal_item.h"
 #include "platform_keys.h"
+#include "terminal_accessibility.h"
 #include <QPainter>
 #include <QFontDatabase>
 #include <QFontMetricsF>
@@ -67,6 +68,13 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     connect(&refreshTimer_,&QTimer::timeout,this,&TerminalItem::refresh);
     handshakeTimer_.setSingleShot(true); handshakeTimer_.setInterval(10000);
     connect(&handshakeTimer_,&QTimer::timeout,this,[this]{fail("Attachment timed out");});
+    connect(this,&TerminalItem::statusChanged,this,[this]{
+        if(!QAccessible::isActive())return;
+        QAccessibleEvent description(this,QAccessible::DescriptionChanged);
+        QAccessible::updateAccessibility(&description);
+        QAccessible::State changed;changed.busy=true;
+        QAccessibleStateChangeEvent state(this,changed);QAccessible::updateAccessibility(&state);
+    });
     socket_.setReadBufferSize(256*1024);
     connect(&socket_,&QLocalSocket::readyRead,this,&TerminalItem::receive);
     connect(&socket_,&QLocalSocket::connected,this,[this]{
@@ -176,6 +184,8 @@ void TerminalItem::resizeTerminal()
 void TerminalItem::refresh()
 {
     if(!terminal_ || failed_)return;
+    const bool notify=QAccessible::isActive() && isVisible();
+    const auto previous=notify ? accessibleSnapshot() : AccessibleSnapshot();
     if(ghostty_render_state_update(render_,terminal_)!=GHOSTTY_SUCCESS) {fail("Render snapshot failed");return;}
     GhosttyRenderStateColors colors=sized<GhosttyRenderStateColors>();
     ghostty_render_state_colors_get(render_,&colors);background_=color(colors.background);
@@ -193,6 +203,10 @@ void TerminalItem::refresh()
             if(style.inverse)std::swap(fg,bg);
             bool selected=false;
             ghostty_render_state_row_cells_get(cells_,GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_SELECTED,&selected);
+            cell.selected=selected;
+            GhosttyCell raw=0;
+            ghostty_render_state_row_cells_get(cells_,GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_RAW,&raw);
+            ghostty_cell_get(raw,GHOSTTY_CELL_DATA_WIDE,&cell.wide);
             cell.fg=selected ? QColor("#ffffff") : color(fg);cell.bg=selected ? QColor("#405575") : color(bg);
             cell.bold=style.bold;cell.italic=style.italic;cell.underline=style.underline!=0;
             GhosttyBuffer buffer{};
@@ -212,6 +226,8 @@ void TerminalItem::refresh()
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_X,&x);
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_Y,&y);
     caret_=QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_,cellHeight_);cursorVisible_=visible&&inViewport;
+    accessibleDirty_=true;
+    if(notify)terminalAccessibilityChanged(this,previous,accessibleSnapshot());
     QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);update();
 }
 QString TerminalItem::viewportText() const
