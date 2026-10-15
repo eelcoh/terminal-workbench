@@ -46,6 +46,16 @@ def main():
             fixture(system_zig, '0.16.0')
             compiler, _ = build.build_environment(Path(empty),environment)
             assert compiler == system_zig
+    for args, system, expected in [([], 'Linux', 'viewer'), (['--wayland'], 'Linux', 'viewer-wayland')]:
+        with patch.object(sys,'argv',['build-spike.py',*args]), patch.object(build.platform,'system',return_value=system), patch.object(build,'build_environment',return_value=(Path('/zig'),{})), patch.object(build.subprocess,'run') as run:
+            assert build.main()==0
+            commands=[call.args[0] for call in run.call_args_list]
+            configure=next(c for c in commands if c[0]=='cmake' and '-S' in c)
+            assert str(build.ROOT/'.local/build'/expected) in configure
+            assert ('-DGLFW_BUILD_WAYLAND=ON' in configure)==bool(args)
+            assert ('-DGLFW_BUILD_X11=OFF' in configure)==bool(args)
+    with patch.object(sys,'argv',['build-spike.py','--wayland']), patch.object(build.platform,'system',return_value='Darwin'), patch.object(build.subprocess,'run') as run:
+        assert build.main()==2 and not run.called
     print('PASS: Apple Silicon/Intel/Linux local discovery, PATH fallback, explicit compiler override, version rejection, paths with spaces and child-only environment')
 
 

@@ -22,8 +22,10 @@ The Linux integration prototype has established:
   native macOS integration remain open.
 
 The owner has confirmed a native macOS build/run. Full macOS input/interaction
-acceptance remains open. Linux checks use X11/Xvfb; native Wayland and physical GPU
-behavior remain unverified. The current renderer is an experiment; it is not the final toolkit.
+acceptance remains open. Linux checks cover X11/Xvfb and an opt-in native Wayland
+viewer under nested Niri; physical GPU, input methods and multi-display Wayland
+behavior remain unverified. The current renderer is an experiment; it is not the
+final toolkit.
 
 ## Milestones
 
@@ -642,6 +644,18 @@ The rapid-agent-input finding now has a raw-PTY reproduction and a client fix.
 An ordered GLFW callback bridge pairs each key with its own text/release/modifiers;
 Ghostty's encoded bytes are batched to avoid overflowing the PTY packet queue.
 Legacy/Kitty paused-window bursts preserve exact text and Enter order at 12 ms and
-1 ms. Existing shortcut/dialog/clipboard behavior remains covered. Native Mac
-typing/composition and physical keyboard/IME acceptance stay open. See
+1 ms. Existing shortcut/dialog/clipboard behavior remains covered. The owner
+confirmed normal native Mac typing on 2026-10-14; composition,
+physical keyboard edge cases and IME acceptance stay open. See
 [terminal input](terminal-input.md).
+
+## Current platform slice: opt-in native Wayland
+
+`just wayland-spike` builds a separate Wayland-only Linux viewer, sharing the
+existing sessions and ownership model. The default X11 build and Cocoa build
+remain available. Window placement follows the compositor. A private nested
+Niri test validates text/Enter, Unicode bracketed paste, PTY resize, Overview
+rendering and close/reopen without restarting the shell-side process.
+The owner confirmed the Wayland desktop smoke check on 2026-10-15. Detailed
+GPU performance, physical input/IME, selection/copy, trackpad and mixed-display
+acceptance remain open. See [Wayland spike](wayland.md).

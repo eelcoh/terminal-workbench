@@ -47,7 +47,9 @@ cases. Pure tests cover callback ordering, repeats, release/modifier retention,
 character-only Unicode commits, invalid scalar rejection and the overflow bound.
 `just check` and existing shortcut/dialog/clipboard regressions accompany it.
 
-This is Linux X11/software-rendering evidence. On Mac, rebuild/launch with
+The owner confirmed normal native Mac typing after rebuilding on 2026-10-14.
+The automated evidence remains Linux X11/software rendering. For repeat Mac
+checks, rebuild/launch with
 `just spike`; ordinary shell typing and `wb-copilot` should receive fast text and
 repeated letters exactly once. Check `/exit`, shifted punctuation, arrows, held
 key repeat, Ctrl-C, clipboard paste and application shortcuts. Separately check

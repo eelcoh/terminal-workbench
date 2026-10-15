@@ -35,6 +35,8 @@ void WorkbenchFramebufferSize(int *width,int *height)
 }
 bool WorkbenchWindowWorkarea(int *x,int *y,int *width,int *height,int *left,int *top,int *right,int *bottom,int *count)
 {
+    // Wayland compositors own placement; absolute window positions are unavailable.
+    if (glfwGetPlatform()==GLFW_PLATFORM_WAYLAND) { *count=0; return false; }
     GLFWmonitor **monitors=glfwGetMonitors(count);
     if (!monitors || *count<=0) return false;
     int wx=0,wy=0,ww=0,wh=0;
@@ -53,7 +55,7 @@ bool WorkbenchWindowWorkarea(int *x,int *y,int *width,int *height,int *left,int 
 '''
 def adapt(text):
     if MARKER in text:
-        return adapt_size(text)
+        return adapt_size(adapt_wayland(text))
     declaration='static void WindowContentScaleCallback(GLFWwindow *window, float scalex, float scaley);'
     assert text.count(declaration)==1
     text=text.replace(declaration,'static void WorkbenchFramebufferSizeCallback(GLFWwindow *window, int width, int height);\n'+declaration)
@@ -74,7 +76,23 @@ def adapt(text):
     int width=0,height=0;glfwGetFramebufferSize(window,&width,&height);
     WorkbenchFramebufferSizeCallback(window,width,height);
 }'''
-    return adapt_size(text.replace(old,new))
+    return adapt_size(adapt_wayland(text.replace(old,new)))
+def adapt_wayland(text):
+    guard='    if (glfwGetPlatform()==GLFW_PLATFORM_WAYLAND) { *count=0; return false; }'
+    monitor='        // Derive display sizes, and, if possible, window size in case it was zero at beginning.\n\n        int monitorCount = 0;\n        int monitorIndex = GetCurrentMonitor();'
+    fallback=monitor.replace('GetCurrentMonitor()', 'glfwGetPlatform()==GLFW_PLATFORM_WAYLAND ? 0 : GetCurrentMonitor()')
+    if fallback not in text:
+        assert text.count(monitor)==1
+        text=text.replace(monitor,'        // Wayland supplies no absolute position; framebuffer callbacks supply actual sizing.\n'+fallback)
+    center='    else\n    {\n        // Try to center window on screen but avoiding window-bar outside of screen'
+    centered='    else if (glfwGetPlatform()!=GLFW_PLATFORM_WAYLAND)\n    {\n        // Try to center window on screen but avoiding window-bar outside of screen'
+    if centered not in text:
+        assert text.count(center)==1
+        text=text.replace(center,centered)
+    if guard in text:return text
+    anchor='    GLFWmonitor **monitors=glfwGetMonitors(count);'
+    assert text.count(anchor)==1
+    return text.replace(anchor,'    // Wayland compositors own placement; absolute window positions are unavailable.\n'+guard+'\n'+anchor)
 def adapt_size(text):
     marker='// Terminal Workbench alteration: use framebuffer metrics on logical resize.'
     if marker in text:return text

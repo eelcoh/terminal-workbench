@@ -25,6 +25,10 @@ def launch(viewer, state, env, *, nested=False):
 
 
 def main():
+    environment=dict(os.environ);environment.pop('WAYLAND_DISPLAY',None)
+    for arguments, expected in [(['--wayland'], b'requires a Linux Wayland session'), (['--invalid'], b'usage: run-spike.py')]:
+        result=subprocess.run([sys.executable,str(ROOT/'scripts/run-spike.py'),*arguments],env=environment,capture_output=True,timeout=5)
+        assert result.returncode==2 and expected in result.stderr
     with tempfile.TemporaryDirectory(prefix='wb-launch-') as directory:
         state=Path(directory)
         shell_log=state/'shell.log'; shell_log.write_bytes(b'existing session output')

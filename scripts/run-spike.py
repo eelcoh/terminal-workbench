@@ -99,12 +99,17 @@ def ensure_service(sessions,runtime,root):
     return service,health
 
 
-def main():
+def main(arguments=()):
+    wayland = list(arguments) == ["--wayland"]
+    if arguments and not wayland:
+        print("usage: run-spike.py [--wayland]", file=sys.stderr); return 2
+    if wayland and (sys.platform != "linux" or not os.environ.get("WAYLAND_DISPLAY")):
+        print("The Wayland spike requires a Linux Wayland session", file=sys.stderr); return 2
     runtime = ROOT / "target/debug/workbench-session"
-    viewer = ROOT / ".local/build/viewer/ghostling"
+    viewer = ROOT / (".local/build/viewer-wayland/ghostling" if wayland else ".local/build/viewer/ghostling")
     sessions = Path(os.environ.get("WORKBENCH_STATE_DIR", str(ROOT / ".local/sessions"))).expanduser().resolve()
     if not runtime.exists() or not viewer.exists():
-        print("Build the spike first with: just spike-build", file=sys.stderr)
+        print("Build the spike first with: just " + ("wayland-build" if wayland else "spike-build"), file=sys.stderr)
         return 1
     try:
         preferences=prepare_preferences(ROOT,sessions,os.environ,sys.platform)
@@ -131,4 +136,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

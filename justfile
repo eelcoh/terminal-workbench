@@ -41,6 +41,7 @@ check: runtime-build
     python3 tests/macos_metadata_test.py
     python3 tests/config_paths_test.py
     python3 tests/build_env_test.py
+    python3 tests/wayland_display_test.py
     python3 tests/font_assets_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
@@ -231,3 +232,14 @@ attachment-gui-test: spike-build
 keyboard-gui-test: spike-build
     python3 tests/keyboard_input_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 12
     python3 tests/keyboard_input_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
+
+# Opt-in Linux native Wayland viewer; default spike remains X11.
+wayland-build:
+    python3 scripts/build-spike.py --wayland
+
+wayland-spike: wayland-build
+    python3 scripts/run-spike.py --wayland
+
+# Requires niri, Xvfb, wl-clipboard and Wayland/xkbcommon development tools; uses no existing desktop/session.
+wayland-gui-test: wayland-build
+    python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
