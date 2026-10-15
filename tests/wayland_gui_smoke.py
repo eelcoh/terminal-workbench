@@ -23,6 +23,7 @@ tty.setraw(0)
 Path('reader-pid').write_text(str(os.getpid()))
 os.write(1, b'\x1b[?2004hWayland input ready\r\n')
 flags=0
+pointer_drawn=""
 try:
     while True:
         requested=int(Path('keyboard-flags').read_text()) if Path('keyboard-flags').exists() else 0
@@ -30,6 +31,13 @@ try:
             if flags:os.write(1,b'\x1b[<u')
             flags=requested
             if flags:os.write(1,b'\x1b[>'+str(flags).encode()+b'u')
+        pointer_requested=Path('pointer-output').read_text() if Path('pointer-output').exists() else ''
+        if pointer_requested and pointer_requested!=pointer_drawn:
+            os.write(1,b'\x1b[?1000l\x1b[?1006l')
+            if pointer_requested.startswith('tracking:'):os.write(1,b'\x1b[?1000h\x1b[?1006h')
+            os.write(1,'\x1b[2J\x1b[Hclipboard sample\r\ncafé λ\r\n'.encode())
+            pointer_drawn=pointer_requested
+            Path('pointer-ready').write_text(pointer_drawn)
         Path('flags-ack').write_text(str(flags))
         Path('size').write_text(str(termios.tcgetwinsize(0)))
         if select.select([0], [], [], .1)[0]:
@@ -54,7 +62,8 @@ def main():
     runtime, viewer = [Path(arg).resolve() for arg in sys.argv[1:3]]
     layouts = os.environ.get('WORKBENCH_TEST_LAYOUTS') == '1'
     display_test = os.environ.get('WORKBENCH_TEST_DISPLAY') == '1'
-    report = ROOT / ('.local/artifacts/wayland-display' if display_test else '.local/artifacts/keyboard-layouts' if layouts else '.local/artifacts/wayland')
+    pointer_test = os.environ.get('WORKBENCH_TEST_POINTER') == '1'
+    report = ROOT / ('.local/artifacts/wayland-pointer' if pointer_test else '.local/artifacts/wayland-display' if display_test else '.local/artifacts/keyboard-layouts' if layouts else '.local/artifacts/wayland')
     report.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='wb-wayland-') as directory:
         root = Path(directory)
@@ -81,7 +90,7 @@ def main():
                          'WORKBENCH_TEST_KEYBOARD_LAYOUT', 'WORKBENCH_TEST_KEYBOARD_VARIANT'):
                 nested.pop(name, None)
             rd, wr = os.pipe()
-            spawn(['Xvfb', '-displayfd', str(wr), '-screen', '0', '2560x1600x24' if display_test else '1440x1000x24',
+            spawn(['Xvfb', '-displayfd', str(wr), '-screen', '0', '2560x1600x24' if display_test or pointer_test else '1440x1000x24',
                    '-noreset', '-nolisten', 'tcp'], pass_fds=(wr,), stdout=xlog, stderr=xlog)
             os.close(wr); wr = None
             assert select.select([rd], [], [], 5)[0], 'Xvfb startup timed out'
@@ -90,7 +99,7 @@ def main():
             rd = None
             (root/'niri.kdl').write_text(
                 'hotkey-overlay { skip-at-startup; }\nanimations { off; }\n'
-                'layout { default-column-width { proportion 0.9; }; }\n')
+                'layout { default-column-width { proportion 0.9; }; }\n'+('prefer-no-csd\n' if pointer_test else ''))
             # No --session: never import environment into the user's desktop.
             compositor = spawn(['niri', '-c', str(root/'niri.kdl')],
                                env=nested, stdout=niri_log, stderr=niri_log)
@@ -103,7 +112,7 @@ def main():
             display, ipc = wait_until(endpoints, timeout=15)
             env = dict(nested, WAYLAND_DISPLAY=display, NIRI_SOCKET=ipc)
             env.pop('DISPLAY', None)  # A successful viewer cannot use XWayland.
-            if display_test:
+            if display_test or pointer_test:
                 def xrun(*args):
                     return subprocess.run(['xdotool',*args],env=nested,capture_output=True,check=True,timeout=10)
                 parent=wait_until(lambda:xrun('search','--onlyvisible','--pid',str(compositor.pid)).stdout.decode().strip())
@@ -195,12 +204,81 @@ def main():
                   stdin=subprocess.DEVNULL, stdout=log, stderr=log)
             def clipboard_ready():
                 reply=subprocess.run(['wl-paste','--no-newline'],env=env,capture_output=True,timeout=5)
-                return reply.returncode==0 and reply.stdout.decode()==clip
+                return reply.returncode==0 and reply.stdout==clip.encode()
             wait_until(clipboard_ready)
             key('v', 'Control', 'Shift')
             expected += b'\x1b[200~'+clip.encode()+b'\x1b[201~'
             wait_until(lambda: received() == expected)
             print('PASS: native Unicode bracketed clipboard paste', flush=True)
+            if pointer_test:
+                def place():
+                    action('move-window-to-floating')
+                    action('set-window-width','800');action('set-window-height','420')
+                    action('move-floating-window','--x','100','--y','100')
+                    time.sleep(.5)
+                def point(x,y,scale):
+                    layout=windows()[0]['layout']
+                    origin=layout['tile_pos_in_workspace_view'];offset=layout['window_offset_in_tile']
+                    xrun('mousemove','--window',parent.splitlines()[0],str(round((origin[0]+offset[0]+x)*scale)),str(round((origin[1]+offset[1]+y)*scale)))
+                    time.sleep(.08)
+                def drag(start,end,scale,row=0):
+                    point(58+start*7+(5 if start>end else 2),86+row*16+8,scale)
+                    xrun('mousedown','1');time.sleep(.08)
+                    point(58+end*7+(2 if start>end else 5),86+row*16+8,scale)
+                    xrun('mouseup','1');time.sleep(.15)
+                def selected():
+                    reply=run('wl-paste','--no-newline','--type','text/plain;charset=utf-8')
+                    return reply.stdout.decode()
+                def seed_clipboard(value):
+                    spawn(['wl-copy','--foreground','--',value],env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log)
+                    def ready():
+                        reply=subprocess.run(['wl-paste','--no-newline'],env=env,capture_output=True,timeout=5)
+                        return reply.returncode==0 and reply.stdout==value.encode()
+                    wait_until(ready)
+                def copy_expected(value,tag):
+                    key('c','Control','Shift')
+                    actual=selected()
+                    if actual!=value:
+                        action('screenshot-screen','--path',str(root/('failed-'+tag+'.png')),'--show-pointer','true')
+                    assert actual==value,(tag,actual,value)
+                def draw(tag):
+                    pending=root/'pointer-output-next';pending.write_text(tag);pending.replace(root/'pointer-output')
+                    wait_until(lambda:(root/'pointer-ready').exists() and (root/'pointer-ready').read_text()==tag)
+                    time.sleep(.3)
+                place()
+                for tag,scale,reopen in [('initial',1,False),('fractional',1.5,False),('reopened-fractional',1.5,True)]:
+                    run('niri','msg','output','winit','scale',str(scale));time.sleep(.8)
+                    if reopen:
+                        action('close-window');process.wait(timeout=10);wait_until(lambda:not windows())
+                        process=launch();place()
+                    draw(tag)
+                    # Enter from outside and click without a second motion event.
+                    xrun('mousemove','--window',parent.splitlines()[0],'1910','1190');time.sleep(.1)
+                    seed_clipboard('forward sentinel');drag(0,8,scale);copy_expected('clipboard',tag+'-forward')
+                    seed_clipboard('reverse sentinel');drag(8,0,scale);copy_expected('clipboard',tag+'-reverse')
+                    seed_clipboard('unicode sentinel');drag(0,5,scale,row=1);copy_expected('café λ',tag+'-unicode')
+                    key('v','Control','Shift');expected+=b'\x1b[200~'+'café λ'.encode()+b'\x1b[201~'
+                    wait_until(lambda:received()==expected)
+                    draw('tracking:'+tag)
+                    point(58+3*7+3,94,scale)
+                    xrun('mousedown','1');time.sleep(.08);xrun('mouseup','1');time.sleep(.15)
+                    expected+=b'\x1b[<0;4;1M\x1b[<0;4;1m'
+                    wait_until(lambda:received()==expected)
+                    seed_clipboard('shift sentinel')
+                    ready=root/('shift-ready-'+tag)
+                    held=spawn([str(root/'keyboard'),'hold','Shift_L'],env=dict(env,WORKBENCH_TEST_KEY_DOWN=str(ready)),
+                        stdin=subprocess.PIPE,stdout=log,stderr=log)
+                    wait_until(ready.exists);time.sleep(.1)
+                    try:drag(0,8,scale)
+                    finally:
+                        held.stdin.write(b'\n');held.stdin.close();held.wait(timeout=5)
+                    time.sleep(.1)
+                    copy_expected('clipboard',tag+'-shift')
+                    assert received()==expected,'local selection leaked terminal mouse/key input'
+                    action('screenshot-window','--path',str(root/('pointer-'+tag+'.png')))
+                    print('PASS: Wayland drag/reverse/Unicode copy-paste, SGR mouse and Shift selection',tag,flush=True)
+                run('niri','msg','output','winit','scale','1');time.sleep(.5)
+                action('move-window-to-tiling');time.sleep(.5)
             if display_test:
                 action('move-window-to-floating')
                 action('set-window-width','800');action('set-window-height','420')

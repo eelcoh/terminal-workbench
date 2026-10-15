@@ -680,3 +680,14 @@ exact input and same-process reattachment. The owner confirmed the suite passed
 on 2026-10-15. This adds automated platform coverage;
 physical mixed-display/unplug behavior, native Mac sharpness and GPU performance
 remain open. See [display-scale validation](wayland.md#display-scale-transitions).
+
+
+## Current platform slice: Wayland pointer coordinates
+
+Native selection/copy checks exposed stale first-click coordinates on Wayland
+entry and double-scaled mouse coordinates when opening at fractional density.
+The platform patches now publish entry coordinates and retain logical mouse
+scaling. Checks cover drag/reverse/Unicode clipboard round trips, SGR terminal
+mouse input and Shift selection at 1×, dynamic 1.5× and fresh-window 1.5×,
+with the same shell-side process. Physical trackpad and native Mac input review
+remain separate. See [Wayland pointer validation](wayland.md#pointer-selection-and-clipboard).

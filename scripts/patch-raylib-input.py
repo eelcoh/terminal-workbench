@@ -33,6 +33,20 @@ def adapt(core, glfw):
     return MARKER+core, MARKER+glfw
 
 
+def adapt_wayland_pointer(text):
+    # GLFW 3.4's enter carries coordinates but does not dispatch them.
+    marker='// Terminal Workbench alteration: retain Wayland pointer-enter coordinates.'
+    if marker in text:return text
+    old='        _glfwInputCursorEnter(window, GLFW_TRUE);'
+    assert text.count(old)==1, 'Pinned GLFW pointer-enter anchor changed'
+    new=(old+'\n        '+marker+'\n'
+         '        window->wl.cursorPosX = wl_fixed_to_double(sx);\n'
+         '        window->wl.cursorPosY = wl_fixed_to_double(sy);\n'
+         '        if (window->cursorMode != GLFW_CURSOR_DISABLED)\n'
+         '            _glfwInputCursorPos(window, window->wl.cursorPosX, window->wl.cursorPosY);')
+    return text.replace(old,new)
+
+
 def main():
     source=Path(sys.argv[1])/'src'
     paths=[source/'rcore.c',source/'platforms/rcore_desktop_glfw.c']
@@ -46,6 +60,9 @@ def main():
         old='    CORE.Input.Mouse.currentWheelMove = (Vector2){ (float)xoffset, (float)yoffset };'
         assert texts[1].count(old)==1, 'Raylib scroll callback anchor changed'
         texts[1]=texts[1].replace(old, '    '+scroll_marker+'\n    CORE.Input.Mouse.currentWheelMove.x += (float)xoffset;\n    CORE.Input.Mouse.currentWheelMove.y += (float)yoffset;')
+    wayland=source/'external/glfw/src/wl_window.c'
+    original=wayland.read_text();patched=adapt_wayland_pointer(original)
+    if patched!=original:wayland.write_text(patched)
     for path,text in zip(paths,texts):
         if path.read_text()!=text: path.write_text(text)
 

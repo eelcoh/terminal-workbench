@@ -102,3 +102,38 @@ atlas refresh alone do not establish text sharpness or visual acceptance.
 The owner confirmed that the full display-scale suite passed on their machine
 on 2026-10-15. This records the automated nested-compositor check; physical
 monitor and native Mac display review remain separate.
+
+## Pointer selection and clipboard
+
+`just wayland-pointer-gui-test` exercises forward/reverse drag selection,
+Unicode copy/paste through the real compositor clipboard, SGR mouse reports and
+Shift-forced local selection. It runs at 1×, after moving to 1.5×, and after
+closing/reopening the viewer at 1.5×, retaining the same reader process. Explicit
+clipboard sentinels ensure a stale previous copy cannot pass the assertion.
+
+The private Niri fixture disables client decorations to make pointer coordinates
+unambiguous and reads its own window positions after compositor scale changes.
+xdotool supplies pointer motion/buttons to the private parent X server; Niri
+forwards native Wayland events to the viewer, which has DISPLAY unset. Shift is
+held through the private test keyboard. Captures/logs are retained under
+`.local/artifacts/wayland-pointer/`. This covers the desktop integration path;
+physical trackpads, other compositors and native Mac selection still require review.
+
+The check exposed two native adapter problems:
+
+- Pinned GLFW 3.4 ignored the coordinates carried by Wayland pointer enter.
+  A first click after entry could use the old position. The marked input patch
+  now publishes the entry coordinates; disabled/relative cursor mode keeps its
+  existing position-event policy. The compiled callback check also covers foreign
+  surfaces, decoration surfaces and null surfaces.
+- Raylib initialized mouse scale from logical/framebuffer ratios. GLFW cursor
+  coordinates are already relative to the logical window. Startup at fractional
+  density therefore applied a second scale and displaced hit testing. The marked
+  display patch now retains identity mouse scaling. Restoring only the old scaling
+  reproduced a failed first selection after reopening at 1.5×, while the preceding
+  1× and dynamic 1.5× cases passed.
+
+Both patches preserve upstream Raylib/GLFW zlib notices and remain idempotent.
+Remove the Wayland enter adaptation when the pinned upstream backend publishes
+entry coordinates itself; retain the regression when replacing the toolkit.
+Keep input coordinates and render backing pixels independent in future adapters.

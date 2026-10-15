@@ -42,8 +42,8 @@ int main(int argc,char **argv) {
     }
     zwp_virtual_keyboard_v1_modifiers(keyboard,held,0,0,0);
     assert(wl_display_roundtrip(display)>=0);usleep(60000);
-    int text=!strcmp(argv[1],"text"),sequence=!strcmp(argv[1],"sequence");
-    assert(text||sequence||!strcmp(argv[1],"key"));
+    int text=!strcmp(argv[1],"text"),sequence=!strcmp(argv[1],"sequence"),hold=!strcmp(argv[1],"hold");
+    assert(text||sequence||hold||!strcmp(argv[1],"key"));
     size_t count=text||sequence?strlen(argv[2]):1;
     char *next=NULL,*token=sequence?strtok_r(argv[2]," ",&next):NULL;
     for(size_t i=0;i<count;i++) {
@@ -60,8 +60,16 @@ int main(int argc,char **argv) {
                 }
             }
         assert(found>=8);
+        if(hold && wanted==xkb_keysym_from_name("Shift_L",XKB_KEYSYM_NO_FLAGS))
+            modifiers|=1u<<xkb_keymap_mod_get_index(map,XKB_MOD_NAME_SHIFT);
         zwp_virtual_keyboard_v1_modifiers(keyboard,modifiers,0,0,0);
         zwp_virtual_keyboard_v1_key(keyboard,0,found-8,WL_KEYBOARD_KEY_STATE_PRESSED);
+        if(hold) {
+            assert(wl_display_roundtrip(display)>=0);
+            const char *path=getenv("WORKBENCH_TEST_KEY_DOWN");assert(path);
+            FILE *ready=fopen(path,"w");assert(ready);fputs("ready",ready);fclose(ready);
+            assert(getchar()!=EOF);
+        }
         if(!text) { assert(wl_display_roundtrip(display)>=0);usleep(80000); }
         zwp_virtual_keyboard_v1_key(keyboard,0,found-8,WL_KEYBOARD_KEY_STATE_RELEASED);
         zwp_virtual_keyboard_v1_modifiers(keyboard,0,0,0,0);

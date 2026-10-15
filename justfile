@@ -251,3 +251,8 @@ keyboard-layout-gui-test: wayland-build
 # Actual compositor scale transitions in the private nested Wayland session.
 wayland-display-gui-test: wayland-build
     WORKBENCH_TEST_DISPLAY=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
+
+# Native selection/copy at 1x, fractional scale and startup at fractional scale.
+wayland-pointer-gui-test: wayland-build
+    python3 tests/wayland_pointer_callback_test.py .local/build/viewer-wayland/_deps/raylib-src
+    WORKBENCH_TEST_POINTER=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling

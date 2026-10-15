@@ -53,7 +53,14 @@ bool WorkbenchWindowWorkarea(int *x,int *y,int *width,int *height,int *left,int 
     return *width>0 && *height>0;
 }
 '''
+def adapt_coordinates(text):
+    marker='// Terminal Workbench alteration: GLFW cursor coordinates are logical.'
+    if marker in text:return text
+    old='            SetMouseScale((float)CORE.Window.screen.width/fbWidth, (float)CORE.Window.screen.height/fbHeight);'
+    assert text.count(old)==1, 'Pinned GLFW mouse scale anchor changed'
+    return text.replace(old,'            '+marker+'\n            SetMouseScale(1.0f, 1.0f);')
 def adapt(text):
+    text=adapt_coordinates(text)
     if MARKER in text:
         return adapt_size(adapt_wayland(text))
     declaration='static void WindowContentScaleCallback(GLFWwindow *window, float scalex, float scaley);'
