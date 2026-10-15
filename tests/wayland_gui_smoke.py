@@ -7,6 +7,7 @@ import re
 import select
 import shutil
 import subprocess
+import struct
 import sys
 import tempfile
 import time
@@ -52,7 +53,8 @@ def stop(process):
 def main():
     runtime, viewer = [Path(arg).resolve() for arg in sys.argv[1:3]]
     layouts = os.environ.get('WORKBENCH_TEST_LAYOUTS') == '1'
-    report = ROOT / ('.local/artifacts/keyboard-layouts' if layouts else '.local/artifacts/wayland')
+    display_test = os.environ.get('WORKBENCH_TEST_DISPLAY') == '1'
+    report = ROOT / ('.local/artifacts/wayland-display' if display_test else '.local/artifacts/keyboard-layouts' if layouts else '.local/artifacts/wayland')
     report.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='wb-wayland-') as directory:
         root = Path(directory)
@@ -74,10 +76,12 @@ def main():
             nested = dict(os.environ, WINIT_UNIX_BACKEND='x11', LIBGL_ALWAYS_SOFTWARE='1')
             for name in ('WAYLAND_DISPLAY', 'NIRI_SOCKET', 'WORKBENCH_SOCKET',
                          'WORKBENCH_CONFIG', 'WORKBENCH_SHORTCUTS',
-                         'WORKBENCH_CATALOG_SCRIPT', 'WORKBENCH_WINDOW_SLOT_FD'):
+                         'WORKBENCH_CATALOG_SCRIPT', 'WORKBENCH_WINDOW_SLOT_FD',
+                         'WORKBENCH_RENDER_SCALE', 'WORKBENCH_RENDER_SCALE_FILE',
+                         'WORKBENCH_TEST_KEYBOARD_LAYOUT', 'WORKBENCH_TEST_KEYBOARD_VARIANT'):
                 nested.pop(name, None)
             rd, wr = os.pipe()
-            spawn(['Xvfb', '-displayfd', str(wr), '-screen', '0', '1440x1000x24',
+            spawn(['Xvfb', '-displayfd', str(wr), '-screen', '0', '2560x1600x24' if display_test else '1440x1000x24',
                    '-noreset', '-nolisten', 'tcp'], pass_fds=(wr,), stdout=xlog, stderr=xlog)
             os.close(wr); wr = None
             assert select.select([rd], [], [], 5)[0], 'Xvfb startup timed out'
@@ -99,6 +103,12 @@ def main():
             display, ipc = wait_until(endpoints, timeout=15)
             env = dict(nested, WAYLAND_DISPLAY=display, NIRI_SOCKET=ipc)
             env.pop('DISPLAY', None)  # A successful viewer cannot use XWayland.
+            if display_test:
+                def xrun(*args):
+                    return subprocess.run(['xdotool',*args],env=nested,capture_output=True,check=True,timeout=10)
+                parent=wait_until(lambda:xrun('search','--onlyvisible','--pid',str(compositor.pid)).stdout.decode().strip())
+                xrun('windowsize','--sync',parent.splitlines()[0],'1920','1200')
+                time.sleep(.3)
             def run(*args):
                 return subprocess.run(args, env=env, capture_output=True, check=True, timeout=10)
             def action(*args):
@@ -183,11 +193,64 @@ def main():
             clip = 'Wayland clipboard café λ\nsecond line'
             spawn(['wl-copy', '--foreground', '--', clip], env=env,
                   stdin=subprocess.DEVNULL, stdout=log, stderr=log)
-            wait_until(lambda: run('wl-paste', '--no-newline').stdout.decode() == clip)
+            def clipboard_ready():
+                reply=subprocess.run(['wl-paste','--no-newline'],env=env,capture_output=True,timeout=5)
+                return reply.returncode==0 and reply.stdout.decode()==clip
+            wait_until(clipboard_ready)
             key('v', 'Control', 'Shift')
             expected += b'\x1b[200~'+clip.encode()+b'\x1b[201~'
             wait_until(lambda: received() == expected)
             print('PASS: native Unicode bracketed clipboard paste', flush=True)
+            if display_test:
+                action('move-window-to-floating')
+                action('set-window-width','800');action('set-window-height','420')
+                time.sleep(.5)
+                original_size=(root/'size').read_text()
+                original_window=windows()[0]['layout']['window_size']
+                pid=(root/'reader-pid').read_text()
+                def pixels(path):
+                    def header_ready():
+                        try:
+                            with path.open('rb') as image:header=image.read(24)
+                        except FileNotFoundError:return None
+                        return header if len(header)==24 else None
+                    header=wait_until(header_ready)
+                    assert header[:8]==b'\x89PNG\r\n\x1a\n'
+                    return struct.unpack('!II',header[16:24])
+                baseline=root/'scale-1-before.png'
+                action('screenshot-window','--path',str(baseline))
+                original_pixels=pixels(baseline)
+                observations=[]
+                for scale in (1.25,1.5,2,1):
+                    key('o','Mod4','Mod1');time.sleep(.2)
+                    log_start=(root/'viewer.log').stat().st_size
+                    run('niri','msg','output','winit','scale',str(scale))
+                    marker=f'Display backing scale updated: {scale:g};'
+                    wait_until(lambda:marker in (root/'viewer.log').read_text()[log_start:],timeout=15)
+                    time.sleep(.3)
+                    overview_capture=root/('overview-scale-'+str(scale)+'.png')
+                    action('screenshot-window','--path',str(overview_capture))
+                    key('Escape');time.sleep(.3)
+                    current=windows()[0]
+                    capture=root/('scale-'+str(scale)+'.png')
+                    action('screenshot-window','--path',str(capture))
+                    grid=(root/'size').read_text()
+                    actual_pixels=pixels(capture)
+                    observations.append(dict(scale=scale,grid=grid,
+                        window=current['layout']['window_size'],pixels=actual_pixels,
+                        overview_pixels=pixels(overview_capture),backing_update=marker))
+                    assert grid==original_size,(scale,original_size,grid)
+                    assert current['layout']['window_size']==original_window,(scale,current)
+                    # Compositor captures include decoration/shadow rounding.
+                    for logical,actual in zip(original_pixels,actual_pixels):
+                        assert abs(actual-logical*scale)<=2,(scale,original_pixels,actual_pixels)
+                    assert pixels(overview_capture)==actual_pixels
+                    text('scale'+str(scale));expected+=('scale'+str(scale)).encode()
+                    wait_until(lambda:received()==expected)
+                    assert (root/'reader-pid').read_text()==pid
+                (root/'display.json').write_text(json.dumps(observations,indent=2))
+                print('PASS: 1→1.25→1.5→2→1 backing pixels, Overview, logical grid, shell and input',flush=True)
+                action('move-window-to-tiling');time.sleep(.5)
             old = (root/'size').read_text()
             action('set-column-width', '50%')
             wait_until(lambda: (root/'size').read_text() not in ('', old))
@@ -220,7 +283,7 @@ def main():
             for handle in logs:
                 handle.close()
             for path in root.iterdir():
-                if path.is_file() and (path.suffix in ('.log', '.png') or path.name == 'received'):
+                if path.is_file() and (path.suffix in ('.log', '.png', '.json') or path.name == 'received'):
                     shutil.copy2(path, report/path.name)
     return 0
 

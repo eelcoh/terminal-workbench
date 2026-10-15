@@ -247,3 +247,7 @@ wayland-gui-test: wayland-build
 # Non-US text and modified-key routing in a disposable native Wayland seat.
 keyboard-layout-gui-test: wayland-build
     WORKBENCH_TEST_LAYOUTS=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
+
+# Actual compositor scale transitions in the private nested Wayland session.
+wayland-display-gui-test: wayland-build
+    WORKBENCH_TEST_DISPLAY=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling

@@ -132,9 +132,9 @@ The core prototype workflows are implemented; the milestone table describes
 acceptance gates rather than a list of wholly unstarted features. Remaining work:
 
 1. Finish native platform/UX acceptance: Mac external-monitor text/borders and
-   unplug recovery, keyboard layouts/IME, accessibility, Linux native Wayland and
-   physical GPU behavior. The owner confirmed Mac resizing and horizontal content
-   swipes; the mixed-display hardware review is pending.
+   unplug recovery, remaining keyboard layouts/IME, accessibility, native Wayland
+   edge cases and physical GPU behavior. The owner confirmed Mac resizing and
+   horizontal content swipes; the mixed-display hardware review is pending.
 2. Decide the production toolkit using those results and the approved minimal
    chrome/Overview flows. Complex text shaping and accessibility are still open.
 3. Continue daily-use runtime hardening after creation/close journaling and
@@ -670,3 +670,13 @@ German text/Ctrl/Alt, Kitty press/release reporting, French AZERTY text/Ctrl-A,
 and a US-international dead-key commit. Physical layouts, native Mac Option/dead
 keys and full IME/accessibility acceptance remain open. See
 [keyboard layouts](terminal-input.md#keyboard-layouts-and-composed-text).
+
+## Current platform slice: Wayland display-scale transitions
+
+`just wayland-display-gui-test` exercises real compositor scale changes through
+1×, 1.25×, 1.5×, 2× and back in a private Niri session. Checks cover native backing
+updates, captured pixel sizes, Overview cache refresh, stable logical window/grid,
+exact input and same-process reattachment. The owner confirmed the suite passed
+on 2026-10-15. This adds automated platform coverage;
+physical mixed-display/unplug behavior, native Mac sharpness and GPU performance
+remain open. See [display-scale validation](wayland.md#display-scale-transitions).
