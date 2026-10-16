@@ -254,3 +254,40 @@ fixed grid. Correct cell ownership, cursor/selection geometry, terminal ordering
 style boundaries and clipping need a separate integration design. The export
 scale exercise uses QImage rasterization, not physical GPU/mixed-DPI validation.
 No runtime, PTY, saved session or Workbench appearance setting is opened.
+
+## First integration: shaping within the terminal grid
+
+The Qt terminal probe now uses cached row images produced from shaped text runs.
+Runs end at style, selection and unwritten-cell boundaries. Source-range glyph
+queries and Unicode grapheme boundaries map joined glyphs back onto Ghostty's
+original columns, including wide-cell tails. The terminal owns cursor positions,
+selection and copied text throughout. Glyphs are not stretched to fill the grid.
+
+`just toolkit-text-test` now also writes `grid-1x.png`, `grid-1.25x.png`,
+`grid-1.5x.png` and `grid-2x.png`, using the same rendering function as the
+interactive Qt host. The original `comparison-*.png` sheets retain the old
+per-cell baseline. Each sheet's glyph-difference footer describes that baseline,
+not an independent shaping verdict on the integrated image. The report adds
+`grid` glyph placements with first/inclusive and last/exclusive source columns.
+Raw Qt UTF-16 glyph indexes are diagnostic only: fallback runs may return local
+indexes, so the terminal integration uses range queries instead.
+
+The LTR specimens must retain the full-text reference's font/glyph multiset,
+including repeated combining glyphs. Tests check wide-cell ownership, multi-cell
+emoji, style boundaries, supplementary RTL characters, unchanged-row retention
+and selection/scale invalidation. Native GUI checks select/copy/paste a shaped
+`->` and verify new raster resolution at every Wayland scale transition.
+
+This first integration retains the old per-cell policy for runs containing RTL
+text or bidi controls; it does not implement paragraph reordering or correct RTL
+joining. Emoji whose source spans several Ghostty cells keep those cell widths,
+so visible spacing can remain large. Fixed-grid Indic spacing, tall fallback
+clipping and box-drawing seams still need review.
+
+Rows are shaped and rasterized on the GUI thread only when their contents, style
+or scale change. Paint draws cached images, keeping QRawFont glyphs on their
+creating thread. Hidden/minimized sources skip the new rasterization work and
+refresh on reveal. One extra CPU bitmap per visible terminal row is retained;
+memory, CPU/GPU load and the one/fifteen-pane gate remain to be measured before
+frontend adoption. Mac compilation and live-terminal visual acceptance of this
+integration remain pending.

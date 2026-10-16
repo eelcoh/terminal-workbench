@@ -14,6 +14,7 @@
 #include <QDir>
 #include <QDebug>
 #include <ghostty/vt.h>
+#include "terminal_text.h"
 #include <algorithm>
 #include <cmath>
 #include <memory>
@@ -23,7 +24,7 @@
 
 namespace {
 void require(bool ok,const char *message) { if(!ok)throw std::runtime_error(message); }
-struct Cell {int column;QString text;};
+struct Cell {int column;QString text;GhosttyCellWide wide;};
 struct Sample {const char *id,*label;QString text;};
 QVector<Cell> cellsFor(const QString &text)
 {
@@ -53,7 +54,10 @@ QVector<Cell> cellsFor(const QString &text)
             QByteArray output(qsizetype(buffer.len),0);buffer.ptr=reinterpret_cast<uint8_t *>(output.data());buffer.cap=output.size();
             require(ghostty_render_state_row_cells_get(cells,GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_UTF8,&buffer)==GHOSTTY_SUCCESS,"UTF-8 cell extraction");
             auto value=QString::fromUtf8(output.constData(),qsizetype(buffer.len));
-            if(!value.isEmpty())result.push_back({column,value});
+            GhosttyCell raw=0;GhosttyCellWide wide=GHOSTTY_CELL_WIDE_NARROW;
+            ghostty_render_state_row_cells_get(cells,GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_RAW,&raw);
+            ghostty_cell_get(raw,GHOSTTY_CELL_DATA_WIDE,&wide);
+            if(!value.isEmpty())result.push_back({column,value,wide});
         } else require(status==GHOSTTY_SUCCESS,"UTF-8 cell sizing");
         ++column;
     }
@@ -115,6 +119,7 @@ int main(int argc,char **argv)
         const int fontId=QFontDatabase::addApplicationFont(":/fonts/fira-code/FiraCode-Regular.ttf");
         const auto families=QFontDatabase::applicationFontFamilies(fontId);require(!families.isEmpty(),"load bundled Fira Code");
         QFont font(families.first());font.setPixelSize(18);
+        require(terminalTextSelfTest(font),"grid renderer invariants");
         const QFontMetricsF metrics(font);const qreal cellWidth=std::ceil(metrics.horizontalAdvance('M'));
         const qreal cellHeight=std::ceil(metrics.height());
         const QVector<Sample> samples={
@@ -149,15 +154,15 @@ int main(int argc,char **argv)
         }
         // A missing Arabic fallback is reported as a coverage gap, not mislabeled
         // as successful joining. Other font inventories may yield different glyph IDs.
-        QJsonArray captures;
+        QJsonArray captures,gridReports;
         constexpr int width=1400,height=940;const int rowHeight=100;
-        for(qreal scale:{1.,1.25,1.5,2.}) {
+        for(qreal scale:{1.,1.25,1.5,2.}) for(bool integrated:{false,true}) {
             QImage image(qRound(width*scale),qRound(height*scale),QImage::Format_ARGB32_Premultiplied);
             require(!image.isNull(),"image allocation");image.setDevicePixelRatio(scale);image.fill(QColor("#191d24"));
             QPainter painter(&image);painter.setRenderHint(QPainter::TextAntialiasing);
             QFont label=font;label.setPixelSize(14);painter.setFont(label);painter.setPen(QColor("#c9d2e3"));
             painter.drawText(20,25,"Workbench text proof · Fira Code 18 px + system fallback · scale "+QString::number(scale));
-            painter.drawText(20,50,"Current Qt terminal: one draw per Ghostty cell");
+            painter.drawText(20,50,integrated?"Integrated grid shaping (RTL retains per-cell order)":"Previous Qt terminal: one draw per Ghostty cell");
             painter.drawText(720,50,"Qt full-text reference: natural direction/advance, not a terminal layout");
             for(size_t i=0;i<prepared.size();++i) {
                 const auto &item=prepared[i];const qreal y=80+i*rowHeight;
@@ -170,23 +175,44 @@ int main(int argc,char **argv)
                 painter.drawLine(QPointF(20,top+cellHeight),QPointF(20+52*cellWidth,top+cellHeight));
                 painter.save();painter.setClipRect(QRectF(20,top-5,650,cellHeight+12));
                 painter.setFont(font);painter.setPen(QColor("#e4e8ef"));
-                for(const auto &cell:item.cells)painter.drawText(QPointF(20+cell.column*cellWidth,baseline),cell.text);
+                if(integrated) {
+                    QVector<TerminalTextCell> row(80);
+                    for(auto &cell:row) {cell.fg=QColor("#e4e8ef");cell.bg=QColor("#191d24");}
+                    for(const auto &cell:item.cells) {row[cell.column].text=cell.text;row[cell.column].wide=cell.wide;
+                        if(cell.wide==GHOSTTY_CELL_WIDE_WIDE && cell.column+1<row.size())row[cell.column+1].wide=GHOSTTY_CELL_WIDE_SPACER_TAIL;}
+                    QVector<TerminalTextPlacement> placements;
+                    auto rendered=renderTerminalTextRow(row,font,cellWidth,cellHeight,metrics.ascent(),scale,scale==1?&placements:nullptr);
+                    if(scale==1) {
+                        QJsonArray placed;QStringList actual,expected;
+                        for(const auto &glyph:placements) {
+                            placed.append(QJsonObject{{"first_column",glyph.firstColumn},{"last_column",glyph.lastColumn},
+                                {"font",glyph.family},{"glyph",int(glyph.glyph)},{"x",glyph.position.x()},{"y",glyph.position.y()},{"shaped",glyph.shaped}});
+                            actual.append(glyph.family+":"+QString::number(glyph.glyph));
+                        }
+                        if(QString(item.sample.id)!="arabic") {
+                            for(const auto &entry:item.report["reference_glyphs"].toArray()) {const auto glyph=entry.toObject();expected.append(glyph["font"].toString()+":"+QString::number(glyph["glyph"].toInt()));}
+                            actual.sort();expected.sort();require(actual==expected,"grid glyphs differ from full shaping in an LTR specimen");
+                        }
+                        gridReports.append(QJsonObject{{"id",item.sample.id},{"placements",placed}});
+                    }
+                    painter.drawImage(QPointF(20,top),rendered);
+                } else for(const auto &cell:item.cells)painter.drawText(QPointF(20+cell.column*cellWidth,baseline),cell.text);
                 painter.restore();painter.save();painter.setClipRect(QRectF(720,top-5,650,cellHeight+12));
                 painter.setPen(QColor("#e4e8ef"));
                 item.layout->draw(&painter,QPointF(720,baseline-item.layout->lineAt(0).ascent()));painter.restore();
                 painter.setFont(label);painter.setPen(QColor("#abb5c7"));
-                painter.drawText(20,y+76,"Glyph identities differ: "+QString(item.report["glyph_identity_difference"].toBool()?"yes":"no")+
+                painter.drawText(20,y+76,"Baseline cell vs reference glyph difference: "+QString(item.report["glyph_identity_difference"].toBool()?"yes":"no")+
                     " · missing glyphs (cell / full): "+QString::number(item.report["isolated_missing_glyphs"].toInt())+" / "+QString::number(item.report["reference_missing_glyphs"].toInt()));
             }
             painter.setFont(label);painter.setPen(QColor("#abb5c7"));
             painter.drawText(20,915,"Visual evidence only. Font coverage and glyph differences do not prove correct shaping, terminal placement or physical-display sharpness.");
-            painter.end();const auto name="comparison-"+QString::number(scale)+"x.png";
+            painter.end();const auto name=QString(integrated?"grid-":"comparison-")+QString::number(scale)+"x.png";
             require(image.save(output.filePath(name)),"save comparison PNG");
-            captures.append(QJsonObject{{"file",name},{"scale",scale},{"width",image.width()},{"height",image.height()}});
+            captures.append(QJsonObject{{"file",name},{"integrated",integrated},{"scale",scale},{"width",image.width()},{"height",image.height()}});
         }
         writeJson(output.filePath("report.json"),{{"qt",qVersion()},{"platform",QGuiApplication::platformName()},
-            {"base_font",families.first()},{"font_pixel_size",font.pixelSize()},{"cell_width",cellWidth},{"cell_height",cellHeight},
-            {"arabic_joining_difference_observed",joiningDifference},{"samples",reports},{"captures",captures}});
+            {"glyph_utf16_indexes","raw Qt diagnostic values; fallback indexes are not used for terminal cell mapping"},{"base_font",families.first()},{"font_pixel_size",font.pixelSize()},{"cell_width",cellWidth},{"cell_height",cellHeight},
+            {"arabic_joining_difference_observed",joiningDifference},{"samples",reports},{"grid",gridReports},{"captures",captures}});
         std::printf("PASS: VT text preserved, full cell graphemes and Qt glyph/font evidence exported\n");
         std::printf("Arabic joining difference observed: %s (inspect report for coverage)\n",joiningDifference?"yes":"no");
         std::printf("Artifacts: %s\n",qPrintable(output.absolutePath()));return 0;

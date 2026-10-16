@@ -344,5 +344,72 @@ Qt's [layout API](https://doc.qt.io/qt-6/qtextlayout.html) and
 [glyph-run API](https://doc.qt.io/qt-6/qglyphrun.html) provide the diagnostic
 font/glyph/source mappings. Glyph identity differences and missing-glyph counts
 are diagnostic signals, not proof of language correctness. Cross-cell shaping,
-native Mac visual/font-inventory review and the one/fifteen-pane performance
-gate remain open. See the [cross-platform procedure](../spikes/qt-input/README.md#text-shaping-and-font-fallback-mac-and-linux).
+native Mac terminal integration and the one/fifteen-pane performance gate
+remain open; the offline Mac comparison is recorded below. See the [cross-platform procedure](../spikes/qt-input/README.md#text-shaping-and-font-fallback-mac-and-linux).
+
+## Mac text comparison result
+
+On 2026-10-16 the owner supplied a successful `just toolkit-text-test` log and
+all four raster-scale images plus the report from native Cocoa/Qt 6.12.0.
+The artifact validator passed when rerun against those supplied files; 1x and
+2x comparison images were inspected. Bundled Fira Code was active at 18 px,
+with the same 12 × 23 logical cell geometry as the Linux run.
+
+The glyph-identity differences matched the Linux specimen categories: programming
+ligatures, Arabic, Devanagari and emoji. Accents, CJK, box drawing and the long
+grapheme had matching glyph identities across the two paths. The report contained
+zero zero-index missing glyphs, but the cell-rendered emoji row visibly splits
+sequences, including modifier/flag components. A zero count therefore does not
+establish visually correct fallback, composition or placement.
+
+The Mac reference used Courier New for Arabic, Kohinoor Devanagari, Hiragino Sans,
+Apple SD Gothic Neo and Apple Color Emoji alongside Fira Code. These are observed
+fallback choices, not newly bundled assets. Qt logged missing OpenType support
+for Fira Code/script 11 while the report showed Devanagari fallback. Qt's
+[font-database source](https://raw.githubusercontent.com/qt/qtbase/6.12/src/gui/text/qfontdatabase.cpp)
+logs this at informational level when a font engine lacks support for a script.
+The optional Vulkan-header discovery messages also did not stop configuration,
+building or artifact validation in the supplied run.
+
+This closes the offline Mac specimen-generation/font-inventory check. It does
+not validate a shaped terminal renderer, language correctness, physical external
+display sharpness, monitor changes or GPU behavior. The next shaping step must
+preserve Ghostty's source-cell mapping and terminal interaction geometry while
+joining appropriate text runs; simply drawing whole Qt paragraphs would move
+text away from terminal-owned positions.
+
+## First grid-preserving shaping integration
+
+The isolated Qt terminal host now caches shaped/rasterized rows. Source-range
+queries collect glyphs from full style runs; shared glyphs and Unicode grapheme
+boundaries connect their original cells. Each group is translated back to its
+source column while preserving internal shaping offsets. Wide spacers cannot
+shift subsequent text. Glyphs are clipped at run/row bounds, not stretched.
+Selection and background/style changes break runs; interaction and accessibility
+continue to use Ghostty's original cells.
+
+A local Qt 6.11.2 experiment exposed inconsistent `QGlyphRun::stringIndexes`
+values across fallback segments. Those values remain diagnostic in the offline
+report, but the integration uses `glyphRuns(from,length,...)` queries instead.
+Qt warns that [glyph inspection is expensive](https://doc.qt.io/qt-6/qtextlayout.html):
+it runs once per changed row/style/scale, not during paint.
+[Raw fonts are thread-local](https://doc.qt.io/qt-6/qglyphrun.html), so glyphs are
+rasterized on the GUI thread into immutable row images for Qt Quick painting.
+Hidden/minimized windows skip this new work; reveal and device-pixel-ratio
+changes refresh the raster cache. A bitmap per cached row adds CPU memory.
+
+The same renderer produces `grid-*.png` alongside the preserved per-cell
+`comparison-*.png` baseline. LTR fixtures require the full-text reference's
+font/glyph multiset without dropping duplicate glyphs. Tests also protect wide
+cell positions, joined emoji source spans, style boundaries, RTL policy, cache
+retention and selection/scale invalidation. Native clipboard tests copy a shaped
+operator back to its original `->` bytes; Wayland scale tests check the actual
+row bitmap DPR along with window backing pixels, grid size and clipboard.
+
+This is a bounded LTR integration. Runs containing RTL scalars (including
+supplementary characters) or bidi controls keep the previous per-cell drawing
+policy. Natural Qt paragraph reordering is not applied to the terminal. RTL
+joining/order, fixed-grid Indic spacing, emoji width policy, tall fallback
+clipping and box-drawing seams remain open. Native Mac integration acceptance
+and one/fifteen-pane CPU/GPU/memory measurements remain required. The main
+Workbench frontend and runtime are unchanged.

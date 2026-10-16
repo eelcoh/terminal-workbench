@@ -33,7 +33,7 @@ original=termios.tcgetattr(0);tty.setraw(0)
 try:
  Path('reader-pid').write_text(str(os.getpid()))
  os.write(1,b''.join(b'history-%03d\\r\\n'%i for i in range(80)))
- os.write(1,'\\x1b[2J\\x1b[Hcopy sample\\r\\ncafé λ\\r\\nQT-SNAPSHOT\\r\\n\\x1b[32mgreen text\\x1b[0m\\r\\ncluster: é 漢 😀\\x1b[?2004h'.encode())
+ os.write(1,'\\x1b[2J\\x1b[Hcopy sample\\r\\ncafé λ\\r\\nQT-SNAPSHOT\\r\\n\\x1b[32mgreen text\\x1b[0m\\r\\ncluster: é 漢 😀\\r\\n\\r\\nshape: -> != ===\\r\\nemoji: 👩🏽‍💻 X\\x1b[?2004h'.encode())
  Path('ready').touch();data=bytearray();updated=False
  while True:
   if select.select([0],[],[],.02)[0]:
@@ -109,6 +109,16 @@ finally:termios.tcsetattr(0,termios.TCSANOW,original)
             wait_until(lambda:clipboard()==b"copy sample")
             cmd("key","--window",window,"ctrl+shift+v")
             expected+=b"\x1b[200~copy sample\x1b[201~"
+            wait_until(lambda:(root/"input").read_bytes()==expected)
+            # A shaped operator still owns the original two source cells.
+            data=report(path);yshape=int(data["y"]+8+data["cell_height"]*6.5)
+            cmd("mousemove","--window",window,int(data["x"]+8+data["cell_width"]*7.2),yshape)
+            cmd("mousedown",1)
+            cmd("mousemove","--window",window,int(data["x"]+8+data["cell_width"]*8.2),yshape)
+            cmd("mouseup",1);cmd("key","--window",window,"ctrl+shift+c")
+            wait_until(lambda:clipboard()==b"->")
+            cmd("key","--window",window,"ctrl+shift+v")
+            expected+=b"\x1b[200~->\x1b[201~"
             wait_until(lambda:(root/"input").read_bytes()==expected)
             # Scroll the Ghostty viewport, then typing returns to the live terminal.
             cmd("click",4)

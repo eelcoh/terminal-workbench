@@ -67,6 +67,7 @@ int main(int argc,char **argv)
                 {"accessibility_ok",accessibilityDone && accessibilityOk},
                 {"platform",QGuiApplication::platformName()},
                 {"device_pixel_ratio",window->devicePixelRatio()},
+                {"text_raster_scale",terminal->textRasterScale()},
                 {"window_width",window->width()},{"window_height",window->height()},
                 {"cell_width",cell.width()},{"cell_height",cell.height()},
                 {"x",pos.x()},{"y",pos.y()},{"width",terminal->width()},{"height",terminal->height()},

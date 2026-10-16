@@ -4,6 +4,7 @@
 #include <QTimer>
 #include <QFont>
 #include "terminal_composition.h"
+#include "terminal_text.h"
 #include <ghostty/vt.h>
 
 // A disposable rendering/input experiment. The runtime owns the PTY and VT;
@@ -20,6 +21,7 @@ public:
     QString preeditText() const { return composition_.text(); }
     QString viewportText() const;
     QRectF caret() const { return caret_; }
+    qreal textRasterScale() const {return textRows_.isEmpty()?0:textRows_.first().image().devicePixelRatio();}
     QSizeF cellSize() const { return QSizeF(cellWidth_,cellHeight_); }
     struct AccessibleCharacter { QPoint cell; int width=1; bool selected=false; };
     struct AccessibleSnapshot {
@@ -38,6 +40,7 @@ Q_SIGNALS:
     void statusChanged();
 protected:
     bool event(QEvent *) override;
+    bool eventFilter(QObject *,QEvent *) override;
     void geometryChange(const QRectF &, const QRectF &) override;
     void keyPressEvent(QKeyEvent *) override;
     void keyReleaseEvent(QKeyEvent *) override;
@@ -47,7 +50,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *) override;
     void wheelEvent(QWheelEvent *) override;
 private:
-    struct Cell { QString text; QColor fg, bg; bool bold=false, italic=false, underline=false, selected=false; GhosttyCellWide wide=GHOSTTY_CELL_WIDE_NARROW; };
+    using Cell=TerminalTextCell;
     void fail(const QString &);
     void receive();
     bool frame(quint8, const QByteArray &);
@@ -73,6 +76,7 @@ private:
     GhosttyKeyEncoder encoder_=nullptr;
     GhosttyKeyEvent event_=nullptr;
     QVector<QVector<Cell>> grid_;
+    QVector<TerminalTextRow> textRows_;
     QColor background_{"#191d24"};
     QFont font_;
     qreal cellWidth_=10, cellHeight_=22, ascent_=17;

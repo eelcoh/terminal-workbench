@@ -773,6 +773,21 @@ candidate panel placement remain open. See
 drawing and Qt full-text shaping, with fallback-font/glyph reports and PNGs at
 four raster scales. Linux evidence exposes Arabic, Indic, emoji and ligature
 differences; long cell graphemes retain their text. The full-text reference does
-not preserve terminal grid geometry by itself. Cross-cell shaping integration,
-Mac visual review and one/fifteen-pane performance remain open. See
+not preserve terminal grid geometry by itself.
+
+The owner supplied a passing Cocoa/Qt 6.12.0 run and comparison images; offline
+Mac review reproduces the same main shaping differences with native fallback
+fonts. Shaped terminal integration, physical Mac display acceptance and
+one/fifteen-pane performance remain open. See
 [shaping evidence](toolkit-readiness.md#text-shaping-and-fallback-evidence).
+
+## Current toolkit slice: first grid shaping integration
+
+The Qt terminal probe now shapes LTR style runs and maps their glyph groups
+back to Ghostty-owned cells. Cached row images preserve cursor/selection geometry
+and avoid shaping during paint or rerasterizing unchanged rows. The text proof
+now includes integrated `grid-*.png` sheets alongside the old baseline. Tests
+protect glyph retention, wide tails, emoji spans, style breaks, native operator
+copy/paste and scale-specific row images. RTL keeps the previous per-cell policy;
+Mac integration review, spacing/clipping refinements and one/fifteen-pane
+performance remain open. See [grid shaping](toolkit-readiness.md#first-grid-preserving-shaping-integration).

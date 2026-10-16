@@ -26,9 +26,15 @@ for sample in samples.values():
         assert sample[name.replace("glyphs","missing_glyphs")]==missing
     assert set(sample["reference_fonts"])=={glyph["font"] for glyph in sample["reference_glyphs"]}
 assert samples["ascii"]["reference_missing_glyphs"]==0
+assert {item["id"] for item in report["grid"]}==set(samples)
+for item in report["grid"]:
+    assert item["placements"]
+    for glyph in item["placements"]:
+        assert 0<=glyph["first_column"]<glyph["last_column"]<=80
+        assert glyph["shaped"]==(item["id"]!="arabic")
 assert len(samples["long-cluster"]["cells"])==1
 assert len(samples["long-cluster"]["cells"][0]["text"])>16
-assert [capture["scale"] for capture in report["captures"]]==[1,1.25,1.5,2]
+assert [(capture["scale"],capture["integrated"]) for capture in report["captures"]]==[(scale,integrated) for scale in (1,1.25,1.5,2) for integrated in (False,True)]
 for capture in report["captures"]:
     header=(root/capture["file"]).read_bytes()[:24]
     assert header[:8]==b"\x89PNG\r\n\x1a\n"

@@ -11,6 +11,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QWheelEvent>
+#include <QQuickWindow>
 #include <QtEndian>
 #include <algorithm>
 #include <cmath>
@@ -50,6 +51,17 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     setFlag(ItemAcceptsInputMethod); setFlag(ItemIsFocusScope);
     setAcceptedMouseButtons(Qt::LeftButton); setActiveFocusOnTab(true);
     setOpaquePainting(true);
+    connect(this,&QQuickItem::windowChanged,this,[this](QQuickWindow *window) {
+        if(window) {
+            window->installEventFilter(this);
+            connect(window,&QWindow::visibilityChanged,this,[this,window](QWindow::Visibility) {
+                if(this->window()==window && ready_ && !refreshTimer_.isActive())refreshTimer_.start();
+            });
+        }
+    });
+    connect(this,&QQuickItem::visibleChanged,this,[this] {
+        if(isVisible() && ready_ && !refreshTimer_.isActive())refreshTimer_.start();
+    });
     const int fontId=QFontDatabase::addApplicationFont(":/fonts/fira-code/FiraCode-Regular.ttf");
     const auto families=QFontDatabase::applicationFontFamilies(fontId);
     if(families.isEmpty()) {fail("Bundled Fira Code could not load");return;}
@@ -220,6 +232,13 @@ void TerminalItem::refresh()
         }
         grid_.push_back(std::move(row));
     }
+    // Shape/rasterize only changed rows on the GUI thread. Paint receives images;
+    // QRawFont glyph runs must not be moved to Qt Quick's render thread.
+    if(isVisible() && window() && window()->visibility()!=QWindow::Hidden && window()->visibility()!=QWindow::Minimized) {
+        textRows_.resize(grid_.size());
+        const qreal scale=window()->devicePixelRatio();
+        for(int y=0;y<grid_.size();++y)textRows_[y].update(grid_[y],font_,cellWidth_,cellHeight_,ascent_,scale);
+    }
     bool visible=false,inViewport=false;quint16 x=0,y=0;
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VISIBLE,&visible);
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_HAS_VALUE,&inViewport);
@@ -244,12 +263,7 @@ void TerminalItem::paint(QPainter *painter)
     for(int y=0;y<grid_.size();++y) {
         const auto &row=grid_[y];
         for(int x=0;x<row.size();++x) painter->fillRect(QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_,cellHeight_),row[x].bg);
-        for(int x=0;x<row.size();++x) {
-            const auto &c=row[x];if(c.text.isEmpty())continue;
-            auto font=font_;font.setBold(c.bold);font.setItalic(c.italic);font.setUnderline(c.underline);
-            painter->setFont(font);painter->setPen(c.fg);
-            painter->drawText(QPointF(8+x*cellWidth_,8+y*cellHeight_+ascent_),c.text);
-        }
+        if(y<textRows_.size())painter->drawImage(QPointF(8,8+y*cellHeight_),textRows_[y].image());
     }
     if(cursorVisible_) {painter->setPen(QColor("#a8c7fa"));painter->drawRect(caret_.adjusted(0,0,-1,-1));}
     composition_.paint(painter,caret_,ascent_,background_);
@@ -316,6 +330,11 @@ void TerminalItem::encodeKey(QKeyEvent *input,bool release)
     if(ghostty_key_encoder_encode(encoder_,event_,output,sizeof(output),&written)!=GHOSTTY_SUCCESS) {fail("Key encoding failed");return;}
     if(written) {live();send(16,QByteArray(output,qsizetype(written)));}
     input->accept();
+}
+bool TerminalItem::eventFilter(QObject *watched,QEvent *event)
+{
+    if(watched==window() && event->type()==QEvent::DevicePixelRatioChange && !refreshTimer_.isActive())refreshTimer_.start();
+    return QQuickPaintedItem::eventFilter(watched,event);
 }
 bool TerminalItem::event(QEvent *event)
 {
