@@ -806,3 +806,14 @@ panes, with roughly 121 MiB of row caches at 2x before composite buffers/fonts.
 This is a CPU baseline, not the full performance acceptance gate. Mac results,
 Qt Quick uploads/GPU/VRAM, live runtime load and physical-display behavior remain
 open. See [performance baseline](toolkit-readiness.md#cpu-row-rastercache-performance-baseline).
+
+## Current toolkit slice: reduce CPU glyph overhead
+
+The Qt probe batches consecutive equal-font glyphs and uses a guarded bulk query
+for plain ASCII. Other text retains the source-range mapping. Exact pixel and
+source-span comparisons protect the previous output across scales and styles.
+The repeated CPU matrix against source `7d5543f` shows 15-pane fully changing
+ASCII frames drop from 88.3 to 42.3 ms at 1x and 118.9 to 74.1 ms at 2x, with
+modest Unicode gains and no row-image memory reduction. Native Linux regressions
+and `just check` pass. Native Mac optimization review, GPU/Qt Quick costs,
+RTL/spacing and physical display acceptance remain separate gates. See [CPU optimization](toolkit-readiness.md#first-cpu-shaping-optimization).

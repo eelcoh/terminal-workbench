@@ -182,11 +182,13 @@ int main(int argc,char **argv)
                         if(cell.wide==GHOSTTY_CELL_WIDE_WIDE && cell.column+1<row.size())row[cell.column+1].wide=GHOSTTY_CELL_WIDE_SPACER_TAIL;}
                     QVector<TerminalTextPlacement> placements;
                     auto rendered=renderTerminalTextRow(row,font,cellWidth,cellHeight,metrics.ascent(),scale,scale==1?&placements:nullptr);
+                    const auto referenceImage=renderTerminalTextRow(row,font,cellWidth,cellHeight,metrics.ascent(),scale,nullptr,TerminalTextShapingMode::SourceRanges);
+                    require(rendered==referenceImage,"optimized row pixels differ from the original source-range renderer");
                     if(scale==1) {
                         QJsonArray placed;QStringList actual,expected;
                         for(const auto &glyph:placements) {
                             placed.append(QJsonObject{{"first_column",glyph.firstColumn},{"last_column",glyph.lastColumn},
-                                {"font",glyph.family},{"glyph",int(glyph.glyph)},{"x",glyph.position.x()},{"y",glyph.position.y()},{"shaped",glyph.shaped}});
+                                {"font",glyph.family},{"glyph",int(glyph.glyph)},{"x",glyph.position.x()},{"y",glyph.position.y()},{"shaped",glyph.shaped},{"bulk_ascii",glyph.bulkAscii}});
                             actual.append(glyph.family+":"+QString::number(glyph.glyph));
                         }
                         if(QString(item.sample.id)!="arabic") {

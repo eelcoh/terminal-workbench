@@ -488,3 +488,49 @@ these profiles do not compare language-rendering speed.
 This establishes the CPU/cache baseline. Native Mac measurements and live
 Qt Quick/GPU/VRAM 1/15-pane validation remain open, along with external-screen
 sharpness and the existing typography/RTL/spacing gates.
+
+## First CPU shaping optimization
+
+The Qt probe now batches consecutive equal-font glyphs into a single draw call
+and uses a guarded bulk mapping for printable ASCII. Bulk mapping requires one
+narrow scalar per cell, one primary-font run, a matching full source string and
+valid monotone source indexes starting at zero. Non-ASCII, fallback and any
+rejected mapping retain the existing source-range query path. Source positions,
+style boundaries and glyph order remain authoritative.
+
+An internal reference mode preserves the previous source-range mapper and its
+per-glyph drawing. The text proof checks exact optimized/reference image equality
+for all specimens at 1x/1.25x/1.5x/2x. Additional ASCII cases check source spans,
+glyph IDs, font families and positions with normal/bold/italic and mixed
+selection/color/underline styles. Reports expose whether the ASCII guard was
+accepted; these flags do not add Workbench UI or persisted settings.
+
+The previous CPU baseline is source `7d5543f`; its raw local artifacts were
+retained under `.local/artifacts/qt-performance-7d5543f/` before repeating the
+same Release 1/15-pane, 1x/2x, ASCII/Unicode workloads. Final comparisons use the
+isolated run after regression testing, with three fresh-process trials per case.
+
+On Linux/Qt 6.11.2/GCC 16.2.1, the final isolated run on 2026-10-16 gave these
+median wall times for fully changing output (same fixed 80×24 geometry per pane):
+
+| Profile / scale | 1 pane before → after (ms) | 15 panes before → after (ms) | 15-pane reduction |
+| --- | ---: | ---: | ---: |
+| ASCII / 1x | 5.685 → 2.624 | 88.338 → 42.309 | 52.1% |
+| ASCII / 2x | 7.905 → 4.911 | 118.861 → 74.129 | 37.6% |
+| Unicode / 1x | 3.994 → 3.775 | 62.093 → 58.797 | 5.3% |
+| Unicode / 2x | 6.184 → 5.883 | 90.432 → 86.816 | 4.0% |
+
+The plain ASCII specimen reports bulk mapping accepted. The Unicode gains are
+modest; retained forced compositing stays around its previous baseline (about
+20 ms for 15 panes/2x). Hidden/retained raster counts remain zero and all dirty
+row/reveal assertions pass. Row-image storage is unchanged at 121.29 MiB for
+15 panes/2x; highest child peak RSS was 294.40 MiB in this run versus 288.37 MiB
+in the earlier baseline, so this is not a memory reduction.
+
+The optimized/reference pixel, glyph and source-span checks passed, including
+normal/bold/italic and selection/color/underline boundaries. Native Linux terminal,
+Wayland scale/clipboard, real IBus/Anthy, AT-SPI, standard-control and full
+`just check` regressions passed. Native Mac equivalence/timings remain unverified
+for this optimization. These CPU gains do not establish live Qt Quick/GPU FPS;
+Unicode query overhead, raster/copy memory, the existing typography gaps and
+physical-display acceptance remain open.

@@ -36,7 +36,7 @@ struct Key {
 };
 struct Glyph {Key key;int owner;};
 void shape(QPainter &painter,const QVector<TerminalTextCell> &cells,int begin,int end,
-    QFont font,qreal cw,qreal ch,qreal ascent,QVector<TerminalTextPlacement> *diagnostics)
+    QFont font,qreal cw,qreal ch,qreal ascent,QVector<TerminalTextPlacement> *diagnostics,TerminalTextShapingMode mode)
 {
     font.setBold(cells[begin].bold);font.setItalic(cells[begin].italic);font.setUnderline(false);
     painter.setFont(font);painter.setPen(cells[begin].fg);
@@ -69,7 +69,35 @@ void shape(QPainter &painter,const QVector<TerminalTextCell> &cells,int begin,in
             last=finish;while(first+1<columns.size() && offsets[first+1]<=finish)++first;
         }
         QVector<QRawFont> fonts;QVector<Glyph> glyphs;QHash<Key,int> seen;
-        for(int cell=0;cell<columns.size();++cell) {
+        // For one printable ASCII scalar per cell, a single full-run mapping is
+        // safe only when Qt confirms one primary-font run with monotone indexes.
+        // Fallback fonts and all other input keep the characterized range path.
+        bool bulkAscii=mode==TerminalTextShapingMode::Automatic && text.size()==columns.size();
+        for(int i=0;bulkAscii && i<columns.size();++i)
+            bulkAscii=offsets[i]==i && text[i].unicode()>=0x20 && text[i].unicode()<=0x7e && cells[columns[i]].wide==GHOSTTY_CELL_WIDE_NARROW;
+        QList<QGlyphRun> bulk;
+        if(bulkAscii) {
+            bulk=layout.glyphRuns(-1,-1,QTextLayout::RetrieveAll);
+            bulkAscii=bulk.size()==1 && !bulk.first().isRightToLeft() && bulk.first().rawFont()==QRawFont::fromFont(font) && bulk.first().sourceString()==text;
+            if(bulkAscii) {
+                const auto strings=bulk.first().stringIndexes();
+                bulkAscii=!strings.isEmpty() && strings.first()==0 && strings.size()==bulk.first().glyphIndexes().size() && strings.size()==bulk.first().positions().size();
+                for(int i=0;bulkAscii && i<strings.size();++i)
+                    bulkAscii=strings[i]>=0 && strings[i]<columns.size() && (i==0 || strings[i]>=strings[i-1]);
+            }
+        }
+        if(bulkAscii) {
+            const auto &run=bulk.first();fonts.append(run.rawFont());
+            const auto indexes=run.glyphIndexes();const auto positions=run.positions();const auto strings=run.stringIndexes();
+            for(int i=0;i<indexes.size();++i) {
+                const int owner=strings[i];glyphs.append({{0,0,indexes[i],positions[i]},owner});
+                if(i+1==indexes.size() || strings[i+1]!=owner) {
+                    const int next=i+1==indexes.size()?int(columns.size()):int(strings[i+1]);
+                    for(int member=owner+1;member<next;++member)join(owner,member);
+                }
+            }
+        }
+        for(int cell=0;!bulkAscii && cell<columns.size();++cell) {
             QHash<Key,int> occurrences;
             // Public source-range queries avoid unreliable fallback stringIndexes.
             const auto runs=layout.glyphRuns(offsets[cell],offsets[cell+1]-offsets[cell],
@@ -91,14 +119,27 @@ void shape(QPainter &painter,const QVector<TerminalTextCell> &cells,int begin,in
             }
         }
         QVector<int> lastCell(columns.size());for(int i=0;i<columns.size();++i)lastCell[root(i)]=i;
+        int batchFont=-1;QList<quint32> batchIndexes;QList<QPointF> batchPositions;
+        auto flush=[&] {
+            if(batchIndexes.isEmpty())return;
+            QGlyphRun run;run.setRawFont(fonts[batchFont]);run.setGlyphIndexes(batchIndexes);run.setPositions(batchPositions);
+            painter.drawGlyphRun(QPointF(),run);batchIndexes.clear();batchPositions.clear();
+        };
         for(const auto &glyph:glyphs) {
             const int firstCell=root(glyph.owner),last=lastCell[firstCell];
             const qreal nativeAnchor=line.cursorToX(offsets[firstCell]);
             const auto position=glyph.key.position+QPointF(columns[firstCell]*cw-nativeAnchor,ascent-line.ascent());
-            QGlyphRun run;run.setRawFont(fonts[glyph.key.font]);run.setGlyphIndexes({glyph.key.glyph});run.setPositions({position});
-            painter.drawGlyphRun(QPointF(),run);
-            if(diagnostics)diagnostics->append({columns[firstCell],columns[last]+(cells[columns[last]].wide==GHOSTTY_CELL_WIDE_WIDE?2:1),glyph.key.glyph,position,fonts[glyph.key.font].familyName(),true});
+            // Preserve source draw order: only consecutive equal-font glyphs batch.
+            if(mode==TerminalTextShapingMode::SourceRanges) {
+                QGlyphRun run;run.setRawFont(fonts[glyph.key.font]);run.setGlyphIndexes({glyph.key.glyph});run.setPositions({position});
+                painter.drawGlyphRun(QPointF(),run);
+            } else {
+                if(batchFont!=glyph.key.font) {flush();batchFont=glyph.key.font;}
+                batchIndexes.append(glyph.key.glyph);batchPositions.append(position);
+            }
+            if(diagnostics)diagnostics->append({columns[firstCell],columns[last]+(cells[columns[last]].wide==GHOSTTY_CELL_WIDE_WIDE?2:1),glyph.key.glyph,position,fonts[glyph.key.font].familyName(),true,bulkAscii});
         }
+        flush();
     }
     if(cells[begin].underline) {
         const qreal y=std::min(ch-1,ascent+2);
@@ -107,7 +148,7 @@ void shape(QPainter &painter,const QVector<TerminalTextCell> &cells,int begin,in
 }
 }
 QImage renderTerminalTextRow(const QVector<TerminalTextCell> &cells,const QFont &font,
-    qreal cw,qreal ch,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics)
+    qreal cw,qreal ch,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics,TerminalTextShapingMode mode)
 {
     QImage image(std::max(1,qCeil(cells.size()*cw*scale)),std::max(1,qCeil(ch*scale)),QImage::Format_ARGB32_Premultiplied);
     image.setDevicePixelRatio(scale);image.fill(Qt::transparent);
@@ -122,7 +163,7 @@ QImage renderTerminalTextRow(const QVector<TerminalTextCell> &cells,const QFont 
             ++end;
         }
         painter.save();painter.setClipRect(QRectF(begin*cw,0,(end-begin)*cw,ch));
-        shape(painter,cells,begin,end,font,cw,ch,ascent,diagnostics);painter.restore();begin=end;
+        shape(painter,cells,begin,end,font,cw,ch,ascent,diagnostics,mode);painter.restore();begin=end;
     }
     return image;
 }

@@ -14,10 +14,12 @@ struct TerminalTextCell {
             italic==other.italic && underline==other.underline && selected==other.selected && wide==other.wide;
     }
 };
+// SourceRanges keeps the original scalar renderer as an offline test oracle.
+enum class TerminalTextShapingMode { Automatic, SourceRanges };
 // Optional offline diagnostics. Raw fonts never leave the GUI-thread rasterizer.
-struct TerminalTextPlacement {int firstColumn,lastColumn;quint32 glyph;QPointF position;QString family;bool shaped;};
+struct TerminalTextPlacement {int firstColumn,lastColumn;quint32 glyph;QPointF position;QString family;bool shaped;bool bulkAscii=false;};
 QImage renderTerminalTextRow(const QVector<TerminalTextCell> &,const QFont &,qreal cellWidth,
-    qreal cellHeight,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics=nullptr);
+    qreal cellHeight,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics=nullptr,TerminalTextShapingMode mode=TerminalTextShapingMode::Automatic);
 class TerminalTextRow {
 public:
     bool update(const QVector<TerminalTextCell> &,const QFont &,qreal,qreal,qreal,qreal);

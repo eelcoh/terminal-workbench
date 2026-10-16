@@ -47,5 +47,22 @@ bool terminalTextSelfTest(const QFont &font)
     if(!require(surface.rasterizedRows()==rasterized+2 && surface.image(0).devicePixelRatio()==2,"reveal catches current data and scale"))return false;
     surface.update(grid,font,cw,ch,metrics.ascent(),2,true);
     if(!require(surface.rasterizedRows()==rasterized+2,"retained surface does no additional rasterization"))return false;
+    // The original source-range mapper is the oracle for the guarded ASCII path.
+    const QStringList ascii={"office -> != === <= >= ffi ==> ...", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", "---->=====>!!!!=="};
+    for(const auto &text:ascii)for(qreal scale:{1.,1.25,1.5,2.})for(int style=0;style<4;++style) {
+        QVector<TerminalTextCell> row;
+        for(const auto character:text) {TerminalTextCell cell;cell.text=character;cell.fg=Qt::white;cell.bg=Qt::black;
+            cell.bold=style==1;cell.italic=style==2;
+            if(style==3) {cell.selected=(row.size()/3)%2;cell.fg=cell.selected?Qt::red:Qt::white;cell.underline=cell.selected;}
+            row.append(cell);}
+        QVector<TerminalTextPlacement> automatic,reference;
+        auto fast=renderTerminalTextRow(row,font,cw,ch,metrics.ascent(),scale,&automatic);
+        auto slow=renderTerminalTextRow(row,font,cw,ch,metrics.ascent(),scale,&reference,TerminalTextShapingMode::SourceRanges);
+        if(!require(fast==slow && automatic.size()==reference.size(),"ASCII optimized pixels/count match source-range oracle"))return false;
+        for(int i=0;i<automatic.size();++i) {
+            const auto &a=automatic[i];const auto &b=reference[i];
+            if(!require(a.firstColumn==b.firstColumn && a.lastColumn==b.lastColumn && a.glyph==b.glyph && a.position==b.position && a.family==b.family,"ASCII glyph positions and ownership match oracle"))return false;
+        }
+    }
     std::puts("PASS: grid shaping spans, wide tails, emoji, styles, RTL policy and retained/scale/selection invalidation");return true;
 }

@@ -337,3 +337,24 @@ background/cursor/chrome paint, VT parsing, socket/snapshot work and physical
 monitor behavior. An unchanged real terminal need not paint at all; the retained
 scenario deliberately forces compositing to measure its cost. Native GPU and
 full live 1/15-pane acceptance remain separate toolkit gates.
+
+## Batched glyph drawing and guarded ASCII mapping
+
+The Qt row renderer batches consecutive glyphs using the same raw font into one
+draw call, preserving draw order, source positions and style boundaries. Plain
+printable ASCII with one narrow scalar per cell can also use a single Qt glyph
+query when Qt reports one primary-font run, the complete source string, and
+valid monotone source indexes beginning at zero. Font fallback, non-ASCII and
+unaccepted mappings continue through per-source-range queries.
+
+`just toolkit-text-test` compares optimized raster pixels against the original
+source-range/per-glyph grid renderer for every specimen and all four scales.
+Additional ASCII cases protect glyph positions/ownership and normal, bold,
+italic, selection/color/underline boundaries. The offline `grid` report exposes
+`bulk_ascii` on placements so a native run can show whether the guard accepted
+the fast path. The reference renderer is an internal test mode, not a setting.
+
+`just toolkit-perf` uses the same workload as the earlier CPU baseline. Compare
+timings within a profile and scale; the optimization does not reduce row-image
+bytes, change RTL policy or establish GPU/physical-display performance. Native
+Mac pixel equivalence and timings still need to be run for this change.
