@@ -145,7 +145,7 @@ On Mac use `just toolkit-terminal` and inspect the Terminal object with
 Accessibility Inspector/VoiceOver. Native revalidation of this adapter is pending.
 
 
-## Real IME service check
+## Real IME service check (Linux only)
 
 ```sh
 just toolkit-terminal-ime-test
@@ -167,12 +167,54 @@ input, Space converts to `日本`, and Enter commits exactly once. A second comm
 cycle plus subsequent Enter/Ctrl-C detects stale composition and duplicated or
 eaten terminal input. No QInputMethodEvent is injected by this recipe; those
 events come from Qt's real IBus plugin. The opt-in probe report includes the
-current preedit solely to make this check observable.
+current preedit, composition caret, terminal focus and Copy button position solely
+to make these checks observable. Real pointer clicks move focus to Copy twice:
+pending composition clears, typing on the button sends no PTY bytes, and clicking
+the terminal restores fresh composition. A second Qt window is refused runtime
+ownership; activating and closing it checks window-level cancellation and return
+to the original attachment. On Wayland the private Niri window floats at a fixed
+position; pointer events pass through Niri's nested X11 backend to native Wayland
+Qt, while its keyboard uses the private virtual Wayland seat.
 
 Every run uses private session bus, IBus address, XDG runtime/configuration/cache/
 data paths and in-memory GSettings. The engine is selected through IBus's API
 without the CLI's keyboard-layout side effect. Panels are disabled, so candidate
 popup placement is not tested. Artifacts are under
 `.local/artifacts/qt-ime/{xcb,wayland}/`, including preedit screenshots and raw PTY
-bytes. Native Mac IME, compositor-managed Wayland IME, composition styling/caret
-attributes and focus transitions remain acceptance gates.
+bytes. Composition segment/cursor rendering also has API/pixel coverage in the
+terminal smoke suite. Native Mac IME, compositor-managed Wayland IME, candidate
+popup placement and focus transitions between two editable terminal clients
+remain acceptance gates.
+
+## Native Mac IME check
+
+`just toolkit-terminal-ime-test` uses Linux IBus/Anthy and private X11/Wayland
+desktops. It deliberately exits with an unsupported-platform error on Mac; it
+does not run a Mac IME test.
+
+On Mac run `just toolkit-terminal` to open a disposable native Qt terminal, then
+run this command inside it:
+
+```sh
+python3 -c 'print(repr(input("Type here: ")))'
+```
+
+First add Japanese – Romaji in System Settings → Keyboard → Text Input → Edit →
++ → Japanese → Japanese – Romaji → Add. Return to the terminal and use the
+macOS menu-bar input menu (often ABC) to select Hiragana / あ. The Japanese –
+Romaji input source uses the regular keyboard; Hiragana is the composition mode.
+See Apple's [setup](https://support.apple.com/en-gb/guide/japanese-input-method/jpim10267/mac)
+and [switching](https://support.apple.com/en-gb/guide/japanese-input-method/jpimf6ffb247/mac) instructions.
+
+Type `nihonn` and check the
+composition appears at the caret; Escape should cancel it. Repeat, press Space (several times if needed) to
+show conversion candidates, convert to `日本`, and select/confirm the candidate. Press Return as needed to
+submit the line. Python should print `'日本'` exactly once, with no cancelled
+text or extra characters. Check that the candidate panel stays near the caret.
+
+Repeat the command and move focus to Copy while composition is pending, then
+click back into the terminal. Check for stale composition or unexpected input;
+repeat with another app/window. Record what happens rather than assuming the
+Linux engine's cancellation policy applies to macOS. This is manual acceptance,
+not automated exact-byte verification. The earlier `toolkit-probe-test` uses
+injected composition events and does not prove native Mac IME integration.

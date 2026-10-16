@@ -14,7 +14,7 @@ ApplicationWindow {
         RowLayout {
             Layout.fillWidth: true; Layout.margins: 12
             Label { text: terminal.status; color: "#c9d2e3"; Layout.fillWidth: true }
-            Button { text: "Copy"; onClicked: terminal.copy() }
+            Button { objectName: "copyButton"; text: "Copy"; onClicked: terminal.copy() }
             Button { text: "Paste"; onClicked: terminal.paste() }
         }
         TerminalItem { id: terminal; objectName: "terminal"; Layout.fillWidth: true; Layout.fillHeight: true; focus: true

@@ -248,8 +248,9 @@ The private daemon, bus and XDG paths plus in-memory GSettings isolate all engin
 settings and dictionary data from the user's desktop. Direct engine selection
 uses IBus's API; `ibus engine` also tries to change keyboard layout and can return
 failure after successful selection. Panels are disabled. Candidate popup
-placement, full preedit styling/caret attributes, focus transitions, compositor
-protocol routing and native Mac composition remain open. The main Workbench
+placement, compositor protocol routing and native Mac composition remain open.
+Later slices below cover preedit styling/caret attributes and bounded control/
+window focus transitions. The main Workbench
 viewer is unchanged, and these checks do not settle the toolkit decision.
 
 ## Composition formatting and caret
@@ -272,5 +273,36 @@ checks. The current Workbench frontend is unchanged.
 
 This follows Qt's [input-method attribute contract](https://doc.qt.io/qt-6/qinputmethodevent.html)
 and [text layout API](https://doc.qt.io/qt-6/qtextlayout.html). Native candidate
-popup placement, focus changes, compositor-managed Wayland input methods and
-Mac IME acceptance remain open.
+popup placement, compositor-managed Wayland input methods and Mac IME acceptance
+remain open; control/window focus checks are recorded below.
+
+On 2026-10-16 the owner confirmed native Japanese composition and the candidate
+popup in the Mac Qt terminal probe after adding Japanese – Romaji and selecting
+Hiragana. This is a manual composition/popup check; cancellation, exact-once
+commit, focus transitions, VoiceOver and external-screen sharpness remain
+unconfirmed on Mac. The earlier `toolkit-terminal-ime-test` invocation only hit
+the Linux-only guard. See the [native procedure](../spikes/qt-input/README.md#native-mac-ime-check).
+
+## IME focus transitions
+
+`just toolkit-terminal-ime-test` now exercises real pointer focus changes with
+IBus/Anthy on both X11 and native Wayland. Twice in succession it composes pending
+Hiragana, clicks the existing Copy button, verifies preedit cancellation without
+committing to the PTY, types on the button without terminal input, and clicks back
+into the terminal. Fresh composition still converts and commits exactly once.
+
+A second real Qt window attempts to attach to the occupied runtime and is
+explicitly verified as refused. Activating that window cancels pending preedit
+without committing; after closing it the original attachment and shell reader
+PID remain available, with no stale composition on return. The probe reports
+focus and control geometry only when the disposable test report is requested.
+The Wayland pointer route uses the private nested compositor's X11 host; the
+Qt client still runs on native Wayland with `DISPLAY` unset. This is not a
+physical-device test.
+
+These checks pass with the existing Qt integration; no application-wide reset
+policy was added. Qt documents automatic reset when the focused editor changes
+in its [input-method API](https://doc.qt.io/qt-6/qinputmethod.html). The bounded
+Anthy results do not establish other engines' behavior, transfers between two
+editable terminals, native Mac focus/IME, compositor-managed input-method
+protocols or candidate panel placement.

@@ -754,3 +754,15 @@ position/visibility/color. The candidate anchor follows the composition caret.
 Tests cover UTF-16 offsets and rendered styles; real-engine Left/Right movement
 must not send terminal input. Native candidate popup placement and Mac IME
 review remain open. See [composition presentation](toolkit-readiness.md#composition-formatting-and-caret).
+
+## Current toolkit slice: composition focus
+
+Real IBus/Anthy coverage now checks repeated terminal ↔ Copy-button pointer focus
+changes and native window deactivation/reactivation on X11 and Wayland. Pending
+composition cancels without PTY input, chrome typing stays outside the shell,
+and return preserves the original attachment and fresh commits. No extra reset
+policy was needed. The owner confirmed Japanese composition and the candidate
+popup in the Mac Qt probe after enabling Japanese input. Native Mac cancellation,
+exact-once commit and focus transitions, editable-terminal transfers and Linux
+candidate panel placement remain open. See
+[focus validation](toolkit-readiness.md#ime-focus-transitions).

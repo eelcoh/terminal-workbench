@@ -283,6 +283,6 @@ toolkit-terminal-wayland-test: runtime-build
 toolkit-terminal-accessibility-test: runtime-build
     python3 tests/qt_accessibility_gui_smoke.py
 
-# Real IBus/Anthy key -> composition -> commit pipeline on private desktop/bus.
+# Linux only: real IBus/Anthy key -> composition -> commit on private desktop/bus.
 toolkit-terminal-ime-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-ime-test

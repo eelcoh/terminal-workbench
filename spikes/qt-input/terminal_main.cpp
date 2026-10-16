@@ -36,8 +36,10 @@ int main(int argc,char **argv)
     if(reportIndex>=0 && reportIndex+1<args.size()) {
         const QString report=args.at(reportIndex+1);
         auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+        auto *copyButton=window->findChild<QQuickItem *>("copyButton");
+        if(!copyButton)return 1;
         reportTimer.setInterval(80);
-        QObject::connect(&reportTimer,&QTimer::timeout,&app,[&,report,window]{
+        QObject::connect(&reportTimer,&QTimer::timeout,&app,[&,report,window,copyButton]{
             if(terminal->ready() && args.contains("--test-ime") && imeStage<3
                 && terminal->viewportText().contains("QT-SNAPSHOT")) {
                 if(imeStage==0 && !terminalCompositionSelfTest()) {app.exit(1);return;}
@@ -55,9 +57,12 @@ int main(int argc,char **argv)
             const auto caret=terminal->caret();const auto cell=terminal->cellSize();
             const auto imeCaret=terminal->inputMethodQuery(Qt::ImCursorRectangle).toRectF();
             const auto pos=terminal->mapToScene(QPointF());
+            const auto copyCenter=copyButton->mapToScene(QPointF(copyButton->width()/2,copyButton->height()/2));
             QJsonObject data{{"ready",terminal->ready()},{"status",terminal->status()},
                 {"text",terminal->viewportText()},{"ime_done",imeDone},
                 {"preedit",terminal->preeditText()},
+                {"terminal_focus",terminal->hasActiveFocus()},
+                {"copy_button",QJsonArray{copyCenter.x(),copyCenter.y()}},
                 {"ime_caret",QJsonArray{imeCaret.x(),imeCaret.y(),imeCaret.width(),imeCaret.height()}},
                 {"accessibility_ok",accessibilityDone && accessibilityOk},
                 {"platform",QGuiApplication::platformName()},

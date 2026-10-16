@@ -63,7 +63,7 @@ def main():
             def xrun(*args):return cmd("xdotool",*map(str,args))
             if backend=="wayland":
                 nested=dict(env,WINIT_UNIX_BACKEND="x11")
-                (root/"niri.kdl").write_text("hotkey-overlay { skip-at-startup; }\nanimations { off; }\n")
+                (root/"niri.kdl").write_text("hotkey-overlay { skip-at-startup; }\nanimations { off; }\nprefer-no-csd\n")
                 niri_log=(root/"niri.log").open("w")
                 compositor=spawn(["niri","-c",str(root/"niri.kdl")],env=nested,stdout=niri_log,stderr=niri_log)
                 def endpoints():
@@ -72,7 +72,10 @@ def main():
                     display=re.search(r"Wayland socket: (\S+)",value);ipc=re.search(r"IPC listening on: (\S+)",value)
                     return (display[1],ipc[1]) if display and ipc else None
                 wayland,ipc=wait_until(endpoints,timeout=15)
-                env.update(WAYLAND_DISPLAY=wayland,NIRI_SOCKET=ipc,QT_QPA_PLATFORM="wayland")
+                env.update(WAYLAND_DISPLAY=wayland,NIRI_SOCKET=ipc,QT_QPA_PLATFORM="wayland",QT_WAYLAND_DISABLE_WINDOWDECORATION="1")
+                def host_mouse(*args):
+                    return subprocess.run(["xdotool",*map(str,args)],env=nested,capture_output=True,check=True,timeout=10)
+                host_window=wait_until(lambda:host_mouse("search","--onlyvisible","--pid",compositor.pid).stdout.decode().strip()).splitlines()[0]
                 env.pop("DISPLAY",None)
                 protocol=ROOT/"tests/fixtures/virtual-keyboard-unstable-v1.xml"
                 cmd("wayland-scanner","client-header",str(protocol),str(root/"virtual-keyboard.h"))
@@ -121,7 +124,12 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             wait_until(lambda:report().get("ready"));window=wait_until(mapped)
             assert report()["platform"]==backend,report()
             if backend=="xcb":xrun("windowfocus",window)
-            time.sleep(.2)
+            else:
+                cmd("niri","msg","action","move-window-to-floating")
+                cmd("niri","msg","action","set-window-width","800")
+                cmd("niri","msg","action","set-window-height","500")
+                cmd("niri","msg","action","move-floating-window","--x","70","--y","50")
+            time.sleep(.3)
             # Switching engines may enable the context only after the window focuses.
             cmd(sys.executable,"-c", "import gi; gi.require_version('IBus','1.0'); from gi.repository import IBus; IBus.init(); bus=IBus.Bus.new(); assert bus.is_connected(); assert bus.set_global_engine('anthy'); assert bus.get_global_engine().get_name()=='anthy'")
             time.sleep(.2)
@@ -154,6 +162,55 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             key("Escape")
             wait_until(lambda:report().get("preedit","")=="")
             assert received()==b"",("cancellation leaked",received())
+            def click_scene(x,y):
+                if backend=="wayland":
+                    layout=next(item for item in json.loads(cmd("niri","msg","-j","windows").stdout) if item["id"]==window)["layout"]
+                    origin=layout["tile_pos_in_workspace_view"];offset=layout["window_offset_in_tile"]
+                    host_mouse("mousemove","--window",host_window,round(origin[0]+offset[0]+x),round(origin[1]+offset[1]+y))
+                    host_mouse("click",1)
+                else:
+                    xrun("mousemove","--window",window,round(x),round(y));xrun("click",1)
+            for cycle in range(2):
+                type_text("nihonn");wait_until(lambda:report().get("preedit")=="にほん")
+                click_scene(*report()["copy_button"])
+                wait_until(lambda:not report().get("terminal_focus",True))
+                wait_until(lambda:report().get("preedit","")=="")
+                assert received()==b"",("focus loss committed pending input",cycle,received())
+                type_text("q");time.sleep(.2)
+                assert received()==b"",("chrome input reached PTY",cycle,received())
+                data=report();click_scene(data["x"]+30,data["y"]+100)
+                wait_until(lambda:report().get("terminal_focus"))
+                assert report()["preedit"]=="",("stale preedit on refocus",report())
+            # A second client is deliberately refused ownership. Its real window
+            # supplies a native activation change without taking over the PTY.
+            type_text("nihonn");wait_until(lambda:report().get("preedit")=="にほん")
+            reader_pid=(root/"reader-pid").read_text()
+            blocked_path=artifacts/"blocked.json";blocked_path.unlink(missing_ok=True)
+            other=spawn([viewer,"--control",str(sock.with_suffix(".ctl")),"--test-report",str(blocked_path)],cwd=root,env=env,stdout=log,stderr=log)
+            def other_mapped():
+                assert other.poll() is None,"Second Qt window exited"
+                if backend=="wayland":
+                    windows=json.loads(cmd("niri","msg","-j","windows").stdout)
+                    return next((item["id"] for item in windows if item["id"]!=window),None)
+                result=subprocess.run(["xdotool","search","--onlyvisible","--pid",str(other.pid)],env=env,capture_output=True,timeout=5)
+                return result.stdout.decode().strip().splitlines()[-1] if result.stdout.strip() else None
+            other_window=wait_until(other_mapped)
+            def blocked():
+                try:return "already attached" in json.loads(blocked_path.read_text()).get("status","")
+                except (OSError,ValueError):return False
+            wait_until(blocked)
+            if backend=="xcb":xrun("windowfocus",other_window)
+            wait_until(lambda:not report().get("terminal_focus",True))
+            wait_until(lambda:report().get("preedit","")=="")
+            assert received()==b"",("window activation committed pending input",received())
+            if backend=="wayland":cmd("niri","msg","action","close-window","--id",str(other_window))
+            else:close_window(other_window,env)
+            other.wait(timeout=5)
+            if backend=="wayland":cmd("niri","msg","action","focus-window","--id",str(window))
+            else:xrun("windowfocus",window)
+            wait_until(lambda:report().get("terminal_focus"))
+            assert report()["preedit"]=="" and report()["ready"],("stale preedit or lost attachment on activation",report())
+            assert (root/"reader-pid").read_text()==reader_pid,"Shell reader replaced"
             type_text("nihonn");wait_until(lambda:report().get("preedit")=="にほん")
             key("space");wait_until(lambda:"日本" in report().get("preedit",""))
             assert received()==b"",("conversion leaked",received())
@@ -170,12 +227,12 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             # Return after commit must be a real terminal key, not eaten by stale preedit.
             key("Return");expected+=b"\r";wait_until(lambda:received()==expected)
             key("ctrl+c");expected+=b"\x03";wait_until(lambda:received()==expected)
-            result=dict(backend=report()["platform"],input_context="ibus",ime_transport="direct D-Bus",ibus_version=cmd("ibus","version").stdout.decode().strip(),display_unset="DISPLAY" not in env,engine="anthy",preedit="にほん",converted="日本",composition_cursor=True,cancel_no_input=True,commit_exact_once=True,post_commit_keys=True)
+            result=dict(backend=report()["platform"],input_context="ibus",ime_transport="direct D-Bus",ibus_version=cmd("ibus","version").stdout.decode().strip(),display_unset="DISPLAY" not in env,engine="anthy",preedit="にほん",converted="日本",window_focus_cancel=True,focus_cancel=True,chrome_input_isolated=True,composition_cursor=True,cancel_no_input=True,commit_exact_once=True,post_commit_keys=True)
             (artifacts/"result.json").write_text(json.dumps(result,indent=2,ensure_ascii=False))
             if backend=="wayland":cmd("niri","msg","action","close-window")
             else:close_window(window,env)
             child.wait(timeout=5)
-            print("PASS:",backend,"real IBus/Anthy preedit, cancel, conversion and repeated exact-once commits; post-commit Enter/Ctrl-C",flush=True)
+            print("PASS:",backend,"real IBus/Anthy preedit, cancel, conversion and repeated exact-once commits; control/window focus isolation; post-commit Enter/Ctrl-C",flush=True)
         finally:
             if (root/"received").exists():(artifacts/"received.bin").write_bytes((root/"received").read_bytes())
             if (root/"niri.log").exists():(artifacts/"niri.log").write_bytes((root/"niri.log").read_bytes())
