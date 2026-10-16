@@ -306,3 +306,43 @@ in its [input-method API](https://doc.qt.io/qt-6/qinputmethod.html). The bounded
 Anthy results do not establish other engines' behavior, transfers between two
 editable terminals, native Mac focus/IME, compositor-managed input-method
 protocols or candidate panel placement.
+
+## Text shaping and fallback evidence
+
+`just toolkit-text-test` is an offline Mac/Linux evidence generator, exporting
+comparison sheets at 1x/1.25x/1.5x/2x and JSON font/glyph/UTF-16/cell mappings.
+It uses the pinned Ghostty VT to obtain real terminal cells, then compares the
+current Qt host's per-cell drawing strategy against Qt full-text layout with
+the same bundled Fira Code 18 px and system fallbacks. No PTY or user session
+is involved. Glyph inspection runs once per fixed specimen, outside terminal
+refresh/paint loops; images are exported once per scale.
+
+On Linux/Qt 6.11.2 on 2026-10-16, the comparison reproduced different glyph
+identities for programming ligatures, Arabic, Devanagari and emoji. No zero-index
+missing glyphs were reported for any specimen with this machine's fonts. The
+fallbacks included DejaVu Sans Mono for Arabic, Noto Sans Devanagari, Noto Color
+Emoji, Maple Mono NF CN and Noto Sans CJK JP. These names are observed local
+inventory, not portable dependencies or recommended defaults. Accents and CJK
+had the same glyph identities in both paths, which does not establish identical
+placement or rasterization. The 25-mark grapheme remained intact in one VT cell.
+
+Some emoji sequences already span multiple VT cells in the specimen. The
+report retains each cell's source text and column so that VT segmentation can
+be distinguished from cell-isolated drawing. Full-text shaping visually combines
+some sequences that separate cell drawing leaves apart. This is evidence of a
+remaining gap, not a fix or an acceptance result.
+
+The PNGs were inspected. Arabic joining/direction, Indic shaping and programming
+ligatures visibly differ. A full-text layout is not safe to drop directly into
+the terminal: its natural direction and variable advances can move text away
+from Ghostty-owned cells. A candidate integration must map shaped clusters back
+to their source cell spans, preserve terminal order, wide-cell ownership,
+selection/cursor positions and style boundaries, then check fallback clipping
+and baseline alignment. Raster exports do not settle external-screen sharpness.
+
+Qt's [layout API](https://doc.qt.io/qt-6/qtextlayout.html) and
+[glyph-run API](https://doc.qt.io/qt-6/qglyphrun.html) provide the diagnostic
+font/glyph/source mappings. Glyph identity differences and missing-glyph counts
+are diagnostic signals, not proof of language correctness. Cross-cell shaping,
+native Mac visual/font-inventory review and the one/fifteen-pane performance
+gate remain open. See the [cross-platform procedure](../spikes/qt-input/README.md#text-shaping-and-font-fallback-mac-and-linux).

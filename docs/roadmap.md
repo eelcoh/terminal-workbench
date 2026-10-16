@@ -766,3 +766,13 @@ popup in the Mac Qt probe after enabling Japanese input. Native Mac cancellation
 exact-once commit and focus transitions, editable-terminal transfers and Linux
 candidate panel placement remain open. See
 [focus validation](toolkit-readiness.md#ime-focus-transitions).
+
+## Current toolkit slice: shaping and fallback evidence
+
+`just toolkit-text-test` generates a Mac/Linux comparison of actual Ghostty cell
+drawing and Qt full-text shaping, with fallback-font/glyph reports and PNGs at
+four raster scales. Linux evidence exposes Arabic, Indic, emoji and ligature
+differences; long cell graphemes retain their text. The full-text reference does
+not preserve terminal grid geometry by itself. Cross-cell shaping integration,
+Mac visual review and one/fifteen-pane performance remain open. See
+[shaping evidence](toolkit-readiness.md#text-shaping-and-fallback-evidence).

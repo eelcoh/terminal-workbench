@@ -218,3 +218,39 @@ repeat with another app/window. Record what happens rather than assuming the
 Linux engine's cancellation policy applies to macOS. This is manual acceptance,
 not automated exact-byte verification. The earlier `toolkit-probe-test` uses
 injected composition events and does not prove native Mac IME integration.
+
+## Text shaping and font fallback (Mac and Linux)
+
+```sh
+just toolkit-text-test
+```
+
+This recipe generates artifacts and exits; it does not open a terminal window.
+Open `.local/artifacts/qt-text/comparison-1x.png` for the comparison sheet and
+`report.json` for actual font names and glyph/UTF-16/cell mappings. Images at
+1.25x, 1.5x and 2x are saved alongside it. On Mac, for example:
+
+```sh
+open .local/artifacts/qt-text/comparison-1x.png
+```
+
+The left column draws each actual pinned-Ghostty cell separately, using the
+terminal probe's bundled Fira Code at 18 px and system font fallback. The right
+column uses Qt's full-text layout of the same source string with natural Unicode
+direction and advances. It covers accents, Arabic, Devanagari, CJK, emoji/ZWJ/
+flags, programming ligatures, box drawing and a grapheme with 25 combining marks.
+All VT source text must round-trip, including supplementary characters and long
+graphemes. Tests verify glyph metadata and the scaled PNG dimensions.
+
+A successful command means the evidence was generated and validated. It does
+not mean every font is present or that terminal shaping is correct. Missing
+glyph counts and actual fallbacks are reported per specimen; glyph differences
+compare font/style/glyph multisets, not a semantic correctness oracle. No font
+names or platform-specific glyph IDs are frozen as golden results.
+
+The full-text reference is not a replacement terminal renderer. It may combine
+or reorder text across terminal cells and use advances that do not fit the
+fixed grid. Correct cell ownership, cursor/selection geometry, terminal ordering,
+style boundaries and clipping need a separate integration design. The export
+scale exercise uses QImage rasterization, not physical GPU/mixed-DPI validation.
+No runtime, PTY, saved session or Workbench appearance setting is opened.

@@ -286,3 +286,7 @@ toolkit-terminal-accessibility-test: runtime-build
 # Linux only: real IBus/Anthy key -> composition -> commit on private desktop/bus.
 toolkit-terminal-ime-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-ime-test
+
+# Mac and Linux: offline terminal-cell/full-text shaping and fallback comparison.
+toolkit-text-test: runtime-build
+    python3 scripts/toolkit-probe.py text-test
