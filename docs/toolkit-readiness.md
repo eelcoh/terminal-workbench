@@ -673,3 +673,86 @@ copy/paste/ownership, Wayland fractional-scale checks and the existing CPU
 benchmark matrix pass after sharing the fixture/paint function. Native Mac
 `just toolkit-scene-perf`, Linux hardware runs, physical-display typography,
 GPU timestamps/VRAM and full live-runtime load remain separate acceptance gates.
+
+
+## Opaque background span optimization
+
+The scene benchmark exposed substantial CPU work in full item repaints, even
+when cached glyph rows did not change. The shared grid painter now groups
+adjacent opaque cells with equal backgrounds into horizontal row spans.
+A uniform 80×24 source grid drops from 1,920 grid-background fills to 24.
+Background color changes still split spans; the backdrop, glyph images, cursor
+and IME layer retain their original order and coordinates. This changes only
+the Qt probe's presentation code, not runtime/session state or the main viewer.
+
+The optimization applies only to non-antialiased opaque fills at full painter
+opacity, ordinary source-over composition and axis-aligned transforms.
+Other cases retain per-cell fills. Exact reference-image comparisons cover
+four DPRs, two cell widths, fractional origins, color boundaries, transparency,
+painter opacity, antialiasing, composition, rotation/shear and clipping. The
+original scalar background compositor remains in the offline test.
+
+The saved scene baseline is `.local/artifacts/qt-scene-f65cc77/`, captured before
+this change. The repeated matrix uses the same Release 1/15-pane, ASCII/Unicode,
+1x/2x, three-trial software-OpenGL workload and fixed geometry. These timings
+remain CPU/scene-path evidence with presentation pacing, not native GPU FPS.
+
+The isolated repeated run on Linux/Qt 6.11.2 completed all 24 software-OpenGL
+trials before regression checks. Median unchanged-item repaint results (ms):
+
+| Profile / DPR | Paint 1 pane before → after | Paint 15 panes before → after | Paint reduction, 15 | Request→swap 15 before → after |
+| --- | ---: | ---: | ---: | ---: |
+| ascii / 1x | 2.573 → 1.818 | 14.213 → 11.222 | 21.0% | 27.360 → 24.521 |
+| unicode / 1x | 1.993 → 1.106 | 10.756 → 7.967 | 25.9% | 23.867 → 21.488 |
+| ascii / 2x | 4.843 → 4.382 | 54.094 → 51.298 | 5.2% | 86.415 → 83.644 |
+| unicode / 2x | 3.826 → 3.115 | 40.864 → 37.989 | 7.0% | 72.882 → 70.209 |
+
+The fifteen-pane repaint paint cost falls 21–26% at 1x and 5–7% at 2x for these
+uniform backgrounds. More pixel copying remains at 2x; this does not identify
+GPU upload time. Total request-to-swap gains are smaller and not uniform across
+every fully changing/single-pane sample. Native display pacing and software
+OpenGL overhead are still included. This is a measured paint-path improvement,
+not a frame-rate guarantee or a glyph/typography change.
+
+Cached-scene frames still perform zero item paints and zero row rasterizations;
+all dirty/hidden/reveal row and paint counts remain exact. Row-image byte counts
+match the saved baseline for every case. No memory reduction is claimed.
+Exact text/background pixel checks, native terminal input/copy/paste/ownership,
+Wayland scale/clipboard checks and full `just check` pass. Native Mac pixel
+and scene results for span painting remain unverified, alongside the existing
+hardware GPU, external-screen and full live-runtime acceptance gates.
+
+
+## Native Mac scene benchmark evidence
+
+The scene artifacts supplied in `debug/qt` on 2026-10-16 identify clean source
+`f65cc77`, Cocoa/Qt 6.12.0, AppleClang 21.0.0, and a native 2x display. All twelve
+trials (three per ASCII/Unicode and 1/15-pane case) pass raw/aggregate equality,
+exact row/paint/reveal counts and 2240×1360 capture dimensions. Startup logs
+identify the threaded render loop and Metal on **Apple M2 Pro**. The fifteen-pane
+Unicode capture was inspected; all fifteen sources render and reveal.
+
+Median request-to-swap and summed item-paint times, in ms:
+
+| Profile | Cached scene swap, 1 / 15 | Repaint swap, 1 / 15 | Repaint paint, 1 / 15 | Full update swap, 1 / 15 |
+| --- | ---: | ---: | ---: | ---: |
+| ascii | 8.28 / 8.92 | 8.31 / 71.41 | 3.90 / 52.08 | 16.68 / 120.41 |
+| unicode | 8.67 / 8.81 | 8.34 / 52.57 | 3.20 / 34.39 | 12.75 / 102.57 |
+
+Cached scene redraws perform zero paints. One-row changes still repaint full
+items (about 34–52 ms of paint work across fifteen panes), while one visible
+source amongst fifteen uses exactly one item's paint and 24 rows per frame.
+The GUI cache-update and item-paint measurements account for substantial work
+before presentation; this supports reducing CPU paint and invalidated area,
+without claiming that Metal upload or GPU execution have been isolated.
+
+Highest child peak RSS was 839 MiB, including warmup/reveal/capture phases and
+Qt/Metal/font resources. This is not steady-state memory or measured VRAM.
+Memory acceptance remains open. The run exercises current shaping/cropped caches
+in the scene path but does not execute the exact text pixel oracle, physical
+external-display sharpness checks, full live PTY load or background-span changes.
+
+The logs include a non-fatal malformed logging-rule warning: the runner joined
+`QT_LOGGING_RULES` with newlines. It now uses semicolons, preserving inherited
+rules. The benchmark still completed and the API/device metadata are valid.
+A Linux software-OpenGL diagnostic run verifies the corrected logging syntax.

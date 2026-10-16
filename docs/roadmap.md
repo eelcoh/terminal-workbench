@@ -844,3 +844,23 @@ timing includes presentation pacing; GPU timestamps/VRAM and live PTY load remai
 unmeasured. `toolkit-scene-perf-test` exercises the same path with software OpenGL
 on private Linux Xvfb at 1x/2x. Native hardware/Mac acceptance remains open. See
 [live Qt Quick measurement](toolkit-readiness.md#live-qt-quick-painted-item-measurement).
+
+
+## Current toolkit slice: batch opaque backgrounds
+
+Adjacent cells with the same opaque background now paint as row spans in the
+Qt probe. Uniform 80×24 grids use 24 background fills instead of 1,920. Exact
+pixel tests preserve color boundaries, fractional geometry and conservative
+fallbacks for alpha/opacity/antialiasing/composition/transforms. In the repeated
+software-OpenGL scene matrix, fifteen-pane unchanged repaint paint time falls
+21–26% at 1x and 5–7% at 2x, with no row-cache memory change. All operation-count,
+text, terminal, Wayland and `just check` regressions pass. Native Mac and hardware
+measurements remain open. See [background spans](toolkit-readiness.md#opaque-background-span-optimization).
+
+
+Native Mac scene evidence for clean `f65cc77` now passes all twelve trials on
+Cocoa/Qt 6.12.0, Metal/Apple M2 Pro at 2x. Cached frames avoid painting, but
+fifteen-pane unchanged repaints still spend 34–52 ms in CPU paint work; peak
+process RSS reached 839 MiB across the complete run. These results support
+paint/invalidation work while memory, exact native pixel equivalence, physical
+screens and full live-runtime load remain open. See [Mac scene evidence](toolkit-readiness.md#native-mac-scene-benchmark-evidence).

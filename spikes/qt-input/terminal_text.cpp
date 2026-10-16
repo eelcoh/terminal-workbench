@@ -202,9 +202,21 @@ qint64 TerminalTextSurface::imageBytes() const
 void paintTerminalGrid(QPainter &painter,const QVector<QVector<TerminalTextCell>> &grid,
     const TerminalTextSurface &text,qreal cw,qreal ch,const QPointF &origin)
 {
+    // Only merge opaque, axis-aligned fills with ordinary raster coverage.
+    // Alpha, painter opacity, antialiasing or other composition modes can make
+    // shared-edge coverage observable; those keep the original per-cell path.
+    const bool merge=!painter.testRenderHint(QPainter::Antialiasing) && painter.opacity()==1
+        && painter.compositionMode()==QPainter::CompositionMode_SourceOver
+        && painter.transform().type()<=QTransform::TxScale;
     for(int y=0;y<grid.size();++y) {
         const auto &row=grid[y];
-        for(int x=0;x<row.size();++x)painter.fillRect(QRectF(origin.x()+x*cw,origin.y()+y*ch,cw,ch),row[x].bg);
+        for(int begin=0;begin<row.size();) {
+            int end=begin+1;
+            if(merge && row[begin].bg.alpha()==255)
+                while(end<row.size() && row[end].bg==row[begin].bg)++end;
+            painter.fillRect(QRectF(origin.x()+begin*cw,origin.y()+y*ch,(end-begin)*cw,ch),row[begin].bg);
+            begin=end;
+        }
         if(y<text.size())painter.drawImage(origin+QPointF(0,y*ch),text.image(y));
     }
 }

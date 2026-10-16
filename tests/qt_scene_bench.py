@@ -32,7 +32,7 @@ for scale in ((1,2) if headless else (None,)):
             for trial in range(1,4):
                 name=f"{profile}-{panes}-{scale or 'native'}x-trial{trial}"
                 path=artifacts/(name+".json");path.unlink(missing_ok=True)
-                env=dict(os.environ,QSG_INFO="1",QT_LOGGING_RULES=os.environ.get("QT_LOGGING_RULES", "")+"\nqt.scenegraph.general=true\nqt.rhi.general=true")
+                env=dict(os.environ,QSG_INFO="1",QT_LOGGING_RULES=";".join(filter(None,(os.environ.get("QT_LOGGING_RULES", ""),"qt.scenegraph.general=true","qt.rhi.general=true"))))
                 if headless:
                     env.update(QT_QPA_PLATFORM="xcb",LIBGL_ALWAYS_SOFTWARE="1",QSG_RHI_BACKEND="opengl",QT_SCALE_FACTOR=str(scale))
                     for key in ("QT_QUICK_BACKEND","QT_SCREEN_SCALE_FACTORS","QT_DEVICE_PIXEL_RATIO","WAYLAND_DISPLAY"):

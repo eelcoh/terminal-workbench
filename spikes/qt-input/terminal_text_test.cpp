@@ -85,6 +85,33 @@ bool terminalTextSelfTest(const QFont &font)
         }}
         if(!require(actual==expected,"shared grid paint preserves unwritten backgrounds and row/origin clipping"))return false;
     }
+    // Compare span backgrounds to the original per-cell compositor at fractional
+    // coordinates, with theme/selection color breaks and conservative fallbacks.
+    for(qreal scale:{1.,1.25,1.5,2.})for(qreal width:{cw,cw+1})for(int mode=0;mode<8;++mode) {
+        QVector<QVector<TerminalTextCell>> grid(3,QVector<TerminalTextCell>(80));
+        for(auto &row:grid)for(int x=0;x<row.size();++x) {
+            row[x].bg=(x<13 || x>=64)?QColor("#191d24"):x<37?QColor("#a8c7fa"):QColor("#ffcc66");
+            if(mode==1)row[x].bg.setAlpha(110);
+        }
+        TerminalTextSurface empty;
+        QImage actual(qCeil((80*width+20)*scale),qCeil((3*ch+20)*scale),QImage::Format_ARGB32_Premultiplied);
+        actual.setDevicePixelRatio(scale);actual.fill(QColor("#5f315c"));auto expected=actual.copy();
+        const QPointF origin(8.25,7.75);
+        const auto configure=[mode](QPainter &painter) {
+            if(mode==2)painter.setOpacity(.6);
+            if(mode==3)painter.setRenderHint(QPainter::Antialiasing);
+            if(mode==4)painter.setCompositionMode(QPainter::CompositionMode_Source);
+            if(mode==5)painter.shear(.08,0);
+            if(mode==6)painter.rotate(2);
+            if(mode==7)painter.setClipRect(QRectF(18.7,10.4,490.3,45.1));
+        };
+        {QPainter painter(&actual);configure(painter);paintTerminalGrid(painter,grid,empty,width,ch,origin);}
+        {QPainter painter(&expected);configure(painter);
+            for(int y=0;y<grid.size();++y)for(int x=0;x<grid[y].size();++x)
+                painter.fillRect(QRectF(origin.x()+x*width,origin.y()+y*ch,width,ch),grid[y][x].bg);
+        }
+        if(!require(actual==expected,"background spans preserve per-cell pixels across scales/colors/alpha/opacity/AA/composition/transforms/clipping"))return false;
+    }
     // The original source-range mapper is the oracle for the guarded ASCII path.
     const QStringList ascii={"office -> != === <= >= ffi ==> ...", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", "---->=====>!!!!=="};
     for(const auto &text:ascii)for(qreal scale:{1.,1.25,1.5,2.})for(int style=0;style<4;++style) {

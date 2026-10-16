@@ -429,3 +429,20 @@ item; it is not measured VRAM and does not count additional copies/driver memory
 Xvfb at explicit 1x/2x using software OpenGL, asserting that the RHI OpenGL path
 is active. Results go to `.local/artifacts/qt-scene-test/`. Software OpenGL
 exercises scene/texture plumbing but does not establish hardware GPU performance.
+
+
+## Opaque background spans
+
+The shared live/benchmark grid painter combines adjacent cells with the same
+opaque background into one row span. An ordinary uniform 80×24 grid uses 24
+grid-background fills instead of 1,920; the full pane backdrop and cursor remain
+separate. Mixed theme/selection colors end a span, and the foreground row-image
+order and complete source geometry are preserved.
+
+The painter retains per-cell fills for translucent colors, painter opacity,
+antialiased rectangles, non-default composition, rotation or shear, where edge
+coverage could change. `just toolkit-text-test` compares against the original
+per-cell background compositor at all four scales, two cell widths, fractional
+origins, multiple colors, alpha, opacity, antialiasing, composition, transforms
+and clipping. `just toolkit-scene-perf` measures the effect on actual painted
+items; cached scene redraws should continue to perform zero item painting.
