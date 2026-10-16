@@ -257,11 +257,7 @@ void TerminalItem::paint(QPainter *painter)
     // Pure drawing of GUI-thread snapshots: no socket/VT calls or state mutation.
     painter->fillRect(boundingRect(),background_);
     painter->setRenderHint(QPainter::TextAntialiasing,true);
-    for(int y=0;y<grid_.size();++y) {
-        const auto &row=grid_[y];
-        for(int x=0;x<row.size();++x) painter->fillRect(QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_,cellHeight_),row[x].bg);
-        if(y<textRows_.size())painter->drawImage(QPointF(8,8+y*cellHeight_),textRows_.image(y));
-    }
+    paintTerminalGrid(*painter,grid_,textRows_,cellWidth_,cellHeight_,QPointF(8,8));
     if(cursorVisible_) {painter->setPen(QColor("#a8c7fa"));painter->drawRect(caret_.adjusted(0,0,-1,-1));}
     composition_.paint(painter,caret_,ascent_,background_);
 }

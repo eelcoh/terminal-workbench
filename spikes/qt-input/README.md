@@ -382,3 +382,50 @@ its report, making pasted benchmark logs attributable. These identify the
 runner checkout; timings still measure only the isolated CPU path. Savings
 depend on unwritten columns; a full row retains its original allocation.
 Composite targets, Qt Quick textures and VT storage are unaffected.
+
+
+## Live Qt Quick scene measurement
+
+`just toolkit-scene-perf` builds a separate Release executable and opens a series
+of synthetic-terminal windows on the current Mac/Linux display. Keep them
+visible and unobscured; do not resize them or move them between displays during
+the run. It runs three fresh processes for each 1/15-pane ASCII/Unicode case.
+Native DPR/backend are recorded, not forced; repeat after moving to another
+monitor to compare that display. Closing a benchmark window fails the run.
+
+The fixed 1120×680 window contains one full-size terminal, or fifteen scaled
+thumbnails. Each source remains 80×24 cells with the same unscaled painted-item
+size and window DPR, so fifteen panes multiply source pixels while fitting into
+one viewport. This is a controlled scene workload, not the product overview UI.
+The executable shares the real host's full-grid background/foreground paint
+function and the CPU benchmark's Ghostty-extracted fixture. It adds a fixed
+cursor outline, with no PTYs, saved sessions, sockets, IME or terminal input.
+
+Each process warms up three frames per scenario, then measures at least 300 ms
+and three frames:
+
+- `cached-scene`: request window frames with cached item textures, no item repaint.
+- `repaint`: repaint visible items without changing cached glyph rows.
+- `one-row`: change one source row per visible item, repaint the entire item.
+- `full`: change every row and repaint all items.
+- `one-visible`: update all sources while hiding fourteen items; only the visible
+  item's rows and image paint. Reveal catches up hidden rows outside timing.
+
+One generation is in flight at a time. Render-thread synchronization/swap tokens
+prevent old frame notifications from acknowledging a newer update. Exact paint,
+dirty-row and reveal counts gate success. Frame timings run from GUI update
+request to Qt's `frameSwapped` notification, which means queued for presentation,
+not GPU completion. Vsync/compositor/event-loop pacing is included. GUI update
+and summed item-paint times are reported separately, as is process CPU time.
+These do not isolate upload cost, GPU execution, refresh-rate FPS or input latency.
+
+Artifacts are in `.local/artifacts/qt-scene-performance/`: aggregate JSON, raw
+reports, startup backend logs and a rendered scene capture per trial. Reports
+record native DPR, API, geometry, source checkout, environment and exact-child
+peak RSS. `estimated_rgba_item_bytes` is a model of one full-size RGBA buffer per
+item; it is not measured VRAM and does not count additional copies/driver memory.
+
+`just toolkit-scene-perf-test` is Linux-only: it runs the same matrix on private
+Xvfb at explicit 1x/2x using software OpenGL, asserting that the RHI OpenGL path
+is active. Results go to `.local/artifacts/qt-scene-test/`. Software OpenGL
+exercises scene/texture plumbing but does not establish hardware GPU performance.

@@ -44,3 +44,8 @@ public:
 private:
     QVector<TerminalTextRow> rows_;quint64 rasterizedRows_=0;
 };
+
+class QPainter;
+// Shared pure full-grid paint path; caller owns backdrop, cursor and IME overlay.
+void paintTerminalGrid(QPainter &,const QVector<QVector<TerminalTextCell>> &,
+    const TerminalTextSurface &,qreal cellWidth,qreal cellHeight,const QPointF &origin);

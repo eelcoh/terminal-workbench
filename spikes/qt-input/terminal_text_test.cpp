@@ -70,6 +70,21 @@ bool terminalTextSelfTest(const QFont &font)
     }
     QVector<TerminalTextCell> blank(80);cropped.update(blank,font,cw,ch,metrics.ascent(),2);
     if(!require(cropped.image().width()==1 && cropped.image().devicePixelRatio()==2,"empty rows keep a one-pixel DPR-tagged image"))return false;
+    // Cropping foreground images must not remove backgrounds on unwritten cells.
+    for(qreal scale:{1.,1.25,1.5,2.}) {
+        QVector<TerminalTextCell> row(80);for(auto &cell:row) {cell.bg=Qt::black;cell.fg=Qt::white;}
+        row[0].text="A";row[79].bg=Qt::blue;
+        TerminalTextSurface backgroundSurface;backgroundSurface.update({row,row},font,cw,ch,metrics.ascent(),scale,true);
+        QImage actual(qCeil((80*cw+16)*scale),qCeil((2*ch+16)*scale),QImage::Format_ARGB32_Premultiplied);
+        actual.setDevicePixelRatio(scale);actual.fill(Qt::red);auto expected=actual.copy();
+        {QPainter painter(&actual);paintTerminalGrid(painter,{row,row},backgroundSurface,cw,ch,QPointF(8,8));}
+        {QPainter painter(&expected);for(int y=0;y<2;++y) {
+            painter.fillRect(QRectF(8,8+y*ch,80*cw,ch),Qt::black);
+            painter.fillRect(QRectF(8+79*cw,8+y*ch,cw,ch),Qt::blue);
+            painter.drawImage(QPointF(8,8+y*ch),renderTerminalTextRow(row,font,cw,ch,metrics.ascent(),scale));
+        }}
+        if(!require(actual==expected,"shared grid paint preserves unwritten backgrounds and row/origin clipping"))return false;
+    }
     // The original source-range mapper is the oracle for the guarded ASCII path.
     const QStringList ascii={"office -> != === <= >= ffi ==> ...", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", "---->=====>!!!!=="};
     for(const auto &text:ascii)for(qreal scale:{1.,1.25,1.5,2.})for(int style=0;style<4;++style) {

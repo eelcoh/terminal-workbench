@@ -13,17 +13,28 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "text-test", "perf"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "text-test", "perf", "scene-perf", "scene-perf-test"))
     args = parser.parse_args()
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
-    build=ROOT/".local/build/qt-performance" if args.mode=="perf" else BUILD
-    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("text-test","perf")) else "OFF")]
-    if args.mode=="perf":configure.append("-DCMAKE_BUILD_TYPE=Release")
+    if args.mode=="scene-perf-test" and not sys.platform.startswith("linux"):
+        parser.error("scene-perf-test uses private Linux Xvfb; use scene-perf for native Mac measurements")
+    performance=args.mode in ("perf","scene-perf","scene-perf-test")
+    build=ROOT/".local/build/qt-performance" if performance else BUILD
+    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("text-test","perf","scene-perf","scene-perf-test")) else "OFF")]
+    if performance:configure.append("-DCMAKE_BUILD_TYPE=Release")
     subprocess.run(configure,check=True)
     command=["cmake","--build",str(build),"--parallel"]
-    if args.mode=="perf":command.extend(["--target","workbench-text-bench"])
+    if performance:command.extend(["--target","workbench-text-bench" if args.mode=="perf" else "workbench-scene-bench"])
     subprocess.run(command,check=True)
+    if args.mode in ("scene-perf","scene-perf-test"):
+        name="workbench-scene-bench"
+        binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name
+        command=[sys.executable,str(ROOT/"tests/qt_scene_bench.py"),str(binary)]
+        if args.mode=="scene-perf-test":
+            command=["xvfb-run","-a","-s","-screen 0 1400x900x24",*command,"--headless"]
+        subprocess.run(command,check=True)
+        return
     if args.mode=="perf":
         name="workbench-text-bench"
         binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name

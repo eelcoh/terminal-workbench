@@ -294,3 +294,11 @@ toolkit-text-test: runtime-build
 # Mac/Linux: Release CPU row-raster/cache benchmark, 1/15 panes at 1x/2x.
 toolkit-perf: runtime-build
     python3 scripts/toolkit-probe.py perf
+
+# Mac/Linux: native Qt Quick scene/image path; keep the windows visible.
+toolkit-scene-perf: runtime-build
+    python3 scripts/toolkit-probe.py scene-perf
+
+# Linux: private Xvfb + software OpenGL, explicit 1x/2x scene operation checks.
+toolkit-scene-perf-test: runtime-build
+    python3 scripts/toolkit-probe.py scene-perf-test

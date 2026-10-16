@@ -831,3 +831,16 @@ unknown and native review of this new cache remains open. Linux native input,
 Wayland/IME/accessibility and `just check` pass; forced retained copying improves
 about 4% for ASCII and 16% for Unicode in the repeated CPU matrix. Future performance
 logs identify the source checkout. See [retained image extent](toolkit-readiness.md#retained-row-extent-optimization).
+
+
+## Current toolkit slice: live Qt Quick scene path
+
+`just toolkit-scene-perf` adds native Mac/Linux painted-item measurements for
+one/fifteen synthetic Ghostty terminals. It distinguishes cached scene redraws,
+item repaints, dirty rows and fourteen hidden sources, with exact paint/reveal
+checks, source/backend metadata, captures and process memory. The fixed viewport
+scales fifteen full-resolution source surfaces into thumbnails. Request-to-swap
+timing includes presentation pacing; GPU timestamps/VRAM and live PTY load remain
+unmeasured. `toolkit-scene-perf-test` exercises the same path with software OpenGL
+on private Linux Xvfb at 1x/2x. Native hardware/Mac acceptance remains open. See
+[live Qt Quick measurement](toolkit-readiness.md#live-qt-quick-painted-item-measurement).

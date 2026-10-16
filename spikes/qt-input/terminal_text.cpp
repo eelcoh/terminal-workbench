@@ -198,3 +198,13 @@ qint64 TerminalTextSurface::imageBytes() const
 {
     qint64 result=0;for(const auto &row:rows_)result+=row.image().sizeInBytes();return result;
 }
+
+void paintTerminalGrid(QPainter &painter,const QVector<QVector<TerminalTextCell>> &grid,
+    const TerminalTextSurface &text,qreal cw,qreal ch,const QPointF &origin)
+{
+    for(int y=0;y<grid.size();++y) {
+        const auto &row=grid[y];
+        for(int x=0;x<row.size();++x)painter.fillRect(QRectF(origin.x()+x*cw,origin.y()+y*ch,cw,ch),row[x].bg);
+        if(y<text.size())painter.drawImage(origin+QPointF(0,y*ch),text.image(y));
+    }
+}

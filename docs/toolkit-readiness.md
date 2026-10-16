@@ -598,3 +598,78 @@ stay zero. Native Mac cropped-cache equivalence/timings remain unverified;
 Qt Quick textures/GPU/VRAM, typography gaps and physical-display acceptance are
 still open. The next performance gate is the live Qt Quick image/upload path
 under one and fifteen panes, rather than extrapolating these CPU timings to FPS.
+
+
+## Live Qt Quick painted-item measurement
+
+`just toolkit-scene-perf` adds a native Release scene workload for Mac/Linux,
+with three fresh processes per 1/15-pane ASCII/Unicode case. Synthetic grids
+come from the same pinned Ghostty fixture as the CPU benchmark; grid painting
+is shared with the live terminal host, including full-width backgrounds. Pixel
+checks protect unwritten-cell backgrounds, source offsets and fractional scales.
+The regular Workbench frontend is unchanged.
+
+The 1120×680 viewport contains full-resolution 80×24 painted-item surfaces:
+one item at full scale or fifteen items displayed as thumbnails. Fifteen items
+therefore retain fifteen times the source pixel area, despite the fixed window.
+The workloads distinguish cached scene redraws, unchanged item repaints,
+one-row/full updates and one visible item amongst fifteen changing sources.
+Three warmup frames precede each timed sample. Exact row/paint/reveal counts
+must pass; one generation remains in flight and stale frame callbacks are ignored.
+
+The report separates GUI cache/update time, summed item-paint time, process CPU,
+request-to-swap wall time, row cache bytes and exact-child peak RSS. Native scale,
+graphics API, source checkout, environment, raw logs and rendered captures are
+included. The estimated RGBA surface bytes are an allocation model, not VRAM.
+There are no PTYs, sockets, input events, product chrome or arbitrary producer
+backlog in this workload, and no GPU timestamps or allocator-level GPU readings.
+
+Qt's [painted-item contract](https://doc.qt.io/qt-6/qquickpainteditem.html#paint)
+keeps GUI state blocked while rendering reads the grid/images. Render callbacks
+use direct connections and pass generation tokens back to the GUI thread.
+The [frameSwapped signal](https://doc.qt.io/qt-6/qquickwindow.html#frameSwapped)
+indicates queued presentation, so request-to-swap includes event-loop/vsync/
+compositor pacing and must not be treated as GPU completion or input latency.
+Backend startup logs use the documented
+[scene-graph logging categories](https://doc.qt.io/qt-6/qtquick-visualcanvas-scenegraph.html#logging-support).
+
+Native testing requires keeping windows visible, unobscured, on one display
+and at a stable size. The run fails on premature close, missing frames, resize
+or DPR change rather than reporting incomplete samples. Compare displays by
+rerunning after the previous run finishes. Native Mac/backend and physical
+external-display results remain open.
+
+The final isolated Linux/Qt 6.11.2/GCC 16.2.1 test completed all 24 processes:
+three trials per pane-count/profile/scale case. The API reports OpenGL with
+`LIBGL_ALWAYS_SOFTWARE=1` on private Xvfb; no hardware GPU is exposed in this
+environment. Row/paint/reveal counts pass in every case, and all captures have
+the expected DPR-scaled window dimensions. The fifteen-pane capture was also
+inspected: all fifteen sources are visible in the fixed viewport.
+
+Median measured times (ms; summed paint work includes grid backgrounds):
+
+| Profile / DPR | Cached scene request→swap, 1 / 15 | Item repaint request→swap, 1 / 15 | Full update request→swap, 1 / 15 | Full update paint, 1 / 15 |
+| --- | ---: | ---: | ---: | ---: |
+| ascii / 1x | 10.91 / 10.65 | 15.10 / 27.36 | 20.13 / 58.72 | 2.12 / 14.26 |
+| ascii / 2x | 16.03 / 15.86 | 23.59 / 86.42 | 28.87 / 133.04 | 5.00 / 54.97 |
+| unicode / 1x | 10.86 / 10.33 | 14.54 / 23.87 | 18.78 / 70.14 | 1.24 / 10.87 |
+| unicode / 2x | 16.87 / 16.19 | 23.33 / 72.88 | 28.96 / 129.73 | 3.99 / 41.17 |
+
+Cached scene samples perform zero item paints and zero row rasterizations;
+repaint samples perform zero row rasterizations. One-row samples rerasterize
+one row per visible source but still repaint the complete item, explaining why
+their paint cost stays near full item repaint. Hiding fourteen changing sources
+removes their row/paint work; revealing them updates exactly 336 hidden rows
+and paints all fifteen items. A single-source reveal adds no dirty rows.
+
+Highest process peak RSS was 549.54 MiB. That includes Qt/software-OpenGL
+resources, fonts, warmup, reveal and screenshot readback/encoding as well as the
+scene. It is not a steady-state allocation total or GPU memory measurement.
+The software device and presentation pacing prevent extrapolating these timings
+to native Metal/hardware-GL performance or a product frame-rate target.
+
+`just check`, exact text/background pixel checks, native Qt terminal input/
+copy/paste/ownership, Wayland fractional-scale checks and the existing CPU
+benchmark matrix pass after sharing the fixture/paint function. Native Mac
+`just toolkit-scene-perf`, Linux hardware runs, physical-display typography,
+GPU timestamps/VRAM and full live-runtime load remain separate acceptance gates.
