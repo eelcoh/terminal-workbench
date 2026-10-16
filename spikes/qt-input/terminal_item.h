@@ -21,7 +21,7 @@ public:
     QString preeditText() const { return composition_.text(); }
     QString viewportText() const;
     QRectF caret() const { return caret_; }
-    qreal textRasterScale() const {return textRows_.isEmpty()?0:textRows_.first().image().devicePixelRatio();}
+    qreal textRasterScale() const {return textRows_.size()==0?0:textRows_.image(0).devicePixelRatio();}
     QSizeF cellSize() const { return QSizeF(cellWidth_,cellHeight_); }
     struct AccessibleCharacter { QPoint cell; int width=1; bool selected=false; };
     struct AccessibleSnapshot {
@@ -76,7 +76,7 @@ private:
     GhosttyKeyEncoder encoder_=nullptr;
     GhosttyKeyEvent event_=nullptr;
     QVector<QVector<Cell>> grid_;
-    QVector<TerminalTextRow> textRows_;
+    TerminalTextSurface textRows_;
     QColor background_{"#191d24"};
     QFont font_;
     qreal cellWidth_=10, cellHeight_=22, ascent_=17;

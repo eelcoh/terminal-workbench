@@ -788,6 +788,21 @@ back to Ghostty-owned cells. Cached row images preserve cursor/selection geometr
 and avoid shaping during paint or rerasterizing unchanged rows. The text proof
 now includes integrated `grid-*.png` sheets alongside the old baseline. Tests
 protect glyph retention, wide tails, emoji spans, style breaks, native operator
-copy/paste and scale-specific row images. RTL keeps the previous per-cell policy;
-Mac integration review, spacing/clipping refinements and one/fifteen-pane
+copy/paste and scale-specific row images. RTL keeps the previous per-cell policy.
+The Mac integrated comparison validates on Cocoa/Qt 6.12.0: all seven LTR
+font/glyph multisets match the reference, and joined operators/emoji are visible.
+Live Mac interaction, spacing/clipping refinements and one/fifteen-pane
 performance remain open. See [grid shaping](toolkit-readiness.md#first-grid-preserving-shaping-integration).
+
+## Current toolkit slice: CPU raster/cache performance
+
+`just toolkit-perf` adds Release 1/15-pane CPU measurements at fixed per-pane
+80×24 geometry and 1x/2x raster scales, with three trials per ASCII/Unicode case.
+The live host and benchmark share the visibility/cache boundary. Exact row-count
+checks pass for retained/hidden/dirty/reveal scenarios; only one visible pane
+stays near the single-pane raster cost despite 14 additional hidden sources.
+Fully changing output and forced CPU compositing are costly at 15 full-size
+panes, with roughly 121 MiB of row caches at 2x before composite buffers/fonts.
+This is a CPU baseline, not the full performance acceptance gate. Mac results,
+Qt Quick uploads/GPU/VRAM, live runtime load and physical-display behavior remain
+open. See [performance baseline](toolkit-readiness.md#cpu-row-rastercache-performance-baseline).

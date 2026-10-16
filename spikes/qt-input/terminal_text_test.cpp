@@ -38,5 +38,14 @@ bool terminalTextSelfTest(const QFont &font)
     if(!require(retained.revisions()==revision+1 && retained.image().width()==cells.size()*cw*2,"scale invalidates row image and backing pixels"))return false;
     cells[0].selected=true;retained.update(cells,font,cw,ch,metrics.ascent(),2);
     if(!require(retained.revisions()==revision+2,"selection invalidates shaping"))return false;
+    TerminalTextSurface surface;QVector<QVector<TerminalTextCell>> grid{cells,cells};
+    surface.update(grid,font,cw,ch,metrics.ascent(),1,true);
+    auto rasterized=surface.rasterizedRows();auto bytes=surface.imageBytes();
+    grid[0][0].text="X";surface.update(grid,font,cw,ch,metrics.ascent(),2,false);
+    if(!require(surface.rasterizedRows()==rasterized && surface.imageBytes()==bytes,"hidden output/scale keeps cache without rasterization"))return false;
+    surface.update(grid,font,cw,ch,metrics.ascent(),2,true);
+    if(!require(surface.rasterizedRows()==rasterized+2 && surface.image(0).devicePixelRatio()==2,"reveal catches current data and scale"))return false;
+    surface.update(grid,font,cw,ch,metrics.ascent(),2,true);
+    if(!require(surface.rasterizedRows()==rasterized+2,"retained surface does no additional rasterization"))return false;
     std::puts("PASS: grid shaping spans, wide tails, emoji, styles, RTL policy and retained/scale/selection invalidation");return true;
 }

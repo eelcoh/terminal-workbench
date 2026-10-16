@@ -126,9 +126,21 @@ QImage renderTerminalTextRow(const QVector<TerminalTextCell> &cells,const QFont 
     }
     return image;
 }
-void TerminalTextRow::update(const QVector<TerminalTextCell> &cells,const QFont &font,qreal cw,qreal ch,qreal ascent,qreal scale)
+bool TerminalTextRow::update(const QVector<TerminalTextCell> &cells,const QFont &font,qreal cw,qreal ch,qreal ascent,qreal scale)
 {
-    if(revisions_ && cells_==cells && font_==font && width_==cw && height_==ch && ascent_==ascent && scale_==scale)return;
+    if(revisions_ && cells_==cells && font_==font && width_==cw && height_==ch && ascent_==ascent && scale_==scale)return false;
     image_=renderTerminalTextRow(cells,font,cw,ch,ascent,scale);cells_=cells;font_=font;
-    width_=cw;height_=ch;ascent_=ascent;scale_=scale;++revisions_;
+    width_=cw;height_=ch;ascent_=ascent;scale_=scale;++revisions_;return true;
+}
+
+void TerminalTextSurface::update(const QVector<QVector<TerminalTextCell>> &grid,const QFont &font,
+    qreal cw,qreal ch,qreal ascent,qreal scale,bool presentable)
+{
+    if(!presentable)return;
+    rows_.resize(grid.size());
+    for(int row=0;row<grid.size();++row)if(rows_[row].update(grid[row],font,cw,ch,ascent,scale))++rasterizedRows_;
+}
+qint64 TerminalTextSurface::imageBytes() const
+{
+    qint64 result=0;for(const auto &row:rows_)result+=row.image().sizeInBytes();return result;
 }

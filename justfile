@@ -290,3 +290,7 @@ toolkit-terminal-ime-test: runtime-build
 # Mac and Linux: offline terminal-cell/full-text shaping and fallback comparison.
 toolkit-text-test: runtime-build
     python3 scripts/toolkit-probe.py text-test
+
+# Mac/Linux: Release CPU row-raster/cache benchmark, 1/15 panes at 1x/2x.
+toolkit-perf: runtime-build
+    python3 scripts/toolkit-probe.py perf

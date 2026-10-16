@@ -234,11 +234,8 @@ void TerminalItem::refresh()
     }
     // Shape/rasterize only changed rows on the GUI thread. Paint receives images;
     // QRawFont glyph runs must not be moved to Qt Quick's render thread.
-    if(isVisible() && window() && window()->visibility()!=QWindow::Hidden && window()->visibility()!=QWindow::Minimized) {
-        textRows_.resize(grid_.size());
-        const qreal scale=window()->devicePixelRatio();
-        for(int y=0;y<grid_.size();++y)textRows_[y].update(grid_[y],font_,cellWidth_,cellHeight_,ascent_,scale);
-    }
+    const bool presentable=isVisible() && window() && window()->visibility()!=QWindow::Hidden && window()->visibility()!=QWindow::Minimized;
+    textRows_.update(grid_,font_,cellWidth_,cellHeight_,ascent_,window()?window()->devicePixelRatio():1,presentable);
     bool visible=false,inViewport=false;quint16 x=0,y=0;
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VISIBLE,&visible);
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_HAS_VALUE,&inViewport);
@@ -263,7 +260,7 @@ void TerminalItem::paint(QPainter *painter)
     for(int y=0;y<grid_.size();++y) {
         const auto &row=grid_[y];
         for(int x=0;x<row.size();++x) painter->fillRect(QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_,cellHeight_),row[x].bg);
-        if(y<textRows_.size())painter->drawImage(QPointF(8,8+y*cellHeight_),textRows_[y].image());
+        if(y<textRows_.size())painter->drawImage(QPointF(8,8+y*cellHeight_),textRows_.image(y));
     }
     if(cursorVisible_) {painter->setPen(QColor("#a8c7fa"));painter->drawRect(caret_.adjusted(0,0,-1,-1));}
     composition_.paint(painter,caret_,ascent_,background_);

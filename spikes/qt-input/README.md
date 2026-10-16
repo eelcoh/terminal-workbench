@@ -291,3 +291,49 @@ refresh on reveal. One extra CPU bitmap per visible terminal row is retained;
 memory, CPU/GPU load and the one/fifteen-pane gate remain to be measured before
 frontend adoption. Mac compilation and live-terminal visual acceptance of this
 integration remain pending.
+
+## CPU raster/cache performance (Mac and Linux)
+
+```sh
+just toolkit-perf
+```
+
+The recipe uses a separate Release build under `.local/build/qt-performance`
+and prints a table before exiting. It does not open terminal windows or touch
+PTYs/saved sessions. Results, raw trial reports and logs are written to
+`.local/artifacts/qt-performance/`; share that directory for review.
+
+Each of 1 and 15 panes retains an independent fixed 80×24 grid, at raster scales
+1x and 2x, with ASCII and mixed-Unicode fixtures extracted from actual Ghostty
+VT state. This is fixed geometry per pane, so the 15-pane case paints fifteen
+times the pixel area; it is not fifteen smaller tiles in one fixed-size window.
+The Unicode profile has a different glyph/occupied-cell mix, so compare pane
+counts within a profile, not language speed across profiles.
+
+Three fresh child processes run each case. Within each process font/cache
+warm-up precedes five timed scenarios: unchanged rows; one changed row per pane;
+all rows changed; all panes changing with only one visible; and all panes
+hidden. Samples target 300 ms with at least three frames and a 20,000-frame cap
+for cheap hidden loops. Medians/ranges retain the raw observations rather than
+enforcing wall-clock CI thresholds. The final reveal forces a distinct full
+generation and checks every row catches up.
+
+The live terminal host and benchmark share `TerminalTextSurface`, including its
+visibility early exit. Deterministic assertions require zero new rasterizations
+for retained/hidden sources, exactly the expected dirty rows for output, and
+correct reveal catch-up. Hidden timings still include synthetic grid mutation
+and the visibility calls; they do not measure real background PTY parsing.
+
+Reports separate per-scenario CPU/wall time, row-image bytes, synthetic CPU
+composite-target bytes and each child's peak RSS/process CPU. Peak RSS is obtained
+from `wait4` for the exact child and normalized to bytes for Linux/macOS. The
+composite targets are CPU image buffers, not GPU allocations. Cache memory
+remains retained when sources hide. Timing startup and cold font loading are
+excluded from the frame samples but included in process CPU/RSS.
+
+This measures row shaping/raster/cache checks and CPU image compositing only.
+It excludes Qt Quick frame scheduling/texture upload, GPU/VRAM, live per-cell
+background/cursor/chrome paint, VT parsing, socket/snapshot work and physical
+monitor behavior. An unchanged real terminal need not paint at all; the retained
+scenario deliberately forces compositing to measure its cost. Native GPU and
+full live 1/15-pane acceptance remain separate toolkit gates.

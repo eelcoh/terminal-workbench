@@ -413,3 +413,78 @@ joining/order, fixed-grid Indic spacing, emoji width policy, tall fallback
 clipping and box-drawing seams remain open. Native Mac integration acceptance
 and one/fifteen-pane CPU/GPU/memory measurements remain required. The main
 Workbench frontend and runtime are unchanged.
+
+## Mac grid-shaping comparison result
+
+On 2026-10-16 the owner supplied the integrated `grid-*.png` sheets, baseline
+comparisons and report from Cocoa/Qt 6.12.0. All eight PNG dimension checks and
+the report validator passed. The 1x, 1.25x and 2x integrated sheets were inspected.
+An independent comparison of the reported font/glyph multisets matched the
+full-text reference for all seven LTR specimens, including repeated combining
+glyphs. The Arabic specimen reports unshaped per-cell placements, matching the
+explicitly retained RTL policy.
+
+Programming operator ligatures and joined emoji are visible in the integrated
+Mac grid output. Indic glyph retention also passes, but its fixed-cell spacing
+remains visibly uneven. The emoji source spans explain the large blank regions:
+the scientist sequence occupies columns [0,6), and the family [7,15), despite
+each now being drawn as a joined glyph. The integration preserves these source
+positions rather than changing the runtime's width policy. This closes the
+offline native Mac grid-renderer check, not spacing or language correctness.
+
+Live Mac terminal selection/copy/resize, physical monitor sharpness and display
+changes remain unconfirmed for the new row raster path. RTL shaping, Indic/emoji
+width/spacing refinements, fallback clipping and box-drawing seams remain open.
+The next toolkit gate is one/fifteen-pane CPU/GPU/memory measurement, including
+retained/hidden behavior, before choosing this renderer for production.
+
+## CPU row-raster/cache performance baseline
+
+`just toolkit-perf` uses the actual shaped-row renderer and the same surface
+cache/visibility early exit as the live Qt host. It builds a separate Release
+target, runs 1/15 panes at fixed 80×24 geometry per pane, at 1x/2x raster scales,
+and tests ASCII and mixed-Unicode Ghostty-derived grids. Each case has three
+fresh processes, warmed samples, operation-count assertions and raw timings.
+The method and limits are in the [benchmark procedure](../spikes/qt-input/README.md#cpu-rastercache-performance-mac-and-linux).
+
+On 2026-10-16, Linux x86_64/build-machine (Qt 6.11.2, GCC 16.2.1, four reported
+logical CPUs), the median CPU-path wall times per synthetic frame were:
+
+| Profile / scale | Scenario | 1 pane (ms) | 15 panes (ms) | Ratio |
+| --- | --- | ---: | ---: | ---: |
+| ASCII / 1x | all rows changing | 5.685 | 88.338 | 15.54 |
+| ASCII / 2x | all rows changing | 7.905 | 118.861 | 15.04 |
+| Unicode / 1x | all rows changing | 3.994 | 62.093 | 15.55 |
+| Unicode / 2x | all rows changing | 6.184 | 90.432 | 14.62 |
+| ASCII / 2x | one visible, all sources changing | 7.983 | 7.879 | 0.99 |
+| Unicode / 2x | one visible, all sources changing | 6.124 | 5.969 | 0.97 |
+| ASCII / 2x | retained rows, forced compositing | 1.154 | 20.727 | 17.96 |
+| Unicode / 2x | retained rows, forced compositing | 1.094 | 19.502 | 17.82 |
+
+Retained and fully hidden sources performed zero new rasterizations. One-row
+updates and full updates produced exactly their expected row counts; reveal
+refreshed all pending rows. The one-visible case stayed close to the single-pane
+cost, so hidden sources did not multiply rasterization. The remaining timing
+includes synthetic source mutations and cache comparisons.
+
+Fifteen panes retained 30.32 MiB of row images at 1x and 121.29 MiB at 2x. The
+benchmark additionally allocated equal-sized CPU composite targets. The highest
+observed child peak RSS was 288.37 MiB (15 Unicode panes, 2x); the ASCII case
+peaked at 280.84 MiB. Peak RSS includes fonts, Qt and allocator overhead and is
+not GPU/VRAM usage. Resources come from the exact child using Python's
+[`wait4`](https://docs.python.org/3/library/os.html#os.wait4); Darwin's
+[resource accounting](https://raw.githubusercontent.com/apple-oss-distributions/xnu/main/bsd/kern/kern_resource.c)
+uses resident-size bytes while Linux reports KiB.
+
+The CPU image path is expensive under fully changing output; retained forced
+compositing is also costly at 15 full-size panes/2x. These measurements justify
+reviewing rasterization and copy/memory costs before frontend adoption. They
+do not determine real application FPS: fifteen full-size surfaces multiply
+the pixel area, and the benchmark excludes Qt Quick/GPU uploads, actual paint
+scheduling, live backgrounds/cursor/chrome, PTYs, VT parsing and sockets. An idle
+real terminal can skip painting entirely. Unicode/ASCII density differs, so
+these profiles do not compare language-rendering speed.
+
+This establishes the CPU/cache baseline. Native Mac measurements and live
+Qt Quick/GPU/VRAM 1/15-pane validation remain open, along with external-screen
+sharpness and the existing typography/RTL/spacing gates.
