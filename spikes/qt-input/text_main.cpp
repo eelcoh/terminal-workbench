@@ -184,6 +184,10 @@ int main(int argc,char **argv)
                     auto rendered=renderTerminalTextRow(row,font,cellWidth,cellHeight,metrics.ascent(),scale,scale==1?&placements:nullptr);
                     const auto referenceImage=renderTerminalTextRow(row,font,cellWidth,cellHeight,metrics.ascent(),scale,nullptr,TerminalTextShapingMode::SourceRanges);
                     require(rendered==referenceImage,"optimized row pixels differ from the original source-range renderer");
+                    TerminalTextRow retained;retained.update(row,font,cellWidth,cellHeight,metrics.ascent(),scale);
+                    QImage canvas(referenceImage.size(),referenceImage.format());canvas.setDevicePixelRatio(scale);canvas.fill(Qt::transparent);
+                    {QPainter copy(&canvas);copy.drawImage(QPointF(0,0),retained.image());}
+                    require(canvas==referenceImage,"cropped retained image differs from full-row reference pixels");
                     if(scale==1) {
                         QJsonArray placed;QStringList actual,expected;
                         for(const auto &glyph:placements) {
@@ -197,7 +201,7 @@ int main(int argc,char **argv)
                         }
                         gridReports.append(QJsonObject{{"id",item.sample.id},{"placements",placed}});
                     }
-                    painter.drawImage(QPointF(20,top),rendered);
+                    painter.drawImage(QPointF(20,top),retained.image());
                 } else for(const auto &cell:item.cells)painter.drawText(QPointF(20+cell.column*cellWidth,baseline),cell.text);
                 painter.restore();painter.save();painter.setClipRect(QRectF(720,top-5,650,cellHeight+12));
                 painter.setPen(QColor("#e4e8ef"));

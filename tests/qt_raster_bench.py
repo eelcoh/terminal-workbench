@@ -13,6 +13,15 @@ binary=Path(sys.argv[1]).resolve()
 artifacts=ROOT/".local/artifacts/qt-performance"
 artifacts.mkdir(parents=True,exist_ok=True)
 (artifacts/"report.json").unlink(missing_ok=True)
+# Identify the runner checkout in pasted logs as well as the aggregate artifact.
+# Untracked debug/artifact uploads do not mark the measured source as modified.
+try:
+    revision=subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip()
+    modified=bool(subprocess.check_output(["git","status","--porcelain","--untracked-files=no"],cwd=ROOT,text=True).strip())
+except (OSError,subprocess.CalledProcessError):
+    revision="unknown";modified=None
+source=dict(revision=revision,tracked_changes=modified)
+print(f"Source checkout: {revision}; tracked changes: {modified}",flush=True)
 cases=[]
 for profile in ("ascii","unicode"):
     for scale in (1,2):
@@ -66,7 +75,7 @@ for profile in ("ascii","unicode"):
             comparisons.append(dict(profile=profile,scale=scale,scenario=a[0]["scenario"],one_ms=one_ms,fifteen_ms=fifteen_ms,ratio=fifteen_ms/one_ms,
                 one_range_ms=[min(item["wall_ms_per_frame"] for item in a),max(item["wall_ms_per_frame"] for item in a)],
                 fifteen_range_ms=[min(item["wall_ms_per_frame"] for item in b),max(item["wall_ms_per_frame"] for item in b)]))
-report=dict(scope=cases[0]["trials"][0]["scope"],repeats=3,system=platform.platform(),machine=platform.machine(),logical_cpus=os.cpu_count(),cases=cases,comparisons=comparisons)
+report=dict(source=source,scope=cases[0]["trials"][0]["scope"],repeats=3,system=platform.platform(),machine=platform.machine(),logical_cpus=os.cpu_count(),cases=cases,comparisons=comparisons)
 (artifacts/"report.json").write_text(json.dumps(report,indent=2)+"\n")
 print("profile scale scenario       1 pane ms 15 panes ms ratio (median of 3)")
 for row in comparisons:

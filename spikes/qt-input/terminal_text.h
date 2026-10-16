@@ -20,6 +20,8 @@ enum class TerminalTextShapingMode { Automatic, SourceRanges };
 struct TerminalTextPlacement {int firstColumn,lastColumn;quint32 glyph;QPointF position;QString family;bool shaped;bool bulkAscii=false;};
 QImage renderTerminalTextRow(const QVector<TerminalTextCell> &,const QFont &,qreal cellWidth,
     qreal cellHeight,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics=nullptr,TerminalTextShapingMode mode=TerminalTextShapingMode::Automatic);
+// Retained foreground images may omit unwritten trailing columns. Their origin
+// and DPR are unchanged; terminal geometry/backgrounds come from the source grid.
 class TerminalTextRow {
 public:
     bool update(const QVector<TerminalTextCell> &,const QFont &,qreal,qreal,qreal,qreal);

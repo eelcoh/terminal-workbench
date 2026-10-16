@@ -35,7 +35,7 @@ bool terminalTextSelfTest(const QFont &font)
     auto revision=retained.revisions();retained.update(cells,font,cw,ch,metrics.ascent(),1);
     if(!require(retained.revisions()==revision,"unchanged row does not reshape or rerasterize"))return false;
     retained.update(cells,font,cw,ch,metrics.ascent(),2);
-    if(!require(retained.revisions()==revision+1 && retained.image().width()==cells.size()*cw*2,"scale invalidates row image and backing pixels"))return false;
+    if(!require(retained.revisions()==revision+1 && retained.image().devicePixelRatio()==2 && retained.image().height()==ch*2,"scale invalidates row image and backing pixels"))return false;
     cells[0].selected=true;retained.update(cells,font,cw,ch,metrics.ascent(),2);
     if(!require(retained.revisions()==revision+2,"selection invalidates shaping"))return false;
     TerminalTextSurface surface;QVector<QVector<TerminalTextCell>> grid{cells,cells};
@@ -47,6 +47,29 @@ bool terminalTextSelfTest(const QFont &font)
     if(!require(surface.rasterizedRows()==rasterized+2 && surface.image(0).devicePixelRatio()==2,"reveal catches current data and scale"))return false;
     surface.update(grid,font,cw,ch,metrics.ascent(),2,true);
     if(!require(surface.rasterizedRows()==rasterized+2,"retained surface does no additional rasterization"))return false;
+    // Compare cropped retained images on the original full transparent canvas.
+    // Include empty rows, written/underlined spaces, trailing wide tails, styles,
+    // fractional pixels and changes that grow and shrink the cached extent.
+    const QStringList specimens={"", "A", "  ", "office -> != ===", QString::fromUtf8("café 日本語 👩🏽‍💻 नमस्ते مرحبا")};
+    TerminalTextRow cropped;
+    for(qreal scale:{1.,1.25,1.5,2.})for(const auto &text:specimens)for(int style=0;style<4;++style)for(int tail=0;tail<3;++tail) {
+        QVector<TerminalTextCell> row(80);
+        for(auto &cell:row) {cell.fg=Qt::white;cell.bg=Qt::black;}
+        int index=3;
+        for(const auto character:text) {auto &cell=row[index++];cell.text=character;cell.italic=style==1;cell.bold=style==2;
+            cell.underline=style==3;cell.selected=style==3;}
+        if(tail==1) {row[index].text=QString::fromUtf8("漢");row[index].wide=GHOSTTY_CELL_WIDE_WIDE;
+            row[index+1].wide=GHOSTTY_CELL_WIDE_SPACER_TAIL;}
+        if(tail==2)row.last().text="X";
+        cropped.update(row,font,cw,ch,metrics.ascent(),scale);
+        auto expected=renderTerminalTextRow(row,font,cw,ch,metrics.ascent(),scale,nullptr,TerminalTextShapingMode::SourceRanges);
+        QImage canvas(expected.size(),expected.format());canvas.setDevicePixelRatio(scale);canvas.fill(Qt::transparent);
+        {QPainter painter(&canvas);painter.drawImage(QPointF(0,0),cropped.image());}
+        if(!require(canvas==expected,"cropped cache preserves full-row reference pixels"))return false;
+        if(!require(cropped.image().width()<=expected.width() && (tail==2 || cropped.image().width()<expected.width()) && cropped.image().devicePixelRatio()==scale,"cropped cache omits only trailing allocation and preserves DPR"))return false;
+    }
+    QVector<TerminalTextCell> blank(80);cropped.update(blank,font,cw,ch,metrics.ascent(),2);
+    if(!require(cropped.image().width()==1 && cropped.image().devicePixelRatio()==2,"empty rows keep a one-pixel DPR-tagged image"))return false;
     // The original source-range mapper is the oracle for the guarded ASCII path.
     const QStringList ascii={"office -> != === <= >= ffi ==> ...", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", "---->=====>!!!!=="};
     for(const auto &text:ascii)for(qreal scale:{1.,1.25,1.5,2.})for(int style=0;style<4;++style) {

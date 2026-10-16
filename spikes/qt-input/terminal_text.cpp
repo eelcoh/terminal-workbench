@@ -147,10 +147,11 @@ void shape(QPainter &painter,const QVector<TerminalTextCell> &cells,int begin,in
     }
 }
 }
-QImage renderTerminalTextRow(const QVector<TerminalTextCell> &cells,const QFont &font,
-    qreal cw,qreal ch,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics,TerminalTextShapingMode mode)
+namespace {
+QImage rasterRow(const QVector<TerminalTextCell> &cells,const QFont &font,
+    qreal cw,qreal ch,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics,TerminalTextShapingMode mode,int imageColumns)
 {
-    QImage image(std::max(1,qCeil(cells.size()*cw*scale)),std::max(1,qCeil(ch*scale)),QImage::Format_ARGB32_Premultiplied);
+    QImage image(std::max(1,qCeil(imageColumns*cw*scale)),std::max(1,qCeil(ch*scale)),QImage::Format_ARGB32_Premultiplied);
     image.setDevicePixelRatio(scale);image.fill(Qt::transparent);
     if(diagnostics)diagnostics->clear();
     QPainter painter(&image);painter.setRenderHint(QPainter::TextAntialiasing);
@@ -167,10 +168,22 @@ QImage renderTerminalTextRow(const QVector<TerminalTextCell> &cells,const QFont 
     }
     return image;
 }
+}
+QImage renderTerminalTextRow(const QVector<TerminalTextCell> &cells,const QFont &font,
+    qreal cw,qreal ch,qreal ascent,qreal scale,QVector<TerminalTextPlacement> *diagnostics,TerminalTextShapingMode mode)
+{
+    return rasterRow(cells,font,cw,ch,ascent,scale,diagnostics,mode,cells.size());
+}
 bool TerminalTextRow::update(const QVector<TerminalTextCell> &cells,const QFont &font,qreal cw,qreal ch,qreal ascent,qreal scale)
 {
     if(revisions_ && cells_==cells && font_==font && width_==cw && height_==ch && ascent_==ascent && scale_==scale)return false;
-    image_=renderTerminalTextRow(cells,font,cw,ch,ascent,scale);cells_=cells;font_=font;
+    // Foreground runs are clipped to their source cells. Only unwritten trailing
+    // cells can be omitted: written spaces may carry underlines, and wide-cell
+    // spacers belong to the preceding glyph. Keep the origin/DPR unchanged so
+    // backgrounds, selection and cursor remain at their full-grid coordinates.
+    int imageColumns=cells.size();
+    while(imageColumns>0 && cells[imageColumns-1].text.isEmpty() && !spacer(cells[imageColumns-1]))--imageColumns;
+    image_=rasterRow(cells,font,cw,ch,ascent,scale,nullptr,TerminalTextShapingMode::Automatic,imageColumns);cells_=cells;font_=font;
     width_=cw;height_=ch;ascent_=ascent;scale_=scale;++revisions_;return true;
 }
 

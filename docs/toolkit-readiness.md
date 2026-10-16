@@ -534,3 +534,67 @@ Wayland scale/clipboard, real IBus/Anthy, AT-SPI, standard-control and full
 for this optimization. These CPU gains do not establish live Qt Quick/GPU FPS;
 Unicode query overhead, raster/copy memory, the existing typography gaps and
 physical-display acceptance remain open.
+
+
+## Mac CPU benchmark evidence
+
+The Mac output supplied on 2026-10-16 at 22:19 completes all 24 fresh-process
+trials and the deterministic dirty/hidden/reveal checks. On AppleClang 21.0.0,
+median fifteen-pane fully changing times were 42.45/59.95 ms for ASCII at
+1x/2x and 44.87/65.04 ms for Unicode. Forced retained compositing was
+2.48/9.74 ms and 2.47/11.08 ms respectively. One visible source amongst fifteen
+stayed close to a single source. Highest reported child peak RSS was about 449.8 MiB;
+individual trials varied substantially. The log does not record a source SHA,
+so it proves a native benchmark run, not a before/after gain for `23373a5`.
+Future benchmark logs record the runner checkout and tracked-change status.
+This does not establish native pixel equivalence for the latest optimization,
+Qt Quick/GPU costs, physical sharpness or monitor-unplug behavior.
+
+## Retained row extent optimization
+
+The Qt probe now allocates each foreground row image only through its last
+written cell or wide-cell spacer. It preserves written spaces (including
+underlines), full source-grid coordinates, the original image origin, style
+clipping and raster DPR. A blank row retains a one-pixel-wide transparent image
+so scale reporting remains valid. Background/selection fills and cursor drawing
+still use the complete source grid. Full rows retain the original allocation.
+The bounds check happens only for invalidated rows, before allocation; painting
+does not scan alpha pixels or crop/copy images.
+
+The full-width source-range renderer remains the independent mapping/drawing
+oracle. Tests composite cropped images onto full transparent canvases and
+require exact pixel equality at 1x/1.25x/1.5x/2x for all existing specimens.
+Additional cases exercise growing/shrinking/empty/full rows, wide tails, written
+spaces with underlines, bold/italic and selection boundaries. Comparison sheets
+now paint the same cropped images used by the live host.
+
+Performance measurements compare the same Release matrix against the saved
+`23373a5` baseline in `.local/artifacts/qt-performance-23373a5/`. Row-image
+allocation for fifteen panes at 2x falls from 121.29 MiB to 112.19 MiB for the
+nearly full ASCII rows and 65.19 MiB for the shorter Unicode fixture. This is
+content-dependent foreground storage; CPU composite targets, Qt Quick textures,
+VT state and fonts are not reduced by this change.
+
+The final isolated Linux/Qt 6.11.2 run after regression checks used three fresh
+processes per case. Median wall times (ms, same fixed 80×24 area per pane):
+
+| Profile / scale | Retained 15 panes before → after | Fully changing 1 pane before → after | Fully changing 15 panes before → after |
+| --- | ---: | ---: | ---: |
+| ascii / 1x | 5.070 → 4.869 | 2.624 → 2.529 | 42.309 → 41.380 |
+| ascii / 2x | 20.473 → 19.625 | 4.911 → 4.756 | 74.129 → 72.202 |
+| unicode / 1x | 5.140 → 4.318 | 3.775 → 3.574 | 58.797 → 55.136 |
+| unicode / 2x | 19.611 → 16.407 | 5.883 → 5.234 | 86.816 → 77.312 |
+
+Forced retained compositing improves about 4% for the ASCII fixture and 16% for
+Unicode; this remains a modest copy-path improvement, not a solution to the
+full Qt Quick performance gate. Highest observed child peak RSS was 271.86 MiB
+versus 294.40 MiB at the saved baseline. RSS is an observation, unlike the exact
+row-image byte counts; allocator/font/platform overhead can vary.
+
+Exact pixel equivalence, native terminal input/copy/paste/ownership, Wayland
+fractional scales, real IBus/Anthy on xcb and Wayland, AT-SPI and full `just check`
+passed. Dirty/reveal row counts remain exact and hidden/retained raster counts
+stay zero. Native Mac cropped-cache equivalence/timings remain unverified;
+Qt Quick textures/GPU/VRAM, typography gaps and physical-display acceptance are
+still open. The next performance gate is the live Qt Quick image/upload path
+under one and fifteen panes, rather than extrapolating these CPU timings to FPS.

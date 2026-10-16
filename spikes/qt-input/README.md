@@ -358,3 +358,27 @@ the fast path. The reference renderer is an internal test mode, not a setting.
 timings within a profile and scale; the optimization does not reduce row-image
 bytes, change RTL policy or establish GPU/physical-display performance. Native
 Mac pixel equivalence and timings still need to be run for this change.
+
+
+## Retaining only the written row extent
+
+The live cache allocates foreground images only through the last written cell
+or wide-character spacer. Unwritten trailing cells remain in the source grid;
+backgrounds, selection, cursor and PTY geometry still cover the full terminal.
+Written spaces can carry underlines and are retained. A completely empty row
+keeps a one-pixel-wide transparent image with the current device-pixel ratio.
+The image origin stays at column zero, preserving fractional-scale raster phase.
+No pixel scanning, image-copy cropping or extra work is added during paint.
+
+The full-width source-range renderer remains the pixel oracle. Text tests
+composite each cached image onto a full-width transparent canvas and require
+exact equality across the complete text corpus and scales, plus empty, growing,
+shrinking, full-width, underlined-space, styled and wide-tail cases.
+`grid-*.png` sheets now paint the actual retained images.
+
+Run `just toolkit-text-test` and `just toolkit-perf` on each platform. The latter
+now prints the source checkout and tracked-change status and includes them in
+its report, making pasted benchmark logs attributable. These identify the
+runner checkout; timings still measure only the isolated CPU path. Savings
+depend on unwritten columns; a full row retains its original allocation.
+Composite targets, Qt Quick textures and VT storage are unaffected.

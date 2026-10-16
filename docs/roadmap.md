@@ -817,3 +817,17 @@ ASCII frames drop from 88.3 to 42.3 ms at 1x and 118.9 to 74.1 ms at 2x, with
 modest Unicode gains and no row-image memory reduction. Native Linux regressions
 and `just check` pass. Native Mac optimization review, GPU/Qt Quick costs,
 RTL/spacing and physical display acceptance remain separate gates. See [CPU optimization](toolkit-readiness.md#first-cpu-shaping-optimization).
+
+
+## Current toolkit slice: retained image extent
+
+The Qt foreground cache now omits unwritten trailing columns while preserving
+full-grid backgrounds, cursor and selection coordinates. Exact full-canvas
+pixel checks protect the reference output across scales and text/style cases.
+The fifteen-pane 2x row caches shrink from 121.29 MiB to 112.19 MiB for ASCII
+and 65.19 MiB for the shorter Unicode fixture; full rows save no space. Mac
+benchmark output passes the operation-count checks, but its source revision is
+unknown and native review of this new cache remains open. Linux native input,
+Wayland/IME/accessibility and `just check` pass; forced retained copying improves
+about 4% for ASCII and 16% for Unicode in the repeated CPU matrix. Future performance
+logs identify the source checkout. See [retained image extent](toolkit-readiness.md#retained-row-extent-optimization).
