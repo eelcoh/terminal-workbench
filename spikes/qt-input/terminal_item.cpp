@@ -182,7 +182,8 @@ void TerminalItem::reply(GhosttyTerminal,void *userdata,const uint8_t *bytes,siz
 }
 void TerminalItem::geometryChange(const QRectF &next,const QRectF &old)
 {
-    QQuickPaintedItem::geometryChange(next,old);resizeTerminal();
+    QQuickPaintedItem::geometryChange(next,old);
+    update(boundingRect().toAlignedRect());resizeTerminal();
 }
 void TerminalItem::resizeTerminal()
 {
@@ -196,6 +197,7 @@ void TerminalItem::resizeTerminal()
 void TerminalItem::refresh()
 {
     if(!terminal_ || failed_)return;
+    const auto oldCaret=caret_;const bool oldCursorVisible=cursorVisible_;const auto oldBackground=background_;
     const bool notify=QAccessible::isActive() && isVisible();
     const auto previous=notify ? accessibleSnapshot() : AccessibleSnapshot();
     if(ghostty_render_state_update(render_,terminal_)!=GHOSTTY_SUCCESS) {fail("Render snapshot failed");return;}
@@ -235,7 +237,7 @@ void TerminalItem::refresh()
     // Shape/rasterize only changed rows on the GUI thread. Paint receives images;
     // QRawFont glyph runs must not be moved to Qt Quick's render thread.
     const bool presentable=isVisible() && window() && window()->visibility()!=QWindow::Hidden && window()->visibility()!=QWindow::Minimized;
-    textRows_.update(grid_,font_,cellWidth_,cellHeight_,ascent_,window()?window()->devicePixelRatio():1,presentable);
+    const auto damage=textRows_.update(grid_,font_,cellWidth_,cellHeight_,ascent_,window()?window()->devicePixelRatio():1,presentable);
     bool visible=false,inViewport=false;quint16 x=0,y=0;
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VISIBLE,&visible);
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_HAS_VALUE,&inViewport);
@@ -244,7 +246,18 @@ void TerminalItem::refresh()
     caret_=QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_,cellHeight_);cursorVisible_=visible&&inViewport;
     accessibleDirty_=true;
     if(notify)terminalAccessibilityChanged(this,previous,accessibleSnapshot());
-    QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);update();
+    QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);
+    if(!presentable)return;
+    // Use explicit bounds for a full request, so a later partial request in
+    // the same event-loop turn cannot narrow Qt's pending dirty rectangle.
+    if(damage.full || oldBackground!=background_ || composition_.active()) {update(boundingRect().toAlignedRect());return;}
+    QRect dirty=damage.rect(boundingRect(),cellHeight_);
+    if(oldCaret!=caret_ || oldCursorVisible!=cursorVisible_) {
+        if(oldCursorVisible)dirty=dirty.united(oldCaret.adjusted(-1,-1,1,1).toAlignedRect());
+        if(cursorVisible_)dirty=dirty.united(caret_.adjusted(-1,-1,1,1).toAlignedRect());
+    }
+    dirty=dirty.intersected(boundingRect().toAlignedRect());
+    if(!dirty.isEmpty())update(dirty);
 }
 QString TerminalItem::viewportText() const
 {
@@ -294,7 +307,7 @@ void TerminalItem::inputMethodEvent(QInputMethodEvent *event)
         event->ignore();return;
     }
     composition_.set(*event,font_);committed(event->commitString());
-    QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);update();event->accept();
+    QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);update(boundingRect().toAlignedRect());event->accept();
 }
 void TerminalItem::encodeKey(QKeyEvent *input,bool release)
 {
@@ -326,7 +339,10 @@ void TerminalItem::encodeKey(QKeyEvent *input,bool release)
 }
 bool TerminalItem::eventFilter(QObject *watched,QEvent *event)
 {
-    if(watched==window() && event->type()==QEvent::DevicePixelRatioChange && !refreshTimer_.isActive())refreshTimer_.start();
+    if(watched==window() && event->type()==QEvent::DevicePixelRatioChange) {
+        update(boundingRect().toAlignedRect());
+        if(!refreshTimer_.isActive())refreshTimer_.start();
+    }
     return QQuickPaintedItem::eventFilter(watched,event);
 }
 bool TerminalItem::event(QEvent *event)

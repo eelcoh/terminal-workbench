@@ -112,6 +112,61 @@ bool terminalTextSelfTest(const QFont &font)
         }
         if(!require(actual==expected,"background spans preserve per-cell pixels across scales/colors/alpha/opacity/AA/composition/transforms/clipping"))return false;
     }
+    // Retain a canvas across content, erase, selection and cursor transitions.
+    // A partial repaint must equal a fresh full repaint after every transition.
+    for(qreal scale:{1.,1.25,1.5,2.}) {
+        QVector<QVector<TerminalTextCell>> grid(24,QVector<TerminalTextCell>(80));
+        for(auto &row:grid)for(auto &cell:row) {cell.bg=QColor("#191d24");cell.fg=Qt::white;}
+        grid[4][0].text="A";grid[4][79].text="X";
+        TerminalTextSurface cache;const QRectF bounds(0,0,80*cw+16,24*ch+16);
+        auto initial=cache.update(grid,font,cw,ch,metrics.ascent(),scale,true);
+        if(!require(initial.full,"first surface update damages full item"))return false;
+        QImage retained(qCeil(bounds.width()*scale),qCeil(bounds.height()*scale),QImage::Format_ARGB32_Premultiplied);
+        retained.setDevicePixelRatio(scale);retained.fill(Qt::transparent);
+        QRectF cursor(8+3*cw,8+4*ch,cw,ch);bool cursorVisible=true;
+        auto draw=[&](QImage &image,const QRect &clip) {
+            QPainter painter(&image);if(!clip.isEmpty())painter.setClipRect(clip);
+            painter.fillRect(bounds,QColor("#191d24"));
+            paintTerminalGrid(painter,grid,cache,cw,ch,QPointF(8,8));
+            if(cursorVisible) {painter.setPen(QColor("#a8c7fa"));painter.drawRect(cursor.adjusted(0,0,-1,-1));}
+        };
+        draw(retained,{});
+        for(int step=0;step<7;++step) {
+            const auto oldCursor=cursor;const bool wasVisible=cursorVisible;
+            if(step==0)grid[4][0].text="W";
+            if(step==1) {grid[4][79].text="";grid[20][1].text=QString::fromUtf8("é");}
+            if(step==2) {grid[4][0].text="";grid[4][30].bg=Qt::blue;grid[4][30].selected=true;}
+            if(step==3)cursor.translate(cw*10,ch*8);
+            if(step==4)cursorVisible=false;
+            if(step==5) {cursorVisible=true;cursor.translate(-cw*3,-ch*5);}
+            auto damage=cache.update(grid,font,cw,ch,metrics.ascent(),scale,true);
+            if(step==0 && !require(!damage.full && damage.firstRow==4 && damage.lastRow==4,"one row produces bounded damage"))return false;
+            if(step==1 && !require(damage.firstRow==4 && damage.lastRow==20,"disjoint row damage covers both endpoints"))return false;
+            if(step>=3 && !require(damage.empty(),"cursor-only/unchanged refresh has no glyph damage"))return false;
+            QRect dirty=damage.rect(bounds,ch);
+            if(cursor!=oldCursor || cursorVisible!=wasVisible) {
+                if(wasVisible)dirty=dirty.united(oldCursor.adjusted(-1,-1,1,1).toAlignedRect());
+                if(cursorVisible)dirty=dirty.united(cursor.adjusted(-1,-1,1,1).toAlignedRect());
+            }
+            if(!dirty.isEmpty())draw(retained,dirty);
+            QImage reference(retained.size(),retained.format());reference.setDevicePixelRatio(scale);reference.fill(Qt::transparent);draw(reference,{});
+            if(!require(retained==reference,"retained partial image equals full repaint after content/erase/selection/cursor transitions"))return false;
+        }
+        // Two updates before presentation must cover both generations' changes.
+        grid[1][2].text="P";auto first=cache.update(grid,font,cw,ch,metrics.ascent(),scale,true);
+        grid[18][3].text="Q";auto second=cache.update(grid,font,cw,ch,metrics.ascent(),scale,true);
+        draw(retained,first.rect(bounds,ch).united(second.rect(bounds,ch)));
+        QImage coalesced(retained.size(),retained.format());coalesced.setDevicePixelRatio(scale);coalesced.fill(Qt::transparent);draw(coalesced,{});
+        if(!require(retained==coalesced,"coalesced updates retain damage from both generations"))return false;
+        auto hidden=cache.update(grid,font,cw,ch,metrics.ascent(),scale*2,false);
+        if(!require(hidden.empty(),"hidden source produces no paint damage"))return false;
+        auto reveal=cache.update(grid,font,cw,ch,metrics.ascent(),scale*2,true);
+        if(!require(reveal.full,"scale change while hidden forces full reveal"))return false;
+        grid.removeLast();
+        if(!require(cache.update(grid,font,cw,ch,metrics.ascent(),scale*2,true).full,"row-count resize forces full repaint"))return false;
+        QFont different=font;different.setPixelSize(font.pixelSize()+1);
+        if(!require(cache.update(grid,different,cw,ch,metrics.ascent(),scale*2,true).full,"font change forces full repaint"))return false;
+    }
     // The original source-range mapper is the oracle for the guarded ASCII path.
     const QStringList ascii={"office -> != === <= >= ffi ==> ...", " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", "---->=====>!!!!=="};
     for(const auto &text:ascii)for(qreal scale:{1.,1.25,1.5,2.})for(int style=0;style<4;++style) {

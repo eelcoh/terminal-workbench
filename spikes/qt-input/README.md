@@ -406,7 +406,7 @@ and three frames:
 
 - `cached-scene`: request window frames with cached item textures, no item repaint.
 - `repaint`: repaint visible items without changing cached glyph rows.
-- `one-row`: change one source row per visible item, repaint the entire item.
+- `one-row`: change one source row per visible item, repaint a bounded row band.
 - `full`: change every row and repaint all items.
 - `one-visible`: update all sources while hiding fourteen items; only the visible
   item's rows and image paint. Reveal catches up hidden rows outside timing.
@@ -446,3 +446,31 @@ per-cell background compositor at all four scales, two cell widths, fractional
 origins, multiple colors, alpha, opacity, antialiasing, composition, transforms
 and clipping. `just toolkit-scene-perf` measures the effect on actual painted
 items; cached scene redraws should continue to perform zero item painting.
+
+
+## Changed-row invalidation
+
+The shared row cache returns presentation damage: first/last changed rows or a
+full repaint when the cache is initialized, resized, rescaled or given new font
+metrics. Hidden updates leave cache/damage untouched; reveal catches up later.
+The Qt host requests full-width row bands with one logical pixel of padding,
+so shorter lines erase old suffixes and fractional raster/stroke edges survive.
+Cursor changes include both old and new cursor rectangles. Background changes
+and active preedit use full bounds. Resize, DPR and composition updates request
+explicit full bounds so later partial updates cannot narrow pending full damage.
+Empty damage skips `update` entirely; an empty Qt update rectangle means full.
+
+Painting honors Qt's clip and skips drawing rows outside it. A one-row update
+in the scene fixture draws three row bands (the changed row and clipped neighbor
+edges) instead of 24; `painted_grid_rows` records this independently of raster
+counts. The benchmark's `repaint` and `full` cases continue requesting full item
+paints. Hidden sources still do no raster or image paint work.
+
+`just toolkit-text-test` retains an image across text/erase/selection/cursor and
+coalesced-update transitions and requires exact equality with fresh full paints
+at 1x/1.25x/1.5x/2x. `just toolkit-scene-perf` additionally compares the actual
+partial scene capture with a forced full repaint of identical source state.
+These readbacks run outside timing and the report requires
+`partial_matches_full: true`. Native Mac measurements need rerunning for this
+change. Full-size backing images/textures remain; no upload-area or VRAM saving
+is assumed from CPU clipping.

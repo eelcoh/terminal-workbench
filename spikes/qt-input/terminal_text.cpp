@@ -187,19 +187,36 @@ bool TerminalTextRow::update(const QVector<TerminalTextCell> &cells,const QFont 
     width_=cw;height_=ch;ascent_=ascent;scale_=scale;++revisions_;return true;
 }
 
-void TerminalTextSurface::update(const QVector<QVector<TerminalTextCell>> &grid,const QFont &font,
+QRect TerminalTextDamage::rect(const QRectF &bounds,qreal ch) const
+{
+    if(full)return bounds.toAlignedRect();
+    if(empty())return {};
+    // Include raster rounding and neighboring stroke coverage. Keep full width
+    // so shorter/erased rows clear their previously painted suffix.
+    return QRectF(bounds.left(),8+firstRow*ch-1,bounds.width(),(lastRow-firstRow+1)*ch+2)
+        .intersected(bounds).toAlignedRect();
+}
+TerminalTextDamage TerminalTextSurface::update(const QVector<QVector<TerminalTextCell>> &grid,const QFont &font,
     qreal cw,qreal ch,qreal ascent,qreal scale,bool presentable)
 {
-    if(!presentable)return;
+    if(!presentable)return {};
+    TerminalTextDamage damage;
+    const int columns=grid.isEmpty()?0:grid.first().size();
+    damage.full=!valid_ || rows_.size()!=grid.size() || columns_!=columns || font_!=font
+        || cw_!=cw || ch_!=ch || ascent_!=ascent || scale_!=scale;
     rows_.resize(grid.size());
-    for(int row=0;row<grid.size();++row)if(rows_[row].update(grid[row],font,cw,ch,ascent,scale))++rasterizedRows_;
+    for(int row=0;row<grid.size();++row)if(rows_[row].update(grid[row],font,cw,ch,ascent,scale)) {
+        ++rasterizedRows_;if(damage.firstRow<0)damage.firstRow=row;damage.lastRow=row;
+    }
+    font_=font;cw_=cw;ch_=ch;ascent_=ascent;scale_=scale;columns_=columns;valid_=true;
+    return damage;
 }
 qint64 TerminalTextSurface::imageBytes() const
 {
     qint64 result=0;for(const auto &row:rows_)result+=row.image().sizeInBytes();return result;
 }
 
-void paintTerminalGrid(QPainter &painter,const QVector<QVector<TerminalTextCell>> &grid,
+int paintTerminalGrid(QPainter &painter,const QVector<QVector<TerminalTextCell>> &grid,
     const TerminalTextSurface &text,qreal cw,qreal ch,const QPointF &origin)
 {
     // Only merge opaque, axis-aligned fills with ordinary raster coverage.
@@ -208,8 +225,14 @@ void paintTerminalGrid(QPainter &painter,const QVector<QVector<TerminalTextCell>
     const bool merge=!painter.testRenderHint(QPainter::Antialiasing) && painter.opacity()==1
         && painter.compositionMode()==QPainter::CompositionMode_SourceOver
         && painter.transform().type()<=QTransform::TxScale;
+    const bool clipped=painter.hasClipping();const QRectF clip=clipped?painter.clipBoundingRect():QRectF();
+    int paintedRows=0;
     for(int y=0;y<grid.size();++y) {
         const auto &row=grid[y];
+        // Cached foreground images can extend by a fractional backing pixel.
+        const qreal height=y<text.size()?std::max(ch,text.image(y).height()/text.image(y).devicePixelRatio()):ch;
+        if(clipped && !QRectF(origin.x(),origin.y()+y*ch,row.size()*cw,height).intersects(clip))continue;
+        ++paintedRows;
         for(int begin=0;begin<row.size();) {
             int end=begin+1;
             if(merge && row[begin].bg.alpha()==255)
@@ -219,4 +242,5 @@ void paintTerminalGrid(QPainter &painter,const QVector<QVector<TerminalTextCell>
         }
         if(y<text.size())painter.drawImage(origin+QPointF(0,y*ch),text.image(y));
     }
+    return paintedRows;
 }

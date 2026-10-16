@@ -864,3 +864,17 @@ fifteen-pane unchanged repaints still spend 34–52 ms in CPU paint work; peak
 process RSS reached 839 MiB across the complete run. These results support
 paint/invalidation work while memory, exact native pixel equivalence, physical
 screens and full live-runtime load remain open. See [Mac scene evidence](toolkit-readiness.md#native-mac-scene-benchmark-evidence).
+
+
+## Current toolkit slice: repaint changed rows
+
+The Qt probe now requests bounded repaint bands for changed rows and old/new
+cursor bounds. Unchanged refreshes skip painting; resize, DPR, theme and active
+composition preserve full invalidation. Retained-image pixel tests cover erases,
+selection, cursor and coalesced updates at four scales. Scene trials compare
+actual partial captures with forced full repaints and require exact equality.
+In the 1/15-pane software-OpenGL matrix, fifteen-pane one-row paint time falls
+about 95–97%; full-output workloads are not the target. Row-cache memory is
+unchanged, and full-size image/texture/upload costs remain. Native Linux input,
+Wayland/IME/accessibility and `just check` pass. Native Mac validation is next.
+See [changed-row repaint](toolkit-readiness.md#changed-row-repaint-integration).

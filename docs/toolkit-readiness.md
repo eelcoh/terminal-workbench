@@ -756,3 +756,78 @@ The logs include a non-fatal malformed logging-rule warning: the runner joined
 `QT_LOGGING_RULES` with newlines. It now uses semicolons, preserving inherited
 rules. The benchmark still completed and the API/device metadata are valid.
 A Linux software-OpenGL diagnostic run verifies the corrected logging syntax.
+
+
+## Changed-row repaint integration
+
+The Qt probe now feeds changed-row damage from the retained foreground cache to
+`QQuickPaintedItem::update(rect)`. Initialization, geometry/font/DPR changes,
+global background changes and active preedit retain full repaint requests.
+Cursor-only refreshes damage the old/new cursor bounds; completely unchanged
+refreshes request no paint. Explicit full rectangles preserve full damage when
+later row updates are coalesced in the same event-loop turn. Resize and DPR
+events also request full bounds immediately, before asynchronous PTY/cache work.
+These are presentation facts; runtime/session state and the main viewer are
+unchanged.
+
+Row bands cover the full width plus vertical edge padding, preserving erased
+suffixes, underlines and fractional raster coverage. The pure grid painter draws
+only rows intersecting Qt's clip. The benchmark's one-row case therefore draws
+three row bands including neighbor edges, rather than all 24. New exact
+`painted_grid_rows` checks complement existing raster/paint/reveal counts.
+Ordinary repaint and fully changing scenarios still repaint the full item.
+
+The [documented rectangular update API](https://doc.qt.io/qt-6/qquickpainteditem.html#update)
+schedules visible item redraws. Review of the
+[Qt 6.11 painter node](https://raw.githubusercontent.com/qt/qtdeclarative/6.11/src/quick/scenegraph/util/qsgdefaultpainternode.cpp)
+confirms CPU clipping, but does not establish a corresponding reduction in GPU
+texture upload. No private Qt APIs or upstream code are copied into the probe.
+Backing image/texture allocations are unchanged; memory/VRAM acceptance remains
+open.
+
+The offline oracle retains a canvas through content changes, line erases,
+selection colors, cursor move/hide/show and multiple updates before presentation,
+requiring exact equivalence to fresh full paints at all four scales. It also
+checks full invalidation on font/resize/hidden-DPR changes. The scene benchmark
+captures the actual one-row result, forces a full repaint of identical state,
+and requires exact capture equality. Readbacks and the oracle frame run outside
+timing. Native Mac `toolkit-text-test` and `toolkit-scene-perf` remain required
+for this integration.
+
+The isolated Linux/Qt 6.11.2 matrix completed 24 fresh-process software-OpenGL
+trials, three per 1/15-pane, ASCII/Unicode and 1x/2x case. Every trial requires
+`partial_matches_full: true` and exact row/paint/reveal counts. A one-row frame
+rerasterizes one row and issues grid draw commands for three bands per visible
+pane, including the clipped neighboring edges; full paints draw all 24.
+The saved pre-change matrix is `.local/artifacts/qt-scene-1021b29/`.
+
+Median one-row update results (ms):
+
+| Profile / DPR | Paint 1 pane before → after | Paint 15 panes before → after | Request→swap 15 before → after |
+| --- | ---: | ---: | ---: |
+| ascii / 1x | 1.923 → 0.075 | 11.046 → 0.548 | 24.867 → 12.365 |
+| unicode / 1x | 1.291 → 0.088 | 7.788 → 0.421 | 21.911 → 12.734 |
+| ascii / 2x | 4.620 → 0.221 | 51.299 → 1.863 | 83.845 → 24.780 |
+| unicode / 2x | 3.114 → 0.144 | 38.399 → 1.226 | 72.217 → 24.488 |
+
+Fifteen-pane paint time for this small-update workload falls about 95–97%.
+Total request-to-swap time includes pacing and upload work and falls less.
+This is not a claim about fully changing terminals. The initial Unicode/1x full
+case was slower than its saved baseline, so it was investigated using an isolated
+Release rebuild of `1021b29` and the current candidate, alternating AB/BA/AB with
+800 ms samples on the same private display. Full-output median GUI/paint/swap
+were 50.72/7.69/66.23 ms before
+and 51.74/7.73/67.16 ms after;
+the frame ranges overlap and the large slowdown did not reproduce. Raw reports
+are in `.local/artifacts/qt-scene-full-ab/`. No full-output speedup is claimed.
+
+Row-image bytes are exactly unchanged across the matrix. The extra pixel-oracle
+readbacks affect process peak-memory accounting, so a lower RSS is not claimed.
+Full-size item images/textures, GPU upload costs and VRAM remain separate issues.
+
+Exact text/background/retained-image checks, real terminal input/copy/paste/
+ownership, Wayland fractional scales, real IBus/Anthy on xcb and Wayland, AT-SPI
+and `just check` pass. Native terminal/Wayland/IME checks were rerun after making
+resize/DPR/composition full invalidation use explicit bounds. Native Mac pixel
+and scene evidence, physical-display typography and full live-runtime acceptance
+remain open for this integration.

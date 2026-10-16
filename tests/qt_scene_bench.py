@@ -62,7 +62,9 @@ for scale in ((1,2) if headless else (None,)):
                     expected_rows=frames*(visible if scenario=="one-row" else 24*visible if scenario in ("full","one-visible") else 0)
                     assert item["rasterized_rows"]==expected_rows
                     assert item["paints"]==(0 if scenario=="cached-scene" else visible*frames)
+                    assert item["painted_grid_rows"]==(0 if scenario=="cached-scene" else visible*frames*(3 if scenario=="one-row" else 24))
                     assert item["row_image_bytes"]>0 and item["request_to_swap_ms"]>0
+                assert data["partial_matches_full"]
                 assert data["reveal_rasterized_rows"]==(panes-1)*24 and data["reveal_paints"]==panes
                 assert (path.with_suffix(".json.png")).stat().st_size>0
                 assert abs(data["capture_width"]-data["window_width"]*data["device_pixel_ratio"])<=1

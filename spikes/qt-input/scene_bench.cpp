@@ -46,20 +46,22 @@ public:
     void paint(QPainter *painter) override {
         const auto start=now();painter->fillRect(boundingRect(),QColor("#191d24"));
         painter->setRenderHint(QPainter::TextAntialiasing,true);
-        paintTerminalGrid(*painter,grid,text,cw,ch,QPointF(8,8));
+        gridRows.fetch_add(paintTerminalGrid(*painter,grid,text,cw,ch,QPointF(8,8)),std::memory_order_relaxed);
         painter->setPen(QColor("#a8c7fa"));painter->drawRect(QRectF(8+3*cw,8+4*ch,cw-1,ch-1));
         paintNs.fetch_add(now()-start,std::memory_order_relaxed);paints.fetch_add(1,std::memory_order_relaxed);
     }
     Grid grid;TerminalTextSurface text;qreal cw,ch;
+    std::atomic<quint64> gridRows{0};
     std::atomic<quint64> paints{0};std::atomic<qint64> paintNs{0};
 };
-struct Totals {quint64 rows=0,paints=0;qint64 paintNs=0,bytes=0;};
+struct Totals {quint64 rows=0,paints=0,gridRows=0;qint64 paintNs=0,bytes=0;};
 struct Probe {
     QGuiApplication &app;QQuickWindow window;QVector<Pane *> panes;Grid initial;QFont font;
-    qreal cw=0,ch=0,ascent=0,scale=0;int sampleMs=300,index=0,warm=0,frames=0;bool pending=false,revealing=false,done=false;
+    qreal cw=0,ch=0,ascent=0,scale=0;int sampleMs=300,index=0,warm=0,frames=0;bool pending=false,revealing=false,verifying=false,partialMatchesFull=false,done=false;
+    QImage partialCapture;
     QSize viewport;QString profile,path;QStringList scenarios{"cached-scene","repaint","one-row","full","one-visible"};QJsonArray results;
     std::atomic<quint64> requested{0},rendered{0};quint64 generation=0;Totals before;
-    qint64 stepStart=0,sampleStart=0,wallNs=0,updateNs=0,paintNs=0;quint64 rasterRows=0,paints=0;
+    qint64 stepStart=0,sampleStart=0,wallNs=0,updateNs=0,paintNs=0;quint64 rasterRows=0,paints=0,gridRows=0;
     std::clock_t cpuStart{};
     Probe(QGuiApplication &app,int count,QString profile,int sampleMs,QString path):app(app),sampleMs(sampleMs),profile(profile),path(path) {
         initial=terminalBenchmarkFixture(profile=="unicode");
@@ -92,12 +94,12 @@ struct Probe {
     ~Probe() {QObject::disconnect(&window,nullptr,&app,nullptr);window.hide();}
     template<class F> void guard(F f) {if(done)return;try {f();}catch(const std::exception &e){fail(QString::fromUtf8(e.what()));}}
     void fail(const QString &message) {if(done)return;done=true;std::fprintf(stderr,"FAIL: %s\n",qPrintable(message));app.exit(1);}
-    Totals totals() const {Totals t;for(auto *p:panes) {t.rows+=p->text.rasterizedRows();t.paints+=p->paints.load();t.paintNs+=p->paintNs.load();t.bytes+=p->text.imageBytes();}return t;}
+    Totals totals() const {Totals t;for(auto *p:panes) {t.rows+=p->text.rasterizedRows();t.gridRows+=p->gridRows.load();t.paints+=p->paints.load();t.paintNs+=p->paintNs.load();t.bytes+=p->text.imageBytes();}return t;}
     void beginScenario() {
         require(window.devicePixelRatio()==scale,"DPR changed during benchmark; rerun on a stationary display");
         for(int i=0;i<panes.size();++i) {auto *p=panes[i];p->setVisible(scenarios[index]!="one-visible" || i==0);
             p->grid=initial;p->text.update(p->grid,font,cw,ch,ascent,scale,p->isVisible());p->update();}
-        warm=3;frames=0;wallNs=updateNs=paintNs=0;rasterRows=paints=0;step();
+        warm=3;frames=0;wallNs=updateNs=paintNs=0;rasterRows=paints=gridRows=0;step();
     }
     void step() {
         require(window.isExposed() && window.devicePixelRatio()==scale && window.size()==viewport,"window hidden, resized or DPR changed during sample");
@@ -105,7 +107,13 @@ struct Probe {
         for(auto *p:panes) {
             if(scenario=="one-row")p->grid[12][0].text=generation%2?"B":"C";
             if(scenario=="full" || scenario=="one-visible")for(auto &row:p->grid)row[0].text=generation%2?"B":"C";
-            if(scenario!="cached-scene") {p->text.update(p->grid,font,cw,ch,ascent,scale,p->isVisible());if(p->isVisible())p->update();}
+            if(scenario!="cached-scene") {
+                const auto damage=p->text.update(p->grid,font,cw,ch,ascent,scale,p->isVisible());
+                if(p->isVisible()) {
+                    if(scenario=="one-row" && !damage.full) {const auto rect=damage.rect(p->boundingRect(),ch);if(!rect.isEmpty())p->update(rect);}
+                    else p->update();
+                }
+            }
         }
         if(!warm)updateNs+=now()-stepStart;
         pending=true;requested.store(++generation);window.update();
@@ -113,6 +121,12 @@ struct Probe {
     void finishFrame(quint64 token,qint64 swapped) {
         if(!pending || token!=generation)return;
         pending=false;const auto after=totals();
+        if(verifying) {
+            require(after.paints-before.paints==quint64(panes.size()) && after.rows==before.rows,"full-repaint oracle changed source rows or missed panes");
+            const auto full=window.grabWindow();
+            require(!full.isNull() && full==partialCapture,"partial scene pixels differ from forced full repaint");
+            partialCapture={};partialMatchesFull=true;verifying=false;advanceScenario();return;
+        }
         if(revealing) {require(after.paints-before.paints==quint64(panes.size()),"reveal did not paint all panes");save(after.rows-before.rows,after.paints-before.paints);return;}
         const auto scenario=scenarios[index];const int visible=scenario=="one-visible"?1:panes.size();
         if(warm) {if(--warm==0) {sampleStart=now();cpuStart=std::clock();}step();return;}
@@ -120,13 +134,25 @@ struct Probe {
         const quint64 expectedPaints=scenario=="cached-scene"?0:visible;
         require(after.rows-before.rows==expectedRows,"unexpected dirty/hidden row count");
         require(after.paints-before.paints==expectedPaints,"unexpected visible/hidden paint count");
+        const quint64 expectedGridRows=expectedPaints*(scenario=="one-row"?3:24);
+        require(after.gridRows-before.gridRows==expectedGridRows,"unexpected clipped grid-row paint count");
+        gridRows+=after.gridRows-before.gridRows;
         rasterRows+=after.rows-before.rows;paints+=after.paints-before.paints;paintNs+=after.paintNs-before.paintNs;
         wallNs+=swapped-stepStart;++frames;
         if(frames<3 || now()-sampleStart<sampleMs*1000000LL) {step();return;}
         const double cpuNs=1e9*double(std::clock()-cpuStart)/CLOCKS_PER_SEC;
-        results.append(QJsonObject{{"scenario",scenario},{"frames",frames},{"rasterized_rows",double(rasterRows)},{"paints",double(paints)},
+        results.append(QJsonObject{{"scenario",scenario},{"frames",frames},{"rasterized_rows",double(rasterRows)},{"paints",double(paints)},{"painted_grid_rows",double(gridRows)},
             {"request_to_swap_ms",double(wallNs)/frames/1e6},{"gui_update_ms",double(updateNs)/frames/1e6},
             {"paint_ms",double(paintNs)/frames/1e6},{"cpu_ms_per_frame",cpuNs/frames/1e6},{"row_image_bytes",double(after.bytes)}});
+        if(scenario=="one-row") {
+            // Readbacks and the forced full-paint oracle are outside timing.
+            partialCapture=window.grabWindow();require(!partialCapture.isNull(),"capture partial scene");
+            verifying=true;before=totals();for(auto *p:panes)p->update();
+            pending=true;requested.store(++generation);window.update();return;
+        }
+        advanceScenario();
+    }
+    void advanceScenario() {
         if(++index<scenarios.size()) {beginScenario();return;}
         // Reveal every hidden source with a distinct generation, outside timing.
         revealing=true;before=totals();
@@ -145,7 +171,7 @@ struct Probe {
             {"item_scale",panes.first()->scale()},{"item_width",panes.first()->width()},{"item_height",panes.first()->height()},
             {"estimated_rgba_item_bytes",double(panes.size())*qCeil((80*cw+16)*scale)*qCeil((24*ch+16)*scale)*4},
             {"capture_width",image.width()},{"capture_height",image.height()},
-            {"reveal_rasterized_rows",double(revealRows)},{"reveal_paints",double(revealPaints)},{"scenarios",results}};
+            {"partial_matches_full",partialMatchesFull},{"reveal_rasterized_rows",double(revealRows)},{"reveal_paints",double(revealPaints)},{"scenarios",results}};
         QSaveFile file(path);require(file.open(QIODevice::WriteOnly),"open scene report");const auto bytes=QJsonDocument(report).toJson();
         require(file.write(bytes)==bytes.size() && file.commit(),"save scene report");
         done=true;std::printf("PASS: %d panes, %s, %.2fx, %s; cached/dirty/hidden paint and reveal counts\n",int(panes.size()),qPrintable(api),scale,qPrintable(profile));app.exit(0);

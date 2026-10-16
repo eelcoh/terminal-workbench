@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QImage>
 #include <QVector>
+#include <QRectF>
 #include <ghostty/vt.h>
 
 struct TerminalTextCell {
@@ -33,19 +34,28 @@ private:
 };
 bool terminalTextSelfTest(const QFont &);
 
+// Presentation-only invalidation; empty damage must never be passed to Qt's
+// update(QRect()), where an empty rectangle requests a full repaint.
+struct TerminalTextDamage {
+    int firstRow=-1,lastRow=-1;bool full=false;
+    bool empty() const {return !full && firstRow<0;}
+    QRect rect(const QRectF &bounds,qreal cellHeight) const;
+};
 // Shared visibility/retention boundary for the live host and CPU benchmark.
 class TerminalTextSurface {
 public:
-    void update(const QVector<QVector<TerminalTextCell>> &,const QFont &,qreal,qreal,qreal,qreal,bool presentable);
+    TerminalTextDamage update(const QVector<QVector<TerminalTextCell>> &,const QFont &,qreal,qreal,qreal,qreal,bool presentable);
     int size() const {return rows_.size();}
     const QImage &image(int row) const {return rows_[row].image();}
     quint64 rasterizedRows() const {return rasterizedRows_;}
     qint64 imageBytes() const;
 private:
     QVector<TerminalTextRow> rows_;quint64 rasterizedRows_=0;
+    QFont font_;qreal cw_=0,ch_=0,ascent_=0,scale_=0;int columns_=0;bool valid_=false;
 };
 
 class QPainter;
-// Shared pure full-grid paint path; caller owns backdrop, cursor and IME overlay.
-void paintTerminalGrid(QPainter &,const QVector<QVector<TerminalTextCell>> &,
+// Shared pure grid paint path; respects the painter clip and returns rows drawn.
+// Caller owns backdrop, cursor and IME overlay.
+int paintTerminalGrid(QPainter &,const QVector<QVector<TerminalTextCell>> &,
     const TerminalTextSurface &,qreal cellWidth,qreal cellHeight,const QPointF &origin);
