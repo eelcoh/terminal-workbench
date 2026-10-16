@@ -143,3 +143,36 @@ not a separate full-history document. It is not an Orca or VoiceOver usability
 sign-off; speech volume, history navigation and native Mac bridging remain open.
 On Mac use `just toolkit-terminal` and inspect the Terminal object with
 Accessibility Inspector/VoiceOver. Native revalidation of this adapter is pending.
+
+
+## Real IME service check
+
+```sh
+just toolkit-terminal-ime-test
+```
+
+Linux dependencies: IBus, IBus-Anthy, Python GObject/IBus bindings, Xvfb and
+xdotool; the Wayland pass also needs the existing Niri and Wayland/xkbcommon test
+tools. In build-machine the additional packages are `ibus ibus-anthy`.
+
+The recipe runs two isolated sessions. First, X11 isolates Qt's input-method
+adapter and real engine behavior from compositor behavior. Second, a native Qt
+Wayland window runs in private nested Niri with `DISPLAY` removed. Both explicitly
+select Qt's IBus input context (`QT_IM_MODULE=ibus`) and connect to the private
+IBus service through D-Bus. This does not exercise compositor-managed Wayland
+`text-input`/`input-method` protocols.
+
+Keyboard events produce `にほん` preedit in Anthy, Escape cancels without PTY
+input, Space converts to `日本`, and Enter commits exactly once. A second commit
+cycle plus subsequent Enter/Ctrl-C detects stale composition and duplicated or
+eaten terminal input. No QInputMethodEvent is injected by this recipe; those
+events come from Qt's real IBus plugin. The opt-in probe report includes the
+current preedit solely to make this check observable.
+
+Every run uses private session bus, IBus address, XDG runtime/configuration/cache/
+data paths and in-memory GSettings. The engine is selected through IBus's API
+without the CLI's keyboard-layout side effect. Panels are disabled, so candidate
+popup placement is not tested. Artifacts are under
+`.local/artifacts/qt-ime/{xcb,wayland}/`, including preedit screenshots and raw PTY
+bytes. Native Mac IME, compositor-managed Wayland IME, composition styling/caret
+attributes and focus transitions remain acceptance gates.

@@ -13,9 +13,9 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test"))
     args = parser.parse_args()
-    if args.mode in ("terminal-test", "terminal-wayland-test") and not sys.platform.startswith("linux"):
+    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
     subprocess.run(["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(BUILD), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if args.mode.startswith("terminal") else "OFF")], check=True)
     subprocess.run(["cmake", "--build", str(BUILD), "--parallel"], check=True)
@@ -25,8 +25,10 @@ def main():
     binary = BUILD / name
     if sys.platform == "darwin":
         binary = BUILD / (name + ".app/Contents/MacOS") / name
-    if args.mode in ("terminal-test", "terminal-wayland-test"):
-        test = "qt_wayland_terminal_gui_smoke.py" if args.mode == "terminal-wayland-test" else "qt_terminal_gui_smoke.py"
+    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test"):
+        test = {"terminal-test":"qt_terminal_gui_smoke.py",
+                "terminal-wayland-test":"qt_wayland_terminal_gui_smoke.py",
+                "terminal-ime-test":"qt_ime_gui_smoke.py"}[args.mode]
         subprocess.run([sys.executable, str(ROOT / "tests" / test),
                         str(ROOT / "target/debug/workbench-session"), str(binary)], check=True)
         return

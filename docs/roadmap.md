@@ -736,3 +736,13 @@ selection/focus and live-output events using private buses/runtime paths.
 Existing PTY input/clipboard/resize/reopen coverage remains part of the check.
 Native Mac bridging, Orca/VoiceOver usability, sustained-output speech and history
 navigation remain open. See [terminal accessibility proof](toolkit-readiness.md#terminal-text-accessibility-proof).
+
+
+## Current toolkit slice: real IME service
+
+The Qt probe now has a real IBus/Anthy keyboard-driven composition test on X11
+and native Wayland. X11 isolates the toolkit/engine bridge; Wayland runs a native
+window with `DISPLAY` removed. Both check cancel-without-input, conversion,
+exact-once repeated commits and post-commit terminal keys over a private IBus
+connection. Compositor-managed Wayland input-method protocols, candidate popup
+placement and native Mac IME remain open. See [real IME validation](toolkit-readiness.md#real-ibusanthy-composition-on-x11-and-wayland).

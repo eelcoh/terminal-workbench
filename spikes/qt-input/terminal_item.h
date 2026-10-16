@@ -16,6 +16,7 @@ public:
     void connectSession(const QString &control);
     QString status() const { return status_; }
     bool ready() const { return ready_; }
+    QString preeditText() const { return preedit_; }
     QString viewportText() const;
     QRectF caret() const { return caret_; }
     QSizeF cellSize() const { return QSizeF(cellWidth_,cellHeight_); }

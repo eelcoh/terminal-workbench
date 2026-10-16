@@ -55,6 +55,7 @@ int main(int argc,char **argv)
             const auto pos=terminal->mapToScene(QPointF());
             QJsonObject data{{"ready",terminal->ready()},{"status",terminal->status()},
                 {"text",terminal->viewportText()},{"ime_done",imeDone},
+                {"preedit",terminal->preeditText()},
                 {"accessibility_ok",accessibilityDone && accessibilityOk},
                 {"platform",QGuiApplication::platformName()},
                 {"device_pixel_ratio",window->devicePixelRatio()},

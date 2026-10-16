@@ -215,3 +215,39 @@ speech policy during sustained output and full-history accessibility remain open
 The pinned Qt AT-SPI bridge exposes Qt UTF-16 text offsets; interoperability around
 supplementary characters needs assistive-tool review before production adoption.
 This completes a bounded API/bridge proof rather than the accessibility gate.
+
+
+## Real IBus/Anthy composition on X11 and Wayland
+
+On 2026-10-16 both passes succeeded with Qt 6.11.2, IBus 1.5.34 and
+IBus-Anthy 1.5.18. Native Wayland/scale, terminal accessibility, standard-control
+input and full `just check` regressions also passed. Preedit captures were
+visually inspected; physical-display quality is still unverified.
+
+The earlier injected-event checks exercise the custom item's API only.
+`just toolkit-terminal-ime-test` adds keyboard → Qt input context → private IBus
+service → real Anthy engine → composition/commit event → PTY verification.
+No composition event is synthesized by the harness.
+
+X11 is a useful baseline here: it isolates the real Qt/engine path before adding
+a compositor. It is not a substitute for Wayland acceptance. The same recipe
+therefore also runs a native Qt Wayland window in private nested Niri, verifies
+its reported backend and removes `DISPLAY`. Both passes explicitly use
+`QT_IM_MODULE=ibus`, connecting Qt directly to the private IBus service over D-Bus.
+They do not cover compositor-managed Wayland `text-input`/`input-method` routing.
+Qt's [IBus adapter source](https://raw.githubusercontent.com/qt/qtbase/6.11/src/plugins/platforminputcontexts/ibus/qibusplatforminputcontext.cpp)
+shows this service bridge and its composition/commit delivery.
+
+Observed behavior: `nihonn` composes `にほん`; Escape clears preedit with no PTY
+bytes. Space converts it to `日本` without committing, and Enter sends exactly
+one UTF-8 commit. A second cycle commits Hiragana without duplication. Enter and
+Ctrl-C afterward still produce their ordinary terminal bytes. Screenshots show
+preedit in the terminal; raw-reader output distinguishes composition from input.
+
+The private daemon, bus and XDG paths plus in-memory GSettings isolate all engine
+settings and dictionary data from the user's desktop. Direct engine selection
+uses IBus's API; `ibus engine` also tries to change keyboard layout and can return
+failure after successful selection. Panels are disabled. Candidate popup
+placement, full preedit styling/caret attributes, focus transitions, compositor
+protocol routing and native Mac composition remain open. The main Workbench
+viewer is unchanged, and these checks do not settle the toolkit decision.
