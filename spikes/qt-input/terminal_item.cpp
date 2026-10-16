@@ -252,18 +252,12 @@ void TerminalItem::paint(QPainter *painter)
         }
     }
     if(cursorVisible_) {painter->setPen(QColor("#a8c7fa"));painter->drawRect(caret_.adjusted(0,0,-1,-1));}
-    if(!preedit_.isEmpty()) {
-        painter->setFont(font_);QFontMetricsF metrics(font_);
-        QRectF rect(caret_.topLeft(),QSizeF(std::max(cellWidth_,metrics.horizontalAdvance(preedit_)),cellHeight_));
-        painter->fillRect(rect,background_);painter->setPen(Qt::white);
-        painter->drawText(rect.topLeft()+QPointF(0,ascent_),preedit_);
-        painter->drawLine(rect.bottomLeft(),rect.bottomRight());
-    }
+    composition_.paint(painter,caret_,ascent_,background_);
 }
 QVariant TerminalItem::inputMethodQuery(Qt::InputMethodQuery query) const
 {
     if(query==Qt::ImEnabled)return ready_;
-    if(query==Qt::ImCursorRectangle)return caret_;
+    if(query==Qt::ImCursorRectangle)return composition_.caret(caret_);
     if(query==Qt::ImFont)return font_;
     if(query==Qt::ImHints)return int(Qt::ImhNoPredictiveText|Qt::ImhNoAutoUppercase);
     // A terminal cannot safely replace shell-owned surrounding input.
@@ -292,13 +286,14 @@ void TerminalItem::inputMethodEvent(QInputMethodEvent *event)
         // Do not invent destructive edits to text owned by the shell.
         event->ignore();return;
     }
-    preedit_=event->preeditString();committed(event->commitString());update();event->accept();
+    composition_.set(*event,font_);committed(event->commitString());
+    QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);update();event->accept();
 }
 void TerminalItem::encodeKey(QKeyEvent *input,bool release)
 {
     if(!ready_)return;
     if(input->key()==Qt::Key_Shift || input->key()==Qt::Key_Control || input->key()==Qt::Key_Alt || input->key()==Qt::Key_Meta)return;
-    if(!release && !preedit_.isEmpty())return;
+    if(!release && composition_.active())return;
     auto mods=terminalMods(input->modifiers());
     auto text=release?QByteArray():input->text().toUtf8();
     // Qt supplies control bytes in text(); Ghostty expects the associated

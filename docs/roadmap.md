@@ -746,3 +746,11 @@ window with `DISPLAY` removed. Both check cancel-without-input, conversion,
 exact-once repeated commits and post-commit terminal keys over a private IBus
 connection. Compositor-managed Wayland input-method protocols, candidate popup
 placement and native Mac IME remain open. See [real IME validation](toolkit-readiness.md#real-ibusanthy-composition-on-x11-and-wayland).
+
+## Current toolkit slice: composition presentation
+
+The Qt terminal probe now honors IME segment formatting and composition cursor
+position/visibility/color. The candidate anchor follows the composition caret.
+Tests cover UTF-16 offsets and rendered styles; real-engine Left/Right movement
+must not send terminal input. Native candidate popup placement and Mac IME
+review remain open. See [composition presentation](toolkit-readiness.md#composition-formatting-and-caret).

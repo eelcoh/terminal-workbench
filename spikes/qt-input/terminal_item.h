@@ -3,6 +3,7 @@
 #include <QLocalSocket>
 #include <QTimer>
 #include <QFont>
+#include "terminal_composition.h"
 #include <ghostty/vt.h>
 
 // A disposable rendering/input experiment. The runtime owns the PTY and VT;
@@ -16,7 +17,7 @@ public:
     void connectSession(const QString &control);
     QString status() const { return status_; }
     bool ready() const { return ready_; }
-    QString preeditText() const { return preedit_; }
+    QString preeditText() const { return composition_.text(); }
     QString viewportText() const;
     QRectF caret() const { return caret_; }
     QSizeF cellSize() const { return QSizeF(cellWidth_,cellHeight_); }
@@ -63,7 +64,8 @@ private:
     QByteArray receive_, snapshot_;
     quint32 snapshotSize_ = 0;
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
-    QString status_="Connecting", preedit_;
+    QString status_="Connecting";
+    TerminalComposition composition_;
     GhosttyTerminal terminal_=nullptr;
     GhosttyRenderState render_=nullptr;
     GhosttyRenderStateRowIterator rows_=nullptr;

@@ -251,3 +251,26 @@ failure after successful selection. Panels are disabled. Candidate popup
 placement, full preedit styling/caret attributes, focus transitions, compositor
 protocol routing and native Mac composition remain open. The main Workbench
 viewer is unchanged, and these checks do not settle the toolkit decision.
+
+## Composition formatting and caret
+
+The isolated terminal host now lays out preedit text with Qt's `QTextLayout`,
+retaining the engine's segment foreground/background/underline formatting and
+its UTF-16 cursor position, visibility and color. Its input-method rectangle
+follows the composition cursor rather than staying at the shell cursor. Layout
+is rebuilt on composition events; painting only draws the cached overlay. This
+is composition shaping, not cross-cell shaping of terminal output.
+
+The terminal smoke test checks formatted segment pixels, cursor visibility,
+supplementary-character offsets, cancellation cleanup and the default end caret.
+The real IBus/Anthy suite additionally moves Left/Right inside the preedit and
+checks the reported caret moves without sending arrow bytes to the PTY.
+Cancellation restores the terminal caret; commit-only checks still apply.
+The Linux checks passed with Qt 6.11.2 on 2026-10-16, including real IBus/Anthy
+on X11 and native Wayland, scale/clipboard/reopen coverage and AT-SPI regression
+checks. The current Workbench frontend is unchanged.
+
+This follows Qt's [input-method attribute contract](https://doc.qt.io/qt-6/qinputmethodevent.html)
+and [text layout API](https://doc.qt.io/qt-6/qtextlayout.html). Native candidate
+popup placement, focus changes, compositor-managed Wayland input methods and
+Mac IME acceptance remain open.

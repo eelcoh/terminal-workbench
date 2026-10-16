@@ -40,6 +40,7 @@ int main(int argc,char **argv)
         QObject::connect(&reportTimer,&QTimer::timeout,&app,[&,report,window]{
             if(terminal->ready() && args.contains("--test-ime") && imeStage<3
                 && terminal->viewportText().contains("QT-SNAPSHOT")) {
+                if(imeStage==0 && !terminalCompositionSelfTest()) {app.exit(1);return;}
                 terminal->forceActiveFocus();
                 QInputMethodEvent event(imeStage==0?QString::fromUtf8("にほん"):QString(),{});
                 if(imeStage==2)event.setCommitString(QString::fromUtf8("日本"));
@@ -52,10 +53,12 @@ int main(int argc,char **argv)
                 if(!accessibilityOk) {app.exit(1);return;}
             }
             const auto caret=terminal->caret();const auto cell=terminal->cellSize();
+            const auto imeCaret=terminal->inputMethodQuery(Qt::ImCursorRectangle).toRectF();
             const auto pos=terminal->mapToScene(QPointF());
             QJsonObject data{{"ready",terminal->ready()},{"status",terminal->status()},
                 {"text",terminal->viewportText()},{"ime_done",imeDone},
                 {"preedit",terminal->preeditText()},
+                {"ime_caret",QJsonArray{imeCaret.x(),imeCaret.y(),imeCaret.width(),imeCaret.height()}},
                 {"accessibility_ok",accessibilityDone && accessibilityOk},
                 {"platform",QGuiApplication::platformName()},
                 {"device_pixel_ratio",window->devicePixelRatio()},
