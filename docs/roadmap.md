@@ -881,3 +881,13 @@ all twelve partial/full scene comparisons and refreshed text checks. Mac
 fifteen-pane one-row paint medians are 2.303 ms (ASCII) and 1.478 ms (Unicode).
 Physical-display typography and live-runtime memory/VRAM acceptance remain open.
 See [changed-row repaint](toolkit-readiness.md#changed-row-repaint-integration).
+
+
+## Current toolkit slice: shared word navigation
+
+The Qt terminal probe uses Option–Left/Right on Mac and Alt–Left/Right on Linux
+for the same shell word navigation. Plain arrows, physical Control arrows and
+additional modifiers retain terminal encoding. The portable real-PTY key test
+checks exact bytes, held-key repeats and silent releases on both platforms.
+The initial Mac-only implementation left Linux Alt arrows unbound at the shell;
+this shared binding addresses that gap. Native Mac acceptance remains pending.

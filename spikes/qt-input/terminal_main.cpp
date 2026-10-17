@@ -72,13 +72,13 @@ int main(int argc,char **argv)
 #else
                 key(Qt::Key_Left,Qt::ControlModifier);
 #endif
-                // Exercise the Mac policy on both build platforms, including exclusions.
-                if(QByteArray(macWordMotion(Qt::Key_Left,Qt::AltModifier))!=QByteArray("\x1b" "b")
-                    || QByteArray(macWordMotion(Qt::Key_Right,Qt::AltModifier))!=QByteArray("\x1b" "f")
-                    || macWordMotion(Qt::Key_Left,Qt::AltModifier|Qt::ShiftModifier)
-                    || macWordMotion(Qt::Key_Left,Qt::AltModifier|Qt::MetaModifier)
-                    || macWordMotion(Qt::Key_Left,Qt::AltModifier|Qt::ControlModifier)
-                    || macWordMotion(Qt::Key_Up,Qt::AltModifier)) {app.exit(1);return;}
+                // Exercise the shared policy, including adjacent-modifier exclusions.
+                if(QByteArray(wordMotion(Qt::Key_Left,Qt::AltModifier))!=QByteArray("\x1b" "b")
+                    || QByteArray(wordMotion(Qt::Key_Right,Qt::AltModifier))!=QByteArray("\x1b" "f")
+                    || wordMotion(Qt::Key_Left,Qt::AltModifier|Qt::ShiftModifier)
+                    || wordMotion(Qt::Key_Left,Qt::AltModifier|Qt::MetaModifier)
+                    || wordMotion(Qt::Key_Left,Qt::AltModifier|Qt::ControlModifier)
+                    || wordMotion(Qt::Key_Up,Qt::AltModifier)) {app.exit(1);return;}
                 keysDone=true;
             }
             const auto caret=terminal->caret();const auto cell=terminal->cellSize();

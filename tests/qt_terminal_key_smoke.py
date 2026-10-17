@@ -55,7 +55,7 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
                 if client.poll() is not None:raise RuntimeError("Qt key probe exited; see "+str(artifacts/"run.log"))
                 return state().get("keys_done") and (root/"input").exists()
             wait_until(completed,timeout=15)
-            expected=b"\x1b[D"+(b"\x1bb\x1bf\x1bf" if sys.platform=="darwin" else b"\x1b[1;3D\x1b[1;3C\x1b[1;3C")+b"\x1b[C\x1b[1;5D"
+            expected=b"\x1b[D\x1bb\x1bf\x1bf\x1b[C\x1b[1;5D"
             try:
                 wait_until(lambda:(root/"input").read_bytes()==expected,timeout=5)
                 # Require a quiet period so asynchronous release/duplicate bytes fail.
@@ -65,11 +65,11 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
                 # Preserve byte evidence even when the native platform check fails.
                 actual=(root/"input").read_bytes() if (root/"input").exists() else b""
                 (artifacts/"input.bin").write_bytes(actual)
-                result=state();result.update(expected_hex=expected.hex(),actual_hex=actual.hex(),key_bytes_match=actual==expected,platform_policy="mac-word-motion" if sys.platform=="darwin" else "linux-generic-alt-arrows")
+                result=state();result.update(expected_hex=expected.hex(),actual_hex=actual.hex(),key_bytes_match=actual==expected,platform_policy="shared-option-alt-word-motion")
                 stop_client()
                 report.write_text(json.dumps(result,indent=2)+"\n")
             assert actual==expected,(actual,expected)
-            print("PASS: Qt host -> real PTY plain/control arrows, Option word motion on Mac, Linux Alt arrows, repeat and no release duplicates")
+            print("PASS: Qt host -> real PTY plain/control arrows, shared Option/Alt word motion, repeat and no release duplicates")
             print("Artifacts:",artifacts)
         finally:
             if connection:connection.close()

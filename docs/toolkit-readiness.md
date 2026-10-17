@@ -1,6 +1,6 @@
 # Production toolkit readiness
 
-Status: 2026-10-15. Keep the approved minimal chrome and Overview interaction.
+Status: 2026-10-17. Keep the approved minimal chrome and Overview interaction.
 The Raylib viewer remains the working experiment; it is not ready for production
 adoption. Qt Quick is the first candidate to test, not a selected replacement.
 
@@ -842,16 +842,16 @@ Fifteen-pane one-row paint medians are 2.303 ms for ASCII and 1.478 ms for
 Unicode; request-to-swap medians are 17.314 and 16.927 ms. Fully changing output,
 physical-display typography and live-runtime memory/VRAM acceptance remain open.
 
-The terminal probe now maps Mac Option–Left/Right to the shell word-motion
-sequences Escape-b/f. Additional modifiers bypass this binding; Linux Alt arrows
-keep their terminal encoding. `just toolkit-terminal-key-test` sends Qt key events
+The terminal probe maps Option–Left/Right on Mac and Alt–Left/Right on Linux
+to the same shell word-motion sequences Escape-b/f. Additional modifiers bypass
+this binding and retain terminal encoding. `just toolkit-terminal-key-test` sends Qt key events
 through the actual host and a disposable raw PTY, checking plain/control arrows,
-word motion on Mac, Linux Alt arrows, repeat and release suppression. It writes
+shared word motion, repeat and release suppression. It writes
 `.local/artifacts/qt-keys/`. Native Mac verification remains required.
 
-For native Mac acceptance, run `just toolkit-terminal-key-test`, then
+For native Mac and Linux acceptance, run `just toolkit-terminal-key-test`, then
 `just toolkit-terminal`. At a shell prompt type a few words and use Option–Left
-and Option–Right, including holding either arrow: the cursor should move by
+and Option–Right (Alt on Linux), including holding either arrow: the cursor should move by
 words without inserting letters. The automated test saves actual/expected byte
 hex and `key_bytes_match` in `.local/artifacts/qt-keys/report.json`, including
 byte mismatches, so native failures can be inspected without retyping input.
