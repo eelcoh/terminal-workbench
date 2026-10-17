@@ -932,3 +932,20 @@ Mac pair copy/paste is owner-confirmed. Native composition focus policy stays
 open; further manual Japanese testing is deferred. Preserve automated Linux
 coverage and plan a language/input-engine matrix rather than treating one
 Japanese engine as general language acceptance.
+
+
+## Current toolkit slice: approved chrome around live terminals
+
+`just toolkit-ui` now reproduces the minimal rail/top bar and pane indicators,
+workspace drawer, independent width presets/full restore and spatial Overview
+around six real disposable shells. Shared live items preserve PTY geometry and
+processes through Overview; hidden/offscreen panes skip raster work. Keyboard
+navigation uses Cmd–Option on Mac and Super–Alt on Linux, with shortcut help.
+Native xcb and Wayland checks pass; Mac UI and motion review remain open.
+Agents, creation/editing, themes and drag/reorder are subsequent slices, not
+placeholder actions. See [UI study](toolkit-ui-study.md).
+
+The owner supplied passing native Mac live-performance results from clean
+d4b8ce4 (Qt 6.12/Metal, 2x): all six trials pass. Fifteen-pane full-output viewer
+RSS is about 769 MiB, with median lifetime peak 877 MiB. Keep memory budgeting
+and external-display quality open alongside UI review before toolkit adoption.

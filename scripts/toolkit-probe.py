@@ -13,9 +13,9 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test"))
     args = parser.parse_args()
-    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test") and not sys.platform.startswith("linux"):
+    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "ui-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
     if args.mode=="scene-perf-test" and not sys.platform.startswith("linux"):
         parser.error("scene-perf-test uses private Linux Xvfb; use scene-perf for native Mac measurements")
@@ -23,12 +23,20 @@ def main():
         parser.error("live-perf-test uses private Linux Xvfb; use live-perf for native Mac measurements")
     performance=args.mode in ("perf","scene-perf","scene-perf-test","live-perf","live-perf-test")
     build=ROOT/".local/build/qt-performance" if performance else BUILD
-    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
+    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("ui","ui-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
     if performance:configure.append("-DCMAKE_BUILD_TYPE=Release")
     subprocess.run(configure,check=True)
     command=["cmake","--build",str(build),"--parallel"]
     if performance:command.extend(["--target","workbench-live-bench" if args.mode in ("live-perf","live-perf-test") else "workbench-text-bench" if args.mode=="perf" else "workbench-scene-bench"])
+    if args.mode in ("ui","ui-test"):command.extend(["--target","workbench-ui-study"])
     subprocess.run(command,check=True)
+    if args.mode in ("ui","ui-test"):
+        name="workbench-ui-study"
+        binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name
+        command=[sys.executable,str(ROOT/"tests/qt_ui_smoke.py"),str(ROOT/"target/debug/workbench-session"),str(binary)] if args.mode=="ui-test" else [sys.executable,str(ROOT/"scripts/toolkit-ui.py"),str(ROOT/"target/debug/workbench-session"),str(binary)]
+        subprocess.run(command,check=True)
+        if args.mode=="ui-test":subprocess.run([*command,"--wayland"],check=True)
+        return
     if args.mode in ("live-perf","live-perf-test"):
         name="workbench-live-bench"
         binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name

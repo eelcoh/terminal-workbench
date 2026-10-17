@@ -90,3 +90,36 @@ These results establish a reproducible live data path and expose memory and
 software-rendering costs. Native hardware results, particularly Mac Metal, and
 physical-display quality still gate toolkit adoption. No frontend migration is
 made by this benchmark.
+
+## Native Mac live-runtime evidence
+
+The owner supplied a complete clean d4b8ce4 run on 2026-10-17:
+macOS 26.7.1 arm64, Qt 6.12.0/Cocoa, Metal on Apple M2 Pro, 2x DPR,
+1120×680 logical window. All six fresh trials pass byte/marker agreement,
+idle/hidden raster and paint isolation and exact reveal catch-up. The copied
+input is `.local/artifacts/qt-live-perf/`; native commands normally write
+`qt-live-performance/`.
+
+| Panes | Idle CPU s | One-row CPU s | Full CPU s | One visible CPU s | All hidden CPU s |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 0.016 | 0.277 | 0.468 | 0.468 | 0.054 |
+| 15 | 0.018 | 0.934 | 1.319 | 0.523 | 0.391 |
+
+These are medians over one-second producer workloads plus catch-up. Full-screen
+wall medians are 1.042 s for one terminal and 1.177 s for fifteen. Full-output
+viewer CPU scales 2.82x; all-hidden CPU scales 7.28x. This does not establish
+presentation frame rate or interactive latency. Do not compare Linux software
+GL and Mac Metal timings as a controlled platform performance comparison.
+
+Full-output viewer checkpoint RSS rises from about 149 to 769 MiB (5.17x),
+while summed runtime RSS rises from 6.9 to 99.2 MiB (14.5x, counting shared
+pages repeatedly). Median viewer lifetime peak is 184 versus 877 MiB; it
+includes the final screenshot. Cached row images are 8.09 versus 121.29 MiB,
+retained while hidden. Fifteen-pane checkpoint RSS is 514 MiB in the following
+one-visible phase and 615 MiB after all-hidden output. These phase snapshots
+do not isolate allocator, backing-texture, OS reclamation or GPU memory costs.
+
+The live Mac correctness/data-path gate is now evidenced, but memory remains an
+explicit optimization concern. A future cache/backing-surface budget should be
+measured with native workloads before selecting the production frontend. This
+run does not replace the pending physical external-display typography review.

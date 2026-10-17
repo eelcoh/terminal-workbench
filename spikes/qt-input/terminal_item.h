@@ -12,12 +12,15 @@
 class TerminalItem : public QQuickPaintedItem {
     Q_OBJECT
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
+    Q_PROPERTY(bool presentationEnabled READ presentationEnabled WRITE setPresentationEnabled NOTIFY presentationEnabledChanged)
 public:
     explicit TerminalItem(QQuickItem *parent = nullptr);
     ~TerminalItem() override;
     void connectSession(const QString &control);
     QString status() const { return status_; }
     bool ready() const { return ready_; }
+    bool presentationEnabled() const {return presentationEnabled_;}
+    void setPresentationEnabled(bool enabled);
     QString preeditText() const { return composition_.text(); }
     QString viewportText() const;
     QRectF caret() const { return caret_; }
@@ -45,6 +48,7 @@ public:
     Q_INVOKABLE void paste();
 Q_SIGNALS:
     void statusChanged();
+    void presentationEnabledChanged();
 protected:
     bool event(QEvent *) override;
     bool eventFilter(QObject *,QEvent *) override;
@@ -74,6 +78,7 @@ private:
     QByteArray receive_, snapshot_;
     quint32 snapshotSize_ = 0;
     quint64 receivedBytes_=0,refreshedBytes_=0;
+    bool presentationEnabled_=true;
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
     QString status_="Connecting";
     TerminalComposition composition_;

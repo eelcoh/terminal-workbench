@@ -927,6 +927,25 @@ sessions, raw PTY producers and the Qt terminal client. The private software-GL
 matrix passes byte/marker agreement, idle/hidden presentation isolation and exact
 reveal catch-up at 1x/2x in three fresh trials each. See
 [live workload and measured limits](toolkit-live-performance.md).
-Native Mac measurements, physical external-display typography, remaining input
-and accessibility acceptance, packaging and a production UI slice remain open
-before adopting Qt. The main viewer is unchanged.
+The owner supplied a passing clean d4b8ce4 Mac/Metal run: all six live trials
+pass the same data-path checks. Fifteen-pane full-output viewer RSS is about
+769 MiB and median lifetime peak 877 MiB; memory remains an optimization concern.
+Physical external-display typography, remaining input/accessibility acceptance,
+packaging and review of the production design slice still gate adoption.
+The main viewer is unchanged.
+
+### First Qt UI design slice
+
+`just toolkit-ui` opens the approved minimal chrome direction around six
+real disposable shells, with a workspace drawer, pane indicators, scrolling
+strip, per-pane width presets and a spatial all-workspace Overview. It uses
+transforms of the same live terminal items rather than resize/reconnect during
+Overview entry. Offscreen/background terminals retain parsing but skip row
+rasterization and painting; revealing them catches up from current state.
+
+Native Linux xcb and Wayland tests pass keyboard routing, per-pane width and
+full restore, remembered workspace focus, live hidden output, Overview click/
+Escape, empty-workspace navigation and unchanged terminal grids/PIDs during
+Overview. This is the first interaction slice, not complete frontend adoption.
+Mac UI review, physical trackpad input and remaining product flows stay open.
+See [UI study scope and review](toolkit-ui-study.md).

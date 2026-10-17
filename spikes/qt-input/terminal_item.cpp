@@ -107,6 +107,14 @@ void TerminalItem::connectSession(const QString &path)
     if (failed_ || socket_.state()!=QLocalSocket::UnconnectedState) return;
     handshakeTimer_.start(); socket_.connectToServer(path);
 }
+void TerminalItem::setPresentationEnabled(bool enabled)
+{
+    if(presentationEnabled_==enabled)return;
+    presentationEnabled_=enabled;
+    Q_EMIT presentationEnabledChanged();
+    // Hidden sources keep parsing; one refresh catches the latest grid on reveal.
+    if(enabled && !refreshTimer_.isActive())refreshTimer_.start();
+}
 void TerminalItem::fail(const QString &message)
 {
     failed_=true; ready_=false; status_=message; snapshot_.clear(); receive_.clear();
@@ -237,7 +245,7 @@ void TerminalItem::refresh()
     }
     // Shape/rasterize only changed rows on the GUI thread. Paint receives images;
     // QRawFont glyph runs must not be moved to Qt Quick's render thread.
-    const bool presentable=isVisible() && window() && window()->visibility()!=QWindow::Hidden && window()->visibility()!=QWindow::Minimized;
+    const bool presentable=presentationEnabled_ && isVisible() && window() && window()->visibility()!=QWindow::Hidden && window()->visibility()!=QWindow::Minimized;
     const auto damage=textRows_.update(grid_,font_,cellWidth_,cellHeight_,ascent_,window()?window()->devicePixelRatio():1,presentable);
     bool visible=false,inViewport=false;quint16 x=0,y=0;
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VISIBLE,&visible);

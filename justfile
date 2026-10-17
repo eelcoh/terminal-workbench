@@ -326,3 +326,11 @@ toolkit-live-perf: runtime-build
 # Linux: same real-runtime workload on private Xvfb, software GL at 1x/2x.
 toolkit-live-perf-test: runtime-build
     python3 scripts/toolkit-probe.py live-perf-test
+
+# Mac/Linux: approved chrome direction around six disposable live shells.
+toolkit-ui: runtime-build
+    python3 scripts/toolkit-probe.py ui
+
+# Linux: native input/focus and stable PTY geometry across UI transitions.
+toolkit-ui-test: runtime-build
+    python3 scripts/toolkit-probe.py ui-test
