@@ -3,6 +3,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import os
+import select
+import signal
 import subprocess
 import sys
 import time
@@ -30,6 +32,52 @@ def launch_viewer(viewer, root, sessions, environment, *, detach=False):
         os.close(slot_fd)
 
 
+def _record_viewer_exit(log, process, result):
+    reason = ""
+    if result < 0:
+        try:
+            reason = f"; signal: {signal.Signals(-result).name}"
+        except ValueError:
+            reason = f"; signal: {-result}"
+    log.write(f"Viewer exit code: {result}; pid: {process.pid}{reason}; at: {datetime.now(timezone.utc).isoformat()}\n".encode())
+
+
+def _forward_viewer_output(process, log):
+    """Observe process exit independently of EOF from inherited output pipes."""
+    fd = process.stdout.fileno()
+    os.set_blocking(fd, False)
+    def forward_available():
+        # Bound each drain so a noisy descendant cannot hide the viewer's exit.
+        for _ in range(16):
+            try:
+                data = os.read(fd, 65536)
+            except BlockingIOError:
+                return True
+            if not data:
+                return False
+            log.write(data)
+            sys.stdout.buffer.write(data)
+            sys.stdout.buffer.flush()
+        return True
+
+    pipe_open = True
+    while True:
+        if pipe_open:
+            if select.select([fd], [], [], .1)[0]:
+                pipe_open = forward_available()
+        else:
+            # EOF can precede process exit too; do not busy-poll or report success.
+            try:
+                process.wait(timeout=.1)
+            except subprocess.TimeoutExpired:
+                pass
+        result = process.poll()
+        if result is not None:
+            if pipe_open:
+                forward_available()
+            return result
+
+
 def _launch_viewer(viewer, root, environment, detach, log_path, slot_fd):
     with log_path.open("ab", buffering=0) as log:
         log.write(f"\n--- Viewer launch {datetime.now(timezone.utc).isoformat()} ---\n{viewer}\n".encode())
@@ -54,17 +102,28 @@ def _launch_viewer(viewer, root, environment, detach, log_path, slot_fd):
             except subprocess.TimeoutExpired:
                 print(f"Viewer started independently (pid {process.pid}). Diagnostics: {log_path}", flush=True)
                 return 0
-            log.write(f"Viewer exit code: {result}\n".encode())
+            _record_viewer_exit(log, process, result)
             if result:
                 print(f"Viewer failed (exit {result}); inspect {log_path}. Existing sessions and sockets are preserved.", file=sys.stderr)
             return result if result >= 0 else 1
         with process.stdout:
-            for line in iter(process.stdout.readline, b""):
-                log.write(line)
-                sys.stdout.buffer.write(line)
-                sys.stdout.buffer.flush()
-        result = process.wait()
-        log.write(f"Viewer exit code: {result}\n".encode())
+            try:
+                result = _forward_viewer_output(process, log)
+            except KeyboardInterrupt:
+                # Ctrl-C reaches a foreground viewer too. Record any observed
+                # exit, but do not kill a still-running window or its sessions.
+                try:
+                    result = process.wait(timeout=.5)
+                except subprocess.TimeoutExpired:
+                    result = None
+                message = f"Viewer launcher interrupted; pid: {process.pid}; " + (
+                    "viewer still running" if result is None else f"viewer exit: {result}")
+                log.write(f"{message}; at: {datetime.now(timezone.utc).isoformat()}\n".encode())
+                if result is not None:
+                    _record_viewer_exit(log, process, result)
+                print(message, file=sys.stderr)
+                return 130
+        _record_viewer_exit(log, process, result)
     if result:
         print(f"Viewer failed (exit {result}); inspect {log_path}. "
               "Existing sessions and sockets are preserved.", file=sys.stderr)

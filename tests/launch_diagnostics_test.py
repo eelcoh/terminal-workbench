@@ -46,6 +46,50 @@ def main():
         result=launch(state/'missing',state,os.environ)
         assert result.returncode==1 and b'Could not launch viewer' in log.read_bytes()
         assert shell_log.read_bytes()==b'existing session output'
+        # A descendant holding stdout must not hide a viewer's exit/signal.
+        inherited_viewer=state/'inherited-viewer'
+        inherited_viewer.write_text(f'#!{sys.executable}\n'+"import os,signal,subprocess,sys\nfrom pathlib import Path\n"
+            +"child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],stdin=subprocess.DEVNULL,start_new_session=True)\n"
+            +"Path('descendant.pid').write_text(str(child.pid))\n"
+            +"print('final viewer output without newline',end='',flush=True)\n"
+            +"os.kill(os.getpid(),signal.SIGTERM) if os.environ.get('VIEWER_SIGNAL') else sys.exit(42)\n")
+        inherited_viewer.chmod(0o700)
+        for signaled in (False,True):
+            before=log.stat().st_size
+            try:
+                result=launch(inherited_viewer,state,dict(os.environ,**({'VIEWER_SIGNAL':'1'} if signaled else {})))
+                os.kill(int((state/'descendant.pid').read_text()),0)
+                assert result.returncode==(1 if signaled else 42)
+                assert b'final viewer output without newline' in result.stdout
+                current=log.read_bytes()[before:]
+                assert b'final viewer output without newline' in current
+                assert (b'signal: SIGTERM' if signaled else b'Viewer exit code: 42') in current
+                assert b'; pid:' in current and b'; at:' in current
+                assert shell_log.read_bytes()==b'existing session output'
+            finally:
+                if (state/'descendant.pid').exists():
+                    try:os.kill(int((state/'descendant.pid').read_text()),signal.SIGTERM)
+                    except ProcessLookupError:pass
+        # Interrupting only the launcher records that the viewer is still alive.
+        interrupt_viewer=state/'interrupt-viewer'
+        interrupt_viewer.write_text(f'#!{sys.executable}\n'+"import os,time\nfrom pathlib import Path\n"
+            +"Path('interrupt.pid').write_text(str(os.getpid()))\n"
+            +"while True:time.sleep(.1)\n")
+        interrupt_viewer.chmod(0o700)
+        env=dict(os.environ);env.pop('WORKBENCH_SESSION_SOCKET',None);env.pop('TERM_PROGRAM',None)
+        interrupted=subprocess.Popen([sys.executable,'-c',LOADER,str(ROOT/'scripts/run-spike.py'),str(interrupt_viewer),str(state)],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        try:
+            pid=int(wait_until(lambda:(state/'interrupt.pid').exists() and (state/'interrupt.pid').read_text()))
+            interrupted.send_signal(signal.SIGINT)
+            out,err=interrupted.communicate(timeout=5)
+            assert interrupted.returncode==130 and b'viewer still running' in err and b'Traceback' not in err
+            os.kill(pid,0)
+            assert b'Viewer launcher interrupted' in log.read_bytes()
+        finally:
+            if interrupted.poll() is None:interrupted.kill();interrupted.wait()
+            if (state/'interrupt.pid').exists():
+                try:os.kill(int((state/'interrupt.pid').read_text()),signal.SIGTERM)
+                except ProcessLookupError:pass
         # Reproduce launching a second GUI from inside a retained terminal:
         # a live child must not hold the launcher or retain its stdin/stdio pipe.
         nested_viewer=state/'nested-viewer'
@@ -97,7 +141,7 @@ def main():
                     assert result.stdout.split(b'Viewer log:')[1].split(b'\n',1)[1] in log.read_bytes()
                 finally:
                     os.close(read_fd); xvfb.terminate(); xvfb.wait(timeout=5)
-    print('PASS: viewer stdout/stderr, append on relaunch, failure/normal exit codes, missing executable, session preservation, independent nested launch and detached startup failures' + (', real viewer stale-socket diagnostics' if len(sys.argv)>1 else ''))
+    print('PASS: viewer stdout/stderr, append on relaunch, failure/normal exit codes, missing executable, session preservation, independent nested launch, inherited-pipe exit/signals, interrupted-launcher evidence and detached startup failures' + (', real viewer stale-socket diagnostics' if len(sys.argv)>1 else ''))
 
 
 if __name__=='__main__': main()

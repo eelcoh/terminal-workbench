@@ -398,3 +398,20 @@ The existing build/launcher executable path stays compatible. This uses
 [Darwin's setprogname](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/setprogname.3.html)
 and a process-lifetime string. Linux builds compile a no-op platform adapter.
 A mocked adapter contract is included in `just check`; native Mac review is pending.
+
+
+## Unexpected viewer disappearance
+
+Foreground launches observe the viewer process independently of its output pipe.
+A child retaining that pipe cannot prevent exit reporting. `viewer.log` records
+exit status, PID, UTC timestamp and a signal name for signal termination. Ctrl-C
+records whether the viewer has exited or is still running instead of printing a
+launcher traceback. This does not stop runtime shells. Detached launchers only
+observe the short startup check; later detached exits still need native reports.
+
+The October 17 overnight upload shows a 21:55 UTC launch without a recorded exit
+before the next 09:05 UTC launch. It contains no shutdown sequence or native
+crash report, so the cause of that disappearance remains unconfirmed. The pipe
+case is reproduced by the launcher regression test, not established as the Mac
+failure. For a recurrence, preserve `.local/sessions/viewer.log` and any macOS
+Ghostling / Terminal Workbench crash report.
