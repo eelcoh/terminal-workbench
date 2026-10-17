@@ -891,3 +891,15 @@ additional modifiers retain terminal encoding. The portable real-PTY key test
 checks exact bytes, held-key repeats and silent releases on both platforms.
 The initial Mac-only implementation left Linux Alt arrows unbound at the shell;
 this shared binding addresses that gap. Native Mac acceptance remains pending.
+
+
+## Current toolkit slice: editable-terminal IME isolation
+
+`just toolkit-terminal-ime-transfer-test` exercises two independently owned
+editable Qt terminal windows with real IBus/Anthy on X11 and native Wayland.
+Both pass pending-composition focus transfers, exact-once commits and key
+isolation, stable reader processes and peer detach preservation. The original
+refused-owner focus test remains available. Native Mac and two terminals in a
+single window still need acceptance; live 1/15-runtime load, physical-display
+quality and packaging remain open before choosing a production frontend.
+See [editable transfers](toolkit-readiness.md#editable-terminal-ime-transfers).

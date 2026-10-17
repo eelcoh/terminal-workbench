@@ -17,8 +17,10 @@ ARTIFACTS=ROOT/".local/artifacts/qt-ime"
 
 
 def main():
-    runtime,viewer=[str(Path(arg).resolve()) for arg in sys.argv[1:3]]
-    if len(sys.argv)==3:
+    two_terminals="--two-terminals" in sys.argv
+    arguments=[arg for arg in sys.argv if arg!="--two-terminals"]
+    runtime,viewer=[str(Path(arg).resolve()) for arg in arguments[1:3]]
+    if len(arguments)==3:
         for backend in ("xcb","wayland"):
             with tempfile.TemporaryDirectory(prefix="wb-qt-ime-") as directory:
                 root=Path(directory)
@@ -33,12 +35,12 @@ def main():
                     env.pop(name,None)
                 env["IBUS_ADDRESS"]="unix:path="+str(root/"ibus.sock")
                 env["IBUS_ADDRESS_FILE"]=str(root/"ibus.address")
-                subprocess.run(["dbus-run-session","--",sys.executable,__file__,runtime,viewer,str(root),backend],env=env,cwd=ROOT,check=True,timeout=100)
+                subprocess.run(["dbus-run-session","--",sys.executable,__file__,runtime,viewer,str(root),backend,*(["--two-terminals"] if two_terminals else [])],env=env,cwd=ROOT,check=True,timeout=100)
         return
-    root=Path(sys.argv[3]);backend=sys.argv[4]
-    artifacts=ARTIFACTS/backend;artifacts.mkdir(parents=True,exist_ok=True)
+    root=Path(arguments[3]);backend=arguments[4]
+    artifacts=(ROOT/".local/artifacts/qt-ime-transfer" if two_terminals else ARTIFACTS)/backend;artifacts.mkdir(parents=True,exist_ok=True)
     for name in ("result.json","received.bin"):(artifacts/name).unlink(missing_ok=True)
-    processes=[];sock=root/"test.sock";niri_log=None
+    processes=[];sock=root/"test.sock";peer_sock=None;niri_log=None
     with (artifacts/"run.log").open("w") as log:
         def spawn(args,**kwargs):
             child=subprocess.Popen(args,**kwargs);processes.append(child);return child
@@ -134,14 +136,14 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             cmd(sys.executable,"-c", "import gi; gi.require_version('IBus','1.0'); from gi.repository import IBus; IBus.init(); bus=IBus.Bus.new(); assert bus.is_connected(); assert bus.set_global_engine('anthy'); assert bus.get_global_engine().get_name()=='anthy'")
             time.sleep(.2)
             def received():return (root/"received").read_bytes() if (root/"received").exists() else b""
-            def type_text(value):
+            def type_text(value,target=None):
                 if backend=="wayland":cmd(str(root/"keyboard"),"text",value)
-                else:xrun("type","--window",window,"--delay",60,value)
-            def key(value):
+                else:xrun("type","--window",target or window,"--delay",60,value)
+            def key(value,target=None):
                 if backend=="wayland":
                     args=("c","Control") if value=="ctrl+c" else (value,)
                     cmd(str(root/"keyboard"),"key",*args)
-                else:xrun("key","--window",window,value)
+                else:xrun("key","--window",target or window,value)
             def capture(name):
                 request=Path(str(report_path)+".capture");request.touch();wait_until(lambda:not request.exists())
                 (artifacts/(name+".png")).write_bytes(Path(str(report_path)+".png").read_bytes())
@@ -181,12 +183,27 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
                 data=report();click_scene(data["x"]+30,data["y"]+100)
                 wait_until(lambda:report().get("terminal_focus"))
                 assert report()["preedit"]=="",("stale preedit on refocus",report())
-            # A second client is deliberately refused ownership. Its real window
-            # supplies a native activation change without taking over the PTY.
+            # Ordinary mode tests a refused owner; transfer mode gives the peer
+            # its own real PTY, input context and independently captured bytes.
+            peer_root=root/"peer"
+            if two_terminals:
+                peer_root.mkdir();peer_sock=peer_root/"test.sock"
+                spawn([runtime,str(peer_sock),"/bin/sh"],cwd=peer_root,stdout=log,stderr=log)
+                wait_until(peer_sock.exists);peer_connection,_,_=attach(peer_sock)
+                try:send(peer_connection,16,("python3 "+shlex.quote(str(reader))+"\n").encode())
+                finally:peer_connection.close()
+                wait_until((peer_root/"reader-ready").exists)
             type_text("nihonn");wait_until(lambda:report().get("preedit")=="にほん")
             reader_pid=(root/"reader-pid").read_text()
-            blocked_path=artifacts/"blocked.json";blocked_path.unlink(missing_ok=True)
-            other=spawn([viewer,"--control",str(sock.with_suffix(".ctl")),"--test-report",str(blocked_path)],cwd=root,env=env,stdout=log,stderr=log)
+            blocked_path=artifacts/("peer.json" if two_terminals else "blocked.json");blocked_path.unlink(missing_ok=True)
+            other=spawn([viewer,"--control",str((peer_sock or sock).with_suffix(".ctl")),"--test-report",str(blocked_path)],cwd=root,env=env,stdout=log,stderr=log)
+            def peer_report():
+                try:return json.loads(blocked_path.read_text())
+                except (OSError,ValueError):return {}
+            def peer_received():return (peer_root/"received").read_bytes() if (peer_root/"received").exists() else b""
+            def focus_window(target):
+                if backend=="wayland":cmd("niri","msg","action","focus-window","--id",str(target))
+                else:xrun("windowfocus",target)
             def other_mapped():
                 assert other.poll() is None,"Second Qt window exited"
                 if backend=="wayland":
@@ -198,11 +215,41 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             def blocked():
                 try:return "already attached" in json.loads(blocked_path.read_text()).get("status","")
                 except (OSError,ValueError):return False
-            wait_until(blocked)
-            if backend=="xcb":xrun("windowfocus",other_window)
+            wait_until(lambda:peer_report().get("ready")) if two_terminals else wait_until(blocked)
+            focus_window(other_window)
             wait_until(lambda:not report().get("terminal_focus",True))
             wait_until(lambda:report().get("preedit","")=="")
             assert received()==b"",("window activation committed pending input",received())
+            if two_terminals:
+                peer_pid=(peer_root/"reader-pid").read_text()
+                wait_until(lambda:peer_report().get("terminal_focus"))
+                assert peer_received()==b"" and received()==b"",("peer startup input",peer_received(),received())
+                for cycle in range(2):
+                    type_text("nihonn",other_window);wait_until(lambda:peer_report().get("preedit")=="にほん")
+                    assert peer_received()==b"" and received()==b"",("peer preedit leaked",cycle)
+                    focus_window(window)
+                    wait_until(lambda:report().get("terminal_focus") and not peer_report().get("terminal_focus",True))
+                    wait_until(lambda:peer_report().get("preedit","")=="")
+                    assert peer_received()==b"",("peer focus loss committed",cycle,peer_received())
+                    type_text("nihonn");wait_until(lambda:report().get("preedit")=="にほん")
+                    focus_window(other_window)
+                    wait_until(lambda:peer_report().get("terminal_focus") and not report().get("terminal_focus",True))
+                    wait_until(lambda:report().get("preedit","")=="")
+                    assert received()==b"" and peer_received()==b"",("primary focus loss leaked",cycle)
+                type_text("nihonn",other_window);wait_until(lambda:peer_report().get("preedit")=="にほん")
+                key("space",other_window);wait_until(lambda:"日本" in peer_report().get("preedit",""))
+                assert received()==b"" and peer_received()==b"",("peer conversion leaked",received(),peer_received())
+                key("Return",other_window);wait_until(lambda:peer_received()=="日本".encode())
+                wait_until(lambda:peer_report().get("preedit","")=="")
+                type_text("nihonn",other_window);wait_until(lambda:peer_report().get("preedit")=="にほん")
+                key("Return",other_window);wait_until(lambda:peer_received()=="日本にほん".encode())
+                wait_until(lambda:peer_report().get("preedit","")=="")
+                key("Return",other_window);key("ctrl+c",other_window)
+                peer_expected="日本にほん".encode()+b"\r\x03"
+                wait_until(lambda:peer_received()==peer_expected)
+                assert received()==b"",("peer commit or keys reached primary",received())
+                assert (peer_root/"reader-pid").read_text()==peer_pid
+                os.kill(int(peer_pid),0);os.kill(int(reader_pid),0)
             if backend=="wayland":cmd("niri","msg","action","close-window","--id",str(other_window))
             else:close_window(other_window,env)
             other.wait(timeout=5)
@@ -211,6 +258,9 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             wait_until(lambda:report().get("terminal_focus"))
             assert report()["preedit"]=="" and report()["ready"],("stale preedit or lost attachment on activation",report())
             assert (root/"reader-pid").read_text()==reader_pid,"Shell reader replaced"
+            if two_terminals:
+                os.kill(int(peer_pid),0)
+                assert peer_received()==peer_expected,"Peer changed after detach"
             type_text("nihonn");wait_until(lambda:report().get("preedit")=="にほん")
             key("space");wait_until(lambda:"日本" in report().get("preedit",""))
             assert received()==b"",("conversion leaked",received())
@@ -228,14 +278,23 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             key("Return");expected+=b"\r";wait_until(lambda:received()==expected)
             key("ctrl+c");expected+=b"\x03";wait_until(lambda:received()==expected)
             result=dict(backend=report()["platform"],input_context="ibus",ime_transport="direct D-Bus",ibus_version=cmd("ibus","version").stdout.decode().strip(),display_unset="DISPLAY" not in env,engine="anthy",preedit="にほん",converted="日本",window_focus_cancel=True,focus_cancel=True,chrome_input_isolated=True,composition_cursor=True,cancel_no_input=True,commit_exact_once=True,post_commit_keys=True)
+            if two_terminals:
+                assert peer_received()==peer_expected,"Primary input reached peer"
+                assert (peer_root/"reader-pid").read_text()==peer_pid
+                os.kill(int(peer_pid),0);os.kill(int(reader_pid),0)
+                result.update(editable_terminal_transfers=True,transfer_cycles=2,peer_commits_exact_once=True,
+                              peer_input_isolated=True,readers_preserved=True,peer_detach_preserved=True)
             (artifacts/"result.json").write_text(json.dumps(result,indent=2,ensure_ascii=False))
             if backend=="wayland":cmd("niri","msg","action","close-window")
             else:close_window(window,env)
             child.wait(timeout=5)
-            print("PASS:",backend,"real IBus/Anthy preedit, cancel, conversion and repeated exact-once commits; control/window focus isolation; post-commit Enter/Ctrl-C",flush=True)
+            print("PASS:",backend,"real IBus/Anthy preedit, cancel, conversion and repeated exact-once commits; control/window focus isolation; post-commit Enter/Ctrl-C"+("; two editable terminals with isolated input and retained readers" if two_terminals else ""),flush=True)
         finally:
             if (root/"received").exists():(artifacts/"received.bin").write_bytes((root/"received").read_bytes())
             if (root/"niri.log").exists():(artifacts/"niri.log").write_bytes((root/"niri.log").read_bytes())
+            if two_terminals and peer_sock:
+                if (root/"peer/received").exists():(artifacts/"peer-received.bin").write_bytes((root/"peer/received").read_bytes())
+                subprocess.run([runtime,"stop",str(peer_sock)],capture_output=True,timeout=12)
             subprocess.run([runtime,"stop",str(sock)],capture_output=True,timeout=12)
             for process in reversed(processes):
                 if process.poll() is None:process.terminate()

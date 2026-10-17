@@ -287,6 +287,10 @@ toolkit-terminal-accessibility-test: runtime-build
 toolkit-terminal-ime-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-ime-test
 
+# Linux: real IME transfers between two independently owned editable terminals.
+toolkit-terminal-ime-transfer-test: runtime-build
+    python3 scripts/toolkit-probe.py terminal-ime-transfer-test
+
 # Mac and Linux: offline terminal-cell/full-text shaping and fallback comparison.
 toolkit-text-test: runtime-build
     python3 scripts/toolkit-probe.py text-test

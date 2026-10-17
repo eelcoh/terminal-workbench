@@ -855,3 +855,40 @@ and Option–Right (Alt on Linux), including holding either arrow: the cursor sh
 words without inserting letters. The automated test saves actual/expected byte
 hex and `key_bytes_match` in `.local/artifacts/qt-keys/report.json`, including
 byte mismatches, so native failures can be inspected without retyping input.
+
+
+### Editable-terminal IME transfers
+
+`just toolkit-terminal-ime-transfer-test` adds a second independently owned
+runtime and raw PTY reader to the private IBus/Anthy test. Each Qt window is
+editable, with its own input context and byte capture. The original
+`toolkit-terminal-ime-test` retains the refused-owner activation case.
+
+The new proof passes with IBus 1.5.34/Anthy on both xcb and native Wayland in
+private Niri (with DISPLAY unset for Qt). Two round trips switch real window
+focus while composition is pending in each terminal. Preedit cancels without
+PTY input. The peer then converts and commits 日本 and にほん exactly once,
+and receives Return/Ctrl-C independently of the first terminal. After the peer
+window detaches, the first terminal completes its original conversion, commit
+and key checks. PID and raw-byte checks require both reader processes to stay
+alive and unchanged and exclude cross-terminal input throughout.
+
+Artifacts are `.local/artifacts/qt-ime-transfer/{xcb,wayland}/`: result JSON,
+per-window reports, raw bytes for each PTY and backend logs. This covers separate
+editable windows on Linux, not two items sharing one window's input context.
+Native Mac editable-terminal transfers, same-window transfers and candidate
+panel placement remain separate acceptance work.
+
+For native Mac review, run `just toolkit-terminal` twice from separate regular
+terminal tabs, and run `cat` inside each Qt shell. Enable Japanese–Romaji in
+Hiragana mode. In A, type `nihonn` without committing and click B; pending text
+should cancel without reaching either terminal. Repeat in the opposite
+direction. Then convert `nihonn` with Space and commit it with Return in B;
+only B should receive 日本. Repeat in A and check that B receives nothing.
+Ctrl-C exits each `cat`. Closing these disposable probe windows stops their
+respective test shells. Record the native result before treating the Mac gate
+as passed.
+
+The owner also confirmed Alt–Arrow word navigation in the Linux Qt terminal
+probe after the shared Option/Alt binding change. Native Mac word navigation
+still needs direct confirmation.

@@ -474,3 +474,17 @@ These readbacks run outside timing and the report requires
 `partial_matches_full: true`. Native Mac measurements need rerunning for this
 change. Full-size backing images/textures remain; no upload-area or VRAM saving
 is assumed from CPU clipping.
+
+
+## Composition between two editable terminals
+
+On Linux, run `just toolkit-terminal-ime-transfer-test`. It opens private xcb
+and Wayland desktops/buses and uses two disposable PTYs. It checks composition
+cancellation on real window focus changes, repeated commits to the correct PTY,
+key isolation and unchanged reader processes after the other viewer detaches.
+It saves per-window reports and each PTY's input in
+`.local/artifacts/qt-ime-transfer/`. Saved Workbench sessions are not opened.
+
+For native Mac review, open `just toolkit-terminal` twice and follow the
+[editable-transfer steps](../../docs/toolkit-readiness.md#editable-terminal-ime-transfers).
+This Linux harness does not establish Mac or same-window multi-pane behavior.

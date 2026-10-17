@@ -13,9 +13,9 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test"))
     args = parser.parse_args()
-    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test") and not sys.platform.startswith("linux"):
+    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
     if args.mode=="scene-perf-test" and not sys.platform.startswith("linux"):
         parser.error("scene-perf-test uses private Linux Xvfb; use scene-perf for native Mac measurements")
@@ -65,12 +65,14 @@ def main():
         subprocess.run([sys.executable,str(ROOT/"tests/qt_terminal_key_smoke.py"),
                         str(ROOT/"target/debug/workbench-session"),str(binary)],check=True)
         return
-    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test"):
+    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test"):
         test = {"terminal-test":"qt_terminal_gui_smoke.py",
                 "terminal-wayland-test":"qt_wayland_terminal_gui_smoke.py",
-                "terminal-ime-test":"qt_ime_gui_smoke.py"}[args.mode]
+                "terminal-ime-test":"qt_ime_gui_smoke.py",
+                "terminal-ime-transfer-test":"qt_ime_gui_smoke.py"}[args.mode]
         subprocess.run([sys.executable, str(ROOT / "tests" / test),
-                        str(ROOT / "target/debug/workbench-session"), str(binary)], check=True)
+                        str(ROOT / "target/debug/workbench-session"), str(binary),
+                        *(["--two-terminals"] if args.mode=="terminal-ime-transfer-test" else [])], check=True)
         return
     if args.mode == "terminal":
         # Disposable shell only: no catalog, ownership transfer or saved sessions.
