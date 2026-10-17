@@ -22,7 +22,7 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
         if(!busy_)return;
         // No retry after sending a mutation: a lost reply does not prove failure.
         sent_=true;
-        if(socket_.write(receive_)!=receive_.size()) {fail("Could not send creation request. Refresh before trying again.");return;}
+        if(socket_.write(receive_)!=receive_.size()) {fail("Could not send session request. Refresh before trying again.");return;}
         receive_.clear();
     });
     connect(&socket_,&QLocalSocket::readyRead,this,[this] {
@@ -55,7 +55,7 @@ void UiSession::request(const QString &method,const QString &identity,const QStr
     QJsonObject message{{"protocol",1},{"method",method},{"identity",identity},{"title",name},
         {"runtime",config_["runtime"]},{"cwd",config_["cwd"]}};
     if(method=="terminal.move") {message.insert("destination",destination);message.insert("position",position);}
-    if(method=="workspace.create_at")message.insert("project_directory",directory);
+    if(method=="workspace.create_at" || method=="workspace.directory")message.insert("project_directory",directory);
     receive_=QJsonDocument(message).toJson(QJsonDocument::Compact)+'\n';
     if(receive_.size()>256*1024) {fail("Request exceeds the session service size limit.");return;}
     Q_EMIT changed();deadline_.start();
@@ -63,5 +63,8 @@ void UiSession::request(const QString &method,const QString &identity,const QStr
 }
 void UiSession::createTerminal(const QString &workspace) {request("terminal.create",workspace,"Shell");}
 void UiSession::createWorkspace(const QString &name,const QString &directory) {request("workspace.create_at",{},name,directory);}
+void UiSession::renameWorkspace(const QString &identity,const QString &name) {request("workspace.rename",identity,name);}
+void UiSession::setWorkspaceDirectory(const QString &identity,const QString &directory) {request("workspace.directory",identity,{},directory);}
+void UiSession::clearError() {if(!busy_ && !error_.isEmpty()) {error_.clear();Q_EMIT changed();}}
 void UiSession::moveTerminal(const QString &identity,const QString &workspace,int position) {request("terminal.move",identity,{},{},workspace,position);}
 void UiSession::refresh() {request("initialize");}

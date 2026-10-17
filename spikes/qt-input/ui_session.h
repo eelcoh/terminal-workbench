@@ -24,6 +24,9 @@ public:
     Q_INVOKABLE void attach(TerminalItem *item,const QString &identity);
     Q_INVOKABLE void createTerminal(const QString &workspace);
     Q_INVOKABLE void createWorkspace(const QString &name,const QString &directory);
+    Q_INVOKABLE void renameWorkspace(const QString &identity,const QString &name);
+    Q_INVOKABLE void setWorkspaceDirectory(const QString &identity,const QString &directory);
+    Q_INVOKABLE void clearError();
     Q_INVOKABLE void moveTerminal(const QString &identity,const QString &workspace,int position);
     Q_INVOKABLE void refresh();
 Q_SIGNALS:

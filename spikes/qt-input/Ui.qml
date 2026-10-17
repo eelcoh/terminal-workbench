@@ -10,6 +10,9 @@ ApplicationWindow {
     property bool overview: false
     property bool reducedMotion: false
     property bool pendingWorkspaceDialog: false
+    property string workspaceFormMode: "create"
+    property string editingWorkspace: ""
+    readonly property bool folderFocused: newFolder.activeFocus
     property bool pendingAppearance: false
     property var workspaceThemes: []
     property string appearanceWorkspace: ""
@@ -82,19 +85,38 @@ ApplicationWindow {
             if (!overview) Qt.callLater(reveal)
         }
         if (method === "workspace.create_at") { createDialog.close(); chooseWorkspace(spaces.length - 1); if (overview) toggleOverview() }
+        if (method === "workspace.rename" || method === "workspace.directory") createDialog.close()
         if (method === "terminal.create" && added >= 0) { if (overview) toggleOverview(); Qt.callLater(function() { focusPane(added) }) }
     }
     function newTerminal() { if (canCreateTerminal && !createDialog.visible && !window.appearanceOpen) studySession.createTerminal(spaceIds[workspace]) }
     function newWorkspace() {
         if (!canCreateWorkspace || createDialog.visible) return
+        workspaceFormMode = "create"; editingWorkspace = ""
+        queueWorkspaceForm()
+    }
+    function editWorkspace(mode) {
+        if (studySession.busy || dragSlot >= 0 || createDialog.visible || overview || appearance.visible) return
+        workspaceFormMode = mode; editingWorkspace = spaceIds[workspace]
+        queueWorkspaceForm()
+    }
+    function queueWorkspaceForm() {
         pendingWorkspaceDialog = true
         if (drawer.visible) drawer.close()
         else if (appMenu.visible) appMenu.close()
         else { pendingWorkspaceDialog = false; openWorkspaceForm() }
     }
     function openWorkspaceForm() {
-        newName.text = ""; newFolder.text = directories[workspace] || studySession.defaultDirectory
+        const target = workspaceFormMode === "create" ? workspace : spaceIds.indexOf(editingWorkspace)
+        if (target < 0) return
+        studySession.clearError()
+        newName.text = workspaceFormMode === "create" ? "" : spaces[target]
+        newFolder.text = directories[target] || studySession.defaultDirectory
         createDialog.open()
+    }
+    function submitWorkspaceForm() {
+        if (workspaceFormMode === "rename") studySession.renameWorkspace(editingWorkspace, newName.text)
+        else if (workspaceFormMode === "folder") studySession.setWorkspaceDirectory(editingWorkspace, newFolder.text)
+        else studySession.createWorkspace(newName.text, newFolder.text)
     }
     function restoreAfterPopup() {
         if (pendingAppearance) {
@@ -379,6 +401,9 @@ ApplicationWindow {
         MenuItem { text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.newTerminal() }
         MenuItem { text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.newWorkspace() }
         MenuSeparator {}
+        MenuItem { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
+        MenuItem { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
+        MenuSeparator {}
         MenuItem { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
         MenuItem { text: "Keyboard shortcuts"; onTriggered: help.open() }
         MenuItem { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
@@ -420,24 +445,37 @@ ApplicationWindow {
     }
     Dialog {
         id: createDialog; objectName: "createWorkspaceDialog"
-        onOpened: newName.forceActiveFocus()
+        onOpened: {
+            const field = window.workspaceFormMode === "folder" ? newFolder : newName
+            field.forceActiveFocus(); field.deselect(); field.cursorPosition = field.text.length
+        }
         implicitWidth: 460
-        title: "New workspace"; anchors.centerIn: parent; modal: true; width: Math.min(460, window.width - 80)
+        title: window.workspaceFormMode === "rename" ? "Rename workspace" : window.workspaceFormMode === "folder" ? "Workspace folder" : "New workspace"; anchors.centerIn: parent; modal: true; width: Math.min(460, window.width - 80)
         padding: 20
         background: Rectangle { color: "#1b2029"; radius: 10; border.color: "#3a4657" }
         header: Label { text: createDialog.title; padding: 20; bottomPadding: 6; color: "#e0e6ef"; font.pixelSize: 18 }
         closePolicy: studySession.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
         contentItem: Column {
             spacing: 12
-            Label { text: "Name"; color: "#c2c9d4" }
-            ProjectField { id: newName; objectName: "workspaceNameInput"; width: parent.width; placeholderText: "Project name"; enabled: !studySession.busy; selectByMouse: true; maximumLength: 63; onAccepted: newFolder.forceActiveFocus() }
-            Label { text: "Folder"; color: "#c2c9d4" }
-            ProjectField { id: newFolder; objectName: "workspaceFolderInput"; width: parent.width; enabled: !studySession.busy; selectByMouse: true; onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked() }
+            Label { text: "Name"; visible: window.workspaceFormMode !== "folder"; color: "#c2c9d4" }
+            ProjectField {
+                id: newName; objectName: "workspaceNameInput"; width: parent.width; placeholderText: "Project name"
+                visible: window.workspaceFormMode !== "folder"; enabled: !studySession.busy; maximumLength: 63
+                onAccepted: { if (window.workspaceFormMode === "rename") { if (submitWorkspace.enabled) submitWorkspace.clicked() } else newFolder.forceActiveFocus() }
+            }
+            Label { text: "Folder"; visible: window.workspaceFormMode !== "rename"; color: "#c2c9d4" }
+            ProjectField { id: newFolder; objectName: "workspaceFolderInput"; width: parent.width; visible: window.workspaceFormMode !== "rename"; enabled: !studySession.busy; onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked() }
+            Label { width: parent.width; visible: window.workspaceFormMode !== "rename"; text: "Used by new terminals. Running terminals keep their current folders."; wrapMode: Text.Wrap; color: "#a5afbe"; font.pixelSize: 12 }
             Label { width: parent.width; text: studySession.error; visible: text.length > 0; wrapMode: Text.Wrap; color: "#e3bf91" }
             Row {
                 spacing: 8
                 QuietButton { fixedPalette: true; text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
-                QuietButton { id: submitWorkspace; fixedPalette: true; text: studySession.busy ? "Creating…" : "Create"; enabled: !studySession.busy && newName.text.trim().length > 0 && newFolder.text.trim().length > 0; onClicked: studySession.createWorkspace(newName.text, newFolder.text) }
+                QuietButton {
+                    id: submitWorkspace; objectName: "submitWorkspaceButton"; fixedPalette: true
+                    text: studySession.busy ? (window.workspaceFormMode === "create" ? "Creating…" : "Saving…") : window.workspaceFormMode === "create" ? "Create" : "Save"
+                    enabled: !studySession.busy && (window.workspaceFormMode === "folder" || newName.text.trim().length > 0) && (window.workspaceFormMode === "rename" || newFolder.text.trim().length > 0)
+                    onClicked: window.submitWorkspaceForm()
+                }
             }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()

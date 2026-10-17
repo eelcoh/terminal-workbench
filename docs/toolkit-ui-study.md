@@ -69,6 +69,31 @@ automatically. Refresh reads the catalog without replacing existing live items
 or restarting stopped shells. Closing stops all study runtimes and its service.
 This remains disposable; saved user sessions are not accessed or migrated.
 
+## Editing a workspace
+
+Select a workspace, then open the application menu in the working view.
+**Rename workspace…** edits its name; **Workspace folder…** edits the folder
+used by new terminals. Each uses the same native fields and Save/Cancel pattern
+as creation. Existing values open intact with the caret at the end. Use arrows,
+Home/End, mouse selection or the platform clipboard shortcuts to edit a portion;
+Select all explicitly replaces the value. Enter saves; Escape/Cancel discards.
+
+The folder form explains that running shells keep their current directories.
+An existing absolute path, `~/...` or a path relative to the study launcher's
+home directory is accepted; spaces and UTF-8 use the existing service validation.
+Empty values disable Save. Invalid folders remain editable with an inline error.
+The form keeps its workspace identity while saving, disables repeated requests,
+and closes only on success. Rename and folder changes are separate operations,
+each using one existing service method (`workspace.rename` or
+`workspace.directory`) without a new protocol or a partially applied combined Save.
+
+Editing also works for an empty workspace and does not create a terminal.
+Names update the drawer/top bar/Overview from the confirmed catalog. Directory
+changes apply to subsequent new shells; existing shells retain their cwd, PID,
+input connection, theme and grid. Cancelling changes none of those facts.
+This still edits only the private disposable study catalog. A native folder
+picker and editing the saved production catalog remain later slices.
+
 ## Workspace Appearance
 
 From the working view, open **application menu → Appearance…**. Search the
@@ -159,6 +184,10 @@ and unchanged reader PIDs. Native drag checks cover reorder/navigation, cancella
 empty-workspace moves, rejection of full destinations, same-workspace reorder at
 capacity, destination themes, automatic edge scrolling and unchanged
 original-reader identities, input and grids. A plain click leaves no selection.
+Editing checks cover in-place name/path changes, empty workspaces, cancelled
+blank names, invalid folder errors and their correction. Real shells verify
+that an edited folder applies to new terminals while the existing shell keeps
+its cwd; original raw readers retain their PIDs, grids and isolated input.
 Creation checks add terminals to existing/empty
 workspaces, reject invalid folders without catalog changes, cancel/retry the
 form, verify actual new-shell cwd and preserve the six original raw readers.
@@ -177,8 +206,8 @@ created by ordinary interactive runs.
 
 The owner confirmed the initial UI and creation flows on Mac and Linux, and
 confirmed that Appearance and cursor styling work. The new click/drag interactions
-still need native Mac review. This slice does not yet
-implement existing workspace rename/folder editing, a native folder picker, agents,
+and workspace editing still need native Mac review. This slice does not yet
+implement a native folder picker, agents,
 persistence, configured shortcuts or session ownership workflows.
 It avoids dead controls for those actions. They remain later design slices,
 along with typography, motion, accessibility and cache/backing-surface budgets.

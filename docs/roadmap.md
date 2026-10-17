@@ -1017,3 +1017,25 @@ reordered navigation and unchanged grids, raw-reader PIDs and input isolation.
 Native Mac click/drag review and keyboard-only move commands remain open.
 This is still the disposable Qt study, not a production frontend switch.
 See [moving terminals](toolkit-ui-study.md#moving-terminals-in-overview).
+
+
+## Qt study: workspace name and folder editing
+
+The working-view application menu now exposes Rename workspace and Workspace
+folder as separate Save/Cancel forms, reusing the creation fields. Existing
+values retain their text with the caret at the end for in-place edits. Empty
+values disable Save; invalid folder errors stay inline. The UI submits existing
+`workspace.rename`/`workspace.directory` methods against the private study
+service. Each form saves one setting without a combined partial-success path.
+
+Confirmed catalogs update the workspace labels and the folder used by new
+terminals. Existing terminal items, themes, width preferences, grids, input
+ownership and shell cwd/PIDs are retained. Empty workspaces can be edited without
+spawning shells. Native xcb/Wayland checks exercise edits, cancellation, invalid
+folders, empty workspaces and actual new/existing-shell cwd behavior alongside
+the existing drag, input, cursor and appearance coverage.
+
+Native Mac workspace-editing review remains open. Native folder browsing, agents,
+keyboard-only moves, saved configuration and terminal lifecycle/ownership UI
+remain later slices; this does not switch the production frontend.
+See [editing a workspace](toolkit-ui-study.md#editing-a-workspace).

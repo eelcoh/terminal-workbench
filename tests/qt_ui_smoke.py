@@ -23,7 +23,7 @@ import workspace_catalog
 os.environ['SHELL']='/bin/sh'
 processes=[];sockets=[]
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:
-    root=Path(directory);project=root/'Project folder';project.mkdir()
+    root=Path(directory);project=root/'Project folder';project.mkdir();child=project/'child';child.mkdir()
     try:
         reader=root/'reader.py';reader.write_text('''import os,tty,time,select,termios,struct,fcntl
 from pathlib import Path
@@ -119,6 +119,10 @@ while True:
                 if cancel:
                     key('Escape');wait_until(lambda:data()['drag_slot']==-1)
             finally:button('mouseup')
+        def workspace_form(mode):
+            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+            click(*data()['rename_workspace_item' if mode=='rename' else 'workspace_folder_item'])
+            wait_until(lambda:data()['creation_open'] and data()['workspace_form_mode']==mode and data()['name_focus' if mode=='rename' else 'folder_focus'])
         def received(i):
             path=root/str(i)/'input';return path.read_bytes() if path.exists() else b''
         def sizes():return [(p['columns'],p['rows']) for p in data()['panes']]
@@ -282,6 +286,14 @@ while True:
         assert created_workspace['name']=='Project test' and created_workspace['directory']==str(project)
         # Empty workspace can create its first terminal without special handling.
         key('super+alt+Up');wait_until(lambda:data()['workspace']==2 and data()['selected']==-1)
+        workspace_form('rename');assert data()['name_input']=='Empty workspace'
+        typed(' edited');key('Return')
+        wait_until(lambda:not data()['creation_open'] and data()['workspace_names'][2]=='Empty workspace edited')
+        assert data()['selected']==-1,'editing an empty workspace created a selection'
+        workspace_form('folder');assert data()['folder_input']==str(root)
+        key('ctrl+a');typed(str(project));key('Return')
+        wait_until(lambda:not data()['creation_open'] and data()['workspace_directories'][2]==str(project))
+        assert len(data()['panes'])==8,'editing an empty workspace spawned a terminal'
         key('super+alt+t');wait_until(lambda:len(data()['panes'])==9 and data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
         wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']))
         creation_sizes=sizes();key('super+alt+o');wait_until(lambda:data()['overview']);time.sleep(.3)
@@ -306,6 +318,42 @@ while True:
         last=data()['panes'][5];drag(3,last['right']-8,last['y'])
         wait_until(lambda:order(1)[:3]==['terminal-4','terminal-5','terminal-3'])
         assert sizes()==full_sizes,'full workspace reorder resized a terminal'
+        key('Escape');wait_until(lambda:not data()['overview'])
+        key('super+alt+Down');wait_until(lambda:data()['workspace']==2 and data()['panes'][8]['focus'])
+        empty_cwd=root/'empty-workspace-cwd';typed('pwd > '+shlex.quote(str(empty_cwd)));key('Return');wait_until(empty_cwd.exists)
+        assert empty_cwd.read_text().strip()==str(project),'first shell ignored edited empty-workspace folder'
+        key('super+alt+Down');wait_until(lambda:data()['workspace']==3 and data()['panes'][7]['focus'])
+        editing_sizes=sizes();editing_catalog=workspace_catalog.load(root)
+        workspace_form('rename');assert data()['name_input']=='Project test'
+        typed(' renamed');key('Home');typed('Qt ')
+        wait_until(lambda:data()['name_input']=='Qt Project test renamed')
+        capture('workspace-rename.png');key('Return')
+        wait_until(lambda:not data()['creation_open'] and data()['workspace_names'][3]=='Qt Project test renamed' and data()['panes'][7]['focus'])
+        renamed=workspace_catalog.load(root)
+        assert renamed['workspaces'][3]['name']=='Qt Project test renamed'
+        assert renamed['workspaces'][3]['id']==editing_catalog['workspaces'][3]['id']
+        assert renamed['workspaces'][3]['terminals']==editing_catalog['workspaces'][3]['terminals']
+        workspace_form('rename');key('ctrl+a');key('BackSpace')
+        wait_until(lambda:data()['name_input']=='' and not data()['form_submit_enabled'])
+        key('Escape');wait_until(lambda:not data()['creation_open'] and data()['panes'][7]['focus'])
+        assert workspace_catalog.load(root)==renamed,'cancelled rename mutated catalog'
+        workspace_form('folder');assert data()['folder_input']==str(project)
+        key('ctrl+a');typed(str(root/'missing'));key('Return')
+        wait_until(lambda:'Folder' in data()['error'] and not data()['busy'])
+        assert workspace_catalog.load(root)==renamed and data()['creation_open']
+        capture('workspace-folder-error.png')
+        key('Escape');wait_until(lambda:not data()['creation_open'])
+        workspace_form('folder');assert data()['error']=='' and data()['folder_input']==str(project)
+        typed('/child');wait_until(lambda:data()['folder_input']==str(child))
+        capture('workspace-folder.png');key('Return')
+        wait_until(lambda:not data()['creation_open'] and data()['workspace_directories'][3]==str(child) and data()['panes'][7]['focus'])
+        assert sizes()==editing_sizes,'workspace edit resized existing terminals'
+        unchanged_cwd=root/'existing-shell-cwd';typed('pwd > '+shlex.quote(str(unchanged_cwd)));key('Return');wait_until(unchanged_cwd.exists)
+        assert unchanged_cwd.read_text().strip()==str(project),'folder edit changed a running shell cwd'
+        key('super+alt+t');wait_until(lambda:len(data()['panes'])==14 and data()['panes'][13]['ready'] and data()['panes'][13]['focus'])
+        new_cwd=root/'edited-new-shell-cwd';typed('pwd > '+shlex.quote(str(new_cwd)));key('Return');wait_until(new_cwd.exists)
+        assert new_cwd.read_text().strip()==str(child),'new shell ignored edited folder'
+        assert data()['panes'][7]['theme']==0 and data()['panes'][13]['theme']==0
         expected=[b'first',b'second',b'',b'peer',b'chosen\x1b',b'']
         assert [received(i) for i in range(6)]==expected,'navigation/overview shortcuts leaked into a PTY'
         for i,pid in enumerate(pids):
@@ -315,7 +363,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, rename/folder in-place edits/cancel/validation/cwd inheritance, unchanged reader PIDs and isolated input')
     finally:
         for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
         request(root,Path(runtime),root,"service.shutdown")
