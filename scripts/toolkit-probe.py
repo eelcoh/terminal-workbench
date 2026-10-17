@@ -13,9 +13,9 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test"))
     args = parser.parse_args()
-    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test") and not sys.platform.startswith("linux"):
+    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
     if args.mode=="scene-perf-test" and not sys.platform.startswith("linux"):
         parser.error("scene-perf-test uses private Linux Xvfb; use scene-perf for native Mac measurements")
@@ -65,36 +65,39 @@ def main():
         subprocess.run([sys.executable,str(ROOT/"tests/qt_terminal_key_smoke.py"),
                         str(ROOT/"target/debug/workbench-session"),str(binary)],check=True)
         return
-    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test"):
+    if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test"):
         test = {"terminal-test":"qt_terminal_gui_smoke.py",
                 "terminal-wayland-test":"qt_wayland_terminal_gui_smoke.py",
                 "terminal-ime-test":"qt_ime_gui_smoke.py",
-                "terminal-ime-transfer-test":"qt_ime_gui_smoke.py"}[args.mode]
+                "terminal-ime-transfer-test":"qt_ime_gui_smoke.py",
+                "terminal-ime-pane-test":"qt_ime_gui_smoke.py"}[args.mode]
         subprocess.run([sys.executable, str(ROOT / "tests" / test),
                         str(ROOT / "target/debug/workbench-session"), str(binary),
-                        *(["--two-terminals"] if args.mode=="terminal-ime-transfer-test" else [])], check=True)
+                        *(["--same-window"] if args.mode=="terminal-ime-pane-test" else ["--two-terminals"] if args.mode=="terminal-ime-transfer-test" else [])], check=True)
         return
-    if args.mode == "terminal":
-        # Disposable shell only: no catalog, ownership transfer or saved sessions.
-        with tempfile.TemporaryDirectory(prefix="wb-qt-") as directory:
-            socket = Path(directory) / "terminal.sock"
-            runtime = ROOT / "target/debug/workbench-session"
-            with (Path(directory) / "runtime.log").open("w") as log:
-                server = subprocess.Popen([str(runtime), str(socket)], cwd=Path.home(), stdout=log, stderr=log)
+    if args.mode in ("terminal","terminal-pair"):
+        # Disposable shells only: no catalog, ownership transfer or saved sessions.
+        with tempfile.TemporaryDirectory(prefix="wb-qt-",dir="/tmp") as directory:
+            sockets=[Path(directory)/f"terminal-{i}.sock" for i in range(2 if args.mode=="terminal-pair" else 1)]
+            runtime=ROOT/"target/debug/workbench-session";servers=[]
+            with (Path(directory)/"runtime.log").open("w") as log:
                 try:
-                    deadline = time.monotonic() + 10
-                    while not socket.with_suffix(".ctl").exists():
-                        if server.poll() is not None or time.monotonic() > deadline:
-                            raise RuntimeError("Disposable terminal runtime did not start")
-                        time.sleep(.02)
-                    subprocess.run([str(binary), "--control", str(socket.with_suffix(".ctl")), "--disposable"], check=True)
+                    for socket in sockets:
+                        server=subprocess.Popen([str(runtime),str(socket)],cwd=Path.home(),stdout=log,stderr=log)
+                        servers.append(server);deadline=time.monotonic()+10
+                        while not socket.with_suffix(".ctl").exists():
+                            if server.poll() is not None or time.monotonic()>deadline:
+                                raise RuntimeError("Disposable terminal runtime did not start")
+                            time.sleep(.02)
+                    command=[str(binary),"--control",str(sockets[0].with_suffix(".ctl")),"--disposable"]
+                    if len(sockets)>1:command.extend(["--second-control",str(sockets[1].with_suffix(".ctl"))])
+                    subprocess.run(command,check=True)
                 finally:
-                    subprocess.run([str(runtime), "stop", str(socket)], capture_output=True, timeout=12)
-                    try:
-                        server.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        server.terminate()
-                        server.wait(timeout=5)
+                    for socket,server in zip(sockets,servers):
+                        subprocess.run([str(runtime),"stop",str(socket)],capture_output=True,timeout=12)
+                        try:server.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            server.terminate();server.wait(timeout=5)
         return
     command = [str(binary)]
     if args.mode == "test":

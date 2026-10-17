@@ -52,7 +52,7 @@ if(WORKBENCH_TERMINAL_PROBE)
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.text-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Text Proof")
     qt_add_executable(workbench-terminal-probe terminal_main.cpp terminal_item.cpp terminal_item.h terminal_accessibility.cpp terminal_accessibility.h terminal_accessibility_test.cpp terminal_composition.cpp terminal_composition_test.cpp terminal_composition.h terminal_text.cpp terminal_text.h)
-    qt_add_resources(workbench-terminal-probe "terminal" PREFIX "/" FILES Terminal.qml)
+    qt_add_resources(workbench-terminal-probe "terminal" PREFIX "/" FILES Terminal.qml Pair.qml)
     # Ghostty formatter structs have an emit field; avoid Qt keyword macros.
     target_compile_definitions(workbench-terminal-probe PRIVATE QT_NO_KEYWORDS)
     qt_add_resources(workbench-terminal-probe "terminal_font" PREFIX "/"

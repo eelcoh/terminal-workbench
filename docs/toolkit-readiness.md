@@ -892,3 +892,38 @@ as passed.
 The owner also confirmed Alt–Arrow word navigation in the Linux Qt terminal
 probe after the shared Option/Alt binding change. Native Mac word navigation
 still needs direct confirmation.
+
+
+### Same-window terminal composition and toolbar routing
+
+`just toolkit-terminal-pair` opens two disposable runtime-owned shells side by
+side in one Qt window on Mac/Linux. Clicking a pane changes the input target;
+Copy/Paste preserve the selected pane when the toolbar itself takes focus.
+It is an input fixture, not a replacement for Workbench's production chrome.
+Closing the interactive fixture stops both of its disposable shells.
+
+`just toolkit-terminal-ime-pane-test` extends the private Linux IBus/Anthy
+harness to this shared window/input context. Both xcb and native Wayland pass
+two round trips with pending composition in A and B. Preedit cancels without
+PTY bytes; conversion, repeated commits and ordinary keys reach only the
+focused terminal. Toolbar Paste after B focus appends a distinct clipboard
+marker only to B. Both raw readers retain their PID and stay alive while A
+completes its own input checks. No new composition-reset policy was needed.
+
+Reports are `.local/artifacts/qt-ime-pane/{xcb,wayland}/`: `terminal.json`
+contains A plus the nested `peer` report for B. Each reader's raw bytes, native
+backend logs and window captures are retained. The original refused-owner and
+separate-window tests remain available and pass after the report refactor.
+Single-terminal report fields keep their existing meaning.
+
+Native Mac acceptance remains open. Run `just toolkit-terminal-pair`, then
+run `cat` in each pane. Enable Japanese–Romaji/Hiragana, type `nihonn` in A
+without committing, and click B: A's pending text should clear without input
+in either shell. Repeat from B to A. Convert and commit 日本 in each pane in
+turn and confirm it reaches only that pane. Select B, copy a small plain-text
+marker from another app, and click Paste: only B should receive it. Check
+Option–Arrow separately at an ordinary shell prompt; Ctrl-C exits `cat`.
+
+This establishes the Linux input boundary for two items in one window. Native
+Mac composition/candidate placement, physical external-display typography,
+live one/fifteen-runtime performance and packaging still gate toolkit adoption.

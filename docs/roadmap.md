@@ -903,3 +903,15 @@ refused-owner focus test remains available. Native Mac and two terminals in a
 single window still need acceptance; live 1/15-runtime load, physical-display
 quality and packaging remain open before choosing a production frontend.
 See [editable transfers](toolkit-readiness.md#editable-terminal-ime-transfers).
+
+
+## Current toolkit slice: same-window terminal input
+
+`just toolkit-terminal-pair` hosts two disposable editable terminals in one Qt
+window for Mac/Linux review. The Linux native IME proof now covers their shared
+window/input context: composition cancels on pane focus changes, commits and
+keys stay with the focused PTY, and toolbar Paste keeps B as its destination
+when the button takes focus. Both xcb and Wayland pass with stable reader PIDs.
+The original single-terminal and separate-window probes remain available.
+Native Mac review, physical display quality, live one/fifteen-runtime load and
+packaging remain open. See [same-window input](toolkit-readiness.md#same-window-terminal-composition-and-toolbar-routing).

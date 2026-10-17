@@ -17,8 +17,10 @@ ARTIFACTS=ROOT/".local/artifacts/qt-ime"
 
 
 def main():
-    two_terminals="--two-terminals" in sys.argv
-    arguments=[arg for arg in sys.argv if arg!="--two-terminals"]
+    same_window="--same-window" in sys.argv
+    two_terminals="--two-terminals" in sys.argv or same_window
+    mode_flags=["--same-window"] if same_window else ["--two-terminals"] if two_terminals else []
+    arguments=[arg for arg in sys.argv if arg not in ("--two-terminals","--same-window")]
     runtime,viewer=[str(Path(arg).resolve()) for arg in arguments[1:3]]
     if len(arguments)==3:
         for backend in ("xcb","wayland"):
@@ -35,10 +37,10 @@ def main():
                     env.pop(name,None)
                 env["IBUS_ADDRESS"]="unix:path="+str(root/"ibus.sock")
                 env["IBUS_ADDRESS_FILE"]=str(root/"ibus.address")
-                subprocess.run(["dbus-run-session","--",sys.executable,__file__,runtime,viewer,str(root),backend,*(["--two-terminals"] if two_terminals else [])],env=env,cwd=ROOT,check=True,timeout=100)
+                subprocess.run(["dbus-run-session","--",sys.executable,__file__,runtime,viewer,str(root),backend,*mode_flags],env=env,cwd=ROOT,check=True,timeout=100)
         return
     root=Path(arguments[3]);backend=arguments[4]
-    artifacts=(ROOT/".local/artifacts/qt-ime-transfer" if two_terminals else ARTIFACTS)/backend;artifacts.mkdir(parents=True,exist_ok=True)
+    artifacts=(ROOT/".local/artifacts/qt-ime-pane" if same_window else ROOT/".local/artifacts/qt-ime-transfer" if two_terminals else ARTIFACTS)/backend;artifacts.mkdir(parents=True,exist_ok=True)
     for name in ("result.json","received.bin"):(artifacts/name).unlink(missing_ok=True)
     processes=[];sock=root/"test.sock";peer_sock=None;niri_log=None
     with (artifacts/"run.log").open("w") as log:
@@ -112,7 +114,17 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             send(connection,16,("python3 "+shlex.quote(str(reader))+"\n").encode())
             wait_until((root/"reader-ready").exists);connection.close()
             report_path=artifacts/"terminal.json";report_path.unlink(missing_ok=True)
-            child=spawn([viewer,"--control",str(sock.with_suffix(".ctl")),"--test-report",str(report_path)],cwd=root,env=env,stdout=log,stderr=log)
+            peer_root=root/"peer"
+            if same_window:
+                peer_root.mkdir();peer_sock=peer_root/"test.sock"
+                spawn([runtime,str(peer_sock),"/bin/sh"],cwd=peer_root,stdout=log,stderr=log)
+                wait_until(peer_sock.exists);peer_connection,_,_=attach(peer_sock)
+                try:send(peer_connection,16,("python3 "+shlex.quote(str(reader))+"\n").encode())
+                finally:peer_connection.close()
+                wait_until((peer_root/"reader-ready").exists)
+            command=[viewer,"--control",str(sock.with_suffix(".ctl")),"--test-report",str(report_path)]
+            if same_window:command.extend(["--second-control",str(peer_sock.with_suffix(".ctl"))])
+            child=spawn(command,cwd=root,env=env,stdout=log,stderr=log)
             def report():
                 try:return json.loads(report_path.read_text())
                 except (OSError,ValueError):return {}
@@ -138,12 +150,12 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             def received():return (root/"received").read_bytes() if (root/"received").exists() else b""
             def type_text(value,target=None):
                 if backend=="wayland":cmd(str(root/"keyboard"),"text",value)
-                else:xrun("type","--window",target or window,"--delay",60,value)
+                else:xrun("type","--window",window if same_window else target or window,"--delay",60,value)
             def key(value,target=None):
                 if backend=="wayland":
                     args=("c","Control") if value=="ctrl+c" else (value,)
                     cmd(str(root/"keyboard"),"key",*args)
-                else:xrun("key","--window",target or window,value)
+                else:xrun("key","--window",window if same_window else target or window,value)
             def capture(name):
                 request=Path(str(report_path)+".capture");request.touch();wait_until(lambda:not request.exists())
                 (artifacts/(name+".png")).write_bytes(Path(str(report_path)+".png").read_bytes())
@@ -186,7 +198,7 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
             # Ordinary mode tests a refused owner; transfer mode gives the peer
             # its own real PTY, input context and independently captured bytes.
             peer_root=root/"peer"
-            if two_terminals:
+            if two_terminals and not same_window:
                 peer_root.mkdir();peer_sock=peer_root/"test.sock"
                 spawn([runtime,str(peer_sock),"/bin/sh"],cwd=peer_root,stdout=log,stderr=log)
                 wait_until(peer_sock.exists);peer_connection,_,_=attach(peer_sock)
@@ -195,14 +207,20 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
                 wait_until((peer_root/"reader-ready").exists)
             type_text("nihonn");wait_until(lambda:report().get("preedit")=="にほん")
             reader_pid=(root/"reader-pid").read_text()
-            blocked_path=artifacts/("peer.json" if two_terminals else "blocked.json");blocked_path.unlink(missing_ok=True)
-            other=spawn([viewer,"--control",str((peer_sock or sock).with_suffix(".ctl")),"--test-report",str(blocked_path)],cwd=root,env=env,stdout=log,stderr=log)
+            blocked_path=artifacts/("peer.json" if two_terminals else "blocked.json")
+            if not same_window:
+                blocked_path.unlink(missing_ok=True)
+                other=spawn([viewer,"--control",str((peer_sock or sock).with_suffix(".ctl")),"--test-report",str(blocked_path)],cwd=root,env=env,stdout=log,stderr=log)
+            else:other=child
             def peer_report():
-                try:return json.loads(blocked_path.read_text())
+                try:return report().get("peer",{}) if same_window else json.loads(blocked_path.read_text())
                 except (OSError,ValueError):return {}
             def peer_received():return (peer_root/"received").read_bytes() if (peer_root/"received").exists() else b""
             def focus_window(target):
-                if backend=="wayland":cmd("niri","msg","action","focus-window","--id",str(target))
+                if same_window:
+                    data=peer_report() if target=="peer" else report()
+                    click_scene(data["x"]+30,data["y"]+100)
+                elif backend=="wayland":cmd("niri","msg","action","focus-window","--id",str(target))
                 else:xrun("windowfocus",target)
             def other_mapped():
                 assert other.poll() is None,"Second Qt window exited"
@@ -211,7 +229,7 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
                     return next((item["id"] for item in windows if item["id"]!=window),None)
                 result=subprocess.run(["xdotool","search","--onlyvisible","--pid",str(other.pid)],env=env,capture_output=True,timeout=5)
                 return result.stdout.decode().strip().splitlines()[-1] if result.stdout.strip() else None
-            other_window=wait_until(other_mapped)
+            other_window="peer" if same_window else wait_until(other_mapped)
             def blocked():
                 try:return "already attached" in json.loads(blocked_path.read_text()).get("status","")
                 except (OSError,ValueError):return False
@@ -250,11 +268,27 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
                 assert received()==b"",("peer commit or keys reached primary",received())
                 assert (peer_root/"reader-pid").read_text()==peer_pid
                 os.kill(int(peer_pid),0);os.kill(int(reader_pid),0)
-            if backend=="wayland":cmd("niri","msg","action","close-window","--id",str(other_window))
-            else:close_window(other_window,env)
-            other.wait(timeout=5)
-            if backend=="wayland":cmd("niri","msg","action","focus-window","--id",str(window))
-            else:xrun("windowfocus",window)
+                if same_window:
+                    # Toolbar focus must preserve B as the paste destination.
+                    marker="PEER-PASTE"
+                    if backend=="wayland":
+                        spawn(["wl-copy","--foreground","--",marker],env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=log)
+                    else:
+                        provider=spawn(["xclip","-selection","clipboard","-in","-quiet"],env=env,stdin=subprocess.PIPE,stdout=log,stderr=log)
+                        provider.stdin.write(marker.encode());provider.stdin.close()
+                    def clipboard_ready():
+                        command=["wl-paste","--no-newline"] if backend=="wayland" else ["xclip","-o","-selection","clipboard"]
+                        value=subprocess.run(command,env=env,capture_output=True,timeout=5)
+                        return value.returncode==0 and value.stdout==marker.encode()
+                    wait_until(clipboard_ready)
+                    click_scene(*report()["paste_button"])
+                    peer_expected+=marker.encode();wait_until(lambda:peer_received()==peer_expected)
+                    assert received()==b"",("toolbar paste reached primary",received())
+            if not same_window:
+                if backend=="wayland":cmd("niri","msg","action","close-window","--id",str(other_window))
+                else:close_window(other_window,env)
+                other.wait(timeout=5)
+            focus_window(window)
             wait_until(lambda:report().get("terminal_focus"))
             assert report()["preedit"]=="" and report()["ready"],("stale preedit or lost attachment on activation",report())
             assert (root/"reader-pid").read_text()==reader_pid,"Shell reader replaced"
@@ -283,12 +317,15 @@ finally:termios.tcsetattr(0,termios.TCSANOW,saved)
                 assert (peer_root/"reader-pid").read_text()==peer_pid
                 os.kill(int(peer_pid),0);os.kill(int(reader_pid),0)
                 result.update(editable_terminal_transfers=True,transfer_cycles=2,peer_commits_exact_once=True,
-                              peer_input_isolated=True,readers_preserved=True,peer_detach_preserved=True)
+                              peer_input_isolated=True,readers_preserved=True,same_window=same_window)
+                if same_window:
+                    result.pop("window_focus_cancel",None);result.update(pane_focus_cancel=True,focused_paste_button_isolated=True)
+                else:result["peer_detach_preserved"]=True
             (artifacts/"result.json").write_text(json.dumps(result,indent=2,ensure_ascii=False))
             if backend=="wayland":cmd("niri","msg","action","close-window")
             else:close_window(window,env)
             child.wait(timeout=5)
-            print("PASS:",backend,"real IBus/Anthy preedit, cancel, conversion and repeated exact-once commits; control/window focus isolation; post-commit Enter/Ctrl-C"+("; two editable terminals with isolated input and retained readers" if two_terminals else ""),flush=True)
+            print("PASS:",backend,"real IBus/Anthy preedit, cancel, conversion and repeated exact-once commits; control/window focus isolation; post-commit Enter/Ctrl-C"+("; two editable panes in one window with isolated input and retained readers" if same_window else "; two editable terminals with isolated input and retained readers" if two_terminals else ""),flush=True)
         finally:
             if (root/"received").exists():(artifacts/"received.bin").write_bytes((root/"received").read_bytes())
             if (root/"niri.log").exists():(artifacts/"niri.log").write_bytes((root/"niri.log").read_bytes())

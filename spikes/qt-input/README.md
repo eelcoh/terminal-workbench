@@ -488,3 +488,17 @@ It saves per-window reports and each PTY's input in
 For native Mac review, open `just toolkit-terminal` twice and follow the
 [editable-transfer steps](../../docs/toolkit-readiness.md#editable-terminal-ime-transfers).
 This Linux harness does not establish Mac or same-window multi-pane behavior.
+
+
+## Two panes in one window
+
+`just toolkit-terminal-pair` opens two disposable shells in one Qt window on
+Mac/Linux. Click A or B to type there; the shared Copy/Paste toolbar remembers
+that pane when the button takes focus. Closing the window stops both test
+shells. This fixture does not open saved Workbench sessions.
+
+On Linux, `just toolkit-terminal-ime-pane-test` checks real IBus/Anthy focus
+transfers, cancellation, exact-once commits, ordinary keys and toolbar paste
+isolation on xcb and Wayland. Reports, bytes and captures are in
+`.local/artifacts/qt-ime-pane/`. Native Mac steps are in the
+[same-window acceptance notes](../../docs/toolkit-readiness.md#same-window-terminal-composition-and-toolbar-routing).

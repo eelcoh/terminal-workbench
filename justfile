@@ -310,3 +310,11 @@ toolkit-scene-perf-test: runtime-build
 # Mac/Linux: Qt key events through the real terminal host to a raw disposable PTY.
 toolkit-terminal-key-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-key-test
+
+# Mac/Linux: two disposable editable terminals in one Qt window.
+toolkit-terminal-pair: runtime-build
+    python3 scripts/toolkit-probe.py terminal-pair
+
+# Linux: real IME moves between two terminals sharing one Qt window/input context.
+toolkit-terminal-ime-pane-test: runtime-build
+    python3 scripts/toolkit-probe.py terminal-ime-pane-test
