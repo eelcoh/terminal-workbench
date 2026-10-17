@@ -31,6 +31,8 @@ public:
     QString preeditText() const { return composition_.text(); }
     QString viewportText() const;
     QRectF caret() const { return caret_; }
+    QString cursorPresentation() const;
+    QColor cursorColor() const {return cursorColor_;}
     qreal textRasterScale() const {return textRows_.size()==0?0:textRows_.image(0).devicePixelRatio();}
     // Narrow client diagnostics for the isolated live-runtime benchmark.
     // Queried at scenario boundaries; no aggregate collection in paint/parse.
@@ -77,6 +79,7 @@ private:
     void resizeTerminal();
     void refresh();
     void applyTheme();
+    void updateCursor();
     void encodeKey(QKeyEvent *, bool);
     void committed(const QString &);
     void select(const QPointF &, bool);
@@ -106,7 +109,9 @@ private:
     qreal cellWidth_=10, cellHeight_=22, ascent_=17;
     quint16 columns_=0, lines_=0, wantedColumns_=0, wantedLines_=0;
     QRectF caret_;
-    bool cursorVisible_=false, dragging_=false;
+    bool cursorVisible_=false, cursorFocused_=false, dragging_=false;
+    GhosttyRenderStateCursorVisualStyle cursorStyle_=GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK;
+    QImage cursorGlyph_;qint64 cursorRowKey_=0;QRect cursorSource_;QColor cursorInk_;
     QPoint anchor_;
     mutable AccessibleSnapshot accessible_;
     mutable bool accessibleDirty_=true;

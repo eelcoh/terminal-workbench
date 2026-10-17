@@ -33,6 +33,7 @@ while True:
   data=os.read(0,65536)
   with Path('input').open('ab') as output:output.write(data)
  rows,cols,_,_=struct.unpack('HHHH',fcntl.ioctl(0,termios.TIOCGWINSZ,b'\\0'*8));Path('size').write_text(str(cols)+','+str(rows))
+ if Path('cursor').exists():os.write(1,Path('cursor').read_bytes());Path('cursor').unlink()
  if Path('update').exists():os.write(1,b'\\r\\nHIDDEN-UPDATE');Path('update').unlink()
 ''')
         for i in range(6):
@@ -109,11 +110,32 @@ while True:
         def capture(name):
             Path(str(report)+'.capture').touch();wait_until(lambda:not Path(str(report)+'.capture').exists());(artifacts/name).write_bytes(Path(str(report)+'.png').read_bytes())
         wait_until(lambda:data()['panes'][0]['focus']);typed('first');wait_until(lambda:received(0)==b'first')
+        # Focus/style changes must paint real cursor pixels without replacing readers.
+        wait_until(lambda:data()['panes'][0]['cursor']=='block' and data()['panes'][1]['cursor']=='outline')
+        capture('cursor-active.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
+        assert pixels[0]['cursor_pixels']>pixels[0]['area']*.75,pixels[0]
+        assert pixels[1]['cursor_pixels']<pixels[1]['area']*.5 and pixels[1]['background_pixels']>0,pixels[1]
+        cursor_grid=sizes()
+        def cursor(sequence,style):
+            (root/'0'/'cursor').write_bytes(sequence)
+            wait_until(lambda:data()['panes'][0]['cursor']==style)
+        cursor(b'\x1b[2;1H\x1b[2 q','block')
+        wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.1)
+        capture('cursor-character.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
+        assert pixels[0]['cursor_pixels']>0 and pixels[0]['background_pixels']>0,'filled cursor hid the character underneath'
+        cursor(b'\x1b[6 q','bar');capture('cursor-bar.png')
+        cursor(b'\x1b[4 q','underline');capture('cursor-underline.png')
+        cursor(b'\x1b[?25l','hidden');capture('cursor-hidden.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
+        assert pixels[0]['cursor_pixels']==0,'hidden cursor still painted'
+        cursor(b'\x1b[?25h\x1b[2 q','block')
+        key('super+alt+slash');wait_until(lambda:data()['panes'][0]['cursor']=='outline')
+        key('Escape');wait_until(lambda:data()['panes'][0]['cursor']=='block')
+        assert sizes()==cursor_grid
         initial_sizes=sizes();pane=data()['panes'][0];click(pane['x'],pane['y'],7)
         wait_until(lambda:data()['content_x']>0)
         assert sizes()==initial_sizes and data()['panes'][0]['focus'],'horizontal wheel changed grid or focus'
         key('super+alt+Left');wait_until(lambda:data()['content_x']<1)
-        key('super+alt+Right');wait_until(lambda:data()['selected']==1 and data()['panes'][1]['focus']);typed('second');wait_until(lambda:received(1)==b'second')
+        key('super+alt+Right');wait_until(lambda:data()['selected']==1 and data()['panes'][1]['focus'] and data()['panes'][1]['cursor']=='block' and data()['panes'][0]['cursor']=='outline');typed('second');wait_until(lambda:received(1)==b'second')
         offscreen_rows=data()['panes'][2]['rasterized_rows']
         (root/'2'/'update').touch();wait_until(lambda:'HIDDEN-UPDATE' in data()['panes'][2]['text'])
         assert data()['panes'][2]['rasterized_rows']==offscreen_rows,'offscreen column rasterized output'
@@ -194,7 +216,7 @@ while True:
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
     finally:
         for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
         request(root,Path(runtime),root,"service.shutdown")

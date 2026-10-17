@@ -49,6 +49,7 @@ int main(int argc,char **argv) {
                 const auto cell=item->cellSize();
                 const QSize geometry(qBound(1,int((item->width()-16)/cell.width()),1000),qBound(1,int((item->height()-16)/cell.height()),1000));
                 panes.append(QJsonObject{{"ready",item->ready()},{"text",item->viewportText()},
+                    {"cursor",item->cursorPresentation()},
                     {"theme",item->themeIndex()},{"background",item->backgroundColor().name()},
                     {"sample_green",item->cellForeground(1,2).name()},{"sample_red",item->cellForeground(1,0).name()},{"sample_rgb",item->cellForeground(1,1).name()},
                     {"columns",size.width()},{"rows",size.height()},{"geometry_ready",size==geometry},{"focus",item->hasActiveFocus()},
@@ -73,7 +74,27 @@ int main(int argc,char **argv) {
                 {"new_workspace_button",QJsonArray{createPoint.x(),createPoint.y()}},
                 {"panes",panes},{"platform",QGuiApplication::platformName()}};
             QSaveFile report(path);if(report.open(QIODevice::WriteOnly)){report.write(QJsonDocument(data).toJson());report.commit();}
-            if(QFile::exists(path+".capture") && window->grabWindow().save(path+".png"))QFile::remove(path+".capture");
+            if(QFile::exists(path+".capture")) {
+                const auto image=window->grabWindow();
+                if(image.save(path+".png")) {
+                    QJsonArray cursors;
+                    for(const auto &value:items) {
+                        auto *item=qobject_cast<TerminalItem *>(value.value<QObject *>());if(!item)continue;
+                        const auto rect=item->mapRectToScene(item->caret());
+                        const qreal sx=qreal(image.width())/window->width(),sy=qreal(image.height())/window->height();
+                        const QRect pixels=QRect(qRound(rect.x()*sx),qRound(rect.y()*sy),qRound(rect.width()*sx),qRound(rect.height()*sy)).intersected(image.rect());
+                        int cursor=0,background=0;
+                        for(int y=pixels.top();y<=pixels.bottom();++y)for(int x=pixels.left();x<=pixels.right();++x) {
+                            const auto color=image.pixelColor(x,y);
+                            if(color==item->cursorColor())++cursor;
+                            if(color==item->backgroundColor())++background;
+                        }
+                        cursors.append(QJsonObject{{"cursor_pixels",cursor},{"background_pixels",background},{"area",pixels.width()*pixels.height()}});
+                    }
+                    QSaveFile metrics(path+".cursor.json");if(metrics.open(QIODevice::WriteOnly)){metrics.write(QJsonDocument(cursors).toJson());metrics.commit();}
+                    QFile::remove(path+".capture");
+                }
+            }
         });reporter.start();
     }
     return app.exec();

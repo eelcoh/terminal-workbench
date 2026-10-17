@@ -52,9 +52,12 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     setFlag(ItemAcceptsInputMethod); setFlag(ItemIsFocusScope);
     setAcceptedMouseButtons(Qt::LeftButton); setActiveFocusOnTab(true);
     setOpaquePainting(true);
+    connect(this,&QQuickItem::activeFocusChanged,this,&TerminalItem::updateCursor);
+    connect(this,&QQuickItem::enabledChanged,this,&TerminalItem::updateCursor);
     connect(this,&QQuickItem::windowChanged,this,[this](QQuickWindow *window) {
         if(window) {
             window->installEventFilter(this);
+            connect(window,&QWindow::activeChanged,this,[this,window]{if(this->window()==window)updateCursor();});
             connect(window,&QWindow::visibilityChanged,this,[this,window](QWindow::Visibility) {
                 if(this->window()==window && ready_ && !refreshTimer_.isActive())refreshTimer_.start();
             });
@@ -228,7 +231,7 @@ void TerminalItem::resizeTerminal()
 void TerminalItem::refresh()
 {
     if(!terminal_ || failed_)return;
-    const auto oldCursorColor=cursorColor_;const auto oldCaret=caret_;const bool oldCursorVisible=cursorVisible_;const auto oldBackground=background_;
+    const auto oldCursorStyle=cursorStyle_;const auto oldCursorColor=cursorColor_;const auto oldCaret=caret_;const bool oldCursorVisible=cursorVisible_;const auto oldBackground=background_;
     const bool notify=QAccessible::isActive() && isVisible();
     const auto previous=notify ? accessibleSnapshot() : AccessibleSnapshot();
     if(ghostty_render_state_update(render_,terminal_)!=GHOSTTY_SUCCESS) {fail("Render snapshot failed");return;}
@@ -276,7 +279,13 @@ void TerminalItem::refresh()
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_HAS_VALUE,&inViewport);
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_X,&x);
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_Y,&y);
-    caret_=QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_,cellHeight_);cursorVisible_=visible&&inViewport;
+    ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VISUAL_STYLE,&cursorStyle_);
+    bool wideTail=false;ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_WIDE_TAIL,&wideTail);
+    // Keep the cursor over the whole grapheme when VT reports its wide tail.
+    if(wideTail && x>0)--x;
+    const bool wide=y<grid_.size() && x<grid_[y].size() && grid_[y][x].wide==GHOSTTY_CELL_WIDE_WIDE;
+    caret_=QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_*(wide?2:1),cellHeight_);cursorVisible_=visible&&inViewport;
+    updateCursor();
     refreshedBytes_=receivedBytes_;
     accessibleDirty_=true;
     if(notify)terminalAccessibilityChanged(this,previous,accessibleSnapshot());
@@ -286,7 +295,7 @@ void TerminalItem::refresh()
     // the same event-loop turn cannot narrow Qt's pending dirty rectangle.
     if(damage.full || oldBackground!=background_ || composition_.active()) {update(boundingRect().toAlignedRect());return;}
     QRect dirty=damage.rect(boundingRect(),cellHeight_);
-    if(oldCaret!=caret_ || oldCursorVisible!=cursorVisible_ || oldCursorColor!=cursorColor_) {
+    if(oldCaret!=caret_ || oldCursorVisible!=cursorVisible_ || oldCursorColor!=cursorColor_ || oldCursorStyle!=cursorStyle_) {
         if(oldCursorVisible)dirty=dirty.united(oldCaret.adjusted(-1,-1,1,1).toAlignedRect());
         if(cursorVisible_)dirty=dirty.united(caret_.adjusted(-1,-1,1,1).toAlignedRect());
     }
@@ -299,13 +308,60 @@ QString TerminalItem::viewportText() const
     for(const auto &row:grid_) {for(const auto &cell:row)text+=cell.text.isEmpty()?QStringLiteral(" "):cell.text;text+='\n';}
     return text;
 }
+QString TerminalItem::cursorPresentation() const
+{
+    if(!cursorVisible_)return "hidden";
+    if(!cursorFocused_ || cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK_HOLLOW)return "outline";
+    if(cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BAR)return "bar";
+    if(cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_UNDERLINE)return "underline";
+    return "block";
+}
+void TerminalItem::updateCursor()
+{
+    const bool focused=hasActiveFocus() && isEnabled() && window() && window()->isActive();
+    const bool changed=focused!=cursorFocused_;cursorFocused_=focused;
+    bool glyphChanged=false;
+    if(presentationEnabled_ && isVisible() && cursorVisible_ && focused && cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK) {
+        const int row=qRound((caret_.y()-8)/cellHeight_),column=qRound((caret_.x()-8)/cellWidth_);
+        if(row>=0 && row<textRows_.size() && row<grid_.size() && column>=0 && column<grid_[row].size()) {
+            const auto &source=textRows_.image(row);const qreal scale=source.devicePixelRatio();
+            const QRect rect(qRound(column*cellWidth_*scale),0,qCeil(caret_.width()*scale),qCeil(cellHeight_*scale));
+            const auto ink=grid_[row][column].bg;
+            if(cursorRowKey_!=source.cacheKey() || cursorSource_!=rect || cursorInk_!=ink) {
+                cursorRowKey_=source.cacheKey();cursorSource_=rect;cursorInk_=ink;cursorGlyph_=QImage();
+                // Reuse the shaped foreground mask; never shape or allocate in paint.
+                if(!source.isNull() && source.rect().intersects(rect)) {
+                    cursorGlyph_=source.copy(rect);cursorGlyph_.setDevicePixelRatio(1);
+                    {QPainter painter(&cursorGlyph_);painter.setCompositionMode(QPainter::CompositionMode_SourceIn);painter.fillRect(cursorGlyph_.rect(),ink);}
+                    cursorGlyph_.setDevicePixelRatio(scale);
+                }
+                glyphChanged=true;
+            }
+        }
+    }
+    if((changed || glyphChanged) && presentationEnabled_ && isVisible() && cursorVisible_)
+        update(caret_.adjusted(-1,-1,1,1).toAlignedRect());
+}
 void TerminalItem::paint(QPainter *painter)
 {
     // Pure drawing of GUI-thread snapshots: no socket/VT calls or state mutation.
     painter->fillRect(boundingRect(),background_);
     painter->setRenderHint(QPainter::TextAntialiasing,true);
     paintTerminalGrid(*painter,grid_,textRows_,cellWidth_,cellHeight_,QPointF(8,8));
-    if(cursorVisible_) {painter->setPen(cursorColor_);painter->drawRect(caret_.adjusted(0,0,-1,-1));}
+    if(cursorVisible_) {
+        if(!cursorFocused_ || cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK_HOLLOW) {
+            const qreal stroke=1/(window()?window()->devicePixelRatio():1);
+            QPen pen(cursorColor_);pen.setWidthF(stroke);painter->setPen(pen);painter->setBrush(Qt::NoBrush);
+            painter->drawRect(caret_.adjusted(stroke/2,stroke/2,-stroke/2,-stroke/2));
+        } else if(cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BAR) {
+            painter->fillRect(QRectF(caret_.topLeft(),QSizeF(std::min(qreal(2),caret_.width()),caret_.height())),cursorColor_);
+        } else if(cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_UNDERLINE) {
+            painter->fillRect(QRectF(caret_.left(),caret_.bottom()-2,caret_.width(),2),cursorColor_);
+        } else {
+            painter->fillRect(caret_,cursorColor_);
+            if(!cursorGlyph_.isNull())painter->drawImage(caret_.topLeft(),cursorGlyph_);
+        }
+    }
     composition_.paint(painter,caret_,ascent_,background_);
 }
 QVariant TerminalItem::inputMethodQuery(Qt::InputMethodQuery query) const

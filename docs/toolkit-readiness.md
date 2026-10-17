@@ -974,3 +974,14 @@ PTY geometry changes. Native xcb/Wayland checks inspect actual indexed/RGB/OSC
 cell colors and exercise workspace/chrome isolation, cancellation and Apply.
 Mac Appearance acceptance, saved settings and imports remain open. See
 [the study flow](toolkit-ui-study.md#workspace-appearance).
+
+
+### Cursor focus in the Qt host
+
+The owner confirmed Appearance and reported identical hollow cursors in active
+and inactive panes. The host now consumes Ghostty's visual cursor style,
+distinguishes terminal/window focus, and keeps text readable under a filled
+block through a small retained glyph mask. Native xcb/Wayland pixel checks pass
+filled/outline focus, glyph preservation, application bar/underline and hidden
+cursor behavior, with existing readers/grids preserved. Mac review of this
+polish remains open; no blink timer is added.

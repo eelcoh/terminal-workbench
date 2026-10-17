@@ -100,6 +100,28 @@ The study's themes are kept only for its current window lifetime, like its other
 presentation preferences. Dotfile defaults, theme import and saved appearance
 integration are later work; this does not change the daily-use viewer's settings.
 
+## Cursor focus and application shapes
+
+The focused terminal in an active window uses a filled block by default;
+inactive panes, modal-control focus and inactive windows use an outline.
+Application-requested bar/underline shapes are respected while active, as are
+cursor visibility and an explicitly hollow style. Wide graphemes receive a
+whole-grapheme caret. The cursor uses the effective theme/program cursor color.
+A filled block redraws the shaped character in the cell's background color so
+moving onto text does not obscure it.
+
+Focus changes repaint the caret region using retained state. The small glyph
+mask is cached on the GUI thread and reused during paint; focus changes do not
+rescan the VT or rerasterize terminal rows. There is no new blinking timer or
+idle animation; blink timing remains follow-up work.
+
+Native xcb/Wayland checks inspect captured pixels for filled/outline cursors,
+readable glyphs under blocks, and hidden cursors; they also drive app-requested
+bar/underline shapes and pane/modal focus transfers without changing readers or
+grids. Artifacts include `cursor-*.png` and opt-in `report.json.cursor.json`
+pixel counts. On Mac, check pane changes, opening a menu/dialog, switching to
+another app and returning, plus application-requested cursor shapes.
+
 ## Evidence and next scope
 
 `just toolkit-ui-test` drives real native keyboard/pointer input against six
@@ -124,8 +146,9 @@ Artifacts are `.local/artifacts/qt-ui/{xcb,wayland}/`, including working and
 Overview captures and opt-in disposable-terminal reports. Reports are never
 created by ordinary interactive runs.
 
-The owner confirmed the initial UI and creation flows on Mac and Linux. The
-new Appearance flow still needs native Mac review. This slice does not yet
+The owner confirmed the initial UI and creation flows on Mac and Linux, and
+confirmed that Appearance works. The new cursor styling still needs native Mac
+review. This slice does not yet
 implement existing workspace rename/folder editing, a native folder picker, agents,
 drag/reorder, persistence, configured shortcuts or session ownership workflows.
 It avoids dead controls for those actions. They remain later design slices,

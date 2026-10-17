@@ -985,3 +985,15 @@ and Wayland checks cover preview/cancel/apply, no results, workspace isolation
 and inheritance. Mac Appearance review, saved configuration integration and
 import remain open. Drag/reorder is the next UI slice.
 See [workspace Appearance](toolkit-ui-study.md#workspace-appearance).
+
+
+## Current Qt polish: cursor focus and shape
+
+After owner confirmation of Appearance, the Qt host now renders a filled block
+for the focused terminal in an active window and an outline for inactive
+panes/windows. Application-requested bar/underline/hidden/hollow shapes are
+preserved, with a cached shaped glyph under the block and a whole-grapheme caret
+for wide text. Focus repaints the caret region without VT scans, row raster work
+or a new idle timer. Native xcb/Wayland pixel and input checks pass; Mac cursor
+review remains open. Drag/reorder remains the next larger UI slice.
+See [cursor review](toolkit-ui-study.md#cursor-focus-and-application-shapes).
