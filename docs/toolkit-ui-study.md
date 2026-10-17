@@ -100,6 +100,31 @@ The study's themes are kept only for its current window lifetime, like its other
 presentation preferences. Dotfile defaults, theme import and saved appearance
 integration are later work; this does not change the daily-use viewer's settings.
 
+## Moving terminals in Overview
+
+Open Overview and drag a terminal preview within its workspace to reorder it,
+or onto another workspace to move it. A thin marker shows the insertion point;
+the destination outline and floating label identify the workspace and position.
+Empty workspaces accept drops too. Hold near the top/bottom edge to scroll to
+workspaces outside the viewport. Escape cancels the drag while keeping Overview
+open; dropping outside the viewport also cancels. A full destination is marked
+unavailable. Reordering within a full workspace remains possible.
+
+A drop submits one asynchronous `terminal.move` through the existing service.
+Previews stay in their current places until that request succeeds. Cancellation
+and rejected drops leave the catalog untouched; uncertain replies use the
+existing notice/Refresh path without automatically resending the mutation.
+The same terminal objects remain attached, preserving shell PIDs, actual cwd,
+input ownership and width preferences. A moved terminal adopts its destination
+workspace's theme. Focus memory is reconciled by terminal identity, and the
+working strip, indicators and keyboard navigation follow the confirmed order.
+
+Dragging currently starts from Overview with a mouse/trackpad press and drag.
+Touchpad two-finger scrolling retains its Overview behavior. Keyboard-only move
+commands remain later work. In the working terminal, an ordinary click focuses
+and clears text selection; text selection starts only after the platform drag
+threshold, so a click no longer leaves a selected cell behind.
+
 ## Cursor focus and application shapes
 
 The focused terminal in an active window uses a filled block by default;
@@ -130,7 +155,11 @@ It checks native horizontal wheel scrolling without focus/grid changes, exact
 routing/no leaked application shortcuts, independent width
 changes and full-width restoration, workspace focus memory, help/Escape,
 empty workspace, Overview preview activation, stable grids through Overview
-and unchanged reader PIDs. Creation checks add terminals to existing/empty
+and unchanged reader PIDs. Native drag checks cover reorder/navigation, cancellation,
+empty-workspace moves, rejection of full destinations, same-workspace reorder at
+capacity, destination themes, automatic edge scrolling and unchanged
+original-reader identities, input and grids. A plain click leaves no selection.
+Creation checks add terminals to existing/empty
 workspaces, reject invalid folders without catalog changes, cancel/retry the
 form, verify actual new-shell cwd and preserve the six original raw readers.
 Theme checks drive the real menu/search/results UI: light preview and Cancel,
@@ -147,10 +176,10 @@ Overview captures and opt-in disposable-terminal reports. Reports are never
 created by ordinary interactive runs.
 
 The owner confirmed the initial UI and creation flows on Mac and Linux, and
-confirmed that Appearance works. The new cursor styling still needs native Mac
-review. This slice does not yet
+confirmed that Appearance and cursor styling work. The new click/drag interactions
+still need native Mac review. This slice does not yet
 implement existing workspace rename/folder editing, a native folder picker, agents,
-drag/reorder, persistence, configured shortcuts or session ownership workflows.
+persistence, configured shortcuts or session ownership workflows.
 It avoids dead controls for those actions. They remain later design slices,
 along with typography, motion, accessibility and cache/backing-surface budgets.
 Review this interaction slice before expanding it into the production frontend.

@@ -997,3 +997,23 @@ for wide text. Focus repaints the caret region without VT scans, row raster work
 or a new idle timer. Native xcb/Wayland pixel and input checks pass; Mac cursor
 review remains open. Drag/reorder remains the next larger UI slice.
 See [cursor review](toolkit-ui-study.md#cursor-focus-and-application-shapes).
+
+
+## Qt study: Overview drag and reorder
+
+The owner confirmed cursor styling works. Plain clicks in the terminal now clear
+selection without selecting the clicked cell; deliberate text drags retain
+selection/copy behavior. Overview previews can be dragged to reorder or move
+between workspaces, including empty ones. A destination outline/insertion marker,
+Escape cancellation and edge scrolling guide the move. Full destinations reject
+moves while allowing same-workspace reorder.
+
+The UI submits the existing `terminal.move` service command, then projects the
+confirmed catalog onto stable terminal items. Width preferences, live shells,
+cwd and attachments survive; themes follow the destination workspace. Keyboard
+navigation and focus memory follow the confirmed order. Native xcb/Wayland checks
+cover drag, cancel, empty destinations, edge scrolling, theme inheritance,
+reordered navigation and unchanged grids, raw-reader PIDs and input isolation.
+Native Mac click/drag review and keyboard-only move commands remain open.
+This is still the disposable Qt study, not a production frontend switch.
+See [moving terminals](toolkit-ui-study.md#moving-terminals-in-overview).

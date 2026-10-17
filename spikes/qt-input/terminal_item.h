@@ -113,6 +113,8 @@ private:
     GhosttyRenderStateCursorVisualStyle cursorStyle_=GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK;
     QImage cursorGlyph_;qint64 cursorRowKey_=0;QRect cursorSource_;QColor cursorInk_;
     QPoint anchor_;
+    QPointF pressPosition_;
+    bool selectionStarted_=false;
     mutable AccessibleSnapshot accessible_;
     mutable bool accessibleDirty_=true;
 };

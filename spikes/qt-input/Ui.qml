@@ -40,10 +40,11 @@ ApplicationWindow {
     readonly property bool creationOpen: createDialog.visible
     readonly property bool drawerOpen: drawer.visible
     readonly property bool nameFocused: newName.activeFocus
-    readonly property bool canCreateTerminal: spaces.length > 0 && counts[workspace] < 8 && !studySession.busy
-    readonly property bool canCreateWorkspace: spaces.length < 8 && !studySession.busy
+    readonly property bool canCreateTerminal: spaces.length > 0 && counts[workspace] < 8 && !studySession.busy && dragSlot < 0
+    readonly property bool canCreateWorkspace: spaces.length < 8 && !studySession.busy && dragSlot < 0
     ListModel { id: terminalModel }
-    function indices(space) { let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space) result.push(i); return result }
+    property int catalogRevision: 0
+    function indices(space) { const revision = catalogRevision; let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space) result.push(i); return result.sort((a,b) => terminalModel.get(a).ordinal - terminalModel.get(b).ordinal) }
     function ordinal(i) { return terminalModel.get(i).ordinal }
     function applyCatalog(catalog, method) {
         let names = [], ids = [], folders = [], totals = []
@@ -57,7 +58,11 @@ ApplicationWindow {
                 const terminal = space.terminals[j]
                 let existing = -1
                 for (let k = 0; k < terminalModel.count; ++k) if (terminalModel.get(k).terminalId === terminal.id) { existing = k; break }
-                if (existing >= 0) continue
+                if (existing >= 0) {
+                    terminalModel.setProperty(existing, "spaceIndex", w)
+                    terminalModel.setProperty(existing, "ordinal", j)
+                    continue
+                }
                 sizes.push(0.5); full.push(false); widths = sizes; fullWidths = full
                 terminalModel.append({terminalId: terminal.id, spaceIndex: w, ordinal: j})
                 added = terminalModel.count - 1
@@ -65,7 +70,17 @@ ApplicationWindow {
             }
         }
         spaces = names; spaceIds = ids; directories = folders; counts = totals
+        ++catalogRevision
+        for (let w = 0; w < names.length; ++w) {
+            const items = indices(w)
+            if (items.indexOf(focus[w]) < 0) focus[w] = items.length ? items[0] : -1
+        }
         remembered = focus; positions = scroll
+        if (selected >= 0) {
+            workspace = terminalModel.get(selected).spaceIndex
+            let values = remembered.slice(); values[workspace] = selected; remembered = values
+            if (!overview) Qt.callLater(reveal)
+        }
         if (method === "workspace.create_at") { createDialog.close(); chooseWorkspace(spaces.length - 1); if (overview) toggleOverview() }
         if (method === "terminal.create" && added >= 0) { if (overview) toggleOverview(); Qt.callLater(function() { focusPane(added) }) }
     }
@@ -98,7 +113,7 @@ ApplicationWindow {
     readonly property int motion: reducedMotion ? 0 : 220
     function panel(i) { return panels.itemAt(i) }
     function paneWidth(i) { return Math.max(240, (deck.width + 12) * (fullWidths[i] ? 1 : widths[i]) - 12) }
-    function left(i) { let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
+    function left(i) { if (i < 0) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
     function stripWidth() { const items = indices(workspace); return items.length === 0 ? deck.width : Math.max(deck.width, left(items[items.length - 1]) + paneWidth(items[items.length - 1])) }
     function reveal() {
         if (overview || selected < 0) return
@@ -119,7 +134,44 @@ ApplicationWindow {
         if (!overview && selected >= 0) Qt.callLater(function() { reveal(); panel(selected).terminal.forceActiveFocus() })
         else window.contentItem.forceActiveFocus()
     }
+    // Drag is client presentation only. Commit one existing service mutation on drop.
+    property int dragSlot: -1
+    property int dropSpace: -1
+    property int dropPosition: -1
+    property int dropRaw: -1
+    property point dragPoint: Qt.point(0, 0)
+    property bool dropAllowed: false
+    function cancelDrag() { dragSlot = -1; dropSpace = -1; dropPosition = -1; dropAllowed = false }
+    function updateDrop(point) {
+        dragPoint = point; dropSpace = -1; dropPosition = -1; dropAllowed = false
+        if (point.x < 0 || point.x > deck.width || point.y < 0 || point.y > deck.height) return
+        const y = point.y + deck.contentY
+        for (let w = 0; w < spaces.length; ++w) {
+            if (y < deck.groupTop(w) || y >= deck.groupTop(w + 1)) continue
+            dropSpace = w
+            const row = Math.max(0, Math.floor((y - deck.groupTop(w) - 30) / (deck.previewHeight + 12)))
+            const cellWidth = (deck.width + 12) / 3
+            const col = Math.max(0, Math.min(2, Math.floor(point.x / cellWidth)))
+            const items = indices(w), slot = items[row * 3 + col]
+            const half = slot === undefined ? cellWidth / 2 : panel(slot).width * panel(slot).previewScale / 2
+            const raw = Math.min(counts[w], row * 3 + col + (point.x - col * cellWidth >= half ? 1 : 0))
+            const source = terminalModel.get(dragSlot)
+            dropRaw = raw
+            dropPosition = raw - (source.spaceIndex === w && source.ordinal < raw ? 1 : 0)
+            dropAllowed = source.spaceIndex === w || counts[w] < 8
+            break
+        }
+    }
+    function finishDrag() {
+        if (dragSlot >= 0 && dropAllowed) {
+            const source = terminalModel.get(dragSlot)
+            if (source.spaceIndex !== dropSpace || source.ordinal !== dropPosition)
+                studySession.moveTerminal(source.terminalId, spaceIds[dropSpace], dropPosition)
+        }
+        cancelDrag()
+    }
     function toggleOverview() {
+        cancelDrag()
         if (!overview) { let values = positions.slice(); values[workspace] = deck.contentX; positions = values }
         overview = !overview; deck.contentX = overview ? 0 : positions[workspace]; deck.contentY = 0
         if (overview) window.contentItem.forceActiveFocus()
@@ -167,7 +219,7 @@ ApplicationWindow {
                 QuietButton {
                     required property int index
                     implicitWidth: 32; text: ""; hint: "Terminal " + (index + 1)
-                    readonly property int paneIndex: window.indices(window.workspace)[index]
+                    readonly property int paneIndex: window.indices(window.workspace)[index] ?? -1
                     Rectangle {
                         anchors.centerIn: parent; width: window.selected === parent.paneIndex ? 24 : 12; height: 4; radius: 2
                         color: window.selected === parent.paneIndex ? window.accent : window.left(parent.paneIndex) + window.paneWidth(parent.paneIndex) > deck.contentX && window.left(parent.paneIndex) < deck.contentX + deck.width ? window.chrome.muted : window.chrome.border
@@ -187,7 +239,7 @@ ApplicationWindow {
         id: deck; objectName: "deck"
         x: 60; y: 60; width: parent.width - 72; height: parent.height - 72
         clip: true; boundsBehavior: Flickable.StopAtBounds
-        interactive: window.overview
+        interactive: window.overview && window.dragSlot < 0
         contentWidth: window.overview ? width : window.stripWidth()
         contentHeight: window.overview ? overviewHeight() : height
         readonly property real previewHeight: Math.min(240, Math.max(150, (height - 100) / 2))
@@ -208,6 +260,7 @@ ApplicationWindow {
                 required property int ordinal
                 required property string terminalId
                 property alias terminal: terminal
+                opacity: window.dragSlot === index ? 0.45 : 1
                 readonly property real previewScale: Math.min((deck.width - 24) / 3 / width, deck.previewHeight / height)
                 objectName: "pane" + index
                 width: window.paneWidth(index); height: deck.height
@@ -225,6 +278,9 @@ ApplicationWindow {
                 QuietButton { anchors.right: parent.right; anchors.rightMargin: 3; y: 0; text: "⋯"; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
                     id: terminal; objectName: "terminal" + index
+                    property int workspaceIndex: pane.spaceIndex
+                    property int orderInWorkspace: pane.ordinal
+                    property string stableIdentity: pane.terminalId
                     x: 4; y: 36; width: parent.width - 8; height: parent.height - 40
                     enabled: !window.overview
                     themeIndex: window.themeIndexFor(pane.spaceIndex)
@@ -249,10 +305,61 @@ ApplicationWindow {
                     onActiveFocusChanged: if (activeFocus && !window.overview) window.focusPane(index)
                 }
                 Text { anchors.centerIn: terminal; visible: !terminal.status.startsWith("Attached"); text: terminal.status; color: "#d9be91"; font.pixelSize: 13 }
-                MouseArea { anchors.fill: parent; enabled: window.overview; cursorShape: Qt.PointingHandCursor; onClicked: window.enterPane(index) }
+                MouseArea {
+                    anchors.fill: parent; enabled: window.overview && !studySession.busy
+                    cursorShape: window.dragSlot >= 0 ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    preventStealing: true
+                    property point pressedAt
+                    property bool moved: false
+                    onPressed: mouse => { pressedAt = mapToItem(deck, mouse.x, mouse.y); moved = false }
+                    onPositionChanged: mouse => {
+                        if (!pressed) return
+                        const point = mapToItem(deck, mouse.x, mouse.y)
+                        if (!moved && Math.abs(point.x - pressedAt.x) + Math.abs(point.y - pressedAt.y) >= Qt.styleHints.startDragDistance) {
+                            moved = true; window.dragSlot = index
+                        }
+                        if (moved && window.dragSlot === index) window.updateDrop(point)
+                    }
+                    onReleased: { if (moved) window.finishDrag(); else window.enterPane(index) }
+                    onCanceled: window.cancelDrag()
+                }
             }
         }
         Label { anchors.centerIn: parent; visible: !window.overview && (window.counts[window.workspace] || 0) === 0; text: "An empty workspace"; color: window.chrome.muted; font.pixelSize: 14 }
+    }
+    Item {
+        x: deck.x; y: deck.y; width: deck.width; height: deck.height; clip: true
+        Rectangle {
+            visible: window.dragSlot >= 0 && window.dropSpace >= 0
+            x: 0; y: deck.groupTop(window.dropSpace) - deck.contentY
+            width: deck.width; height: deck.groupTop(window.dropSpace + 1) - deck.groupTop(window.dropSpace) - 8
+            color: "transparent"; radius: 8; border.width: 1
+            border.color: window.dropAllowed ? window.accent : "#e49b9b"
+        }
+        Rectangle {
+            visible: window.dragSlot >= 0 && window.dropSpace >= 0 && window.dropAllowed
+            readonly property int total: window.counts[window.dropSpace] || 0
+            readonly property int before: Math.min(window.dropRaw, Math.max(0, total - 1))
+            readonly property int slot: window.dropSpace < 0 ? -1 : (window.indices(window.dropSpace)[before] ?? -1)
+            x: slot < 0 ? 6 : (before % 3) * (deck.width + 12) / 3 + (window.dropRaw === total ? window.panel(slot).width * window.panel(slot).previewScale + 5 : -5)
+            y: deck.groupTop(window.dropSpace) + Math.floor(before / 3) * (deck.previewHeight + 12) + 30 - deck.contentY
+            width: 3; height: deck.previewHeight; radius: 1.5; color: window.accent
+        }
+    }
+    Rectangle {
+        visible: window.dragSlot >= 0
+        x: Math.min(window.width - width - 12, deck.x + window.dragPoint.x + 16)
+        y: Math.max(60, Math.min(window.height - height - 12, deck.y + window.dragPoint.y + 16))
+        width: dragLabel.implicitWidth + 24; height: 38; radius: 8; color: window.chrome.surface; border.color: window.accent; z: 5
+        Label { id: dragLabel; anchors.centerIn: parent; text: (window.dropSpace < 0 ? "Move terminal" : !window.dropAllowed ? "Workspace is full" : window.spaces[window.dropSpace] + " · position " + (window.dropPosition + 1)) + " · Esc cancels"; color: window.chrome.foreground }
+    }
+    Timer {
+        interval: 16; repeat: true; running: window.dragSlot >= 0
+        onTriggered: {
+            const y = window.dragPoint.y
+            const delta = y < 56 ? -Math.min(12, (56 - y) / 5) : y > deck.height - 56 ? Math.min(12, (y - deck.height + 56) / 5) : 0
+            if (delta && window.dragPoint.x >= 0 && window.dragPoint.x <= deck.width) { deck.contentY = Math.max(0, Math.min(deck.contentHeight - deck.height, deck.contentY + delta)); window.updateDrop(window.dragPoint) }
+        }
     }
     Drawer {
         id: drawer; y: 56; width: 248; height: window.height - 56; edge: Qt.LeftEdge
@@ -350,6 +457,7 @@ ApplicationWindow {
     Shortcut { sequence: window.chord + "R"; enabled: !window.overview && !createDialog.visible && !window.appearanceOpen; onActivated: window.cycleWidth() }
     Shortcut { sequence: window.chord + "F"; enabled: !window.overview && !createDialog.visible && !window.appearanceOpen; onActivated: window.toggleFull() }
     Shortcut { sequence: window.chord + "/"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: help.open() }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: window.toggleOverview() }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

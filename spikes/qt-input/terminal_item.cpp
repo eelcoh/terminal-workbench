@@ -11,6 +11,7 @@
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
+#include <QStyleHints>
 #include <QWheelEvent>
 #include <QQuickWindow>
 #include <QtEndian>
@@ -500,9 +501,26 @@ void TerminalItem::select(const QPointF &position,bool start)
     if(ghostty_terminal_grid_ref(terminal_,point,&selection.end)!=GHOSTTY_SUCCESS)return;
     ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_SELECTION,&selection);refresh();
 }
-void TerminalItem::mousePressEvent(QMouseEvent *event) {forceActiveFocus();dragging_=true;select(event->position(),true);event->accept();}
-void TerminalItem::mouseMoveEvent(QMouseEvent *event) {if(dragging_)select(event->position(),false);event->accept();}
-void TerminalItem::mouseReleaseEvent(QMouseEvent *event) {if(dragging_)select(event->position(),false);dragging_=false;event->accept();}
+void TerminalItem::mousePressEvent(QMouseEvent *event)
+{
+    forceActiveFocus();dragging_=true;selectionStarted_=false;pressPosition_=event->position();
+    accessibleClearSelection();event->accept();
+}
+void TerminalItem::mouseMoveEvent(QMouseEvent *event)
+{
+    if(dragging_) {
+        if(!selectionStarted_ && (event->position()-pressPosition_).manhattanLength()>=QGuiApplication::styleHints()->startDragDistance()) {
+            selectionStarted_=true;select(pressPosition_,true);
+        }
+        if(selectionStarted_)select(event->position(),false);
+    }
+    event->accept();
+}
+void TerminalItem::mouseReleaseEvent(QMouseEvent *event)
+{
+    if(dragging_ && selectionStarted_)select(event->position(),false);
+    dragging_=false;selectionStarted_=false;event->accept();
+}
 void TerminalItem::wheelEvent(QWheelEvent *event)
 {
     if(!ready_)return;

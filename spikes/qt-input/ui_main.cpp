@@ -47,12 +47,17 @@ int main(int argc,char **argv) {
                 auto *item=qobject_cast<TerminalItem *>(value.value<QObject *>());if(!item)continue;
                 const auto size=item->terminalGridSize();const auto position=item->mapToScene(QPointF(item->width()/2,item->height()/2));
                 const auto cell=item->cellSize();
+                const auto bounds=item->parentItem()->mapRectToScene(item->parentItem()->boundingRect());
                 const QSize geometry(qBound(1,int((item->width()-16)/cell.width()),1000),qBound(1,int((item->height()-16)/cell.height()),1000));
                 panes.append(QJsonObject{{"ready",item->ready()},{"text",item->viewportText()},
                     {"cursor",item->cursorPresentation()},
+                    {"selection",item->accessibleSnapshot().selectionStart>=0},
+                    {"identity",item->property("stableIdentity").toString()},
+                    {"workspace",item->property("workspaceIndex").toInt()},{"ordinal",item->property("orderInWorkspace").toInt()},
                     {"theme",item->themeIndex()},{"background",item->backgroundColor().name()},
                     {"sample_green",item->cellForeground(1,2).name()},{"sample_red",item->cellForeground(1,0).name()},{"sample_rgb",item->cellForeground(1,1).name()},
                     {"columns",size.width()},{"rows",size.height()},{"geometry_ready",size==geometry},{"focus",item->hasActiveFocus()},
+                    {"left",bounds.left()},{"top",bounds.top()},{"right",bounds.right()},{"bottom",bounds.bottom()},
                     {"x",position.x()},{"y",position.y()},{"rasterized_rows",double(item->rasterizedRows())}});
             }
             const auto *createButton=window->findChild<QQuickItem *>("newWorkspaceButton");
@@ -60,6 +65,9 @@ int main(int argc,char **argv) {
             const auto center=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
             const QJsonObject data{{"workspace",window->property("workspace").toInt()},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},
+                {"drop_allowed",window->property("dropAllowed").toBool()},
+                {"drag_slot",window->property("dragSlot").toInt()},{"drop_space",window->property("dropSpace").toInt()},{"drop_position",window->property("dropPosition").toInt()},
+                {"content_y",window->findChild<QQuickItem *>("deck")->property("contentY").toDouble()},
                 {"content_x",window->findChild<QQuickItem *>("deck")->property("contentX").toDouble()},
                 {"busy",session.busy()},{"error",session.error()},
                 {"workspace_count",listProperty(window,"spaces").size()},

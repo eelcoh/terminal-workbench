@@ -34,7 +34,7 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
         if(parse.error!=QJsonParseError::NoError || !document.isObject() || newline!=receive_.size()-1) {fail("Invalid session service reply. Refresh before trying again.");return;}
         const auto reply=document.object();
         if(reply["protocol"].toInt()!=1) {fail("Incompatible session service.");return;}
-        if(!reply["ok"].toBool()) {fail(reply["error"].toString("Creation failed. Refresh before trying again."));return;}
+        if(!reply["ok"].toBool()) {fail(reply["error"].toString("Session request failed. Refresh before trying again."));return;}
         if(!reply["data"].isObject() || !reply["data"].toObject()["workspaces"].isArray()) {fail("Missing session catalog. Refresh before trying again.");return;}
         const auto catalog=reply["data"].toObject().toVariantMap();const auto method=method_;
         deadline_.stop();busy_=false;socket_.abort();receive_.clear();Q_EMIT changed();Q_EMIT completed(catalog,method);
@@ -49,11 +49,12 @@ void UiSession::attach(TerminalItem *item,const QString &identity) {
     static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
     if(item && id.match(identity).hasMatch())item->connectSession(QDir(config_["state"].toString()).filePath(identity+".ctl"));
 }
-void UiSession::request(const QString &method,const QString &identity,const QString &name,const QString &directory) {
+void UiSession::request(const QString &method,const QString &identity,const QString &name,const QString &directory,const QString &destination,int position) {
     if(busy_)return;
     socket_.abort();sent_=false;busy_=true;error_.clear();method_=method;
     QJsonObject message{{"protocol",1},{"method",method},{"identity",identity},{"title",name},
         {"runtime",config_["runtime"]},{"cwd",config_["cwd"]}};
+    if(method=="terminal.move") {message.insert("destination",destination);message.insert("position",position);}
     if(method=="workspace.create_at")message.insert("project_directory",directory);
     receive_=QJsonDocument(message).toJson(QJsonDocument::Compact)+'\n';
     if(receive_.size()>256*1024) {fail("Request exceeds the session service size limit.");return;}
@@ -62,4 +63,5 @@ void UiSession::request(const QString &method,const QString &identity,const QStr
 }
 void UiSession::createTerminal(const QString &workspace) {request("terminal.create",workspace,"Shell");}
 void UiSession::createWorkspace(const QString &name,const QString &directory) {request("workspace.create_at",{},name,directory);}
+void UiSession::moveTerminal(const QString &identity,const QString &workspace,int position) {request("terminal.move",identity,{},{},workspace,position);}
 void UiSession::refresh() {request("initialize");}

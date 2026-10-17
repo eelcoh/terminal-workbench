@@ -24,12 +24,13 @@ public:
     Q_INVOKABLE void attach(TerminalItem *item,const QString &identity);
     Q_INVOKABLE void createTerminal(const QString &workspace);
     Q_INVOKABLE void createWorkspace(const QString &name,const QString &directory);
+    Q_INVOKABLE void moveTerminal(const QString &identity,const QString &workspace,int position);
     Q_INVOKABLE void refresh();
 Q_SIGNALS:
     void changed();
     void completed(QVariantMap catalog,QString method);
 private:
-    void request(const QString &method,const QString &identity={},const QString &name={},const QString &directory={});
+    void request(const QString &method,const QString &identity={},const QString &name={},const QString &directory={},const QString &destination={},int position=-1);
     void fail(const QString &message);
     QVariantList themes_;
     QJsonObject config_;QLocalSocket socket_;QTimer deadline_;QByteArray receive_;QString method_,error_;bool busy_=false,sent_=false;

@@ -98,12 +98,27 @@ while True:
         def typed(value):
             if wayland:run(root/'keyboard','text',value)
             else:cmd('type','--window',window,'--delay',1,value)
-        def click(x,y,button=1):
+        def move(x,y):
             if wayland:
                 layout=next(w['layout'] for w in json.loads(run('niri','msg','-j','windows')) if w['id']==window)
                 origin=layout['tile_pos_in_workspace_view'];offset=layout['window_offset_in_tile']
-                host('mousemove','--window',parent,round(origin[0]+offset[0]+x),round(origin[1]+offset[1]+y));host('click',button)
-            else:cmd('mousemove','--window',window,int(x),int(y));cmd('click',button)
+                host('mousemove','--window',parent,round(origin[0]+offset[0]+x),round(origin[1]+offset[1]+y))
+            else:cmd('mousemove','--window',window,int(x),int(y))
+        def button(action):
+            (host if wayland else cmd)(action,1)
+        def click(x,y,button=1):
+            move(x,y);(host if wayland else cmd)('click',button)
+        def drag(slot,x,y,cancel=False):
+            pane=data()['panes'][slot];start=(pane['x'],(max(60,pane['top'])+min(748,pane['bottom']))/2)
+            move(*start);button('mousedown')
+            try:
+                for i in range(1,9):
+                    move(start[0]+(x-start[0])*i/8,start[1]+(y-start[1])*i/8);time.sleep(.025)
+                wait_until(lambda:data()['drag_slot']==slot)
+                if not cancel and slot == 1 and y < 650: capture('drag-target.png')
+                if cancel:
+                    key('Escape');wait_until(lambda:data()['drag_slot']==-1)
+            finally:button('mouseup')
         def received(i):
             path=root/str(i)/'input';return path.read_bytes() if path.exists() else b''
         def sizes():return [(p['columns'],p['rows']) for p in data()['panes']]
@@ -115,6 +130,10 @@ while True:
         capture('cursor-active.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
         assert pixels[0]['cursor_pixels']>pixels[0]['area']*.75,pixels[0]
         assert pixels[1]['cursor_pixels']<pixels[1]['area']*.5 and pixels[1]['background_pixels']>0,pixels[1]
+        # A click focuses and clears; only a deliberate drag may select text.
+        pane=data()['panes'][0];click(pane['x'],pane['y'])
+        wait_until(lambda:not data()['panes'][0]['selection'])
+        time.sleep(.12);assert not data()['panes'][0]['selection'],'single click left a selected block'
         cursor_grid=sizes()
         def cursor(sequence,style):
             (root/'0'/'cursor').write_bytes(sequence)
@@ -177,6 +196,65 @@ while True:
         wait_until(lambda:not data()['appearance_open']);assert theme_state(2,'#282a36','#ff5555')
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['chrome_background']=='#15191f')
         key('super+alt+Down');wait_until(lambda:data()['workspace']==1 and data()['chrome_background']=='#282a36')
+        # Actual native overview drags use existing IDs without recreating delegates.
+        drag_sizes=sizes();catalog_before=workspace_catalog.load(root)
+        def order(w):return [t['id'] for t in workspace_catalog.load(root)['workspaces'][w]['terminals']]
+        key('super+alt+o');wait_until(lambda:data()['overview']);time.sleep(.35)
+        last=data()['panes'][2]
+        drag(1,last['right']-8,last['y'],cancel=True)
+        assert data()['overview'] and workspace_catalog.load(root)==catalog_before,'cancel committed a move'
+        drag(1,last['right']-8,last['y'])
+        wait_until(lambda:order(0)==['terminal-0','terminal-2','terminal-1'] and data()['panes'][1]['ordinal']==2)
+        assert sizes()==drag_sizes,'reorder resized a PTY'
+        key('Escape');wait_until(lambda:not data()['overview'])
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['selected']==1)
+        key('super+alt+Left');wait_until(lambda:data()['selected']==2 and data()['panes'][2]['focus'])
+        key('super+alt+Right');wait_until(lambda:data()['selected']==1 and data()['panes'][1]['focus'])
+        key('super+alt+Down');wait_until(lambda:data()['workspace']==1 and data()['selected']==4)
+        key('super+alt+o');wait_until(lambda:data()['overview']);time.sleep(.3)
+        time.sleep(.3);middle=data()['panes'][2]
+        drag(1,middle['left']+5,middle['y'])
+        wait_until(lambda:order(0)==['terminal-0','terminal-1','terminal-2'])
+        time.sleep(.3)
+        # Empty workspace is a drop target, and moving back preserves its shell cwd.
+        drag(0,160,710)
+        wait_until(lambda:order(2)==['terminal-0'] and data()['panes'][0]['workspace']==2)
+        assert sizes()==drag_sizes
+        time.sleep(.3);drag(0,65,110)
+        wait_until(lambda:order(0)==['terminal-0','terminal-1','terminal-2'] and data()['panes'][0]['workspace']==0)
+        assert workspace_catalog.load(root)==catalog_before,'restoring the move changed catalog metadata'
+        time.sleep(.3)
+        # Destination workspace appearance applies; width, PID and input stay attached.
+        target=data()['panes'][5];drag(1,target['right']-8,target['y'])
+        wait_until(lambda:data()['panes'][1]['workspace']==1 and data()['panes'][1]['theme']==2)
+        assert order(1)==['terminal-3','terminal-4','terminal-5','terminal-1'] and sizes()==drag_sizes
+        capture('drag-moved.png')
+        # Extra destination row pushes later groups offscreen; edge-scroll reaches them.
+        time.sleep(.35);pane=data()['panes'][1]
+        move(pane['x'],(max(60,pane['top'])+min(748,pane['bottom']))/2);button('mousedown')
+        try:
+            move(150,740);wait_until(lambda:data()['drag_slot']==1)
+            wait_until(lambda:data()['drop_space']==2,timeout=5)
+        finally:button('mouseup')
+        wait_until(lambda:data()['panes'][1]['workspace']==2,timeout=5)
+        assert order(2)==['terminal-1'] and data()['panes'][1]['theme']==0
+        # Back to the top, then restore the original organization.
+        # A native wheel scroll changes only the Overview viewport.
+        for _ in range(12):click(1100,180,4)
+        wait_until(lambda:data()['content_y']<1);time.sleep(.3)
+        # Source is below view: bring it into view first, then drag to the upper edge.
+        for _ in range(10):click(1100,500,5)
+        wait_until(lambda:data()['content_y']>100);time.sleep(.3)
+        pane=data()['panes'][1]
+        move(pane['x'],(max(60,pane['top'])+min(748,pane['bottom']))/2);button('mousedown')
+        try:
+            move(pane['x']+20,pane['y']);wait_until(lambda:data()['drag_slot']==1)
+            move(100,65);wait_until(lambda:data()['content_y']<1,timeout=5)
+            move(450,180);wait_until(lambda:data()['drop_space']==0)
+        finally:button('mouseup')
+        wait_until(lambda:order(0)==['terminal-0','terminal-1','terminal-2'] and data()['panes'][1]['workspace']==0)
+        assert workspace_catalog.load(root)==catalog_before and sizes()==drag_sizes
+        key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
         # Creation uses the real service, keeping the original six attached readers.
         key('super+alt+t')
         wait_until(lambda:len(data()['panes'])==7 and data()['panes'][6]['ready'] and data()['selected']==6 and data()['panes'][6]['focus'])
@@ -210,13 +288,34 @@ while True:
         assert sizes()==creation_sizes,('Overview resized dynamically created terminals',creation_sizes,sizes())
         capture('created-overview.png');key('Escape');wait_until(lambda:not data()['overview'])
         capture('working.png')
+        # Fill a destination through the UI: rejected drops must not mutate or detach.
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
+        for slot in range(9,13):
+            key('super+alt+t');wait_until(lambda:len(data()['panes'])==slot+1 and data()['panes'][slot]['ready'] and not data()['busy'])
+        wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']))
+        full_catalog=workspace_catalog.load(root);assert len(order(1))==8
+        full_sizes=sizes();key('super+alt+o');wait_until(lambda:data()['overview']);time.sleep(.35)
+        pane=data()['panes'][0];target=data()['panes'][3]
+        move(pane['x'],pane['y']);button('mousedown')
+        try:
+            move(target['x'],target['y']);wait_until(lambda:data()['drag_slot']==0 and data()['drop_space']==1 and not data()['drop_allowed'])
+            capture('drag-full-workspace.png')
+        finally:button('mouseup')
+        wait_until(lambda:data()['drag_slot']==-1)
+        assert workspace_catalog.load(root)==full_catalog and sizes()==full_sizes,'full destination accepted a drop'
+        last=data()['panes'][5];drag(3,last['right']-8,last['y'])
+        wait_until(lambda:order(1)[:3]==['terminal-4','terminal-5','terminal-3'])
+        assert sizes()==full_sizes,'full workspace reorder resized a terminal'
         expected=[b'first',b'second',b'',b'peer',b'chosen\x1b',b'']
         assert [received(i) for i in range(6)]==expected,'navigation/overview shortcuts leaked into a PTY'
-        for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
+        for i,pid in enumerate(pids):
+            assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
+            assert Path(f'/proc/{pid}/cwd').resolve()==root/str(i),'move changed an existing shell cwd'
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
+        assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
     finally:
         for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
         request(root,Path(runtime),root,"service.shutdown")
