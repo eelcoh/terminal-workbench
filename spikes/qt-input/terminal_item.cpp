@@ -170,6 +170,7 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
         Q_EMIT statusChanged(); resizeTerminal();
     } else if(kind==1 && ready_) {
         ghostty_terminal_vt_write(terminal_,reinterpret_cast<const uint8_t *>(data.constData()),data.size());
+        receivedBytes_+=quint64(data.size());
     } else return false;
     if(!refreshTimer_.isActive())refreshTimer_.start();
     return true;
@@ -244,6 +245,7 @@ void TerminalItem::refresh()
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_X,&x);
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_Y,&y);
     caret_=QRectF(8+x*cellWidth_,8+y*cellHeight_,cellWidth_,cellHeight_);cursorVisible_=visible&&inViewport;
+    refreshedBytes_=receivedBytes_;
     accessibleDirty_=true;
     if(notify)terminalAccessibilityChanged(this,previous,accessibleSnapshot());
     QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);

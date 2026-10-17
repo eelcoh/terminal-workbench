@@ -915,3 +915,20 @@ when the button takes focus. Both xcb and Wayland pass with stable reader PIDs.
 The original single-terminal and separate-window probes remain available.
 Native Mac review, physical display quality, live one/fifteen-runtime load and
 packaging remain open. See [same-window input](toolkit-readiness.md#same-window-terminal-composition-and-toolbar-routing).
+
+
+## Current toolkit slice: live runtime performance
+
+`just toolkit-live-perf` adds repeatable Mac/Linux CPU and memory measurements
+for one/fifteen real PTY sessions feeding the Qt client. Idle, single-row,
+full-screen, one-visible and all-hidden workloads check exact output bytes,
+runtime/client final markers and reveal catch-up. The three-trial Linux
+software-OpenGL matrix passes at 1x/2x. Hidden panes perform no raster or paint
+work but retain row images; full-screen 15-pane 2x caches total 121.29 MiB.
+Native Mac measurements and the approved UI design slice remain ahead; Qt is
+still a candidate. See [live performance](toolkit-live-performance.md).
+
+Mac pair copy/paste is owner-confirmed. Native composition focus policy stays
+open; further manual Japanese testing is deferred. Preserve automated Linux
+coverage and plan a language/input-engine matrix rather than treating one
+Japanese engine as general language acceptance.

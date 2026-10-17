@@ -318,3 +318,11 @@ toolkit-terminal-pair: runtime-build
 # Linux: real IME moves between two terminals sharing one Qt window/input context.
 toolkit-terminal-ime-pane-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-ime-pane-test
+
+# Mac/Linux: real runtime/PTY + Qt client CPU/RSS with 1/15 terminals.
+toolkit-live-perf: runtime-build
+    python3 scripts/toolkit-probe.py live-perf
+
+# Linux: same real-runtime workload on private Xvfb, software GL at 1x/2x.
+toolkit-live-perf-test: runtime-build
+    python3 scripts/toolkit-probe.py live-perf-test

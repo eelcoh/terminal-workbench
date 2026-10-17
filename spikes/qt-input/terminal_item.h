@@ -22,6 +22,13 @@ public:
     QString viewportText() const;
     QRectF caret() const { return caret_; }
     qreal textRasterScale() const {return textRows_.size()==0?0:textRows_.image(0).devicePixelRatio();}
+    // Narrow client diagnostics for the isolated live-runtime benchmark.
+    // Queried at scenario boundaries; no aggregate collection in paint/parse.
+    quint64 receivedBytes() const {return receivedBytes_;}
+    quint64 refreshedBytes() const {return refreshedBytes_;}
+    quint64 rasterizedRows() const {return textRows_.rasterizedRows();}
+    qint64 rowImageBytes() const {return textRows_.imageBytes();}
+    QSize terminalGridSize() const {return QSize(columns_,lines_);}
     QSizeF cellSize() const { return QSizeF(cellWidth_,cellHeight_); }
     struct AccessibleCharacter { QPoint cell; int width=1; bool selected=false; };
     struct AccessibleSnapshot {
@@ -66,6 +73,7 @@ private:
     QTimer refreshTimer_, handshakeTimer_;
     QByteArray receive_, snapshot_;
     quint32 snapshotSize_ = 0;
+    quint64 receivedBytes_=0,refreshedBytes_=0;
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
     QString status_="Connecting";
     TerminalComposition composition_;

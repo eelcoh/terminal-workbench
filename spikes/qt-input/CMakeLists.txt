@@ -64,4 +64,17 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-terminal-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.terminal-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
+    qt_add_executable(workbench-live-bench live_bench.cpp terminal_item.cpp terminal_item.h
+        terminal_accessibility.cpp terminal_accessibility.h terminal_composition.cpp terminal_composition.h
+        terminal_text.cpp terminal_text.h)
+    target_compile_definitions(workbench-live-bench PRIVATE QT_NO_KEYWORDS)
+    target_compile_options(workbench-live-bench PRIVATE -Wall -Wextra)
+    target_include_directories(workbench-live-bench PRIVATE "${VT_ROOT}/include")
+    target_link_libraries(workbench-live-bench PRIVATE Qt6::Quick Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
+    qt_add_resources(workbench-live-bench "live_font" PREFIX "/"
+        BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
+        FILES "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")
+    set_target_properties(workbench-live-bench PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.live-benchmark"
+        MACOSX_BUNDLE_BUNDLE_NAME "Workbench Live Terminal Benchmark")
 endif()

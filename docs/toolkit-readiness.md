@@ -879,15 +879,9 @@ editable windows on Linux, not two items sharing one window's input context.
 Native Mac editable-terminal transfers, same-window transfers and candidate
 panel placement remain separate acceptance work.
 
-For native Mac review, run `just toolkit-terminal` twice from separate regular
-terminal tabs, and run `cat` inside each Qt shell. Enable Japanese–Romaji in
-Hiragana mode. In A, type `nihonn` without committing and click B; pending text
-should cancel without reaching either terminal. Repeat in the opposite
-direction. Then convert `nihonn` with Space and commit it with Return in B;
-only B should receive 日本. Repeat in A and check that B receives nothing.
-Ctrl-C exits each `cat`. Closing these disposable probe windows stops their
-respective test shells. Record the native result before treating the Mac gate
-as passed.
+The Linux cancellation result is backend-specific evidence. Do not require
+identical cancellation on Mac before deciding whether native commit-on-blur is
+acceptable; the focus policy remains open. See the native observations below.
 
 The owner also confirmed Alt–Arrow word navigation in the Linux Qt terminal
 probe after the shared Option/Alt binding change. Native Mac word navigation
@@ -916,14 +910,23 @@ backend logs and window captures are retained. The original refused-owner and
 separate-window tests remain available and pass after the report refactor.
 Single-terminal report fields keep their existing meaning.
 
-Native Mac acceptance remains open. Run `just toolkit-terminal-pair`, then
-run `cat` in each pane. Enable Japanese–Romaji/Hiragana, type `nihonn` in A
-without committing, and click B: A's pending text should clear without input
-in either shell. Repeat from B to A. Convert and commit 日本 in each pane in
-turn and confirm it reaches only that pane. Select B, copy a small plain-text
-marker from another app, and click Paste: only B should receive it. Check
-Option–Arrow separately at an ordinary shell prompt; Ctrl-C exits `cat`.
+The owner confirmed same-window copy/paste on Mac. Japanese–Romaji can compose
+にほん and convert it to 日本 with Space. Pending text appeared more widely
+spaced after changing panes; exact commit/cancel ownership was not captured.
+This is an observation, not proof of a Mac cancellation defect. Native focus
+policy and candidate placement remain open, without another manual Japanese
+acceptance loop. Japanese exercises composition mechanics; it does not establish
+Hindi, Telugu, other input engines or general complex-script rendering support.
+Keep the automated Linux isolation coverage and plan broader language coverage
+separately from production UI work.
 
-This establishes the Linux input boundary for two items in one window. Native
-Mac composition/candidate placement, physical external-display typography,
-live one/fifteen-runtime performance and packaging still gate toolkit adoption.
+### Live-runtime performance
+
+`just toolkit-live-perf` measures CPU and RSS with one and fifteen real runtime
+sessions, raw PTY producers and the Qt terminal client. The private software-GL
+matrix passes byte/marker agreement, idle/hidden presentation isolation and exact
+reveal catch-up at 1x/2x in three fresh trials each. See
+[live workload and measured limits](toolkit-live-performance.md).
+Native Mac measurements, physical external-display typography, remaining input
+and accessibility acceptance, packaging and a production UI slice remain open
+before adopting Qt. The main viewer is unchanged.
