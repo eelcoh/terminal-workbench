@@ -32,3 +32,21 @@ inline bool pasteKey(QKeyEvent *e)
     return e->key() == Qt::Key_V && e->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier);
 #endif
 }
+
+// Pure policy is testable on either platform. Only exact Option+Left/Right
+// uses shell word motion; additional modifiers retain terminal key encoding.
+inline const char *macWordMotion(int key,Qt::KeyboardModifiers mods)
+{
+    if(mods!=Qt::AltModifier)return nullptr;
+    if(key==Qt::Key_Left)return "\x1b" "b";
+    if(key==Qt::Key_Right)return "\x1b" "f";
+    return nullptr;
+}
+inline const char *platformWordMotion(QKeyEvent *event)
+{
+#ifdef Q_OS_MACOS
+    return macWordMotion(event->key(),event->modifiers());
+#else
+    Q_UNUSED(event);return nullptr;
+#endif
+}

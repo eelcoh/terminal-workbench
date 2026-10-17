@@ -876,5 +876,8 @@ actual partial captures with forced full repaints and require exact equality.
 In the 1/15-pane software-OpenGL matrix, fifteen-pane one-row paint time falls
 about 95–97%; full-output workloads are not the target. Row-cache memory is
 unchanged, and full-size image/texture/upload costs remain. Native Linux input,
-Wayland/IME/accessibility and `just check` pass. Native Mac validation is next.
+Wayland/IME/accessibility and `just check` pass. The clean Mac upload now passes
+all twelve partial/full scene comparisons and refreshed text checks. Mac
+fifteen-pane one-row paint medians are 2.303 ms (ASCII) and 1.478 ms (Unicode).
+Physical-display typography and live-runtime memory/VRAM acceptance remain open.
 See [changed-row repaint](toolkit-readiness.md#changed-row-repaint-integration).

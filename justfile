@@ -302,3 +302,7 @@ toolkit-scene-perf: runtime-build
 # Linux: private Xvfb + software OpenGL, explicit 1x/2x scene operation checks.
 toolkit-scene-perf-test: runtime-build
     python3 scripts/toolkit-probe.py scene-perf-test
+
+# Mac/Linux: Qt key events through the real terminal host to a raw disposable PTY.
+toolkit-terminal-key-test: runtime-build
+    python3 scripts/toolkit-probe.py terminal-key-test

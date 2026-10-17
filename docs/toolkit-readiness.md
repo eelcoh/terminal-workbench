@@ -828,6 +828,30 @@ Full-size item images/textures, GPU upload costs and VRAM remain separate issues
 Exact text/background/retained-image checks, real terminal input/copy/paste/
 ownership, Wayland fractional scales, real IBus/Anthy on xcb and Wayland, AT-SPI
 and `just check` pass. Native terminal/Wayland/IME checks were rerun after making
-resize/DPR/composition full invalidation use explicit bounds. Native Mac pixel
-and scene evidence, physical-display typography and full live-runtime acceptance
-remain open for this integration.
+resize/DPR/composition full invalidation use explicit bounds. At that stage, native Mac pixel and scene evidence, physical-display typography
+and full live-runtime acceptance remained open; the subsequent upload is recorded
+below.
+
+
+### Mac changed-row evidence and word navigation
+
+The clean `d1a195e` Mac upload (Qt 6.12, Cocoa, Metal on M2 Pro, 2x)
+passes all twelve partial/full scene capture comparisons. The refreshed text
+artifacts pass validation and include the ASCII fast-path diagnostics.
+Fifteen-pane one-row paint medians are 2.303 ms for ASCII and 1.478 ms for
+Unicode; request-to-swap medians are 17.314 and 16.927 ms. Fully changing output,
+physical-display typography and live-runtime memory/VRAM acceptance remain open.
+
+The terminal probe now maps Mac Option–Left/Right to the shell word-motion
+sequences Escape-b/f. Additional modifiers bypass this binding; Linux Alt arrows
+keep their terminal encoding. `just toolkit-terminal-key-test` sends Qt key events
+through the actual host and a disposable raw PTY, checking plain/control arrows,
+word motion on Mac, Linux Alt arrows, repeat and release suppression. It writes
+`.local/artifacts/qt-keys/`. Native Mac verification remains required.
+
+For native Mac acceptance, run `just toolkit-terminal-key-test`, then
+`just toolkit-terminal`. At a shell prompt type a few words and use Option–Left
+and Option–Right, including holding either arrow: the cursor should move by
+words without inserting letters. The automated test saves actual/expected byte
+hex and `key_bytes_match` in `.local/artifacts/qt-keys/report.json`, including
+byte mismatches, so native failures can be inspected without retyping input.

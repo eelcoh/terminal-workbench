@@ -13,7 +13,7 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "text-test", "perf", "scene-perf", "scene-perf-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test"))
     args = parser.parse_args()
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
@@ -60,6 +60,10 @@ def main():
             command=["xvfb-run","-a","env","QT_QPA_PLATFORM=xcb","LIBGL_ALWAYS_SOFTWARE=1",*command]
         subprocess.run(command,check=True,timeout=30)
         subprocess.run([sys.executable,str(ROOT/"tests/qt_text_artifacts.py"),str(artifact)],check=True)
+        return
+    if args.mode=="terminal-key-test":
+        subprocess.run([sys.executable,str(ROOT/"tests/qt_terminal_key_smoke.py"),
+                        str(ROOT/"target/debug/workbench-session"),str(binary)],check=True)
         return
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test"):
         test = {"terminal-test":"qt_terminal_gui_smoke.py",

@@ -314,6 +314,12 @@ void TerminalItem::encodeKey(QKeyEvent *input,bool release)
     if(!ready_)return;
     if(input->key()==Qt::Key_Shift || input->key()==Qt::Key_Control || input->key()==Qt::Key_Alt || input->key()==Qt::Key_Meta)return;
     if(!release && composition_.active())return;
+    if(const auto *motion=platformWordMotion(input)) {
+        // Native Mac shell-word navigation is a terminal binding, not a generic
+        // Alt-arrow encoding. Repeats emit once; release must emit nothing.
+        if(!release) {live();send(16,QByteArray(motion));}
+        input->accept();return;
+    }
     auto mods=terminalMods(input->modifiers());
     auto text=release?QByteArray():input->text().toUtf8();
     // Qt supplies control bytes in text(); Ghostty expects the associated

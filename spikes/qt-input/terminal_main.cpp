@@ -1,5 +1,6 @@
 #include "terminal_item.h"
 #include "terminal_accessibility.h"
+#include "platform_keys.h"
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
@@ -31,7 +32,7 @@ int main(int argc,char **argv)
     // Test reports contain only the disposable test session, and are opt-in.
     int reportIndex=args.indexOf("--test-report");
     QTimer reportTimer;
-    int imeStage=0;
+    int imeStage=0;bool keysDone=false;
     bool imeDone=false, accessibilityDone=false, accessibilityOk=false;
     if(reportIndex>=0 && reportIndex+1<args.size()) {
         const QString report=args.at(reportIndex+1);
@@ -54,11 +55,37 @@ int main(int argc,char **argv)
                 accessibilityOk=terminalAccessibilitySelfTest(terminal);accessibilityDone=true;
                 if(!accessibilityOk) {app.exit(1);return;}
             }
+            if(args.contains("--test-keys") && !keysDone && terminal->ready()
+                && terminal->viewportText().contains("QT-KEY-PROBE")) {
+                terminal->forceActiveFocus();
+                const auto key=[&](int code,Qt::KeyboardModifiers mods,bool repeat=false) {
+                    QKeyEvent press(QEvent::KeyPress,code,mods,QString(),repeat);
+                    QKeyEvent release(QEvent::KeyRelease,code,mods);
+                    QGuiApplication::sendEvent(terminal,&press);QGuiApplication::sendEvent(terminal,&release);
+                };
+                key(Qt::Key_Left,Qt::NoModifier);
+                key(Qt::Key_Left,Qt::AltModifier);
+                key(Qt::Key_Right,Qt::AltModifier);key(Qt::Key_Right,Qt::AltModifier,true);
+                key(Qt::Key_Right,Qt::NoModifier);
+#ifdef Q_OS_MACOS
+                key(Qt::Key_Left,Qt::MetaModifier); // physical Control on Cocoa
+#else
+                key(Qt::Key_Left,Qt::ControlModifier);
+#endif
+                // Exercise the Mac policy on both build platforms, including exclusions.
+                if(QByteArray(macWordMotion(Qt::Key_Left,Qt::AltModifier))!=QByteArray("\x1b" "b")
+                    || QByteArray(macWordMotion(Qt::Key_Right,Qt::AltModifier))!=QByteArray("\x1b" "f")
+                    || macWordMotion(Qt::Key_Left,Qt::AltModifier|Qt::ShiftModifier)
+                    || macWordMotion(Qt::Key_Left,Qt::AltModifier|Qt::MetaModifier)
+                    || macWordMotion(Qt::Key_Left,Qt::AltModifier|Qt::ControlModifier)
+                    || macWordMotion(Qt::Key_Up,Qt::AltModifier)) {app.exit(1);return;}
+                keysDone=true;
+            }
             const auto caret=terminal->caret();const auto cell=terminal->cellSize();
             const auto imeCaret=terminal->inputMethodQuery(Qt::ImCursorRectangle).toRectF();
             const auto pos=terminal->mapToScene(QPointF());
             const auto copyCenter=copyButton->mapToScene(QPointF(copyButton->width()/2,copyButton->height()/2));
-            QJsonObject data{{"ready",terminal->ready()},{"status",terminal->status()},
+            QJsonObject data{{"ready",terminal->ready()},{"status",terminal->status()},{"keys_done",keysDone},
                 {"text",terminal->viewportText()},{"ime_done",imeDone},
                 {"preedit",terminal->preeditText()},
                 {"terminal_focus",terminal->hasActiveFocus()},
