@@ -23,7 +23,7 @@ import workspace_catalog
 os.environ['SHELL']='/bin/sh'
 processes=[];sockets=[]
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:
-    root=Path(directory);project=root/'Project folder';project.mkdir();child=project/'child';child.mkdir()
+    root=Path(directory);project=root/'Project folder';project.mkdir();child=project/'child';child.mkdir();chosen=project/'café #100% &';chosen.mkdir()
     try:
         reader=root/'reader.py';reader.write_text('''import os,tty,time,select,termios,struct,fcntl
 from pathlib import Path
@@ -123,6 +123,17 @@ while True:
             click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
             click(*data()['rename_workspace_item' if mode=='rename' else 'workspace_folder_item'])
             wait_until(lambda:data()['creation_open'] and data()['workspace_form_mode']==mode and data()['name_focus' if mode=='rename' else 'folder_focus'])
+        def browse_folder(expected):
+            click(*data()['browse_folder_button'])
+            wait_until(lambda:data()['folder_browser_open'] and data()['folder_browser_location']==str(expected))
+        def choose_folder(name):
+            wait_until(lambda:len(data()['folder_list'])==2)
+            for _ in range(3):click(*data()['folder_list'],5)
+            wait_until(lambda:not data()['folder_list_moving'])
+            point=wait_until(lambda:next((choice['point'] for choice in data()['folder_choices'] if choice['name']==name),None))
+            click(*point)
+            wait_until(lambda:len(data()['folder_accept'])==2)
+            click(*data()['folder_accept']);wait_until(lambda:not data()['folder_browser_open'] and data()['folder_focus'] and not data()['folder_accept'])
         def received(i):
             path=root/str(i)/'input';return path.read_bytes() if path.exists() else b''
         def sizes():return [(p['columns'],p['rows']) for p in data()['panes']]
@@ -197,7 +208,7 @@ while True:
         assert theme_state(2,'#282a36','#ff5555') and sizes()==theme_sizes
         assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'appearance mutated runtime organization'
         appearance();typed('no-theme-matches-this');wait_until(lambda:data()['theme_matches']==0);capture('theme-no-results.png');key('Escape')
-        wait_until(lambda:not data()['appearance_open']);assert theme_state(2,'#282a36','#ff5555')
+        wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['chrome_background']=='#15191f')
         key('super+alt+Down');wait_until(lambda:data()['workspace']==1 and data()['chrome_background']=='#282a36')
         # Actual native overview drags use existing IDs without recreating delegates.
@@ -277,7 +288,19 @@ while True:
         click(24,28);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*data()['new_workspace_button']);wait_until(lambda:data()['creation_open']);time.sleep(.3)
         assert data()['name_focus'],'closing the drawer stole dialog focus'
-        typed('Project test');key('Tab');key('ctrl+a');typed(str(project));key('Return')
+        typed('Project test');key('Tab');key('ctrl+a');typed(str(root/'missing'/'nested'))
+        picker_catalog=workspace_catalog.load(root)
+        # The existing folder field's Tab/Space opens Browse with native keyboard input.
+        key('Tab');key('space')
+        wait_until(lambda:data()['folder_browser_open'] and data()['folder_browser_location']==str(root))
+        capture('folder-browser-create.png');key('Escape')
+        wait_until(lambda:not data()['folder_browser_open'] and data()['creation_open'] and data()['folder_focus'])
+        assert data()['folder_input']==str(root/'missing'/'nested') and data()['name_input']=='Project test'
+        assert workspace_catalog.load(root)==picker_catalog,'picker cancellation changed catalog'
+        browse_folder(root);choose_folder('Project folder')
+        wait_until(lambda:data()['folder_input']==str(project))
+        assert data()['creation_open'] and workspace_catalog.load(root)==picker_catalog,'Browse submitted creation'
+        key('Return')
         wait_until(lambda:data()['workspace_count']==4 and len(data()['panes'])==8 and not data()['creation_open'] and data()['panes'][7]['ready'] and data()['panes'][7]['focus'])
         assert data()['workspace']==3
         marker2=root/'workspace-cwd';typed('pwd > '+shlex.quote(str(marker2)));key('Return');wait_until(marker2.exists)
@@ -344,15 +367,22 @@ while True:
         capture('workspace-folder-error.png')
         key('Escape');wait_until(lambda:not data()['creation_open'])
         workspace_form('folder');assert data()['error']=='' and data()['folder_input']==str(project)
-        typed('/child');wait_until(lambda:data()['folder_input']==str(child))
+        typed('/missing/nested');browse_folder(project)
+        choose_folder(chosen.name);wait_until(lambda:data()['folder_input']==str(chosen))
+        assert data()['creation_open'] and workspace_catalog.load(root)==renamed,'Browse saved a folder without Save'
+        capture('folder-browser-selected.png');key('Escape');wait_until(lambda:not data()['creation_open'])
+        assert workspace_catalog.load(root)==renamed,'cancelled folder edit applied the picker choice'
+        workspace_form('folder');assert data()['folder_input']==str(project)
+        browse_folder(project);choose_folder(chosen.name)
+        wait_until(lambda:data()['folder_input']==str(chosen))
         capture('workspace-folder.png');key('Return')
-        wait_until(lambda:not data()['creation_open'] and data()['workspace_directories'][3]==str(child) and data()['panes'][7]['focus'])
+        wait_until(lambda:not data()['creation_open'] and data()['workspace_directories'][3]==str(chosen) and data()['panes'][7]['focus'])
         assert sizes()==editing_sizes,'workspace edit resized existing terminals'
         unchanged_cwd=root/'existing-shell-cwd';typed('pwd > '+shlex.quote(str(unchanged_cwd)));key('Return');wait_until(unchanged_cwd.exists)
         assert unchanged_cwd.read_text().strip()==str(project),'folder edit changed a running shell cwd'
         key('super+alt+t');wait_until(lambda:len(data()['panes'])==14 and data()['panes'][13]['ready'] and data()['panes'][13]['focus'])
         new_cwd=root/'edited-new-shell-cwd';typed('pwd > '+shlex.quote(str(new_cwd)));key('Return');wait_until(new_cwd.exists)
-        assert new_cwd.read_text().strip()==str(child),'new shell ignored edited folder'
+        assert new_cwd.read_text().strip()==str(chosen),'new shell ignored edited folder'
         assert data()['panes'][7]['theme']==0 and data()['panes'][13]['theme']==0
         expected=[b'first',b'second',b'',b'peer',b'chosen\x1b',b'']
         assert [received(i) for i in range(6)]==expected,'navigation/overview shortcuts leaked into a PTY'
@@ -363,7 +393,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, rename/folder in-place edits/cancel/validation/cwd inheritance, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, unchanged reader PIDs and isolated input')
     finally:
         for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
         request(root,Path(runtime),root,"service.shutdown")

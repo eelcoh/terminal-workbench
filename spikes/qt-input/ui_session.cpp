@@ -1,6 +1,7 @@
 #include "ui_session.h"
 #include "theme_bridge.h"
 #include <QDir>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QRegularExpression>
 
@@ -67,4 +68,22 @@ void UiSession::renameWorkspace(const QString &identity,const QString &name) {re
 void UiSession::setWorkspaceDirectory(const QString &identity,const QString &directory) {request("workspace.directory",identity,{},directory);}
 void UiSession::clearError() {if(!busy_ && !error_.isEmpty()) {error_.clear();Q_EMIT changed();}}
 void UiSession::moveTerminal(const QString &identity,const QString &workspace,int position) {request("terminal.move",identity,{},{},workspace,position);}
+QUrl UiSession::folderStart(const QString &value) const {
+    // Resolve only when opening the picker, never in pane layout or rendering.
+    QString path=value;
+    if(path=="~")path=QDir::homePath();
+    else if(path.startsWith("~/"))path=QDir::home().filePath(path.mid(2));
+    else if(path.isEmpty())path=config_["cwd"].toString();
+    if(QDir::isRelativePath(path))path=QDir(config_["cwd"].toString()).absoluteFilePath(path);
+    path=QDir::cleanPath(path);
+    while(!QFileInfo(path).isDir()) {
+        const auto parent=QFileInfo(path).absolutePath();
+        if(parent==path) {path=QDir::homePath();break;}
+        path=parent;
+    }
+    return QUrl::fromLocalFile(path);
+}
+QString UiSession::folderPath(const QUrl &url) const {
+    return url.isLocalFile() ? QDir::cleanPath(url.toLocalFile()) : QString();
+}
 void UiSession::refresh() {request("initialize");}

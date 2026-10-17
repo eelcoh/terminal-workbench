@@ -1027,3 +1027,23 @@ Native Mac workspace-editing review remains open. Native folder browsing, agents
 keyboard-only moves, saved configuration and terminal lifecycle/ownership UI
 remain later slices; this does not switch the production frontend.
 See [editing a workspace](toolkit-ui-study.md#editing-a-workspace).
+
+
+## Qt study: folder browsing
+
+Workspace creation and folder editing now expose Browse beside the path field.
+Qt Quick Dialogs supplies the platform picker, with its standard fallback when
+native dialogs are unavailable. A missing typed folder starts browsing from its
+nearest existing parent. Choosing fills the form only; Create/Save performs the
+existing service request. Picker cancellation retains typed text and the parent
+form, while cancelling the form discards an accepted choice.
+
+Local file URL conversion preserves spaces, Unicode and URL-special characters.
+Native xcb/Wayland input checks drive Qt's standard fallback independently of
+host portals, exercise keyboard entry, cancellation, selection and no implicit
+writes, then verify a real new shell starts in the selected Unicode folder.
+The owner confirmed the native Mac picker works. Physical Linux picker review
+remains open; no saved production
+catalog or renderer adoption is introduced. Qt Quick Dialogs is an existing Qt
+module, linked explicitly by the UI study target.
+See [folder browsing](toolkit-ui-study.md#browsing-for-a-folder).

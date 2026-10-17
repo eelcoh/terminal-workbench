@@ -26,6 +26,7 @@ int main(int argc,char **argv) {
     app.setApplicationName("Terminal Workbench UI Study");
     app.setDesktopFileName("terminal-workbench-ui-study");
     QQuickStyle::setStyle("Basic");
+    const auto args=app.arguments();
     if(argc<2)return 2;
     QFile config(QString::fromLocal8Bit(argv[1]));if(!config.open(QIODevice::ReadOnly))return 2;
     const auto configuration=QJsonDocument::fromJson(config.readAll()).object();
@@ -34,10 +35,11 @@ int main(int argc,char **argv) {
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QQmlApplicationEngine engine;
     QObject::connect(&engine,&QQmlEngine::warnings,&app,[](const QList<QQmlError> &errors){for(const auto &error:errors)std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));});
+    engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
     auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
     // Explicit test-only snapshots; no user terminal content is recorded by default.
-    const auto args=app.arguments();const int reportIndex=args.indexOf("--test-report");QTimer reporter;
+    const int reportIndex=args.indexOf("--test-report");QTimer reporter;
     if(reportIndex>=0 && reportIndex+1<args.size()) {
         const auto path=args[reportIndex+1];reporter.setInterval(80);
         QObject::connect(&reporter,&QTimer::timeout,&app,[&,path] {
@@ -63,6 +65,21 @@ int main(int argc,char **argv) {
             const auto *createButton=window->findChild<QQuickItem *>("newWorkspaceButton");
             const auto createPoint=createButton->mapToScene(QPointF(createButton->width()/2,createButton->height()/2));
             const auto center=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
+            QJsonArray folderChoices;QJsonArray folderAccept;QJsonArray folderList;bool folderMoving=false;
+            // Observe the installed fallback controls; no test actions enter production QML.
+            QList<QQuickItem *> pending{window->contentItem()};
+            while(!pending.isEmpty()) {
+                auto *item=pending.takeLast();
+                if(!item->isVisible())continue;
+                pending.append(item->childItems());
+                const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+                bool unclipped=true;
+                for(auto *parent=item->parentItem();parent;parent=parent->parentItem())
+                    if(parent->clip() && !parent->mapRectToScene(parent->boundingRect()).contains(point)) {unclipped=false;break;}
+                if(item->objectName()=="folderDialogListView") {folderList=QJsonArray{point.x(),point.y()};folderMoving=item->property("moving").toBool();}
+                if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
+                if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
+            }
             const QJsonObject data{{"workspace",window->property("workspace").toInt()},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},
                 {"drop_allowed",window->property("dropAllowed").toBool()},
@@ -82,6 +99,11 @@ int main(int argc,char **argv) {
                 {"workspace_names",QJsonArray::fromVariantList(listProperty(window,"spaces"))},
                 {"workspace_directories",QJsonArray::fromVariantList(listProperty(window,"directories"))},
                 {"folder_focus",window->property("folderFocused").toBool()},
+                {"folder_browser_open",window->property("folderBrowserOpen").toBool()},
+                {"folder_browser_location",window->property("folderBrowserLocation").toUrl().toLocalFile()},
+                {"folder_choices",folderChoices},{"folder_accept",folderAccept},{"folder_list",folderList},{"folder_list_moving",folderMoving},
+                {"folder_browser_selection",window->property("folderBrowserSelection").toUrl().toLocalFile()},
+                {"browse_folder_button",center("browseWorkspaceFolderButton")},
                 {"name_input",window->findChild<QQuickItem *>("workspaceNameInput")->property("text").toString()},
                 {"folder_input",window->findChild<QQuickItem *>("workspaceFolderInput")->property("text").toString()},
                 {"form_submit_enabled",window->findChild<QQuickItem *>("submitWorkspaceButton")->isEnabled()},

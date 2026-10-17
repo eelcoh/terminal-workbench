@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QLocalSocket>
 #include <QTimer>
+#include <QUrl>
 #include "terminal_item.h"
 
 // Client adapter for the existing organization service. Never owns PTYs/catalog data.
@@ -27,6 +28,8 @@ public:
     Q_INVOKABLE void renameWorkspace(const QString &identity,const QString &name);
     Q_INVOKABLE void setWorkspaceDirectory(const QString &identity,const QString &directory);
     Q_INVOKABLE void clearError();
+    Q_INVOKABLE QUrl folderStart(const QString &path) const;
+    Q_INVOKABLE QString folderPath(const QUrl &url) const;
     Q_INVOKABLE void moveTerminal(const QString &identity,const QString &workspace,int position);
     Q_INVOKABLE void refresh();
 Q_SIGNALS:

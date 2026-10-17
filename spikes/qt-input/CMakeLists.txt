@@ -13,7 +13,7 @@ set_target_properties(workbench-input-probe PROPERTIES
 
 option(WORKBENCH_TERMINAL_PROBE "Build the isolated runtime terminal host" OFF)
 if(WORKBENCH_TERMINAL_PROBE)
-    find_package(Qt6 6.8 REQUIRED COMPONENTS Network)
+    find_package(Qt6 6.8 REQUIRED COMPONENTS Network QuickDialogs2)
     set(VT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.local/runtime-vt")
     if(NOT EXISTS "${VT_ROOT}/lib/libghostty-vt.a")
         message(FATAL_ERROR "Run just runtime-build to prepare the pinned Ghostty VT library")
@@ -69,7 +69,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
     target_include_directories(workbench-ui-study PRIVATE "${VT_ROOT}/include")
-    target_link_libraries(workbench-ui-study PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
+    target_link_libraries(workbench-ui-study PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
     qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml ThemePicker.qml)
     qt_add_resources(workbench-ui-study "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs as NativeDialogs
 import Workbench.Probe
 ApplicationWindow {
     id: window
@@ -13,6 +14,10 @@ ApplicationWindow {
     property string workspaceFormMode: "create"
     property string editingWorkspace: ""
     readonly property bool folderFocused: newFolder.activeFocus
+    property var folderBrowser: null
+    readonly property bool folderBrowserOpen: folderBrowser !== null && folderBrowser.visible
+    readonly property url folderBrowserLocation: folderBrowser ? folderBrowser.currentFolder : ""
+    readonly property url folderBrowserSelection: folderBrowser ? folderBrowser.selectedFolder : ""
     property bool pendingAppearance: false
     property var workspaceThemes: []
     property string appearanceWorkspace: ""
@@ -113,6 +118,14 @@ ApplicationWindow {
         newFolder.text = directories[target] || studySession.defaultDirectory
         createDialog.open()
     }
+    function browseWorkspaceFolder() {
+        if (studySession.busy || !createDialog.visible || workspaceFormMode === "rename") return
+        // Qt retains navigation after a dialog's first show. Honor the field on every opening.
+        if (folderBrowser) folderBrowser.destroy()
+        folderBrowser = folderBrowserFactory.createObject(createDialog, {currentFolder: studySession.folderStart(newFolder.text)})
+        if (folderBrowser) folderBrowser.open()
+    }
+    function restoreFolderFocus() { if (createDialog.visible) newFolder.forceActiveFocus() }
     function submitWorkspaceForm() {
         if (workspaceFormMode === "rename") studySession.renameWorkspace(editingWorkspace, newName.text)
         else if (workspaceFormMode === "folder") studySession.setWorkspaceDirectory(editingWorkspace, newFolder.text)
@@ -454,7 +467,7 @@ ApplicationWindow {
         padding: 20
         background: Rectangle { color: "#1b2029"; radius: 10; border.color: "#3a4657" }
         header: Label { text: createDialog.title; padding: 20; bottomPadding: 6; color: "#e0e6ef"; font.pixelSize: 18 }
-        closePolicy: studySession.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
+        closePolicy: studySession.busy || window.folderBrowserOpen ? Popup.NoAutoClose : Popup.CloseOnEscape
         contentItem: Column {
             spacing: 12
             Label { text: "Name"; visible: window.workspaceFormMode !== "folder"; color: "#c2c9d4" }
@@ -464,7 +477,11 @@ ApplicationWindow {
                 onAccepted: { if (window.workspaceFormMode === "rename") { if (submitWorkspace.enabled) submitWorkspace.clicked() } else newFolder.forceActiveFocus() }
             }
             Label { text: "Folder"; visible: window.workspaceFormMode !== "rename"; color: "#c2c9d4" }
-            ProjectField { id: newFolder; objectName: "workspaceFolderInput"; width: parent.width; visible: window.workspaceFormMode !== "rename"; enabled: !studySession.busy; onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked() }
+            Row {
+                width: parent.width; spacing: 8; visible: window.workspaceFormMode !== "rename"
+                ProjectField { id: newFolder; objectName: "workspaceFolderInput"; width: parent.width - browseFolder.width - parent.spacing; enabled: !studySession.busy; onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked() }
+                QuietButton { id: browseFolder; objectName: "browseWorkspaceFolderButton"; fixedPalette: true; text: "Browse…"; hint: "Choose a folder"; enabled: !studySession.busy; onClicked: window.browseWorkspaceFolder() }
+            }
             Label { width: parent.width; visible: window.workspaceFormMode !== "rename"; text: "Used by new terminals. Running terminals keep their current folders."; wrapMode: Text.Wrap; color: "#a5afbe"; font.pixelSize: 12 }
             Label { width: parent.width; text: studySession.error; visible: text.length > 0; wrapMode: Text.Wrap; color: "#e3bf91" }
             Row {
@@ -476,6 +493,23 @@ ApplicationWindow {
                     enabled: !studySession.busy && (window.workspaceFormMode === "folder" || newName.text.trim().length > 0) && (window.workspaceFormMode === "rename" || newFolder.text.trim().length > 0)
                     onClicked: window.submitWorkspaceForm()
                 }
+            }
+        }
+        Component {
+            id: folderBrowserFactory
+            NativeDialogs.FolderDialog {
+                id: browser; objectName: "workspaceFolderBrowser"
+                parentWindow: window; title: "Choose workspace folder"; acceptLabel: "Choose folder"
+                modality: Qt.WindowModal
+                // Automated native-input checks use Qt's fallback, independent of host portals.
+                options: testFolderDialogs ? NativeDialogs.FolderDialog.DontUseNativeDialog : 0
+                Component.onCompleted: if (testFolderDialogs && "popupType" in browser) browser.popupType = Popup.Item
+                onAccepted: {
+                    const path = studySession.folderPath(selectedFolder)
+                    if (createDialog.visible && path.length > 0) { newFolder.text = path; newFolder.deselect(); newFolder.cursorPosition = newFolder.text.length }
+                    Qt.callLater(window.restoreFolderFocus)
+                }
+                onRejected: Qt.callLater(window.restoreFolderFocus)
             }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()

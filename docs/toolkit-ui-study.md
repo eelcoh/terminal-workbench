@@ -91,8 +91,34 @@ Editing also works for an empty workspace and does not create a terminal.
 Names update the drawer/top bar/Overview from the confirmed catalog. Directory
 changes apply to subsequent new shells; existing shells retain their cwd, PID,
 input connection, theme and grid. Cancelling changes none of those facts.
-This still edits only the private disposable study catalog. A native folder
-picker and editing the saved production catalog remain later slices.
+This still edits only the private disposable study catalog. Editing the saved
+production catalog remains a later slice.
+
+### Browsing for a folder
+
+**Browse…** is next to the folder field in New workspace and Workspace folder.
+It uses Qt Quick Dialogs' platform folder picker, with Qt's standard fallback
+when a native dialog is unavailable. The starting location follows the field:
+absolute, `~/...` and relative paths are resolved, and a missing or non-directory
+path starts at its nearest existing parent. Resolution runs only when Browse
+opens, outside pane layout and rendering. Each opening follows the current
+field, rather than retaining navigation from an earlier picker.
+
+Choosing a folder fills the field and returns focus to it. It does not create a
+workspace or save a setting: use **Create/Save** afterward. Picker Cancel/Escape
+keeps the form and typed path; cancelling the form also discards an accepted
+picker choice. Paths cross the Qt boundary as file URLs and are converted with
+Qt's local-file conversion, preserving spaces, Unicode, `#`, `%` and `&`.
+The service still validates the path on Save, including deletion/access races.
+
+The opt-in UI test report forces Qt's standard in-window fallback so automated
+checks do not depend on the host desktop portal. Native xcb/Wayland keyboard and
+pointer checks open Browse from creation and editing, cancel/reopen it, choose
+folders, verify no implicit catalog writes, and start a real shell in a selected
+Unicode folder. This validates the shared workflow, not a native portal or Mac
+panel. Review the actual platform picker on Mac/Linux with `just toolkit-ui`;
+The owner confirmed the native Mac picker works; physical Linux picker/portal
+acceptance remains open.
 
 ## Workspace Appearance
 
@@ -207,7 +233,7 @@ created by ordinary interactive runs.
 The owner confirmed the initial UI and creation flows on Mac and Linux, and
 confirmed that Appearance and cursor styling work. The new click/drag interactions
 and workspace editing still need native Mac review. This slice does not yet
-implement a native folder picker, agents,
+implement agents,
 persistence, configured shortcuts or session ownership workflows.
 It avoids dead controls for those actions. They remain later design slices,
 along with typography, motion, accessibility and cache/backing-surface budgets.
