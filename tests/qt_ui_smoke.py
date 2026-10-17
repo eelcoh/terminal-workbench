@@ -17,9 +17,13 @@ wayland='--wayland' in sys.argv[3:]
 ROOT=Path(__file__).resolve().parent.parent
 artifacts=ROOT/'.local/artifacts/qt-ui'/('wayland' if wayland else 'xcb');artifacts.mkdir(parents=True,exist_ok=True)
 report=artifacts/'report.json';report.unlink(missing_ok=True)
+sys.path.insert(0,str(ROOT/'scripts'))
+from session_service import request
+import workspace_catalog
+os.environ['SHELL']='/bin/sh'
 processes=[];sockets=[]
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:
-    root=Path(directory)
+    root=Path(directory);project=root/'Project folder';project.mkdir()
     try:
         reader=root/'reader.py';reader.write_text('''import os,tty,time,select,termios,struct,fcntl
 from pathlib import Path
@@ -32,13 +36,17 @@ while True:
  if Path('update').exists():os.write(1,b'\\r\\nHIDDEN-UPDATE');Path('update').unlink()
 ''')
         for i in range(6):
-            actor=root/str(i);actor.mkdir();sock=actor/'p.sock';sockets.append(sock)
+            actor=root/str(i);actor.mkdir();sock=root/f'terminal-{i}.sock';sockets.append(sock)
             server=subprocess.Popen([runtime,str(sock),'/bin/sh'],cwd=actor,stdout=log,stderr=log);processes.append(server)
             wait_until(sock.exists);c,_,_=attach(sock)
             send(c,16,(shlex.join(['exec',sys.executable,str(reader)])+'\n').encode());c.close()
             wait_until((actor/'pid').exists)
         pids=[(root/str(i)/'pid').read_text() for i in range(6)]
-        config=root/'sessions.json';config.write_text(json.dumps([str(sock.with_suffix('.ctl')) for sock in sockets]))
+        catalog={'version':1,'workspaces':[{'id':f'workspace-{w}','name':['Workbench','Side project','Empty workspace'][w],
+                 'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
+        workspace_catalog.save(root,catalog)
+        catalog=request(root,Path(runtime),root)['data']
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -78,7 +86,7 @@ while True:
             window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
         def key(value):
             if wayland:
-                pieces=value.split('+');mods=[{'super':'Mod4','alt':'Mod1'}.get(v,v) for v in pieces[:-1]]
+                pieces=value.split('+');mods=[{'super':'Mod4','alt':'Mod1','ctrl':'Control','shift':'Shift'}.get(v,v) for v in pieces[:-1]]
                 run(root/'keyboard','key',pieces[-1],*mods)
             else:cmd('key','--window',window,value)
         def typed(value):
@@ -120,6 +128,37 @@ while True:
         key('super+alt+slash');time.sleep(.15);key('Escape');wait_until(lambda:data()['panes'][4]['focus'])
         key('super+alt+Down');wait_until(lambda:data()['workspace']==2 and data()['selected']==-1)
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1 and data()['selected']==4 and data()['panes'][4]['focus'])
+        # Creation uses the real service, keeping the original six attached readers.
+        key('super+alt+t')
+        wait_until(lambda:len(data()['panes'])==7 and data()['panes'][6]['ready'] and data()['selected']==6 and data()['panes'][6]['focus'])
+        created=workspace_catalog.load(root)['workspaces'][1]['terminals'][-1]['id']
+        marker=root/'new-terminal-cwd'
+        typed('pwd > '+shlex.quote(str(marker)));key('Return');wait_until(marker.exists)
+        assert marker.read_text().strip()==str(root)
+        key('super+alt+n');wait_until(lambda:data()['creation_open'])
+        typed('Project test');key('Tab');key('ctrl+a');typed(str(root/'missing'));key('Return')
+        wait_until(lambda:'Folder' in data()['error'] and not data()['busy'])
+        assert data()['workspace_count']==3 and len(data()['panes'])==7,'failed creation changed catalog'
+        capture('invalid-folder.png')
+        # Failed Create keeps fields editable; replace the invalid folder in place.
+        key('Escape');wait_until(lambda:not data()['creation_open'])
+        click(24,28);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['new_workspace_button']);wait_until(lambda:data()['creation_open']);time.sleep(.3)
+        assert data()['name_focus'],'closing the drawer stole dialog focus'
+        typed('Project test');key('Tab');key('ctrl+a');typed(str(project));key('Return')
+        wait_until(lambda:data()['workspace_count']==4 and len(data()['panes'])==8 and not data()['creation_open'] and data()['panes'][7]['ready'] and data()['panes'][7]['focus'])
+        assert data()['workspace']==3
+        marker2=root/'workspace-cwd';typed('pwd > '+shlex.quote(str(marker2)));key('Return');wait_until(marker2.exists)
+        assert marker2.read_text().strip()==str(project)
+        created_workspace=workspace_catalog.load(root)['workspaces'][-1]
+        assert created_workspace['name']=='Project test' and created_workspace['directory']==str(project)
+        # Empty workspace can create its first terminal without special handling.
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==2 and data()['selected']==-1)
+        key('super+alt+t');wait_until(lambda:len(data()['panes'])==9 and data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
+        wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']))
+        creation_sizes=sizes();key('super+alt+o');wait_until(lambda:data()['overview']);time.sleep(.3)
+        assert sizes()==creation_sizes,('Overview resized dynamically created terminals',creation_sizes,sizes())
+        capture('created-overview.png');key('Escape');wait_until(lambda:not data()['overview'])
         capture('working.png')
         expected=[b'first',b'second',b'',b'peer',b'chosen\x1b',b'']
         assert [received(i) for i in range(6)]==expected,'navigation/overview shortcuts leaked into a PTY'
@@ -127,9 +166,10 @@ while True:
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, unchanged grids/PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
     finally:
-        for sock in sockets:subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
+        for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
+        request(root,Path(runtime),root,"service.shutdown")
         for process in reversed(processes):
             if process.poll() is None:
                 process.terminate()

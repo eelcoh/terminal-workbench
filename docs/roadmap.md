@@ -949,3 +949,21 @@ The owner supplied passing native Mac live-performance results from clean
 d4b8ce4 (Qt 6.12/Metal, 2x): all six trials pass. Fifteen-pane full-output viewer
 RSS is about 769 MiB, with median lifetime peak 877 MiB. Keep memory budgeting
 and external-display quality open alongside UI review before toolkit adoption.
+
+
+## Current toolkit slice: workspace and terminal creation
+
+The owner confirmed the first Qt UI study works on Mac and Linux.
+`just toolkit-ui` now uses a private instance of the existing session service
+for live creation, with native editable workspace name/folder fields, inline
+validation, busy/capacity states and cancellation. Cmd–Option–T/N on Mac and
+Super–Alt–T/N on Linux create terminals/workspaces; menus and the top bar also
+expose the actions. Stable IDs keep existing attached terminal items, widths,
+focus memory and shell processes. Overview supports multiple rows per workspace.
+
+Native xcb/Wayland creation checks cover current/empty workspaces, invalid
+folders, cancellation, new-shell cwd and original-reader preservation. Launcher
+checks include cleanup of shells created after startup on normal/failed exit.
+Native Mac creation review remains open. Theme selection and drag/reorder are
+next UI slices; no production frontend adoption is made here.
+See [creation flow](toolkit-ui-study.md#creating-workspaces-and-terminals).

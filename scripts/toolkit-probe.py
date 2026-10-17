@@ -35,7 +35,9 @@ def main():
         binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name
         command=[sys.executable,str(ROOT/"tests/qt_ui_smoke.py"),str(ROOT/"target/debug/workbench-session"),str(binary)] if args.mode=="ui-test" else [sys.executable,str(ROOT/"scripts/toolkit-ui.py"),str(ROOT/"target/debug/workbench-session"),str(binary)]
         subprocess.run(command,check=True)
-        if args.mode=="ui-test":subprocess.run([*command,"--wayland"],check=True)
+        if args.mode=="ui-test":
+            subprocess.run([*command,"--wayland"],check=True)
+            subprocess.run([sys.executable,str(ROOT/"tests/qt_ui_launcher_test.py"),str(ROOT/"target/debug/workbench-session")],check=True)
         return
     if args.mode in ("live-perf","live-perf-test"):
         name="workbench-live-bench"

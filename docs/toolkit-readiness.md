@@ -949,3 +949,16 @@ Escape, empty-workspace navigation and unchanged terminal grids/PIDs during
 Overview. This is the first interaction slice, not complete frontend adoption.
 Mac UI review, physical trackpad input and remaining product flows stay open.
 See [UI study scope and review](toolkit-ui-study.md).
+
+
+### Qt study creation through the existing service
+
+The owner confirmed the initial study on both Mac and Linux. The creation slice
+uses the established service methods and a private catalog, with asynchronous
+requests, native editable name/folder fields, inline validation, busy/capacity
+controls and creation/navigation shortcuts. New identities append live items;
+existing terminals are not reconnected or recreated. Overview wraps additional
+terminals without resizing their PTYs. Native xcb/Wayland tests exercise creation,
+invalid folders, cancellation, cwd inheritance, original-reader isolation and
+normal/failed-launcher cleanup. Native Mac creation and later theme/drag flows
+remain acceptance work. See [the study](toolkit-ui-study.md).

@@ -64,7 +64,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-terminal-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.terminal-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
-    qt_add_executable(workbench-ui-study ui_main.cpp terminal_item.cpp terminal_item.h
+    qt_add_executable(workbench-ui-study ui_main.cpp ui_session.cpp ui_session.h terminal_item.cpp terminal_item.h
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
