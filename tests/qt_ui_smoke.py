@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, 
     try:
         reader=root/'reader.py';reader.write_text('''import os,tty,time,select,termios,struct,fcntl
 from pathlib import Path
-tty.setraw(0);Path('pid').write_text(str(os.getpid()));os.write(1,b'UI-READY')
+tty.setraw(0);Path('pid').write_text(str(os.getpid()));os.write(1,(b'\\x1b]4;2;rgb:11/22/33\\x07' if Path.cwd().name=='3' else b'')+b'\\x1b[2J\\x1b[HUI-READY\\r\\n\\x1b[31mR\\x1b[0m\\x1b[38;2;1;2;3mT\\x1b[0m\\x1b[32mG\\x1b[0m')
 while True:
  if select.select([0],[],[],.02)[0]:
   data=os.read(0,65536)
@@ -39,8 +39,10 @@ while True:
             actor=root/str(i);actor.mkdir();sock=root/f'terminal-{i}.sock';sockets.append(sock)
             server=subprocess.Popen([runtime,str(sock),'/bin/sh'],cwd=actor,stdout=log,stderr=log);processes.append(server)
             wait_until(sock.exists);c,_,_=attach(sock)
-            send(c,16,(shlex.join(['exec',sys.executable,str(reader)])+'\n').encode());c.close()
-            wait_until((actor/'pid').exists)
+            try:
+                send(c,16,(shlex.join(['exec',sys.executable,str(reader)])+'\n').encode())
+                wait_until((actor/'pid').exists)
+            finally:c.close()
         pids=[(root/str(i)/'pid').read_text() for i in range(6)]
         catalog={'version':1,'workspaces':[{'id':f'workspace-{w}','name':['Workbench','Side project','Empty workspace'][w],
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
@@ -75,7 +77,10 @@ while True:
         def data():
             try:return json.loads(report.read_text())
             except (FileNotFoundError,ValueError):return {}
-        wait_until(lambda:len(data().get('panes',[]))==6 and all(p['ready'] and 'UI-READY' in p['text'] for p in data()['panes']),timeout=30)
+        def ready_ui():
+            assert client.poll() is None,('Qt UI exited during startup',client.returncode,artifacts/'run.log')
+            return len(data().get('panes',[]))==6 and all(p['ready'] and 'UI-READY' in p['text'] for p in data()['panes'])
+        wait_until(ready_ui,timeout=30)
         if wayland:
             assert data()['platform']=='wayland' and 'DISPLAY' not in env
             window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study'),None))
@@ -128,9 +133,32 @@ while True:
         key('super+alt+slash');time.sleep(.15);key('Escape');wait_until(lambda:data()['panes'][4]['focus'])
         key('super+alt+Down');wait_until(lambda:data()['workspace']==2 and data()['selected']==-1)
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1 and data()['selected']==4 and data()['panes'][4]['focus'])
+        # Preview changes existing indexed/default colors, preserves explicit RGB and PTYs.
+        theme_catalog_before=(root/'workspaces.json').read_bytes();theme_sizes=sizes()
+        def appearance():
+            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+            click(*data()['appearance_menu_item']);wait_until(lambda:data()['appearance_open'] and data()['theme_search_focus'])
+        def theme_state(index,background,red):
+            value=data()
+            return value['panes'][3]['sample_green']=='#112233' and value['chrome_background']==background and all(p['theme']==index and p['background']==background and p['sample_red']==red and p['sample_rgb']=='#010203' for p in value['panes'][3:6])
+        appearance();typed('Workbench Dawn');wait_until(lambda:data()['theme_matches']==1);key('Down')
+        wait_until(lambda:theme_state(1,'#f4f1eb','#a93f4a'))
+        assert all(p['theme']==0 and p['background']=='#15191f' for p in data()['panes'][:3])
+        assert sizes()==theme_sizes;capture('theme-light-preview.png')
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and data()['panes'][4]['focus'] and theme_state(0,'#15191f','#e49b9b'))
+        appearance();typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down')
+        wait_until(lambda:theme_state(2,'#282a36','#ff5555'));key('Return')
+        wait_until(lambda:not data()['appearance_open'] and data()['panes'][4]['focus'])
+        assert theme_state(2,'#282a36','#ff5555') and sizes()==theme_sizes
+        assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'appearance mutated runtime organization'
+        appearance();typed('no-theme-matches-this');wait_until(lambda:data()['theme_matches']==0);capture('theme-no-results.png');key('Escape')
+        wait_until(lambda:not data()['appearance_open']);assert theme_state(2,'#282a36','#ff5555')
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['chrome_background']=='#15191f')
+        key('super+alt+Down');wait_until(lambda:data()['workspace']==1 and data()['chrome_background']=='#282a36')
         # Creation uses the real service, keeping the original six attached readers.
         key('super+alt+t')
         wait_until(lambda:len(data()['panes'])==7 and data()['panes'][6]['ready'] and data()['selected']==6 and data()['panes'][6]['focus'])
+        wait_until(lambda:data()['panes'][6]['theme']==2 and data()['panes'][6]['background']=='#282a36')
         created=workspace_catalog.load(root)['workspaces'][1]['terminals'][-1]['id']
         marker=root/'new-terminal-cwd'
         typed('pwd > '+shlex.quote(str(marker)));key('Return');wait_until(marker.exists)
@@ -166,7 +194,7 @@ while True:
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, unchanged reader PIDs and isolated input')
     finally:
         for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
         request(root,Path(runtime),root,"service.shutdown")

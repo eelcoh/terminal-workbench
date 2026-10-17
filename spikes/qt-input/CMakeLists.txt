@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(WorkbenchInputProbe LANGUAGES CXX)
+project(WorkbenchInputProbe LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 find_package(Qt6 6.8 REQUIRED COMPONENTS Quick QuickControls2)
 qt_standard_project_setup()
@@ -51,7 +51,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-text-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.text-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Text Proof")
-    qt_add_executable(workbench-terminal-probe terminal_main.cpp terminal_item.cpp terminal_item.h terminal_accessibility.cpp terminal_accessibility.h terminal_accessibility_test.cpp terminal_composition.cpp terminal_composition_test.cpp terminal_composition.h terminal_text.cpp terminal_text.h)
+    qt_add_executable(workbench-terminal-probe terminal_main.cpp terminal_item.cpp terminal_item.h theme_bridge.c terminal_accessibility.cpp terminal_accessibility.h terminal_accessibility_test.cpp terminal_composition.cpp terminal_composition_test.cpp terminal_composition.h terminal_text.cpp terminal_text.h)
     qt_add_resources(workbench-terminal-probe "terminal" PREFIX "/" FILES Terminal.qml Pair.qml)
     # Ghostty formatter structs have an emit field; avoid Qt keyword macros.
     target_compile_definitions(workbench-terminal-probe PRIVATE QT_NO_KEYWORDS)
@@ -64,20 +64,20 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-terminal-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.terminal-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
-    qt_add_executable(workbench-ui-study ui_main.cpp ui_session.cpp ui_session.h terminal_item.cpp terminal_item.h
+    qt_add_executable(workbench-ui-study ui_main.cpp ui_session.cpp ui_session.h terminal_item.cpp terminal_item.h theme_bridge.c
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
     target_include_directories(workbench-ui-study PRIVATE "${VT_ROOT}/include")
     target_link_libraries(workbench-ui-study PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
-    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml)
+    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml ThemePicker.qml)
     qt_add_resources(workbench-ui-study "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
         FILES "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")
     set_target_properties(workbench-ui-study PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.ui-study"
         MACOSX_BUNDLE_BUNDLE_NAME "Terminal Workbench UI Study")
-    qt_add_executable(workbench-live-bench live_bench.cpp terminal_item.cpp terminal_item.h
+    qt_add_executable(workbench-live-bench live_bench.cpp terminal_item.cpp terminal_item.h theme_bridge.c
         terminal_accessibility.cpp terminal_accessibility.h terminal_composition.cpp terminal_composition.h
         terminal_text.cpp terminal_text.h)
     target_compile_definitions(workbench-live-bench PRIVATE QT_NO_KEYWORDS)

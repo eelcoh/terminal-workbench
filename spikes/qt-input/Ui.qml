@@ -4,12 +4,30 @@ import Workbench.Probe
 ApplicationWindow {
     id: window
     width: 1240; height: 760; minimumWidth: 680; minimumHeight: 440
-    visible: true; title: "Terminal Workbench · Qt UI study"; color: "#101318"
+    visible: true; title: "Terminal Workbench · Qt UI study"; color: chrome.background
     property int workspace: 0
     property int selected: 0
     property bool overview: false
     property bool reducedMotion: false
     property bool pendingWorkspaceDialog: false
+    property bool pendingAppearance: false
+    property var workspaceThemes: []
+    property string appearanceWorkspace: ""
+    property int previewTheme: 0
+    readonly property bool appearanceOpen: appearance.visible
+    readonly property bool applicationMenuOpen: appMenu.visible
+    readonly property bool themeSearchFocus: appearance.searchFocused
+    readonly property int themeMatchCount: appearance.matches.length
+    readonly property var chrome: studySession.themes[themeIndexFor(workspace)]
+    function themeIndexFor(space) { return appearance.visible && spaceIds[space] === appearanceWorkspace ? previewTheme : (workspaceThemes[space] || 0) }
+    function openAppearance() {
+        if (overview || createDialog.visible || appearance.visible) return
+        if (appMenu.visible) { pendingAppearance = true; appMenu.close() }
+        else showAppearance()
+    }
+    function showAppearance() {
+        appearanceWorkspace = spaceIds[workspace]; previewTheme = workspaceThemes[workspace] || 0; appearance.open()
+    }
     property var widths: []
     property var fullWidths: []
     property var remembered: []
@@ -51,7 +69,7 @@ ApplicationWindow {
         if (method === "workspace.create_at") { createDialog.close(); chooseWorkspace(spaces.length - 1); if (overview) toggleOverview() }
         if (method === "terminal.create" && added >= 0) { if (overview) toggleOverview(); Qt.callLater(function() { focusPane(added) }) }
     }
-    function newTerminal() { if (canCreateTerminal && !createDialog.visible) studySession.createTerminal(spaceIds[workspace]) }
+    function newTerminal() { if (canCreateTerminal && !createDialog.visible && !window.appearanceOpen) studySession.createTerminal(spaceIds[workspace]) }
     function newWorkspace() {
         if (!canCreateWorkspace || createDialog.visible) return
         pendingWorkspaceDialog = true
@@ -64,9 +82,11 @@ ApplicationWindow {
         createDialog.open()
     }
     function restoreAfterPopup() {
-        if (pendingWorkspaceDialog) {
+        if (pendingAppearance) {
+            pendingAppearance = false; Qt.callLater(showAppearance)
+        } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !createDialog.visible && !help.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -74,7 +94,7 @@ ApplicationWindow {
     }
     readonly property string chord: Qt.platform.os === "osx" ? "Ctrl+Alt+" : "Meta+Alt+"
     readonly property string chordLabel: Qt.platform.os === "osx" ? "⌘⌥" : "Super+Alt+"
-    readonly property color accent: "#b4c9ec"
+    readonly property color accent: chrome.accent
     readonly property int motion: reducedMotion ? 0 : 220
     function panel(i) { return panels.itemAt(i) }
     function paneWidth(i) { return Math.max(240, (deck.width + 12) * (fullWidths[i] ? 1 : widths[i]) - 12) }
@@ -122,14 +142,15 @@ ApplicationWindow {
     component QuietButton: Button {
         id: control
         property string hint: text
+        property bool fixedPalette: false
         implicitWidth: Math.max(36, contentItem.implicitWidth + 22); implicitHeight: 36
         hoverEnabled: true; focusPolicy: Qt.StrongFocus
         Accessible.name: hint
-        contentItem: Text { text: control.text; color: control.down ? "#ffffff" : "#c2c9d4"; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-        background: Rectangle { radius: 7; color: control.down ? "#323b4b" : control.hovered || control.visualFocus ? "#242c38" : "transparent"; border.width: control.visualFocus ? 1 : 0; border.color: window.accent }
+        contentItem: Text { text: control.text; color: control.fixedPalette ? "#c2c9d4" : window.chrome.foreground; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
+        background: Rectangle { radius: 7; color: control.down || control.hovered || control.visualFocus ? (control.fixedPalette ? "#323b4b" : window.chrome.hover) : "transparent"; border.width: control.visualFocus ? 1 : 0; border.color: window.accent }
         ToolTip.visible: hovered; ToolTip.delay: 650; ToolTip.text: hint
     }
-    Rectangle { x: 48; y: 0; width: 1; height: parent.height; color: "#232933" }
+    Rectangle { x: 48; y: 0; width: 1; height: parent.height; color: window.chrome.border }
     Column {
         x: 6; y: 10; spacing: 8
         QuietButton { text: "▤"; hint: "Workspaces"; onClicked: drawer.open() }
@@ -149,7 +170,7 @@ ApplicationWindow {
                     readonly property int paneIndex: window.indices(window.workspace)[index]
                     Rectangle {
                         anchors.centerIn: parent; width: window.selected === parent.paneIndex ? 24 : 12; height: 4; radius: 2
-                        color: window.selected === parent.paneIndex ? window.accent : window.left(parent.paneIndex) + window.paneWidth(parent.paneIndex) > deck.contentX && window.left(parent.paneIndex) < deck.contentX + deck.width ? "#697588" : "#343e4e"
+                        color: window.selected === parent.paneIndex ? window.accent : window.left(parent.paneIndex) + window.paneWidth(parent.paneIndex) > deck.contentX && window.left(parent.paneIndex) < deck.contentX + deck.width ? window.chrome.muted : window.chrome.border
                     }
                     onClicked: window.enterPane(paneIndex)
                 }
@@ -159,7 +180,7 @@ ApplicationWindow {
             anchors.right: parent.right; spacing: 6
             QuietButton { text: studySession.busy ? "…" : "+"; hint: "New terminal · " + window.chordLabel + "T"; enabled: window.canCreateTerminal; onClicked: window.newTerminal() }
             QuietButton { text: window.overview ? "Done" : "Overview"; onClicked: window.toggleOverview() }
-            QuietButton { text: "☰"; hint: "Application menu"; onClicked: appMenu.open() }
+            QuietButton { objectName: "applicationMenuButton"; text: "☰"; hint: "Application menu"; onClicked: appMenu.open() }
         }
     }
     Flickable {
@@ -177,7 +198,7 @@ ApplicationWindow {
         Behavior on contentX { enabled: !window.overview; NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
         Repeater {
             model: window.spaces.length
-            Label { required property int index; visible: window.overview; x: 0; y: deck.groupTop(index); text: window.spaces[index] + (window.counts[index] > 0 ? "  ·  " + window.counts[index] + " terminals" : ""); color: "#a8b2c2"; font.pixelSize: 13 }
+            Label { required property int index; visible: window.overview; x: 0; y: deck.groupTop(index); text: window.spaces[index] + (window.counts[index] > 0 ? "  ·  " + window.counts[index] + " terminals" : ""); color: window.chrome.muted; font.pixelSize: 13 }
         }
         Repeater {
             id: panels; model: terminalModel
@@ -195,17 +216,18 @@ ApplicationWindow {
                 scale: window.overview ? previewScale : 1
                 transformOrigin: Item.TopLeft
                 visible: window.overview || spaceIndex === window.workspace
-                color: "#181c23"; radius: 6
-                border.width: 1; border.color: window.selected === index ? window.accent : "#323a47"
+                color: studySession.themes[window.themeIndexFor(spaceIndex)].surface; radius: 6
+                border.width: 1; border.color: window.selected === index ? studySession.themes[window.themeIndexFor(spaceIndex)].accent : studySession.themes[window.themeIndexFor(spaceIndex)].border
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
-                Text { x: 14; y: 10; width: parent.width - 65; elide: Text.ElideMiddle; text: "~  /  terminal " + (ordinal + 1); font.pixelSize: 12; color: window.selected === index ? "#d4dfef" : "#8995a7" }
+                Text { x: 14; y: 10; width: parent.width - 65; elide: Text.ElideMiddle; text: "~  /  terminal " + (ordinal + 1); font.pixelSize: 12; color: studySession.themes[window.themeIndexFor(spaceIndex)].foreground }
                 QuietButton { anchors.right: parent.right; anchors.rightMargin: 3; y: 0; text: "⋯"; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
                     id: terminal; objectName: "terminal" + index
                     x: 4; y: 36; width: parent.width - 8; height: parent.height - 40
                     enabled: !window.overview
+                    themeIndex: window.themeIndexFor(pane.spaceIndex)
                     presentationEnabled: pane.visible && pane.x + pane.width * pane.scale > deck.contentX && pane.x < deck.contentX + deck.width && pane.y + pane.height * pane.scale > deck.contentY && pane.y < deck.contentY + deck.height
                     opacity: presentationEnabled ? 1 : 0
                     WheelHandler {
@@ -230,17 +252,17 @@ ApplicationWindow {
                 MouseArea { anchors.fill: parent; enabled: window.overview; cursorShape: Qt.PointingHandCursor; onClicked: window.enterPane(index) }
             }
         }
-        Label { anchors.centerIn: parent; visible: !window.overview && (window.counts[window.workspace] || 0) === 0; text: "An empty workspace"; color: "#7d899c"; font.pixelSize: 14 }
+        Label { anchors.centerIn: parent; visible: !window.overview && (window.counts[window.workspace] || 0) === 0; text: "An empty workspace"; color: window.chrome.muted; font.pixelSize: 14 }
     }
     Drawer {
         id: drawer; y: 56; width: 248; height: window.height - 56; edge: Qt.LeftEdge
-        background: Rectangle { color: "#1b2029"; radius: 8 }
+        background: Rectangle { color: window.chrome.surface; radius: 8 }
         Column {
             anchors.fill: parent; anchors.margins: 14; spacing: 8
-            Label { text: "Workspaces"; color: "#8694aa"; font.pixelSize: 12; padding: 10 }
+            Label { text: "Workspaces"; color: window.chrome.muted; font.pixelSize: 12; padding: 10 }
             Repeater { model: window.spaces.length; QuietButton { required property int index; width: 220; text: window.spaces[index]; onClicked: window.chooseWorkspace(index) } }
             QuietButton { objectName: "newWorkspaceButton"; width: 220; text: "New workspace…"; enabled: window.canCreateWorkspace; onClicked: window.newWorkspace() }
-            Label { width: 220; padding: 10; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: "#8694aa"; font.pixelSize: 12 }
+            Label { width: 220; padding: 10; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: window.chrome.muted; font.pixelSize: 12 }
         }
         onClosed: window.restoreAfterPopup()
     }
@@ -250,6 +272,7 @@ ApplicationWindow {
         MenuItem { text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.newTerminal() }
         MenuItem { text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.newWorkspace() }
         MenuSeparator {}
+        MenuItem { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
         MenuItem { text: "Keyboard shortcuts"; onTriggered: help.open() }
         MenuItem { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
         MenuSeparator {}
@@ -265,11 +288,23 @@ ApplicationWindow {
         MenuItem { text: "Toggle full width"; onTriggered: window.toggleFull() }
     }
     Rectangle {
-        visible: studySession.error.length > 0 && !createDialog.visible
+        visible: studySession.error.length > 0 && !createDialog.visible && !window.appearanceOpen
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
         width: Math.min(window.width - 100, 680); height: 76; color: "#352b22"; radius: 8; z: 4
         Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error; wrapMode: Text.Wrap; color: "#f0d6b8" }
         QuietButton { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Refresh"; enabled: !studySession.busy; onClicked: studySession.refresh() }
+    }
+    ThemePicker {
+        id: appearance; anchors.centerIn: parent
+        catalog: studySession.themes; themeIndex: window.previewTheme
+        workspaceName: window.spaces[window.spaceIds.indexOf(window.appearanceWorkspace)] || ""
+        onPreviewSelected: index => window.previewTheme = index
+        onApplySelected: {
+            const space = window.spaceIds.indexOf(window.appearanceWorkspace)
+            if (space >= 0) { let themes = window.workspaceThemes.slice(); themes[space] = window.previewTheme; window.workspaceThemes = themes }
+            close()
+        }
+        onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
     component ProjectField: TextField {
         selectByMouse: true; color: "#e0e6ef"; selectionColor: window.accent; selectedTextColor: "#101318"
@@ -279,6 +314,7 @@ ApplicationWindow {
     Dialog {
         id: createDialog; objectName: "createWorkspaceDialog"
         onOpened: newName.forceActiveFocus()
+        implicitWidth: 460
         title: "New workspace"; anchors.centerIn: parent; modal: true; width: Math.min(460, window.width - 80)
         padding: 20
         background: Rectangle { color: "#1b2029"; radius: 10; border.color: "#3a4657" }
@@ -293,27 +329,27 @@ ApplicationWindow {
             Label { width: parent.width; text: studySession.error; visible: text.length > 0; wrapMode: Text.Wrap; color: "#e3bf91" }
             Row {
                 spacing: 8
-                QuietButton { text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
-                QuietButton { id: submitWorkspace; text: studySession.busy ? "Creating…" : "Create"; enabled: !studySession.busy && newName.text.trim().length > 0 && newFolder.text.trim().length > 0; onClicked: studySession.createWorkspace(newName.text, newFolder.text) }
+                QuietButton { fixedPalette: true; text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
+                QuietButton { id: submitWorkspace; fixedPalette: true; text: studySession.busy ? "Creating…" : "Create"; enabled: !studySession.busy && newName.text.trim().length > 0 && newFolder.text.trim().length > 0; onClicked: studySession.createWorkspace(newName.text, newFolder.text) }
             }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
     Dialog {
-        id: help; title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
+        id: help; implicitWidth: 560; implicitHeight: 400; width: Math.min(implicitWidth, window.width - 64); height: Math.min(implicitHeight, window.height - 64); title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
         contentItem: Label { padding: 18; text: window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    Shortcut { sequence: window.chord + "T"; enabled: !createDialog.visible; onActivated: window.newTerminal() }
-    Shortcut { sequence: window.chord + "N"; enabled: !createDialog.visible; onActivated: window.newWorkspace() }
-    Shortcut { sequence: window.chord + "Left"; enabled: !createDialog.visible; onActivated: window.navigate(-1) }
-    Shortcut { sequence: window.chord + "Right"; enabled: !createDialog.visible; onActivated: window.navigate(1) }
-    Shortcut { sequence: window.chord + "Up"; enabled: !createDialog.visible; onActivated: window.chooseWorkspace(window.workspace - 1) }
-    Shortcut { sequence: window.chord + "Down"; enabled: !createDialog.visible; onActivated: window.chooseWorkspace(window.workspace + 1) }
-    Shortcut { sequence: window.chord + "O"; enabled: !createDialog.visible; onActivated: window.toggleOverview() }
-    Shortcut { sequence: window.chord + "R"; enabled: !window.overview && !createDialog.visible; onActivated: window.cycleWidth() }
-    Shortcut { sequence: window.chord + "F"; enabled: !window.overview && !createDialog.visible; onActivated: window.toggleFull() }
-    Shortcut { sequence: window.chord + "/"; enabled: !createDialog.visible; onActivated: help.open() }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !createDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: window.toggleOverview() }
+    Shortcut { sequence: window.chord + "T"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.newTerminal() }
+    Shortcut { sequence: window.chord + "N"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.newWorkspace() }
+    Shortcut { sequence: window.chord + "Left"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.navigate(-1) }
+    Shortcut { sequence: window.chord + "Right"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.navigate(1) }
+    Shortcut { sequence: window.chord + "Up"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.chooseWorkspace(window.workspace - 1) }
+    Shortcut { sequence: window.chord + "Down"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.chooseWorkspace(window.workspace + 1) }
+    Shortcut { sequence: window.chord + "O"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.toggleOverview() }
+    Shortcut { sequence: window.chord + "R"; enabled: !window.overview && !createDialog.visible && !window.appearanceOpen; onActivated: window.cycleWidth() }
+    Shortcut { sequence: window.chord + "F"; enabled: !window.overview && !createDialog.visible && !window.appearanceOpen; onActivated: window.toggleFull() }
+    Shortcut { sequence: window.chord + "/"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: help.open() }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: window.toggleOverview() }
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

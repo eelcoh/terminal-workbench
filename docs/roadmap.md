@@ -967,3 +967,21 @@ checks include cleanup of shells created after startup on normal/failed exit.
 Native Mac creation review remains open. Theme selection and drag/reorder are
 next UI slices; no production frontend adoption is made here.
 See [creation flow](toolkit-ui-study.md#creating-workspaces-and-terminals).
+
+
+## Current toolkit slice: workspace Appearance
+
+The owner confirmed Qt workspace/terminal creation on Mac and Linux.
+The study now offers workspace-only Appearance through the application menu:
+searchable offline catalog, All/Dark/Light filters, live terminal/chrome preview,
+Apply and Cancel/Escape. The picker surface stays fixed through light/dark
+previews. Each workspace keeps its choice for the current study window, and new
+terminals inherit it. No extra theme button appears in Overview.
+
+The existing Ghostty-compatible parser/catalog supplies all seven palettes.
+Theme updates affect client defaults, cursor and selection, preserving explicit
+RGB cells, program OSC overrides, shell identities and PTY geometry. Native xcb
+and Wayland checks cover preview/cancel/apply, no results, workspace isolation
+and inheritance. Mac Appearance review, saved configuration integration and
+import remain open. Drag/reorder is the next UI slice.
+See [workspace Appearance](toolkit-ui-study.md#workspace-appearance).

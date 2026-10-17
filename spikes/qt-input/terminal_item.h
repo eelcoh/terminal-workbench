@@ -12,6 +12,7 @@
 class TerminalItem : public QQuickPaintedItem {
     Q_OBJECT
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
+    Q_PROPERTY(int themeIndex READ themeIndex WRITE setThemeIndex NOTIFY themeChanged)
     Q_PROPERTY(bool presentationEnabled READ presentationEnabled WRITE setPresentationEnabled NOTIFY presentationEnabledChanged)
 public:
     explicit TerminalItem(QQuickItem *parent = nullptr);
@@ -19,6 +20,12 @@ public:
     void connectSession(const QString &control);
     QString status() const { return status_; }
     bool ready() const { return ready_; }
+    int themeIndex() const {return themeIndex_;}
+    void setThemeIndex(int index);
+    QColor backgroundColor() const {return background_;}
+    QColor cellForeground(int row,int column) const {
+        return row>=0 && row<grid_.size() && column>=0 && column<grid_[row].size() ? grid_[row][column].fg : QColor();
+    }
     bool presentationEnabled() const {return presentationEnabled_;}
     void setPresentationEnabled(bool enabled);
     QString preeditText() const { return composition_.text(); }
@@ -48,6 +55,7 @@ public:
     Q_INVOKABLE void paste();
 Q_SIGNALS:
     void statusChanged();
+    void themeChanged();
     void presentationEnabledChanged();
 protected:
     bool event(QEvent *) override;
@@ -68,6 +76,7 @@ private:
     void send(quint8, const QByteArray &);
     void resizeTerminal();
     void refresh();
+    void applyTheme();
     void encodeKey(QKeyEvent *, bool);
     void committed(const QString &);
     void select(const QPointF &, bool);
@@ -91,6 +100,8 @@ private:
     QVector<QVector<Cell>> grid_;
     TerminalTextSurface textRows_;
     QColor background_{"#191d24"};
+    QColor cursorColor_{"#a8c7fa"},selectionBackground_{"#405575"},selectionForeground_{"#ffffff"};
+    int themeIndex_=-1;
     QFont font_;
     qreal cellWidth_=10, cellHeight_=22, ascent_=17;
     quint16 columns_=0, lines_=0, wantedColumns_=0, wantedLines_=0;

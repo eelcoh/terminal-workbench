@@ -1,4 +1,5 @@
 #include "terminal_item.h"
+#include "theme_bridge.h"
 #include "platform_keys.h"
 #include "terminal_accessibility.h"
 #include <QPainter>
@@ -107,6 +108,27 @@ void TerminalItem::connectSession(const QString &path)
     if (failed_ || socket_.state()!=QLocalSocket::UnconnectedState) return;
     handshakeTimer_.start(); socket_.connectToServer(path);
 }
+void TerminalItem::setThemeIndex(int index)
+{
+    WorkbenchTheme theme;
+    if(index==themeIndex_ || !workbench_theme_get(index,&theme))return;
+    themeIndex_=index;applyTheme();Q_EMIT themeChanged();
+    if(terminal_ && !refreshTimer_.isActive())refreshTimer_.start();
+}
+void TerminalItem::applyTheme()
+{
+    if(!terminal_ || themeIndex_<0)return;
+    WorkbenchTheme theme;if(!workbench_theme_get(themeIndex_,&theme))return;
+    const auto rgb=[](WorkbenchThemeColor c){return GhosttyColorRgb{c.r,c.g,c.b};};
+    auto fg=rgb(theme.foreground),bg=rgb(theme.background),cursor=rgb(theme.cursor);
+    GhosttyColorRgb palette[256];for(int i=0;i<256;++i)palette[i]=rgb(theme.palette[i]);
+    ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_COLOR_FOREGROUND,&fg);
+    ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_COLOR_BACKGROUND,&bg);
+    ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_COLOR_CURSOR,&cursor);
+    ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_COLOR_PALETTE,&palette);
+    selectionBackground_=QColor(theme.selection_background.r,theme.selection_background.g,theme.selection_background.b);
+    selectionForeground_=QColor(theme.selection_foreground.r,theme.selection_foreground.g,theme.selection_foreground.b);
+}
 void TerminalItem::setPresentationEnabled(bool enabled)
 {
     if(presentationEnabled_==enabled)return;
@@ -164,7 +186,7 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
         auto result=ghostty_snapshot_decoder_decode(decoder,&terminal_);
         ghostty_snapshot_decoder_free(decoder);snapshot_.clear();
         if(result!=GHOSTTY_SUCCESS)return false;
-        restored_=true;
+        restored_=true;applyTheme();
         ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_USERDATA,this);
         ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_WRITE_PTY,reinterpret_cast<const void *>(reply));
         return true;
@@ -206,12 +228,14 @@ void TerminalItem::resizeTerminal()
 void TerminalItem::refresh()
 {
     if(!terminal_ || failed_)return;
-    const auto oldCaret=caret_;const bool oldCursorVisible=cursorVisible_;const auto oldBackground=background_;
+    const auto oldCursorColor=cursorColor_;const auto oldCaret=caret_;const bool oldCursorVisible=cursorVisible_;const auto oldBackground=background_;
     const bool notify=QAccessible::isActive() && isVisible();
     const auto previous=notify ? accessibleSnapshot() : AccessibleSnapshot();
     if(ghostty_render_state_update(render_,terminal_)!=GHOSTTY_SUCCESS) {fail("Render snapshot failed");return;}
     GhosttyRenderStateColors colors=sized<GhosttyRenderStateColors>();
     ghostty_render_state_colors_get(render_,&colors);background_=color(colors.background);
+    GhosttyColorRgb cursor{};
+    cursorColor_=ghostty_terminal_get(terminal_,GHOSTTY_TERMINAL_DATA_COLOR_CURSOR,&cursor)==GHOSTTY_SUCCESS?color(cursor):QColor("#a8c7fa");
     grid_.clear();
     ghostty_render_state_get(render_,GHOSTTY_RENDER_STATE_DATA_ROW_ITERATOR,&rows_);
     while(ghostty_render_state_row_iterator_next(rows_)) {
@@ -230,7 +254,7 @@ void TerminalItem::refresh()
             GhosttyCell raw=0;
             ghostty_render_state_row_cells_get(cells_,GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_RAW,&raw);
             ghostty_cell_get(raw,GHOSTTY_CELL_DATA_WIDE,&cell.wide);
-            cell.fg=selected ? QColor("#ffffff") : color(fg);cell.bg=selected ? QColor("#405575") : color(bg);
+            cell.fg=selected ? selectionForeground_ : color(fg);cell.bg=selected ? selectionBackground_ : color(bg);
             cell.bold=style.bold;cell.italic=style.italic;cell.underline=style.underline!=0;
             GhosttyBuffer buffer{};
             auto result=ghostty_render_state_row_cells_get(cells_,GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_UTF8,&buffer);
@@ -262,7 +286,7 @@ void TerminalItem::refresh()
     // the same event-loop turn cannot narrow Qt's pending dirty rectangle.
     if(damage.full || oldBackground!=background_ || composition_.active()) {update(boundingRect().toAlignedRect());return;}
     QRect dirty=damage.rect(boundingRect(),cellHeight_);
-    if(oldCaret!=caret_ || oldCursorVisible!=cursorVisible_) {
+    if(oldCaret!=caret_ || oldCursorVisible!=cursorVisible_ || oldCursorColor!=cursorColor_) {
         if(oldCursorVisible)dirty=dirty.united(oldCaret.adjusted(-1,-1,1,1).toAlignedRect());
         if(cursorVisible_)dirty=dirty.united(caret_.adjusted(-1,-1,1,1).toAlignedRect());
     }
@@ -281,7 +305,7 @@ void TerminalItem::paint(QPainter *painter)
     painter->fillRect(boundingRect(),background_);
     painter->setRenderHint(QPainter::TextAntialiasing,true);
     paintTerminalGrid(*painter,grid_,textRows_,cellWidth_,cellHeight_,QPointF(8,8));
-    if(cursorVisible_) {painter->setPen(QColor("#a8c7fa"));painter->drawRect(caret_.adjusted(0,0,-1,-1));}
+    if(cursorVisible_) {painter->setPen(cursorColor_);painter->drawRect(caret_.adjusted(0,0,-1,-1));}
     composition_.paint(painter,caret_,ascent_,background_);
 }
 QVariant TerminalItem::inputMethodQuery(Qt::InputMethodQuery query) const

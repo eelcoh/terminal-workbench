@@ -14,6 +14,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QTimer>
+#include <QQmlError>
+#include <cstdio>
 
 static QVariantList listProperty(QObject *object,const char *name) {
     const auto value=object->property(name);
@@ -30,8 +32,10 @@ int main(int argc,char **argv) {
     if(!configuration["catalog"].isObject() || configuration["state"].toString().isEmpty())return 2;
     UiSession session(configuration);
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
-    QQmlApplicationEngine engine;engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty())return 1;
-    auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window)return 1;
+    QQmlApplicationEngine engine;
+    QObject::connect(&engine,&QQmlEngine::warnings,&app,[](const QList<QQmlError> &errors){for(const auto &error:errors)std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));});
+    engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
+    auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
     // Explicit test-only snapshots; no user terminal content is recorded by default.
     const auto args=app.arguments();const int reportIndex=args.indexOf("--test-report");QTimer reporter;
     if(reportIndex>=0 && reportIndex+1<args.size()) {
@@ -45,16 +49,25 @@ int main(int argc,char **argv) {
                 const auto cell=item->cellSize();
                 const QSize geometry(qBound(1,int((item->width()-16)/cell.width()),1000),qBound(1,int((item->height()-16)/cell.height()),1000));
                 panes.append(QJsonObject{{"ready",item->ready()},{"text",item->viewportText()},
+                    {"theme",item->themeIndex()},{"background",item->backgroundColor().name()},
+                    {"sample_green",item->cellForeground(1,2).name()},{"sample_red",item->cellForeground(1,0).name()},{"sample_rgb",item->cellForeground(1,1).name()},
                     {"columns",size.width()},{"rows",size.height()},{"geometry_ready",size==geometry},{"focus",item->hasActiveFocus()},
                     {"x",position.x()},{"y",position.y()},{"rasterized_rows",double(item->rasterizedRows())}});
             }
             const auto *createButton=window->findChild<QQuickItem *>("newWorkspaceButton");
             const auto createPoint=createButton->mapToScene(QPointF(createButton->width()/2,createButton->height()/2));
+            const auto center=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
             const QJsonObject data{{"workspace",window->property("workspace").toInt()},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},
                 {"content_x",window->findChild<QQuickItem *>("deck")->property("contentX").toDouble()},
                 {"busy",session.busy()},{"error",session.error()},
                 {"workspace_count",listProperty(window,"spaces").size()},
+                {"appearance_open",window->property("appearanceOpen").toBool()},
+                {"application_menu_open",window->property("applicationMenuOpen").toBool()},
+                {"theme_search_focus",window->property("themeSearchFocus").toBool()},
+                {"theme_matches",window->property("themeMatchCount").toInt()},
+                {"chrome_background",window->color().name()},
+                {"application_menu_button",center("applicationMenuButton")},{"appearance_menu_item",center("appearanceMenuItem")},
                 {"creation_open",window->property("creationOpen").toBool()},
                 {"drawer_open",window->property("drawerOpen").toBool()},{"name_focus",window->property("nameFocused").toBool()},
                 {"new_workspace_button",QJsonArray{createPoint.x(),createPoint.y()}},

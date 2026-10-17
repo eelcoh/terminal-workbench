@@ -69,6 +69,37 @@ automatically. Refresh reads the catalog without replacing existing live items
 or restarting stopped shells. Closing stops all study runtimes and its service.
 This remains disposable; saved user sessions are not accessed or migrated.
 
+## Workspace Appearance
+
+From the working view, open **application menu → Appearance…**. Search the
+existing offline Ghostty-compatible catalog or filter All/Dark/Light. Select a
+card to preview every terminal in this workspace and its chrome together.
+Arrow Down from search enters the results; Return applies the selected preview.
+**Apply** keeps the choice for this workspace in this study window. **Cancel**
+or Escape restores the previous terminal and chrome appearance. Other workspaces
+keep their themes, and new terminals inherit their workspace's selection. Empty
+workspaces can also receive a theme before their first terminal is created.
+
+The picker keeps a steady dark surface through light/dark previews, labels the
+target workspace and current preview, and shows an explicit no-results state.
+Appearance has no extra Overview button. The seven palettes are Workbench
+Night/Dawn, Dracula, and the four bundled Catppuccin variants. The C bridge reuses
+the existing bounded color-file parser and generated catalog; source revisions
+and MIT notices remain in [themes/README.md](../themes/README.md).
+
+Theme selection is client presentation state. It updates default colors on the
+existing Ghostty presentation replica, plus cursor/selection colors. It neither
+sends a theme escape sequence to a PTY nor mutates the session catalog. Explicit
+RGB cells and program OSC palette overrides remain intact. Preview/apply changes
+colors without resizing grids, replacing processes or reconnecting terminals.
+Parsing/catalog construction happens once, outside refresh/paint loops; theme
+application happens when a selection changes. Hidden terminals continue parsing
+and skip raster work until revealed.
+
+The study's themes are kept only for its current window lifetime, like its other
+presentation preferences. Dotfile defaults, theme import and saved appearance
+integration are later work; this does not change the daily-use viewer's settings.
+
 ## Evidence and next scope
 
 `just toolkit-ui-test` drives real native keyboard/pointer input against six
@@ -80,6 +111,12 @@ empty workspace, Overview preview activation, stable grids through Overview
 and unchanged reader PIDs. Creation checks add terminals to existing/empty
 workspaces, reject invalid folders without catalog changes, cancel/retry the
 form, verify actual new-shell cwd and preserve the six original raw readers.
+Theme checks drive the real menu/search/results UI: light preview and Cancel,
+Dracula Apply, no-results search, workspace/chrome isolation and new-terminal
+inheritance. They inspect actual rendered-cell colors for indexed ANSI, explicit
+RGB and a program OSC palette override, preserve geometry/PIDs and verify that
+appearance leaves the runtime catalog unchanged. Captures include the light
+preview and empty search result.
 A launcher check creates additional shells after startup and verifies complete
 shell/service cleanup on both normal and failed viewer exit. Offscreen columns and background workspaces consume
 new output without rasterizing rows, then show current content on reveal.
@@ -87,9 +124,9 @@ Artifacts are `.local/artifacts/qt-ui/{xcb,wayland}/`, including working and
 Overview captures and opt-in disposable-terminal reports. Reports are never
 created by ordinary interactive runs.
 
-The owner confirmed the initial UI slice on Mac and Linux. The new creation
-flow still needs native Mac review. This slice does not yet implement existing
-workspace rename/folder editing, a native folder picker, agents, theme selection,
+The owner confirmed the initial UI and creation flows on Mac and Linux. The
+new Appearance flow still needs native Mac review. This slice does not yet
+implement existing workspace rename/folder editing, a native folder picker, agents,
 drag/reorder, persistence, configured shortcuts or session ownership workflows.
 It avoids dead controls for those actions. They remain later design slices,
 along with typography, motion, accessibility and cache/backing-surface budgets.

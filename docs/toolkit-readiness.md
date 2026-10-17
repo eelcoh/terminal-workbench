@@ -962,3 +962,15 @@ terminals without resizing their PTYs. Native xcb/Wayland tests exercise creatio
 invalid folders, cancellation, cwd inheritance, original-reader isolation and
 normal/failed-launcher cleanup. Native Mac creation and later theme/drag flows
 remain acceptance work. See [the study](toolkit-ui-study.md).
+
+
+### Workspace Appearance in the Qt study
+
+The owner confirmed the creation flow on both Mac and Linux. The next slice
+reuses the existing Ghostty theme parser/catalog for workspace preview and
+Apply/Cancel, matching chrome and new-terminal inheritance. Picker colors stay
+steady; appearance remains client state without catalog mutation, reconnect or
+PTY geometry changes. Native xcb/Wayland checks inspect actual indexed/RGB/OSC
+cell colors and exercise workspace/chrome isolation, cancellation and Apply.
+Mac Appearance acceptance, saved settings and imports remain open. See
+[the study flow](toolkit-ui-study.md#workspace-appearance).
