@@ -226,7 +226,7 @@ creation/name/folder/navigation, terminal creation/confirmed close/navigation,
 width cycle/full, font settings/sizing, shortcut settings and shortcut help. Use the corresponding
 action IDs:
 
-- `commands`, `overview`, `appearance`, `shortcuts`, `shortcuts.help`
+- `commands`, `overview`, `appearance`, `shortcuts`, `shortcuts.help`, `forward`
 - `workspace.new`, `workspace.rename`, `workspace.folder`,
   `workspace.previous`, `workspace.next`
 - `terminal.new`, `terminal.stop`, `terminal.previous`, `terminal.next`
@@ -248,7 +248,8 @@ An application binding conflicting with those native clipboard chords is rejecte
 
 Qt now reads the managed application bindings and the existing platform `ui/`
 shortcut layer. Its recorder/editor saves sparse UI overrides separately. Clipboard
-remapping, one-shot forwarding and unsupported actions remain follow-ups.
+remapping and unsupported actions remain follow-ups; one-shot forwarding is
+available through Commands, the menu and an optional binding.
 Unsupported actions are not intercepted.
 The working viewer retains those workflows. Qt settings stay independent of the
 session service and do not change runtime ownership or protocols.
@@ -291,3 +292,27 @@ managed-file preservation and stale-file rejection. `just toolkit-ui-test` drive
 actual recording on X11/Wayland, tests recording Escape, Cancel and Apply, activates
 the new chord, restores the managed chord and verifies no keys reach shell readers.
 Native Mac recorder acceptance remains pending.
+
+## Qt one-shot forwarding
+
+In `just toolkit-ui`, choose **Send next key to terminal** in Commands or the
+application menu. It is available for a connected terminal in the working view.
+A banner identifies the armed state; the next non-modifier key goes through the
+normal Ghostty encoder instead of application shortcut or native clipboard
+handling. Escape cancels without sending Escape. The forwarding window expires
+after ten seconds; Cancel, a mouse click, leaving terminal focus, hiding/disabling
+the pane, starting composition or disconnecting also cancels it. It cannot arm
+an unowned or disconnected pane, or take ownership from another window.
+
+The default binding is empty. Bind the `forward` action in dotfiles or Shortcut
+settings if you use it often. The next press, its held-key repeats and release
+use the terminal’s requested keyboard modes; ordinary shortcuts resume afterward.
+The bypass also skips the terminal host’s Alt/Option word-navigation convenience
+binding, leaving raw chord encoding to Ghostty. Desktop shortcuts captured by the
+window manager or operating system remain outside the app’s control.
+
+The native Linux suite checks actual F10 delivery rather than opening Commands,
+restored interception on the following invocation, clipboard bypass, Escape,
+Cancel, focus changes, menu handoff, timeout and Kitty release reporting against
+real PTYs. The shared terminal-key regression keeps ordinary arrow/control/word
+navigation intact. Native Mac forwarding acceptance remains pending.

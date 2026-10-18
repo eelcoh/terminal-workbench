@@ -16,6 +16,7 @@ class TerminalItem : public QQuickPaintedItem {
     Q_PROPERTY(bool ready READ ready NOTIFY statusChanged)
     Q_PROPERTY(QString attachment READ attachment NOTIFY statusChanged)
     Q_PROPERTY(int themeIndex READ themeIndex WRITE setThemeIndex NOTIFY themeChanged)
+    Q_PROPERTY(bool forwardingArmed READ forwardingArmed NOTIFY forwardingChanged)
     Q_PROPERTY(bool presentationEnabled READ presentationEnabled WRITE setPresentationEnabled NOTIFY presentationEnabledChanged)
 public:
     explicit TerminalItem(QQuickItem *parent = nullptr);
@@ -61,9 +62,13 @@ public:
     void accessibleClearSelection();
     void paint(QPainter *) override;
     QVariant inputMethodQuery(Qt::InputMethodQuery) const override;
+    bool forwardingArmed() const {return forwardingArmed_;}
+    Q_INVOKABLE bool forwardNextKey();
+    Q_INVOKABLE void cancelForwarding();
     Q_INVOKABLE void copy();
     Q_INVOKABLE void paste();
 Q_SIGNALS:
+    void forwardingChanged();
     void statusChanged();
     void themeChanged();
     void textFontChanged();
@@ -89,17 +94,19 @@ private:
     void refresh();
     void applyTheme();
     void updateCursor();
-    void encodeKey(QKeyEvent *, bool);
+    void encodeKey(QKeyEvent *, bool, bool raw=false);
     void committed(const QString &);
     void select(const QPointF &, bool);
     void live();
     static void reply(GhosttyTerminal, void *, const uint8_t *, size_t);
     QLocalSocket socket_;
-    QTimer refreshTimer_, handshakeTimer_;
+    QTimer refreshTimer_, handshakeTimer_,forwardingTimer_;
     QByteArray receive_, snapshot_;
     quint32 snapshotSize_ = 0;
     quint64 connectionAttempts_=0;
     quint64 receivedBytes_=0,refreshedBytes_=0;
+    bool forwardingArmed_=false;
+    int forwardedKey_=0,cancelledKey_=0;
     bool presentationEnabled_=true;
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
     QString status_="Connecting",attachment_="connecting";bool takeover_=false;

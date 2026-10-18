@@ -32,8 +32,8 @@ safe dialog handoff. Native Mac palette review remains open. Next are the
 remaining portable settings, saved-session integration and packaging. Supported Qt application chords now
 load from managed dotfiles and sparse platform UI overrides, with active
 Commands/menu/help hints. The recorder/editor now supports Apply/Cancel, clear
-and managed-default restoration; native Mac recorder review and key forwarding
-remain follow-ups.
+and managed-default restoration; one-shot key forwarding is implemented; native Mac recorder/forwarding review
+remains open.
 The Qt terminal-text slice now loads managed shared/platform font defaults and
 provides bundled face/size preview, Apply/Cancel and size shortcuts. Window edits
 remain temporary until saved-session integration. The owner confirmed Mac font
@@ -1295,4 +1295,16 @@ keys. Apply saves sparse overrides in the existing platform UI layer and updates
 bindings/hints immediately; Cancel keeps live bindings unchanged. Managed files
 remain read-only, and externally changed settings block stale saves. Model and
 native Linux input checks cover these boundaries; native Mac recorder review,
-one-shot forwarding and saved-session integration remain next work.
+forwarding is now implemented. Native Mac recorder/forwarding review and
+saved-session integration remain next work.
+
+## Qt one-shot terminal key forwarding
+
+The Qt candidate now exposes Send next key to terminal through Commands, the menu
+and an optional configurable `forward` binding. Armed state is visible and expires
+after ten seconds. Escape, pointer/focus, pane availability and composition
+changes cancel unused requests. One chord bypasses application/clipboard and
+host word-motion shortcuts through the existing terminal encoder, retaining held
+repeats and application-requested release reports. Native Linux real-reader and
+key regression coverage validate this; Mac acceptance remains pending. Saved
+session integration and persistent font/theme preferences are still ahead.

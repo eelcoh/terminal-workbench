@@ -55,7 +55,7 @@ while True:
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
-        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\n');managed_bytes=managed.read_bytes()
+        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
         config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
@@ -241,6 +241,43 @@ while True:
         click(*data()['shortcut_apply']);wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F10')
         assert (root/'ui/linux/shortcuts.conf').read_text()=='workbench-shortcuts-v1\n'
         assert managed.read_bytes()==managed_bytes and sizes()==shortcut_grid and [received(i) for i in range(6)]==shortcut_input
+        # One-shot forwarding is tied to the focused reader and bypasses app chords.
+        forwarding_input=received(0);forwarding_sizes=sizes()
+        raw_key('F6');wait_until(lambda:data()['forwarding_armed']);capture('forward-key.png')
+        raw_key('F10');wait_until(lambda:not data()['forwarding_armed'] and received(0)==forwarding_input+b'\x1b[21~')
+        assert not data()['commands_open']
+        raw_key('F10');wait_until(lambda:data()['commands_open']);key('Escape');wait_until(lambda:not data()['commands_open'])
+        forwarding_input=received(0);raw_key('F6');wait_until(lambda:data()['forwarding_armed'])
+        raw_key('Escape');wait_until(lambda:not data()['forwarding_armed']);time.sleep(.1);assert received(0)==forwarding_input
+        raw_key('F6');wait_until(lambda:data()['forwarding_armed'])
+        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'] and not data()['forwarding_armed'])
+        key('Escape');wait_until(lambda:not data()['application_menu_open'])
+        # Native clipboard chords must go through the encoder once, not invoke Copy.
+        raw_key('F6');wait_until(lambda:data()['forwarding_armed']);raw_key('ctrl+shift+c')
+        wait_until(lambda:received(0)==forwarding_input+b'\x1b[99;6u' and not data()['forwarding_armed'])
+        forwarding_input=received(0)
+        # No key is sent by cancelling with the explicit control or by timeout.
+        raw_key('F6');wait_until(lambda:data()['forwarding_armed']);click(*data()['forward_cancel'])
+        wait_until(lambda:not data()['forwarding_armed']);assert received(0)==forwarding_input
+        # Clicking another terminal cancels instead of retargeting the pending key.
+        raw_key('F6');wait_until(lambda:data()['forwarding_armed'])
+        target=data()['panes'][1];click(target['x'],target['y']);wait_until(lambda:data()['panes'][1]['focus'] and not data()['forwarding_armed'])
+        target=data()['panes'][0];click(target['x'],target['y']);wait_until(lambda:data()['panes'][0]['focus'])
+        raw_key('F6');wait_until(lambda:data()['forwarding_armed']);wait_until(lambda:not data()['forwarding_armed'],timeout=12)
+        assert received(0)==forwarding_input
+        # The menu arms the terminal after its popup has released keyboard focus.
+        def forward_menu():
+            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+            click(*data()['forward_menu']);wait_until(lambda:data()['forwarding_armed'] and not data()['application_menu_open'])
+        # Application-requested key-release reporting is retained when forwarding.
+        (root/'0'/'cursor').write_bytes(b'\x1b[>3u');wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.15)
+        forward_menu();raw_key('F10');wait_until(lambda:len(received(0))>len(forwarding_input));time.sleep(.15)
+        assert received(0)[len(forwarding_input):]==b'\x1b[21~\x1b[21;1:3~',repr(received(0)[len(forwarding_input):])
+        assert not data()['commands_open'] and not data()['forwarding_armed']
+        (root/'0'/'cursor').write_bytes(b'\x1b[<u');wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.15)
+        assert sizes()==forwarding_sizes
+        # Reset the raw fixture capture so the rest of the existing suite keeps its baseline.
+        (root/'0'/'input').write_bytes(shortcut_input[0])
         # Palette matching/input is local: no shell, geometry or ownership changes.
         command_grid=sizes();command_pids=[p['instance'] for p in data()['panes']]
         command_input=[received(i) for i in range(6)]

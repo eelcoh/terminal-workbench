@@ -58,7 +58,7 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     connect(this,&QQuickItem::windowChanged,this,[this](QQuickWindow *window) {
         if(window) {
             window->installEventFilter(this);
-            connect(window,&QWindow::activeChanged,this,[this,window]{if(this->window()==window)updateCursor();});
+            connect(window,&QWindow::activeChanged,this,[this,window]{if(this->window()==window){if(!window->isActive())cancelForwarding();updateCursor();}});
             connect(window,&QWindow::visibilityChanged,this,[this,window](QWindow::Visibility) {
                 if(this->window()==window && ready_ && !refreshTimer_.isActive())refreshTimer_.start();
             });
@@ -67,6 +67,11 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     connect(this,&QQuickItem::visibleChanged,this,[this] {
         if(isVisible() && ready_ && !refreshTimer_.isActive())refreshTimer_.start();
     });
+    connect(this,&QQuickItem::activeFocusChanged,this,[this]{if(!hasActiveFocus())cancelForwarding();});
+    connect(this,&QQuickItem::enabledChanged,this,[this]{if(!isEnabled())cancelForwarding();});
+    connect(this,&QQuickItem::visibleChanged,this,[this]{if(!isVisible())cancelForwarding();});
+    forwardingTimer_.setSingleShot(true);forwardingTimer_.setInterval(10000);
+    connect(&forwardingTimer_,&QTimer::timeout,this,&TerminalItem::cancelForwarding);
     // Register once per process, not once per pane.
     static const auto families=QFontDatabase::applicationFontFamilies(QFontDatabase::addApplicationFont(":/fonts/fira-code/FiraCode-Regular.ttf"));
     if(families.isEmpty()) {fail("Bundled Fira Code could not load");return;}
@@ -167,12 +172,14 @@ void TerminalItem::setPresentationEnabled(bool enabled)
 {
     if(presentationEnabled_==enabled)return;
     presentationEnabled_=enabled;
+    if(!enabled)cancelForwarding();
     Q_EMIT presentationEnabledChanged();
     // Hidden sources keep parsing; one refresh catches the latest grid on reveal.
     if(enabled && !refreshTimer_.isActive())refreshTimer_.start();
 }
 void TerminalItem::fail(const QString &message,const QString &attachment)
 {
+    cancelForwarding();
     failed_=true; ready_=false; status_=message;attachment_=attachment; snapshot_.clear(); receive_.clear();
     handshakeTimer_.stop(); socket_.abort(); updateCursor();Q_EMIT statusChanged();
 }
@@ -437,15 +444,16 @@ void TerminalItem::inputMethodEvent(QInputMethodEvent *event)
         // Do not invent destructive edits to text owned by the shell.
         event->ignore();return;
     }
+    cancelForwarding();
     composition_.set(*event,font_);committed(event->commitString());
     QGuiApplication::inputMethod()->update(Qt::ImCursorRectangle);update(boundingRect().toAlignedRect());event->accept();
 }
-void TerminalItem::encodeKey(QKeyEvent *input,bool release)
+void TerminalItem::encodeKey(QKeyEvent *input,bool release,bool raw)
 {
     if(!ready_)return;
     if(input->key()==Qt::Key_Shift || input->key()==Qt::Key_Control || input->key()==Qt::Key_Alt || input->key()==Qt::Key_Meta)return;
     if(!release && composition_.active())return;
-    if(const auto *motion=wordMotion(input->key(),input->modifiers())) {
+    if(const auto *motion=raw?nullptr:wordMotion(input->key(),input->modifiers())) {
         // Shell-word navigation is a shared terminal binding, not a generic
         // Alt-arrow encoding. Repeats emit once; release must emit nothing.
         if(!release) {live();send(16,QByteArray(motion));}
@@ -482,8 +490,40 @@ bool TerminalItem::eventFilter(QObject *watched,QEvent *event)
     }
     return QQuickPaintedItem::eventFilter(watched,event);
 }
+bool TerminalItem::forwardNextKey()
+{
+    if(!ready_ || !hasActiveFocus() || !isEnabled() || !presentationEnabled_ || !window() || !window()->isActive() || composition_.active())return false;
+    forwardedKey_=0;cancelledKey_=0;forwardingArmed_=true;forwardingTimer_.start();Q_EMIT forwardingChanged();return true;
+}
+void TerminalItem::cancelForwarding()
+{
+    forwardingTimer_.stop();forwardedKey_=0;cancelledKey_=0;
+    if(forwardingArmed_){forwardingArmed_=false;Q_EMIT forwardingChanged();}
+}
 bool TerminalItem::event(QEvent *event)
 {
+    if(hasActiveFocus() && event->type()==QEvent::ShortcutOverride) {
+        const auto *input=static_cast<QKeyEvent *>(event);
+        if(forwardingArmed_ || (forwardedKey_ && input->key()==forwardedKey_)){event->accept();return true;}
+    }
+    if(hasActiveFocus() && (event->type()==QEvent::KeyPress || event->type()==QEvent::KeyRelease)) {
+        auto *input=static_cast<QKeyEvent *>(event);const bool release=event->type()==QEvent::KeyRelease;
+        const int key=input->key();
+        if(key==cancelledKey_){if(release && !input->isAutoRepeat())cancelledKey_=0;event->accept();return true;}
+        if(forwardingArmed_ && !release && key!=Qt::Key_Control && key!=Qt::Key_Meta && key!=Qt::Key_Shift && key!=Qt::Key_Alt && key!=Qt::Key_AltGr) {
+            if(input->isAutoRepeat()){event->accept();return true;}
+            forwardingArmed_=false;forwardingTimer_.stop();
+            if(key==Qt::Key_Escape && input->modifiers()==Qt::NoModifier)cancelledKey_=key;
+            else forwardedKey_=key;
+            Q_EMIT forwardingChanged();
+            if(cancelledKey_){event->accept();return true;}
+        }
+        if(forwardedKey_ && key==forwardedKey_) {
+            if(!(release && input->isAutoRepeat()))encodeKey(input,release,true);
+            if(release && !input->isAutoRepeat())forwardedKey_=0;
+            event->accept();return true;
+        }
+    }
     // QQuickItem normally uses Tab for focus traversal; a focused terminal
     // must send it to the shell. Chrome remains traversable before entry.
     if(hasActiveFocus() && (event->type()==QEvent::KeyPress || event->type()==QEvent::KeyRelease)) {
@@ -543,6 +583,7 @@ void TerminalItem::select(const QPointF &position,bool start)
 }
 void TerminalItem::mousePressEvent(QMouseEvent *event)
 {
+    cancelForwarding();
     forceActiveFocus();dragging_=true;selectionStarted_=false;pressPosition_=event->position();
     accessibleClearSelection();event->accept();
 }

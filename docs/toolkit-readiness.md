@@ -1271,3 +1271,14 @@ managed/UI bytes and refreshes registry hints. Model coverage includes both Mac
 modifier meanings and native Linux checks drive recording/Cancel/Apply/defaults
 without leaking keys or replacing terminal readers. Native Mac acceptance remains
 pending. Forwarding, unsupported actions and saved-session state are separate.
+
+## Qt one-shot key forwarding
+
+Forwarding is client-only and scoped to an already connected focused terminal.
+ShortcutOverride acceptance bypasses Qt application shortcuts for one chord;
+press/repeat/release then use the normal mode-aware terminal encoder while native
+clipboard and host word-motion shortcuts yield. Pending requests retire on a
+ten-second timer, Escape, pointer/focus/visibility loss, composition or disconnect.
+Native input coverage uses real PTY readers for legacy F10, native Copy bypass,
+Kitty F10 press/release, menu focus handoff, cancellation and ordinary interception
+restoration. Existing terminal-key checks remain required. Mac review is pending.

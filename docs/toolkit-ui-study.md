@@ -456,3 +456,14 @@ and writes a sparse platform `ui/shortcuts.conf` layer in the existing format,
 without modifying managed settings. UI overrides survive study-window closure;
 workspace organization and font edits remain disposable. Changed external files
 block saving until the app reopens. See [editor details](shortcuts.md#qt-shortcut-editor).
+
+## Sending an intercepted chord to a terminal
+
+Commands and the application menu offer **Send next key to terminal** for a
+connected working-view terminal. The optional `forward` binding is managed by
+the shortcut editor too. A compact banner shows the armed state and Cancel;
+Escape and a ten-second timeout also cancel. Modifier presses do not consume it.
+Focus, visibility, connection and composition changes retire an unused request.
+The same live item encodes the next chord, bypassing application/clipboard and
+host word-motion interception. Normal key handling resumes afterward. No runtime
+or protocol changes are involved. See [Qt forwarding](shortcuts.md#qt-one-shot-forwarding).

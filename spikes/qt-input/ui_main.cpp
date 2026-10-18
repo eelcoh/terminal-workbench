@@ -124,6 +124,7 @@ int main(int argc,char **argv) {
             const QJsonObject data{{"shortcut_sequences",QJsonObject::fromVariantMap(shortcuts.sequences())},
                 {"shortcut_error",shortcuts.error()},{"shortcut_labels",QJsonObject::fromVariantMap(shortcuts.labels())},
                 {"font_settings_open",window->property("fontSettingsOpen").toBool()},
+                {"forwarding_armed",window->property("forwardingArmed").toBool()},{"forward_menu",center("forwardKeyMenuItem")},{"forward_cancel",center("cancelForwardKey")},
                 {"shortcut_settings_open",window->property("shortcutSettingsOpen").toBool()},
                 {"shortcut_recording",window->property("shortcutRecording").toBool()},
                 {"shortcut_edit_error",shortcuts.editError()},{"shortcut_draft_labels",QJsonObject::fromVariantMap(shortcuts.draftLabels())},

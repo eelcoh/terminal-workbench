@@ -9,7 +9,7 @@
 namespace {
 struct Action {const char *source,*client;};
 const Action actions[]={
-    {"shortcuts","shortcut-settings"},{"commands","commands"},{"overview","overview"},{"appearance","appearance"},
+    {"forward","forward"},{"shortcuts","shortcut-settings"},{"commands","commands"},{"overview","overview"},{"appearance","appearance"},
     {"terminal.new","new-terminal"},{"workspace.new","new-workspace"},
     {"terminal.previous","previous-terminal"},{"terminal.next","next-terminal"},
     {"workspace.previous","previous-workspace"},{"workspace.next","next-workspace"},

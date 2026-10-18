@@ -124,6 +124,7 @@ ApplicationWindow {
         case "move-up": moveSelectedWorkspace(-1); break
         case "move-down": moveSelectedWorkspace(1); break
         case "close-terminal": requestTerminalAction(terminalModel.get(selected).terminalId, "close"); break
+        case "forward": panel(selected).terminal.forceActiveFocus(); panel(selected).terminal.forwardNextKey(); break;
         case "copy": panel(selected).terminal.copy(); break
         case "paste": panel(selected).terminal.paste(); break
         case "motion": reducedMotion = !reducedMotion; break
@@ -278,7 +279,10 @@ ApplicationWindow {
         else if (workspaceFormMode === "folder") studySession.setWorkspaceDirectory(editingWorkspace, newFolder.text)
         else studySession.createWorkspace(newName.text, newFolder.text)
     }
+    property bool pendingForward: false
+    readonly property bool forwardingArmed: selected >= 0 && panel(selected) !== null && panel(selected).terminal.forwardingArmed
     function restoreAfterPopup() {
+        if (pendingForward) { pendingForward = false; Qt.callLater(function() { window.dispatchCommand("forward") }); return }
         if (pendingShortcutSettings) {
             pendingShortcutSettings = false; Qt.callLater(function() { studyShortcuts.begin(); shortcutSettings.open() })
         } else if (pendingFontSettings) {
@@ -708,6 +712,7 @@ ApplicationWindow {
         MenuAction { keyHint: studyShortcuts.labels["help"] || ""; text: "Keyboard shortcuts"; onTriggered: help.open() }
         MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
         MenuRule {}
+        MenuAction { objectName: "forwardKeyMenuItem"; text: "Send next key to terminal"; keyHint: studyShortcuts.labels["forward"] || ""; enabled: commandRegistry.find("forward").available; onTriggered: { window.pendingForward = true; appMenu.close() } }
         MenuAction { text: "Copy selection"; enabled: window.selected >= 0; onTriggered: window.panel(window.selected).terminal.copy() }
         MenuAction { text: "Paste"; enabled: window.selected >= 0 && !window.overview; onTriggered: { window.panel(window.selected).terminal.paste(); window.panel(window.selected).terminal.forceActiveFocus() } }
         MenuRule {}
@@ -761,6 +766,13 @@ ApplicationWindow {
     FontSettings {
         id: fontSettings; anchors.centerIn: parent; tones: window.chrome; preferences: studyFonts
         onClosed: Qt.callLater(window.restoreAfterPopup)
+    }
+    Rectangle {
+        visible: window.forwardingArmed
+        x: 60; y: 44; width: Math.min(520, window.width - 76); height: 44; radius: 6; z: 7
+        color: window.chrome.raised; border.color: window.chrome.accent
+        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 85; text: "Next key goes to this terminal · Escape cancels"; color: window.chrome.foreground; elide: Text.ElideRight }
+        QuietButton { objectName: "cancelForwardKey"; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Cancel"; onClicked: if (window.selected >= 0) window.panel(window.selected).terminal.cancelForwarding() }
     }
     property bool fontWarningDismissed: false
     Rectangle {
