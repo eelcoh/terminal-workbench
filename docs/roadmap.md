@@ -184,6 +184,18 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    direction is a first-release gate. Finish native font-controls review and the
    menu/workspace-row polish below.
 
+## Qt navigation: pinnable left panel
+
+Bring the spike’s pin/unpin behavior to the Qt workspace and agent panel.
+Keep the compact rail as the default; allow the expanded panel to stay visible
+beside the terminal area instead of closing after navigation. Unpinning restores
+the temporary drawer. Keep workspace and agent selection, keyboard focus and
+Overview navigation consistent in both modes.
+
+Persist the pin preference with client presentation settings during saved-session
+integration. Check narrow windows, pane widths, light/dark themes and Mac/Linux
+input. This is planned Qt parity with the spike, not implemented in the Qt study.
+
 ## Dotfiles and portable configuration
 
 Treat application configuration as something the owner can keep in a dotfiles
