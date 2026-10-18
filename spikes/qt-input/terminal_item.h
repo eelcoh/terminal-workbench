@@ -88,6 +88,7 @@ private:
     using Cell=TerminalTextCell;
     void fail(const QString &,const QString &attachment="disconnected");
     void receive();
+    bool attachmentFallback(bool unavailable);
     bool frame(quint8, const QByteArray &);
     void send(quint8, const QByteArray &);
     void resizeTerminal();
@@ -109,6 +110,7 @@ private:
     int forwardedKey_=0,cancelledKey_=0;
     bool presentationEnabled_=true;
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
+    QString controlPath_;bool legacy_=false,attachmentSeen_=false;quint64 replayBytes_=0;
     QString status_="Connecting",attachment_="connecting";bool takeover_=false;
     TerminalComposition composition_;
     GhosttyTerminal terminal_=nullptr;

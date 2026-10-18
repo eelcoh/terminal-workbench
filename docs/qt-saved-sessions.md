@@ -129,3 +129,18 @@ mutation races, legacy services and bounded failure handling. The service test
 checks read-only access without startup or file writes. X11/Wayland UI checks run
 two concurrent windows through external catalog changes while retaining original
 reader PIDs, input and ownership. Native Mac cross-window acceptance is pending.
+
+## Older retained Linux shells
+
+Some early saved shells expose only the replay socket, or close unsupported
+snapshot requests without a reply. Qt now uses the existing viewer’s compatibility
+path: ordinary replay attachment when the control endpoint is absent/refused or
+closes before any response. Replay is bounded to 16 MiB and a handshake deadline;
+input and terminal-query replies wait for the Ready boundary.
+
+A rejected, partial or malformed snapshot never falls back. Older runtimes that
+cannot transfer ownership retain their current viewer; close that viewer and
+Reconnect. No fallback starts, stops or replaces a shell. If connection still
+fails while the shell is running, the overlay shows the attachment error rather
+than hiding it behind “Shell is running.” `just toolkit-terminal-legacy-test`
+exercises compatibility and rejection boundaries using disposable framed sockets.

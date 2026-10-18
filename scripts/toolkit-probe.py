@@ -13,7 +13,7 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
     args = parser.parse_args()
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "ui-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
@@ -108,6 +108,9 @@ def main():
             command=["xvfb-run","-a","env","QT_QPA_PLATFORM=xcb","LIBGL_ALWAYS_SOFTWARE=1",*command]
         subprocess.run(command,check=True,timeout=30)
         subprocess.run([sys.executable,str(ROOT/"tests/qt_text_artifacts.py"),str(artifact)],check=True)
+        return
+    if args.mode=="terminal-legacy-test":
+        subprocess.run([sys.executable,str(ROOT/"tests/qt_legacy_attachment_test.py"),str(binary)],check=True,timeout=90)
         return
     if args.mode=="terminal-key-test":
         subprocess.run([sys.executable,str(ROOT/"tests/qt_terminal_key_smoke.py"),

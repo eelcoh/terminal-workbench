@@ -1340,3 +1340,22 @@ and no startup on absence. Native X11/Wayland suites use two simultaneous Qt win
 for rename, folder, creation, move and deletion, including deletion during editing;
 original readers, input and ownership survive. Runtime-facts regressions pass after
 sharing the existing owned-socket check. Native Mac catalog-sync review is pending.
+
+## Qt retained-runtime compatibility
+
+Linux saved-session inspection found runtime sockets without a control endpoint,
+plus earlier controls that do not advertise capabilities. The Qt host had required
+snapshot attachment unconditionally. It now follows the working viewer’s bounded
+legacy fallback only before any response: missing/refused control or clean EOF
+on an unsupported request. Rejections and partial/malformed responses retain their
+failure, never silently downgrading. Transfer fallback requests ordinary attachment
+and cannot revoke an older owner. Replay input/query replies wait for Ready and
+history is limited to 16 MiB. No runtime is restarted or replaced.
+
+Disposable framed-server checks exercise missing/refused/unknown controls,
+fragmentation, restored text, exact keyboard bytes, suppressed historical query
+replies, owner rejection and partial-response isolation. The existing real-PTY key
+suite and native X11/Wayland UI suites retain modern snapshot/transfer coverage.
+The lifecycle overlay now shows the actual attachment error when service status
+reports a running shell, rather than obscuring it with “Shell is running.” Owner
+acceptance of the Linux saved-session fix remains pending.

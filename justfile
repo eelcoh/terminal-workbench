@@ -312,6 +312,10 @@ toolkit-scene-perf-test: runtime-build
 toolkit-terminal-key-test: runtime-build
     python3 scripts/toolkit-probe.py terminal-key-test
 
+# Mac/Linux: bounded legacy replay and snapshot failure/ownership isolation.
+toolkit-terminal-legacy-test: runtime-build
+    python3 scripts/toolkit-probe.py terminal-legacy-test
+
 # Mac/Linux: two disposable editable terminals in one Qt window.
 toolkit-terminal-pair: runtime-build
     python3 scripts/toolkit-probe.py terminal-pair

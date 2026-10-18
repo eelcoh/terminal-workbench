@@ -662,7 +662,7 @@ ApplicationWindow {
                         Label {
                             width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 14
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).foreground
-                            text: terminal.attachment === "connecting" ? "Connecting…" : terminal.attachment === "elsewhere" ? "Open in another window" : (pane.lifecycle.message || "Checking terminal status…")
+                            text: terminal.attachment === "connecting" ? "Connecting…" : terminal.attachment === "elsewhere" ? "Open in another window" : pane.lifecycle.state === "running" ? "Could not attach: " + terminal.status : (pane.lifecycle.message || "Checking terminal status…")
                         }
                         Label {
                             width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 12

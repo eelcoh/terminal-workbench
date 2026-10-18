@@ -1,4 +1,5 @@
 #include "terminal_item.h"
+#include "local_socket.h"
 #include "theme_bridge.h"
 #include "platform_keys.h"
 #include "terminal_accessibility.h"
@@ -100,10 +101,17 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     socket_.setReadBufferSize(256*1024);
     connect(&socket_,&QLocalSocket::readyRead,this,&TerminalItem::receive);
     connect(&socket_,&QLocalSocket::connected,this,[this]{
+        if(legacy_)return;
         socket_.write((takeover_ ? QByteArray("ATM1\n") : QByteArray("ATS1\n"))+"f64f4aca2c29b554d111b36c3d946a9bddd159ff");
     });
-    connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(!failed_)fail("Connection closed");});
-    connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){if(!failed_)fail(socket_.errorString());});
+    connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(!failed_ && !attachmentFallback(false))fail("Connection closed");});
+    connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto error){
+        if(failed_)return;
+        const bool unavailable=error==QLocalSocket::ServerNotFoundError || error==QLocalSocket::ConnectionRefusedError;
+        if(unavailable && attachmentFallback(true))return;
+        // Peer close is handled after buffered frames have been drained.
+        if(error!=QLocalSocket::PeerClosedError)fail(socket_.errorString());
+    });
 }
 TerminalItem::~TerminalItem()
 {
@@ -115,16 +123,40 @@ TerminalItem::~TerminalItem()
 void TerminalItem::connectSession(const QString &path)
 {
     if (failed_ || socket_.state()!=QLocalSocket::UnconnectedState) return;
+    controlPath_=path;legacy_=false;attachmentSeen_=false;replayBytes_=0;
     ++connectionAttempts_;handshakeTimer_.start(); socket_.connectToServer(path);
 }
 void TerminalItem::reconnectSession(const QString &path,bool takeover) {
     if(!render_ || !encoder_ || !event_ || attachment_=="connecting" || ready_)return;
     failed_=true;socket_.abort();handshakeTimer_.stop();refreshTimer_.stop();
     receive_.clear();snapshot_.clear();snapshotSize_=0;snapshotStarted_=restored_=queued_=false;
-    wantedColumns_=wantedLines_=0;takeover_=takeover;
+    wantedColumns_=wantedLines_=0;takeover_=takeover;controlPath_=path;legacy_=false;attachmentSeen_=false;replayBytes_=0;
     QGuiApplication::inputMethod()->reset();composition_.set(QInputMethodEvent(),font_);
     failed_=false;attachment_="connecting";status_="Connecting";Q_EMIT statusChanged();
     ++connectionAttempts_;handshakeTimer_.start();socket_.connectToServer(path);
+}
+bool TerminalItem::attachmentFallback(bool unavailable) {
+    // Match the working viewer's bounded compatibility path. Never downgrade
+    // after any response, rejection, malformed snapshot, or successful attach.
+    if(failed_ || ready_ || legacy_ || attachmentSeen_ || !receive_.isEmpty() || !controlPath_.endsWith(".ctl"))return false;
+    const bool replay=unavailable || !takeover_;
+    const auto path=replay ? controlPath_.chopped(4)+".sock" : controlPath_;
+    if(!ownedLocalSocket(path))return false;
+    failed_=true;socket_.abort();handshakeTimer_.stop();takeover_=false;
+    legacy_=replay;restored_=false;replayBytes_=0;
+    if(legacy_){
+        if(!terminal_){
+            if(ghostty_terminal_new(nullptr,&terminal_,80,24)!=GHOSTTY_SUCCESS){fail("Could not initialize legacy terminal.");return true;}
+        } else ghostty_terminal_reset(terminal_);
+        applyTheme();
+        ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_USERDATA,this);
+        ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_WRITE_PTY,reinterpret_cast<const void *>(reply));
+    }
+    QTimer::singleShot(0,this,[this,path]{
+        failed_=false;status_=legacy_ ? "Connecting · legacy replay" : "Connecting";
+        ++connectionAttempts_;handshakeTimer_.start();Q_EMIT statusChanged();socket_.connectToServer(path);
+    });
+    return true;
 }
 void TerminalItem::setThemeIndex(int index)
 {
@@ -211,6 +243,7 @@ void TerminalItem::receive()
 }
 bool TerminalItem::frame(quint8 kind,const QByteArray &data)
 {
+    attachmentSeen_=true;
     if(kind==4) {const auto message=QString::fromUtf8(data);fail(message,message=="a window is already attached" ? "elsewhere" : "disconnected");return false;}
     if(kind==10 && data.isEmpty()) {fail("Open in another window","elsewhere");return false;}
     if(kind==7 && !snapshotStarted_ && !ready_ && data.size()==4) {
@@ -242,14 +275,15 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
         ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_WRITE_PTY,reinterpret_cast<const void *>(reply));
         return true;
     }
-    if(kind==2 && restored_ && data.size()==4) {
+    if(kind==2 && (restored_ || legacy_) && data.size()==4) {
         columns_=qFromBigEndian<quint16>(data.constData());lines_=qFromBigEndian<quint16>(data.constData()+2);
         if(!columns_ || !lines_ || columns_>1000 || lines_>1000)return false;
         if(ghostty_terminal_resize(terminal_,columns_,lines_,0,0)!=GHOSTTY_SUCCESS)return false;
-    } else if(kind==3 && restored_ && !ready_ && data.isEmpty()) {
-        ready_=true;attachment_="attached";status_="Attached · experimental Qt painter";handshakeTimer_.stop();
+    } else if(kind==3 && (restored_ || legacy_) && !ready_ && data.isEmpty()) {
+        ready_=true;attachment_="attached";status_=legacy_ ? "Attached · legacy replay" : "Attached · experimental Qt painter";handshakeTimer_.stop();
         Q_EMIT statusChanged(); resizeTerminal();
-    } else if(kind==1 && ready_) {
+    } else if(kind==1 && (ready_ || legacy_)) {
+        if(!ready_){replayBytes_+=quint64(data.size());if(replayBytes_>16*1024*1024){fail("Legacy replay exceeds its 16 MiB limit.");return false;}}
         ghostty_terminal_vt_write(terminal_,reinterpret_cast<const uint8_t *>(data.constData()),data.size());
         receivedBytes_+=quint64(data.size());
     } else return false;
