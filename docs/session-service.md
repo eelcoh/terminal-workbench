@@ -51,7 +51,8 @@ See [stopped-shell reasons](terminal-lifecycle.md).
 
 The private `service.rpc` Unix stream endpoint carries one bounded newline-terminated JSON request
 and reply per connection. Protocol 1 exposes catalog operations, `health`,
-`terminal.status` (readonly), optional `terminal.lifecycle` (readonly), optional
+optional `catalog.read` (readonly), `terminal.status` (readonly),
+optional `terminal.lifecycle` (readonly), optional
 `session.stop` (explicit terminal IDs, organization retained), `terminal.recover`, `session.recover` and service shutdown. Requests are serialized
 and catalog writes retain the existing lock and JSON/TSV projection semantics.
 PTY input, snapshots and rendering do not travel through this service. Focus,
@@ -95,3 +96,13 @@ malformed request/unsafe endpoint isolation.
 real windows and the management CLI. Linux checks use X11/Xvfb. Native macOS service
 startup/reuse, shared PID and stop/live-adoption were confirmed on 2026-10-11.
 Graphical stopped-terminal recovery was also confirmed by the owner on 2026-10-11.
+
+## Read-only catalog access
+
+Optional advertised method `catalog.read` accepts only the protocol and method.
+It returns the validated existing catalog under its lock, without initialization,
+reconciliation, saves, runtime discovery or shell recovery. The Python request
+helper never starts a missing service for this method. Qt saved windows use this
+method after filesystem notifications, keeping background observation separate
+from explicit mutations and refresh/recovery. Older services can reject the method
+without affecting terminal runtimes or manual refresh.

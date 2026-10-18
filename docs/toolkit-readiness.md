@@ -1304,8 +1304,8 @@ behavior, without copying sessions. Saved Qt launch is an explicit alternative
 to the disposable study. Real-runtime launcher tests retain catalogs, same shell
 and service PIDs after normal/failed viewer exits, preserve stopped entries and
 remove only temporary viewer config. Native UI regressions retain disposable
-cleanup. Mac acceptance, saved Qt view/theme state and automatic catalog updates
-remain pending; this is not production frontend adoption.
+cleanup. Saved Qt view/theme state and automatic catalog updates are implemented. Broader
+Mac acceptance remains pending; this is not production frontend adoption.
 
 ## Qt leased view restoration
 
@@ -1322,5 +1322,21 @@ Launcher checks prove independent concurrent slots and reuse with retained
 shell/service PIDs. Native Linux UI checks restart the viewer after changing
 width/full-width, focus, Overview/motion and a directory theme, then remove the
 source and verify unchanged colors, input, geometry and reader PIDs. The remaining
-existing UI/ownership/lifecycle flows still run. Mac physical display/view review
-and automatic peer catalog synchronization remain pending.
+existing UI/ownership/lifecycle flows still run. The owner confirmed appearance
+retention with `f80f00b`; broader Mac physical display/view review remains pending.
+
+## Qt catalog invalidation and read-only projection
+
+A separate QtCore/Network feed watches the catalog file and its directory,
+rearming after atomic replacement. Coalesced notifications request `catalog.read`
+from the owned service socket. No PTY, process tree, startup/recovery or render-loop
+work is introduced. Snapshot validation, size/deadline limits, duplicate suppression
+and pause/resume around local mutations keep failed or stale reads local.
+
+Model checks cover fragmented responses, replacement notifications, local mutation
+races, unsupported services, invalid/oversized catalogs, timeout and absent service.
+Service checks verify advertised read-only access with unchanged file bytes/mtime
+and no startup on absence. Native X11/Wayland suites use two simultaneous Qt windows
+for rename, folder, creation, move and deletion, including deletion during editing;
+original readers, input and ownership survive. Runtime-facts regressions pass after
+sharing the existing owned-socket check. Native Mac catalog-sync review is pending.

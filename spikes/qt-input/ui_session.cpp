@@ -27,15 +27,21 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
         const auto reply=document.object();
         if(reply["protocol"].toInt()!=1) {fail("Incompatible session service.");return;}
         if(!reply["ok"].toBool()) {fail(reply["error"].toString("Session request failed. Refresh before trying again."));return;}
-        if(!reply["data"].isObject() || !reply["data"].toObject()["workspaces"].isArray()) {fail("Missing session catalog. Refresh before trying again.");return;}
+        if(!reply["data"].isObject() || !UiCatalogFeed::valid(reply["data"].toObject())) {fail("Missing session catalog. Refresh before trying again.");return;}
         const auto catalog=reply["data"].toObject().toVariantMap();const auto method=method_,identity=identity_;
-        deadline_.stop();busy_=false;socket_.abort();receive_.clear();Q_EMIT changed();Q_EMIT completed(catalog,method);prune(reply["data"].toObject());Q_EMIT actionCompleted(identity,method);
+        deadline_.stop();busy_=false;socket_.abort();receive_.clear();if(catalog_)catalog_->resume(catalog);Q_EMIT changed();Q_EMIT completed(catalog,method);prune(reply["data"].toObject());Q_EMIT actionCompleted(identity,method);
     });
     connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(busy_)fail("Session service closed before replying. Refresh before trying again.");});
     connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){if(busy_)fail(sent_?"Request outcome is unknown. Refresh before trying again.":socket_.errorString());});
+    if(config["catalog_updates"].toBool(config["saved_session"].toBool())){
+        catalog_=new UiCatalogFeed(config["state"].toString(),initialCatalog(),this);
+        connect(catalog_,&UiCatalogFeed::changed,this,&UiSession::catalogNoticeChanged);
+        connect(catalog_,&UiCatalogFeed::updated,this,[this](const QVariantMap &data){Q_EMIT completed(data,"catalog.update");prune(QJsonObject::fromVariantMap(data));});
+    }
+
 }
 void UiSession::fail(const QString &message) {
-    busy_=false;deadline_.stop();socket_.abort();receive_.clear();error_=message;Q_EMIT changed();
+    busy_=false;deadline_.stop();socket_.abort();receive_.clear();if(catalog_)catalog_->resume();error_=message;Q_EMIT changed();
 }
 QObject *UiSession::observe(const QString &identity) {
     static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
@@ -49,6 +55,7 @@ void UiSession::attach(TerminalItem *item,const QString &identity) {
 }
 void UiSession::request(const QString &method,const QString &identity,const QString &name,const QString &directory,const QString &destination,int position) {
     if(busy_)return;
+    if(catalog_)catalog_->pause();
     socket_.abort();sent_=false;busy_=true;error_.clear();method_=method;identity_=identity;
     QJsonObject message{{"protocol",1},{"method",method},{"identity",identity},{"title",name},
         {"runtime",config_["runtime"]},{"cwd",config_["cwd"]}};
@@ -83,7 +90,7 @@ QUrl UiSession::folderStart(const QString &value) const {
 QString UiSession::folderPath(const QUrl &url) const {
     return url.isLocalFile() ? QDir::cleanPath(url.toLocalFile()) : QString();
 }
-void UiSession::refresh() {for(auto *facts:facts_)facts->refresh();request("initialize");}
+void UiSession::refresh() {if(catalog_)catalog_->refresh();for(auto *facts:facts_)facts->refresh();request("initialize");}
 
 void UiSession::reconnect(TerminalItem *item,const QString &identity,bool takeover) {
     static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");

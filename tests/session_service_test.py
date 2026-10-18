@@ -38,6 +38,10 @@ def main():
             call("service.shutdown")
             wait_until(stopped)
         try:
+            try:request(state,runtime,root,"catalog.read")
+            except Unavailable:pass
+            else:raise AssertionError("catalog read started an absent service")
+            assert not state.exists()
             # Simultaneous first windows start exactly one service and one set of shells.
             with ThreadPoolExecutor(max_workers=4) as pool:
                 replies = list(pool.map(lambda _: call(), range(4)))
@@ -54,6 +58,11 @@ def main():
             connection, _, _ = attach(path)
             send(connection, 16, b'keep=retained; echo $$ > before.pid\n')
             pid = marker("before.pid")
+            # Catalog reads do not rewrite metadata or affect an attached PTY.
+            saved=(state/'workspaces.json').read_bytes();stamp=(state/'workspaces.json').stat().st_mtime_ns
+            assert exchange(state,dict(protocol=1,method="catalog.read"))["data"]==data
+            assert "catalog.read" in status["methods"]
+            assert (state/'workspaces.json').read_bytes()==saved and (state/'workspaces.json').stat().st_mtime_ns==stamp
             # One-terminal status is readonly, including with a live attachment.
             assert call("terminal.status","spike")["state"]=="running"
             assert request(state,runtime,root/'other',"terminal.status","spike")["state"]=="running"

@@ -244,6 +244,7 @@ ApplicationWindow {
     function indices(space) { const revision = catalogRevision; let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space) result.push(i); return result.sort((a,b) => terminalModel.get(a).ordinal - terminalModel.get(b).ordinal) }
     function ordinal(i) { const revision = catalogRevision; return i >= 0 && i < terminalModel.count ? terminalModel.get(i).ordinal : -1 }
     function applyCatalog(catalog, method) {
+        if (method === "catalog.update") { cancelDrag(); paneMenu.close() }
         const selectedId = selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : ""
         const oldWorkspace = workspace
         let previous = {}
@@ -298,6 +299,9 @@ ApplicationWindow {
             let values = remembered.slice(); values[workspace] = selected; remembered = values
             if (!overview) Qt.callLater(reveal)
         }
+        if (terminalAction.visible && identityIndex(actionTarget) < 0) terminalAction.close()
+        if (createDialog.visible && workspaceFormMode !== "create" && spaceIds.indexOf(editingWorkspace) < 0) createDialog.close()
+        if (appearance.visible && spaceIds.indexOf(appearanceWorkspace) < 0) appearance.close()
         if (method === "workspace.create_at") { createDialog.close(); chooseWorkspace(spaces.length - 1); if (overview) toggleOverview() }
         if (method === "terminal.move" && followMove && selected >= 0) {
             followMove = false
@@ -813,10 +817,10 @@ ApplicationWindow {
     }
     Timer { id: moveNoticeTimer; interval: 3000; onTriggered: window.moveNotice = "" }
     Rectangle {
-        visible: studySession.error.length > 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen
+        visible: (studySession.error.length > 0 || studySession.catalogNotice.length > 0) && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
         width: Math.min(window.width - 100, 680); height: 76; color: "#352b22"; radius: 8; z: 4
-        Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error; wrapMode: Text.Wrap; color: "#f0d6b8" }
+        Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error || studySession.catalogNotice; wrapMode: Text.Wrap; color: "#f0d6b8" }
         QuietButton { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Refresh"; enabled: !studySession.busy; onClicked: studySession.refresh() }
     }
     ThemePicker {

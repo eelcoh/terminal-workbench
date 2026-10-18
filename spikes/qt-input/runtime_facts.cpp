@@ -3,19 +3,7 @@
 #include <QFile>
 #include <QStringDecoder>
 #include <QtEndian>
-#ifdef Q_OS_UNIX
-#include <sys/stat.h>
-#include <unistd.h>
-#endif
-
-static bool ownedSocket(const QString &path) {
-#ifdef Q_OS_UNIX
-    struct stat info{};
-    return ::lstat(QFile::encodeName(path).constData(),&info)==0 && S_ISSOCK(info.st_mode) && info.st_uid==::geteuid();
-#else
-    Q_UNUSED(path);return false;
-#endif
-}
+#include "local_socket.h"
 RuntimeFeed::RuntimeFeed(QByteArray request,quint8 kind,QObject *parent,
     std::function<bool(const QByteArray &)> consume,std::function<void()> unavailable)
     :QObject(parent),request_(std::move(request)),kind_(kind),consume_(std::move(consume)),unavailable_(std::move(unavailable)) {
@@ -32,7 +20,7 @@ RuntimeFeed::~RuntimeFeed() {socket_.disconnect(this);socket_.abort();}
 void RuntimeFeed::open(const QString &path) {
     if(!failed_)return;
     buffer_.clear();
-    if(!ownedSocket(path)) {unavailable_();return;}
+    if(!ownedLocalSocket(path)) {unavailable_();return;}
     failed_=false;deadline_.start();socket_.connectToServer(path,QIODevice::ReadWrite);
 }
 void RuntimeFeed::fail() {

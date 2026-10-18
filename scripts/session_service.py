@@ -19,7 +19,7 @@ import time
 
 PROTOCOL = 1
 LIMIT = 256 * 1024
-METHODS = {"initialize", "workspace.create", "workspace.rename", "workspace.close",
+METHODS = {"catalog.read", "initialize", "workspace.create", "workspace.rename", "workspace.close",
            "terminal.create", "terminal.rename", "terminal.close", "terminal.move",
            "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "terminal.lifecycle", "health", "service.shutdown", "session.stop"}
 
@@ -98,6 +98,8 @@ def request(directory, runtime, cwd, method="initialize", identity="", title="",
     try:
         return exchange(directory, message)
     except Unavailable:
+        if method == "catalog.read":
+            raise
         if method == "service.shutdown":
             return dict(protocol=PROTOCOL, ok=True, stopped=True)
     prepare_directory(directory)
@@ -213,6 +215,15 @@ class Authority:
             return dict(stopped=True)
         if method == "health":
             return self.health()
+        if method == "catalog.read":
+            # Read committed metadata only: no journal reconciliation, seeding,
+            # terminal probing, recovery, ownership changes or catalog rewrite.
+            with catalog.locked(self.directory):
+                if not (self.directory / "workspaces.json").exists():
+                    raise ValueError("Saved workspace catalog is unavailable")
+                data = catalog.load(self.directory)
+            return dict(data=data)
+
         if method in {"terminal.status","terminal.lifecycle"}:
             # Read one runtime fact without attachment or capability enumeration.
             with catalog.locked(self.directory):

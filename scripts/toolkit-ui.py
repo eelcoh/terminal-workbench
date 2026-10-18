@@ -20,7 +20,7 @@ def configuration(state,runtime,cwd,data,preferences,saved=False):
                 font_overrides=str(preferences/'ui'/platform/'terminal-font.json'),
                 shortcut_overrides=str(preferences/'ui'/platform/'shortcuts.conf'),
                 theme_directory=str(preferences/'themes'),theme_store=str(preferences/'themes/imports'),
-                saved_session=saved)
+                saved_session=saved,catalog_updates=saved)
 
 
 def saved_window(runtime,viewer,preferences):

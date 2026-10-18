@@ -476,8 +476,8 @@ launches inherit saved face/size; existing other windows retain their choices.
 Preview and Cancel do not save, and size shortcuts remain temporary until Apply.
 Use dotfile defaults followed by Apply removes overrides. Invalid stores are
 preserved; stale or failed saves keep the dialog open for Cancel. Font saving is
-independent of the disposable session catalog. Workspace theme persistence and
-saved per-window sessions remain follow-ups. See [font persistence](terminal-fonts.md#qt-saved-font-defaults).
+independent of the disposable session catalog. Saved-mode workspace themes and
+per-window layouts now persist in separate view profiles. See [font persistence](terminal-fonts.md#qt-saved-font-defaults).
 
 ## Opt-in saved-session mode
 
@@ -486,8 +486,8 @@ It shares the existing service and `.local/sessions` catalog, honoring
 `WORKBENCH_STATE_DIR`. Closing detaches rather than stopping shells; normal
 attachment never steals another window’s terminal. The private disposable
 `just toolkit-ui` workflow is unchanged. View/theme restoration and automatic
-peer-window catalog updates remain separate work; **Refresh workspaces** updates
-the current catalog on request. See [saved-session review](qt-saved-sessions.md).
+peer-window catalog updates are implemented; **Refresh workspaces** remains an
+explicit recovery action. See [saved-session review](qt-saved-sessions.md).
 
 ## View profiles for saved Qt windows
 
@@ -498,4 +498,7 @@ The disposable launcher still omits durable view paths. Theme snapshots keep
 selected colors if their source file disappears; only Apply changes committed
 colors. View saving is debounced and errors stay local without overwriting invalid
 files. See [saved views](qt-saved-sessions.md#saved-qt-window-views) for paths,
-limits and native review steps. Automatic catalog updates remain a follow-up.
+limits and native review steps. The owner confirmed appearance retention with
+`f80f00b`. Saved mode follows peer catalog changes automatically through filesystem
+notifications and read-only service requests; disposable studies keep this feed
+disabled. See [automatic updates](qt-saved-sessions.md#automatic-workspace-updates).

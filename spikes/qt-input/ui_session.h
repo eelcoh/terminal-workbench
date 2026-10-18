@@ -8,11 +8,13 @@
 #include "terminal_item.h"
 #include "runtime_facts.h"
 #include "ui_lifecycle.h"
+#include "ui_catalog_feed.h"
 #include <QHash>
 
 // Client adapter for the existing organization service. Never owns PTYs/catalog data.
 class UiSession final : public QObject {
     Q_OBJECT
+    Q_PROPERTY(QString catalogNotice READ catalogNotice NOTIFY catalogNoticeChanged)
     Q_PROPERTY(bool savedSession READ savedSession CONSTANT)
     Q_PROPERTY(QVariantMap initialCatalog READ initialCatalog CONSTANT)
     Q_PROPERTY(QString defaultDirectory READ defaultDirectory CONSTANT)
@@ -21,6 +23,7 @@ class UiSession final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
     explicit UiSession(const QJsonObject &config,QObject *parent=nullptr);
+    QString catalogNotice() const {return catalog_?catalog_->error():QString();}
     bool savedSession() const {return config_["saved_session"].toBool();}
     QVariantMap initialCatalog() const {return config_["catalog"].toObject().toVariantMap();}
     QString defaultDirectory() const {return config_["cwd"].toString();}
@@ -43,6 +46,7 @@ public:
     Q_INVOKABLE void moveTerminal(const QString &identity,const QString &workspace,int position);
     Q_INVOKABLE void refresh();
 Q_SIGNALS:
+    void catalogNoticeChanged();
     void changed();
     void lifecycleChanged();
     void actionCompleted(QString identity,QString method);
@@ -51,6 +55,7 @@ private:
     void request(const QString &method,const QString &identity={},const QString &name={},const QString &directory={},const QString &destination={},int position=-1);
     void fail(const QString &message);
     void prune(const QJsonObject &catalog);
+    UiCatalogFeed *catalog_=nullptr;
     UiLifecycle lifecycle_;
     QHash<QString,RuntimeFacts *> facts_;
     QJsonObject config_;QLocalSocket socket_;QTimer deadline_;QByteArray receive_;QString method_,identity_,error_;bool busy_=false,sent_=false;

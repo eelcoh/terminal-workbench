@@ -64,7 +64,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-terminal-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.terminal-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
-    qt_add_executable(workbench-ui-study ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h theme_bridge.c
+    qt_add_executable(workbench-ui-study ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h theme_bridge.c
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
@@ -77,6 +77,11 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-ui-study PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.ui-study"
         MACOSX_BUNDLE_BUNDLE_NAME "Terminal Workbench UI Study")
+    qt_add_executable(workbench-catalog-test ui_catalog_feed_test.cpp ui_catalog_feed.cpp ui_catalog_feed.h)
+    target_compile_definitions(workbench-catalog-test PRIVATE QT_NO_KEYWORDS)
+    target_compile_options(workbench-catalog-test PRIVATE -Wall -Wextra)
+    target_link_libraries(workbench-catalog-test PRIVATE Qt6::Network)
+    set_target_properties(workbench-catalog-test PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)
     qt_add_executable(workbench-view-state-test ui_view_state_test.cpp ui_view_state.cpp ui_view_state.h)
     target_compile_definitions(workbench-view-state-test PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-view-state-test PRIVATE -Wall -Wextra)

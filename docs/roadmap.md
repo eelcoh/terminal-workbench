@@ -21,8 +21,9 @@ is pending. No production frontend switch has been made.
 `just toolkit-workbench` now opens the Qt candidate on the existing saved
 catalog without study seeding. Closing detaches instead of stopping shells.
 Workspace organization and live processes persist. Qt layout/focus/Overview and
-workspace colors now restore from separate leased view profiles. Automatic
-cross-window catalog updates and Mac view acceptance remain integration follow-ups. See
+workspace colors now restore from separate leased view profiles. Cross-window
+catalog updates now arrive automatically. The owner confirmed appearance retention
+with `f80f00b`; broader Mac view/display acceptance remains open. See
 [the saved-session slice](qt-saved-sessions.md).
 
 The Qt candidate now follows the approved `just spike` chrome: bundled interface
@@ -1342,10 +1343,10 @@ Isolated migration tests pass; native Mac acceptance remains pending.
 closing or failing the viewer does not stop its shells. Existing shell PIDs,
 workspace identity and stopped entries survive reopening. Live owners are not
 replaced by normal attachment. The disposable study remains available separately.
-A menu action refreshes catalog changes from peer windows until automatic
-subscription is integrated. Real-runtime launcher checks and native Linux UI
-regressions cover this first slice. Saved Qt window profiles/theme choices and
-native Mac review remain ahead.
+Filesystem notifications and read-only service requests now update peer catalogs;
+a menu action retains explicit refresh. Real-runtime launcher checks and native Linux UI
+regressions cover this first slice. Saved Qt window profiles/theme choices are implemented;
+broader native Mac review remains ahead.
 
 ## Qt saved window views and workspace colors
 
@@ -1359,5 +1360,15 @@ Views save on a debounced client-state change and normal close; terminal parse
 and paint paths perform no persistence work. Invalid/future/oversized/stale view
 files stay untouched with a local notice. Independent slot reuse, theme roundtrip
 and removed-source restoration are covered alongside native Linux restart checks
-with real readers. Mac view/display acceptance, automatic catalog updates and
-cross-window appearance synchronization remain open.
+with real readers. The owner confirmed appearance retention with `f80f00b`. Broader Mac view/display
+acceptance and cross-window appearance synchronization remain open.
+
+## Qt cross-window workspace updates
+
+Saved Qt windows now follow catalog changes through filesystem invalidation and
+bounded read-only service requests, without polling or shell recovery. Stable IDs
+retain local pane layout, focus, themes and live readers. Local mutations pause
+background reads; failed updates keep existing workspaces and show a local notice.
+Older services retain manual refresh until explicitly upgraded. Service/model and
+two-window X11/Wayland checks pass; native Mac review remains open. See
+[automatic workspace updates](qt-saved-sessions.md#automatic-workspace-updates).

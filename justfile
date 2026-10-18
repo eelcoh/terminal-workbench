@@ -336,6 +336,10 @@ toolkit-ui: runtime-build
 toolkit-workbench: runtime-build
     python3 scripts/toolkit-probe.py workbench
 
+# Mac/Linux: read-only Qt catalog watcher and failure isolation.
+toolkit-catalog-test: runtime-build
+    python3 scripts/toolkit-probe.py catalog-test
+
 # Mac/Linux: typed client view persistence without a display.
 toolkit-view-state-test: runtime-build
     python3 scripts/toolkit-probe.py view-state-test

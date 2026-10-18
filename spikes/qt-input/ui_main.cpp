@@ -161,7 +161,7 @@ int main(int argc,char **argv) {
                 {"drag_slot",window->property("dragSlot").toInt()},{"drop_space",window->property("dropSpace").toInt()},{"drop_position",window->property("dropPosition").toInt()},
                 {"content_y",window->findChild<QQuickItem *>("deck")->property("contentY").toDouble()},
                 {"content_x",window->findChild<QQuickItem *>("deck")->property("contentX").toDouble()},
-                {"busy",session.busy()},{"error",session.error()},
+                {"catalog_notice",session.catalogNotice()},{"busy",session.busy()},{"error",session.error()},
                 {"workspace_count",listProperty(window,"spaces").size()},
                 {"appearance_open",window->property("appearanceOpen").toBool()},
                 {"application_menu_open",window->property("applicationMenuOpen").toBool()},

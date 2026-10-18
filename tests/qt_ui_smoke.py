@@ -56,7 +56,7 @@ while True:
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
         managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'view_state':str(root/'qt-view.json'),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'view_state':str(root/'qt-view.json'),'catalog_updates':True,'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -351,6 +351,44 @@ while True:
         assert [p['instance'] for p in data()['panes']]==font_items and [received(i) for i in range(6)]==font_input
         assert managed.read_bytes()==managed_bytes,'font UI rewrote managed settings'
         for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
+        # Two Qt clients project shared metadata without transferring existing owners.
+        peer_catalog=workspace_catalog.load(root);peer_instances={p['identity']:p['instance'] for p in data()['panes']};peer_input=[received(i) for i in range(6)]
+        peer_report=artifacts/'peer-report.json';peer_report.unlink(missing_ok=True)
+        peer_config=root/'peer-config.json';peer_settings=json.loads(config.read_text());peer_settings.update(saved_session=True,view_state=str(root/'peer-view.json'))
+        peer_settings['catalog']=peer_catalog;peer_config.write_text(json.dumps(peer_settings))
+        peer=subprocess.Popen([viewer,str(peer_config),'--test-report',str(peer_report)],env=env,stdout=log,stderr=log);processes.append(peer)
+        def peer_data():
+            try:return json.loads(peer_report.read_text())
+            except (FileNotFoundError,ValueError):return {}
+        wait_until(lambda:len(peer_data().get('panes',[]))==6 and all(p['attachment']=='elsewhere' for p in peer_data()['panes']),timeout=30)
+        if wayland:run('niri','msg','action','focus-window','--id',window)
+        else:cmd('windowfocus',window)
+        raw_key('F8');wait_until(lambda:data()['creation_open'] and data()['name_focus']);key('ctrl+a');typed('Peer renamed');key('Return')
+        wait_until(lambda:not data()['creation_open'] and peer_data().get('workspace_names',[None])[0]=='Peer renamed')
+        request(root,Path(runtime),root,'workspace.rename','workspace-0','Workbench')
+        wait_until(lambda:data()['workspace_names'][0]=='Workbench' and peer_data()['workspace_names'][0]=='Workbench')
+        request(root,Path(runtime),root,'workspace.directory','workspace-0',project_directory=str(chosen))
+        wait_until(lambda:data()['workspace_directories'][0]==str(chosen) and peer_data()['workspace_directories'][0]==str(chosen))
+        request(root,Path(runtime),root,'workspace.directory','workspace-0',project_directory=str(root))
+        request(root,Path(runtime),root,'terminal.create','workspace-0','Peer shell')
+        wait_until(lambda:len(data()['panes'])==7 and len(peer_data()['panes'])==7)
+        extra=next(p['identity'] for p in data()['panes'] if p['identity'] not in peer_instances)
+        request(root,Path(runtime),root,'terminal.move','terminal-1',destination='workspace-1',position=1)
+        wait_until(lambda:data()['panes'][1]['workspace']==1 and peer_data()['panes'][1]['workspace']==1)
+        request(root,Path(runtime),root,'terminal.move','terminal-1',destination='workspace-0',position=1)
+        request(root,Path(runtime),root,'terminal.close',extra)
+        wait_until(lambda:len(data()['panes'])==6 and len(peer_data()['panes'])==6 and data()['panes'][1]['workspace']==0)
+        # A foreign deletion closes an editor for that ID, without retargeting it.
+        result=request(root,Path(runtime),root,'workspace.create_at',title='Temporary peer',project_directory=str(root))['data']
+        removed=result['workspaces'][-1]['id'];wait_until(lambda:data()['workspace_count']==4 and peer_data()['workspace_count']==4)
+        key('super+alt+Down');key('super+alt+Down');key('super+alt+Down');wait_until(lambda:data()['workspace']==3)
+        raw_key('F8');wait_until(lambda:data()['creation_open']);request(root,Path(runtime),root,'workspace.close',removed)
+        wait_until(lambda:data()['workspace_count']==3 and not data()['creation_open'] and peer_data()['workspace_count']==3)
+        key('super+alt+Up');key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['selected']==0 and data()['panes'][0]['focus'])
+        assert workspace_catalog.load(root)==peer_catalog
+        assert {p['identity']:p['instance'] for p in data()['panes']}==peer_instances and all(p['ready'] for p in data()['panes'])
+        assert [received(i) for i in range(6)]==peer_input and not data()['catalog_notice'] and not peer_data()['catalog_notice']
+        capture('catalog-peer-sync.png');peer.terminate();peer.wait(timeout=5)
         initial_sizes=sizes();pane=data()['panes'][0];click(pane['x'],pane['y'],7)
         wait_until(lambda:data()['content_x']>0)
         assert sizes()==initial_sizes and data()['panes'][0]['focus'],'horizontal wheel changed grid or focus'

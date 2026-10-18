@@ -26,8 +26,8 @@ Current limits:
   this slice does not broadcast appearance changes to peer windows.
 - Font defaults and application shortcuts already use the separate user config
   directory. They do not move into the session catalog.
-- For catalog changes made in another window, use **Refresh workspaces** in the
-  application menu. Automatic catalog subscription is still pending in Qt.
+- Workspace changes made in another window update automatically.
+  **Refresh workspaces** remains available for explicit recovery.
 - The existing service requires the same runtime path and project directory.
   Startup rejects a mismatched service rather than replacing it or its shells.
 - Existing Unix socket length limits apply. If necessary, choose a shorter
@@ -94,4 +94,38 @@ or remotely owned: restoring focus never performs recovery or Move here.
 real retained shells. Native X11/Wayland UI tests now restart the viewer after
 layout/theme/Overview changes and source removal, checking exact colors, focus,
 geometry and retained reader PIDs/input. Native Mac view/display review remains
-pending. Automatic catalog subscription is still the next integration gap.
+pending. The owner confirmed appearance retention across starts with `f80f00b`.
+
+## Automatic workspace updates
+
+Saved Qt windows follow workspace and terminal creation, rename, folder changes,
+moves and removal made by other clients. Filesystem notifications invalidate the
+cached catalog; a bounded, asynchronous `catalog.read` request obtains validated
+service state. This is not a polling loop or a service event subscription. Reads
+do not create state, start the service, reconcile creation or recover shells.
+
+Duplicate snapshots are ignored. Local mutations pause background reads until
+their confirmed reply arrives. Projection preserves terminal objects and local
+layout/theme choices by stable ID; deleting an edited workspace closes its stale
+editor. Existing terminal ownership never changes merely because of an update.
+Malformed, timed-out or unavailable replies retain existing workspaces and show a
+local notice. Terminal input remains available.
+
+An already-running older service may lack `catalog.read`. Manual refresh remains
+available. To upgrade the default organization service, run `just service-stop`,
+then reopen `just toolkit-workbench`; terminal runtimes survive that service stop.
+For custom state directories, stop the service for that directory explicitly.
+An existing window that reported an unsupported service needs Refresh workspaces
+or reopening after the upgrade.
+
+To test, open two `just toolkit-workbench` windows. Create or rename a workspace
+in one: the other should update without Refresh. Change its folder, add or move a
+terminal, and remove an empty workspace. Check that existing shells remain usable
+and each window retains its own appearance and focus. Moving terminal ownership
+still requires the explicit Move here action.
+
+`just toolkit-catalog-test` covers notification rearming, deduplication, local
+mutation races, legacy services and bounded failure handling. The service test
+checks read-only access without startup or file writes. X11/Wayland UI checks run
+two concurrent windows through external catalog changes while retaining original
+reader PIDs, input and ownership. Native Mac cross-window acceptance is pending.
