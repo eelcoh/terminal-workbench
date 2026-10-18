@@ -157,9 +157,13 @@ Native Mac filesystem and keyboard review remains pending.
 
 ## Qt candidate scope
 
-`just toolkit-ui` now reads the same managed shared/platform `[font]` defaults.
-It validates the existing file as a whole and uses built-in fonts plus a visible
-notice when invalid. Its Terminal text settings preview/apply/cancel changes for
-that disposable window without writing configuration. Other managed settings and
-saved per-window font overrides are not yet connected to Qt. See
-[Qt font controls](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults).
+`just toolkit-ui` now reads the same managed shared/platform `[font]`
+defaults. It validates existing field syntax and shortcut rules, and uses
+built-in fonts plus a visible notice when invalid. Because Qt currently reads
+only font defaults, this adapter does not resolve unused appearance files.
+Missing or malformed theme files cannot trigger a font fallback; the working
+viewer still validates themes. Its Terminal text settings preview/apply/cancel
+changes for that disposable window without writing configuration. Other
+managed settings and saved per-window font overrides are not yet connected to
+Qt. See [Qt font
+controls](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults).

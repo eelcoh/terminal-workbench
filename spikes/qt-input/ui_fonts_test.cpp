@@ -28,6 +28,14 @@ int main(int argc,char **argv){
     write(target,"workbench-config-v1\n[font]\nfamily = Fira Code\nsize = 99\n");UiFonts invalid(link,false);
     require(!invalid.error().isEmpty() && invalid.current()["family"]=="JetBrains Mono" && invalid.current()["size"]==16,"invalid file falls back as one transaction");
     write(target,"workbench-config-v1\n[font]\nsize = 22\n[shortcuts]\ncopy = Ctrl+C\n");UiFonts invalidOther(link,false);require(!invalidOther.error().isEmpty() && invalidOther.current()["size"]==16,"other-section validation retained");
+    write(target,"workbench-config-v1\n[appearance]\napplication-theme = absent-theme\nterminal-theme = also-absent\n[font]\nfamily = Fira Code\nsize = 19\n[macos.font]\nsize = 21\n");
+    UiFonts missingThemeLinux(link,false),missingThemeMac(link,true);
+    require(missingThemeLinux.error().isEmpty() && missingThemeLinux.current()["family"]=="Fira Code" && missingThemeLinux.current()["size"]==19,"unused missing theme must not discard Linux fonts");
+    require(missingThemeMac.error().isEmpty() && missingThemeMac.current()["family"]=="Fira Code" && missingThemeMac.current()["size"]==21,"unused missing theme must not discard Mac fonts");
+    write(dir.filePath("absent-theme"),"background = #invalid\n");UiFonts corruptTheme(link,true);
+    require(corruptTheme.error().isEmpty() && corruptTheme.current()==missingThemeMac.current(),"unused malformed theme must not discard fonts");
+    write(target,"workbench-config-v1\n[appearance]\nterminal-theme = absent\n[font]\nsize = 99\n");UiFonts badFontWithTheme(link,true);
+    require(!badFontWithTheme.error().isEmpty() && badFontWithTheme.current()["size"]==16,"font validation remains active with unused themes");
     UiFonts absent(dir.filePath("missing"),true);require(absent.error().isEmpty() && absent.current()==invalid.defaults(),"missing config defaults");
     std::puts("PASS: shared/platform font defaults, managed symlink preservation, preview/apply/cancel/reset, bounds and transactional invalid-file fallback");
 }

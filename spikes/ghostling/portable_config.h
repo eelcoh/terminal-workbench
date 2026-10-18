@@ -40,7 +40,9 @@ static bool portable_theme(const char *config,const char *value,Theme *out,char 
     if (!file) { snprintf(error,capacity,"Cannot read configured theme: %s",strerror(errno));return false; }
     int count=0;bool valid=theme_read(file,&themes[0],out,&count,error,capacity);fclose(file);return valid;
 }
-static bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)
+/* Font-only clients validate fields without opening appearance assets they do not use.
+ * When false, theme values are neither resolved nor advertised as loaded colors. */
+static bool portable_read_with_theme_files(const char *path,bool apple,bool load_theme_files,PortableConfig *out,char *error,size_t capacity)
 {
     PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default()};
     if (!path) { *out=next;return true; }
@@ -88,7 +90,7 @@ static bool portable_read(const char *path,bool apple,PortableConfig *out,char *
     PortableLayer *platform=&layers[apple ? 2 : 1];
     const char *application=platform->seen_application ? platform->application : layers[0].application;
     const char *terminal=platform->seen_terminal ? platform->terminal : layers[0].terminal;
-    next.has_application=*application;next.has_terminal=*terminal;
+    next.has_application=load_theme_files && *application;next.has_terminal=load_theme_files && *terminal;
     if ((next.has_application && !portable_theme(path,application,&next.application,error,capacity))
         || (next.has_terminal && !portable_theme(path,terminal,&next.terminal,error,capacity))) return false;
     if (layers[0].has_size) next.font.size=layers[0].font.size;
@@ -107,5 +109,10 @@ static bool portable_read(const char *path,bool apple,PortableConfig *out,char *
             next.shortcuts.bindings[i]=(ShortcutChord){0};
     if (!shortcut_valid(&next.shortcuts,error,capacity)) return false;
     *out=next;error[0]=0;return true;
+}
+/* The working viewer retains full theme validation and its transaction boundary. */
+static bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)
+{
+    return portable_read_with_theme_files(path,apple,true,out,error,capacity);
 }
 #endif

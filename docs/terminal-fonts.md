@@ -108,38 +108,46 @@ metadata wiring), and the primary/fallback Unicode font GUI check pass.
 
 ## Qt candidate: terminal text and dotfile defaults
 
-Run `just toolkit-ui`, then choose **Terminal text…** from the hamburger menu or
-Commands. Select **JetBrains Mono** or **Fira Code**, adjust the size from **10 to
-32 logical points**, and preview it across the window. **Apply** keeps the choice
-for this study window, including terminals created afterward; **Cancel** or Escape
-restores the opening font/size. **Use dotfile defaults** previews the configured
-face and size, and can itself be cancelled.
+Run `just toolkit-ui`, then choose **Terminal text…** from the hamburger menu
+or Commands. Select **JetBrains Mono** or **Fira Code**, adjust the size from
+**10 to 32 logical points**, and preview it across the window. **Apply** keeps
+the choice for this study window, including terminals created afterward;
+**Cancel** or Escape restores the opening font/size. **Use dotfile defaults**
+previews the configured face and size, and can itself be cancelled.
 
 Use Command+Option on macOS / Super+Alt on Linux with **=**, **−** or **0** to
-increase, decrease or reset size. Reset retains the selected face. These actions
-also appear in Commands and shortcut help. Dialogs own input before these bindings;
-interface text retains its independent bundled Adwaita Sans font.
+increase, decrease or reset size. Reset retains the selected face. These
+actions also appear in Commands and shortcut help. Dialogs own input before
+these bindings; interface text retains its independent bundled Adwaita Sans
+font.
 
-The launcher uses the existing config directory, including `WORKBENCH_CONFIG_DIR`,
-and reads `config.conf` once. Shared `[font]` and `[macos.font]` / `[linux.font]`
-resolve through the same versioned parser as `just spike`. Platform fields override
-shared fields regardless of order. Missing files use JetBrains Mono at 16 pt;
-invalid files fall back transactionally with a dismissible startup diagnostic.
-The managed file and its symlink/comments stay untouched. The complete existing
-config is validated, but Qt currently consumes only font fields from it; managed
-appearance/shortcuts and per-window saved font overrides remain follow-ups.
+The launcher uses the existing config directory, including
+`WORKBENCH_CONFIG_DIR`, and reads `config.conf` once. Shared `[font]` and
+`[macos.font]` / `[linux.font]` resolve through the same versioned parser as
+`just spike`. Platform fields override shared fields regardless of order.
+Missing files use JetBrains Mono at 16 pt; invalid files fall back
+transactionally with a dismissible startup diagnostic. The managed file and
+its symlink/comments stay untouched. The existing field syntax and shortcut
+rules are validated, but this font-only adapter does not open theme files that
+Qt does not yet consume. A missing or malformed external theme cannot discard
+valid fonts or trigger a font warning. Managed appearance/shortcuts and
+per-window saved font overrides remain follow-ups.
 
-Both faces are bundled with their OFL notices. The existing shaped row renderer
-uses the chosen face and Qt point metrics, with backing density handled separately.
-Font changes resize existing PTYs and invalidate affected presentation caches;
-they do not reconnect, replace or transfer a shell. Retained hidden panes update
-their grid without requesting foreground row rasterization.
+Both faces are bundled with their OFL notices. The existing shaped row
+renderer uses the chosen face and Qt point metrics, with backing density
+handled separately. Font changes resize existing PTYs and invalidate affected
+presentation caches; they do not reconnect, replace or transfer a shell.
+Retained hidden panes update their grid without requesting foreground row
+rasterization.
 
-`just toolkit-fonts-test` checks shared/platform precedence, symlink preservation,
-transactional fallback and window preview/apply/cancel/reset without a display.
-`just toolkit-ui-test` exercises real six-pane font changes, matching PTY geometry,
-unchanged items/PIDs/input, dotfile preservation, modal scope, menu/Commands access,
-and minimum-width layout on X11 and private Wayland. Captures are `font-preview.png`
-and `font-narrow.png` in `.local/artifacts/qt-ui/{xcb,wayland}/`. Native Mac review,
+`just toolkit-fonts-test` checks shared/platform precedence, symlink
+preservation, transactional fallback and window preview/apply/cancel/reset
+without a display. `just toolkit-ui-test` exercises real six-pane font
+changes, matching PTY geometry, unchanged items/PIDs/input, dotfile
+preservation, modal scope, menu/Commands access, and minimum-width layout on
+X11 and private Wayland. Captures are `font-preview.png` and `font-narrow.png`
+in `.local/artifacts/qt-ui/{xcb,wayland}/`. The owner confirmed font selection
+and sizing on Mac. The unrelated missing-theme warning is covered by both
+platform adapters and native Linux startup regressions; its Mac recheck,
 external-display sharpness and saved-window restoration remain open. The daily
 viewer is still `just spike`.

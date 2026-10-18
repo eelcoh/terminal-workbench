@@ -1219,12 +1219,16 @@ packaging remain before a frontend decision; `just spike` remains the daily view
 
 ## Qt font and configuration slice
 
-The candidate adds bundled JetBrains Mono/Fira Code, native logical-point sizing,
-preview/apply/cancel/defaults and scoped size shortcuts. Startup font defaults reuse
-the current managed shared/platform parser. Configuration stays read-only; invalid
-input falls back with a dismissible notice. Window changes remain temporary.
-Core contracts cover precedence, symlinks and transaction boundaries. Native GUI
-coverage checks six-pane preview/cancel geometry, stable processes/items/input,
-modal scope, new-pane inheritance and minimum-width controls. Mac font/dialog and
-mixed-display acceptance remain open. Remaining managed settings, saved window
-preferences and packaging still precede adoption.
+The candidate adds bundled JetBrains Mono/Fira Code, native logical-point
+sizing, preview/apply/cancel/defaults and scoped size shortcuts. Startup font
+defaults reuse the current managed shared/platform parser. Configuration stays
+read-only; invalid input falls back with a dismissible notice. Window changes
+remain temporary. Core contracts cover precedence, symlinks and transaction
+boundaries. Native GUI coverage checks six-pane preview/cancel geometry,
+stable processes/items/input, modal scope, new-pane inheritance and
+minimum-width controls. The owner confirmed Mac font selection and sizing.
+Font-only loading now skips unused external theme files while retaining
+existing field validation; full theme validation remains in the working
+viewer. The warning fix needs a Mac recheck, and mixed-display acceptance
+remains open. Remaining managed settings, saved window preferences and
+packaging still precede adoption.

@@ -56,7 +56,7 @@ while True:
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
-        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n');managed_bytes=managed.read_bytes()
+        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n');managed_bytes=managed.read_bytes()
         config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed)}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
@@ -240,6 +240,7 @@ while True:
         # Preview is a window transaction; all panes retain their items and PTYs.
         font_grid=sizes();font_items=[p['instance'] for p in data()['panes']];font_input=[received(i) for i in range(6)]
         assert data()['font_defaults']=={'family':'Fira Code','size':16}
+        assert 'Qt UI font settings:' not in (artifacts/'run.log').read_text(),'unused theme triggered font fallback'
         def settled_font(family,size):
             return data()['font_preferences']=={'family':family,'size':size} and all(p['font']=={'family':family,'size':size} and p['geometry_ready'] for p in data()['panes'])
         def font_menu():
