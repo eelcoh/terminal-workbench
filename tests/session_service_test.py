@@ -157,14 +157,15 @@ def main():
                 listener.bind(str(legacy)); listener.listen()
                 import threading
                 def reject():
-                    for _ in range(2):
-                        peer, _ = listener.accept()
-                        with peer: peer.recv(128)
+                    peer, _ = listener.accept()
+                    with peer: peer.recv(128)
                 thread = threading.Thread(target=reject, daemon=True); thread.start()
                 from session_service import Authority
                 authority = Authority(state, runtime, root)
                 assert authority.runtime_capabilities(state / "legacy.sock")["compatibility"] == "unadvertised"
                 assert authority.runtime_capabilities(state / "absent.sock")["compatibility"] == "legacy-replay"
+                thread.join(timeout=2)
+                assert not thread.is_alive(), "capability fixture did not complete"
             # A lost reply never replays a possibly committed mutation.
             lost = root / "lost-reply"; lost.mkdir()
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:

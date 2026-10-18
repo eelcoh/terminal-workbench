@@ -1,22 +1,10 @@
 #include "ui_session.h"
-#include "theme_bridge.h"
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QRegularExpression>
 
 UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),config_(config) {
-    const auto color=[](WorkbenchThemeColor c){return QColor(c.r,c.g,c.b);};
-    const auto mix=[](QColor a,QColor b,qreal amount){return QColor::fromRgbF(a.redF()*(1-amount)+b.redF()*amount,a.greenF()*(1-amount)+b.greenF()*amount,a.blueF()*(1-amount)+b.blueF()*amount);};
-    for(int i=0;i<workbench_theme_count();++i) {
-        WorkbenchTheme theme;if(!workbench_theme_get(i,&theme))continue;
-        const auto bg=color(theme.background),fg=color(theme.foreground);QVariantList swatches;
-        for(int j=0;j<8;++j)swatches.append(color(theme.palette[j]).name());
-        themes_.append(QVariantMap{{"index",i},{"name",QString::fromUtf8(workbench_theme_name(i))},{"light",theme.light},
-            {"background",bg.name()},{"foreground",fg.name()},{"accent",color(theme.palette[4]).name()},
-            {"surface",mix(bg,fg,.06).name()},{"hover",mix(bg,fg,.12).name()},{"border",mix(bg,fg,.22).name()},
-            {"muted",mix(bg,fg,.65).name()},{"swatches",swatches}});
-    }
     socket_.setReadBufferSize(256*1024+1);deadline_.setSingleShot(true);deadline_.setInterval(65000);
     connect(&deadline_,&QTimer::timeout,this,[this]{fail("Session service timed out. Refresh before trying again.");});
     connect(&socket_,&QLocalSocket::connected,this,[this] {
@@ -45,6 +33,12 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
 }
 void UiSession::fail(const QString &message) {
     busy_=false;deadline_.stop();socket_.abort();receive_.clear();error_=message;Q_EMIT changed();
+}
+QObject *UiSession::observe(const QString &identity) {
+    static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
+    if(!id.match(identity).hasMatch())return nullptr;
+    if(!facts_.contains(identity))facts_.insert(identity,new RuntimeFacts(QDir(config_["state"].toString()).filePath(identity+".ctl"),this));
+    return facts_.value(identity);
 }
 void UiSession::attach(TerminalItem *item,const QString &identity) {
     static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
@@ -86,4 +80,4 @@ QUrl UiSession::folderStart(const QString &value) const {
 QString UiSession::folderPath(const QUrl &url) const {
     return url.isLocalFile() ? QDir::cleanPath(url.toLocalFile()) : QString();
 }
-void UiSession::refresh() {request("initialize");}
+void UiSession::refresh() {for(auto *facts:facts_)facts->refresh();request("initialize");}

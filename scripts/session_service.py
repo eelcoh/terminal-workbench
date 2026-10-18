@@ -312,6 +312,22 @@ def serve(directory, runtime, cwd):
             listener.listen(32)
             listener.settimeout(1)
             print(f"Session service {os.getpid()} listening at {path}", flush=True)
+            retired = False
+            def retire_endpoint():
+                nonlocal retired
+                if retired:
+                    return
+                # Shutdown acknowledgement is a barrier: nobody may connect to a
+                # listener that will never accept again. Retire before replying,
+                # then release ownership so an immediate reopen can start a service.
+                listener.close()
+                try:
+                    if path.lstat().st_ino == socket_inode:
+                        path.unlink()
+                except FileNotFoundError:
+                    pass
+                retired = True
+                fcntl.flock(lock, fcntl.LOCK_UN)
             try:
                 while authority.running and directory.exists():
                     for identity, child in list(authority.children.items()):
@@ -326,6 +342,8 @@ def serve(directory, runtime, cwd):
                         try:
                             message = receive(connection)
                             result = authority.dispatch(message)
+                            if not authority.running:
+                                retire_endpoint()
                             transmit(connection, dict(protocol=PROTOCOL, ok=True, **result))
                         except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
                             try:
@@ -334,11 +352,7 @@ def serve(directory, runtime, cwd):
                                 pass
             finally:
                 # Only our endpoint is removed. Runtimes and their sockets survive.
-                try:
-                    if path.lstat().st_ino == socket_inode:
-                        path.unlink()
-                except FileNotFoundError:
-                    pass
+                retire_endpoint()
 
 
 def main():

@@ -9,6 +9,37 @@ ApplicationWindow {
     property int workspace: 0
     property int selected: 0
     property bool overview: false
+    property bool agentsOnly: false
+    property bool needsOnly: false
+    readonly property bool overviewFiltered: agentsOnly || needsOnly
+    property var overviewGroups: []
+    property var overviewOrdinals: []
+    property int overviewMatches: 0
+    property int waitingCount: 0
+    readonly property var overviewGroupTops: { let tops = []; for (let w = 0; w < spaces.length; ++w) tops.push(deck.y + deck.groupTop(w) - deck.contentY); return tops }
+    function rebuildOverview() {
+        if (dragSlot >= 0) return
+        let groups = [], positions = [], total = 0, waiting = 0
+        for (let i = 0; i < terminalModel.count; ++i) positions.push(-1)
+        for (let w = 0; w < spaces.length; ++w) {
+            let matches = []
+            for (let i of indices(w)) {
+                const pane = panel(i), facts = pane ? pane.facts : ({agent: "", needs_input: false})
+                if (facts.needs_input) ++waiting
+                if (overview && ((agentsOnly && !facts.agent) || (needsOnly && !facts.needs_input))) continue
+                positions[i] = matches.length; matches.push(i); ++total
+            }
+            groups.push(matches)
+        }
+        overviewGroups = groups; overviewOrdinals = positions; overviewMatches = total; waitingCount = waiting
+        if (overview) deck.contentY = Math.max(0, Math.min(deck.contentY, deck.contentHeight - deck.height))
+    }
+    function overviewIndices(space) { return overviewGroups[space] || [] }
+    function changeFilter(agents, needs) {
+        cancelDrag(); agentsOnly = agents; needsOnly = needs; rebuildOverview(); deck.contentY = 0
+    }
+    onOverviewChanged: Qt.callLater(rebuildOverview)
+    function openAgents() { if (!overview) toggleOverview(); changeFilter(true, false) }
     property bool reducedMotion: false
     property bool pendingWorkspaceDialog: false
     property string workspaceFormMode: "create"
@@ -24,9 +55,14 @@ ApplicationWindow {
     property int previewTheme: 0
     readonly property bool appearanceOpen: appearance.visible
     readonly property bool applicationMenuOpen: appMenu.visible
+    readonly property bool layoutMenuOpen: paneMenu.visible
+    readonly property bool themeImportOpen: themeImport.visible
+    readonly property bool themeImportSourceFocus: themeImport.sourceFocused
+    readonly property bool themeFileOpen: themeImport.browserOpen
+    readonly property string themeImportSource: themeImport.sourceText
     readonly property bool themeSearchFocus: appearance.searchFocused
     readonly property int themeMatchCount: appearance.matches.length
-    readonly property var chrome: studySession.themes[themeIndexFor(workspace)]
+    readonly property var chrome: studyThemes.theme(themeIndexFor(workspace))
     function themeIndexFor(space) { return appearance.visible && spaceIds[space] === appearanceWorkspace ? previewTheme : (workspaceThemes[space] || 0) }
     function openAppearance() {
         if (overview || createDialog.visible || appearance.visible) return
@@ -45,6 +81,7 @@ ApplicationWindow {
     property var directories: []
     property var counts: []
     property var terminalItems: []
+    property var overviewLabels: []
     readonly property bool creationOpen: createDialog.visible
     readonly property bool drawerOpen: drawer.visible
     readonly property bool nameFocused: newName.activeFocus
@@ -53,7 +90,7 @@ ApplicationWindow {
     ListModel { id: terminalModel }
     property int catalogRevision: 0
     function indices(space) { const revision = catalogRevision; let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space) result.push(i); return result.sort((a,b) => terminalModel.get(a).ordinal - terminalModel.get(b).ordinal) }
-    function ordinal(i) { return terminalModel.get(i).ordinal }
+    function ordinal(i) { const revision = catalogRevision; return i >= 0 && i < terminalModel.count ? terminalModel.get(i).ordinal : -1 }
     function applyCatalog(catalog, method) {
         let names = [], ids = [], folders = [], totals = []
         let sizes = widths.slice(), full = fullWidths.slice(), focus = remembered.slice(), scroll = positions.slice()
@@ -79,6 +116,7 @@ ApplicationWindow {
         }
         spaces = names; spaceIds = ids; directories = folders; counts = totals
         ++catalogRevision
+        Qt.callLater(rebuildOverview)
         for (let w = 0; w < names.length; ++w) {
             const items = indices(w)
             if (items.indexOf(focus[w]) < 0) focus[w] = items.length ? items[0] : -1
@@ -90,6 +128,10 @@ ApplicationWindow {
             if (!overview) Qt.callLater(reveal)
         }
         if (method === "workspace.create_at") { createDialog.close(); chooseWorkspace(spaces.length - 1); if (overview) toggleOverview() }
+        if (method === "terminal.move" && followMove && selected >= 0) {
+            followMove = false
+            Qt.callLater(function() { if (overview) revealOverview(selected); else focusPane(selected) })
+        }
         if (method === "workspace.rename" || method === "workspace.directory") createDialog.close()
         if (method === "terminal.create" && added >= 0) { if (overview) toggleOverview(); Qt.callLater(function() { focusPane(added) }) }
     }
@@ -141,6 +183,7 @@ ApplicationWindow {
     Connections {
         target: studySession
         function onCompleted(catalog, method) { window.applyCatalog(catalog, method) }
+        function onChanged() { if (!studySession.busy && studySession.error.length > 0) window.followMove = false }
     }
     readonly property string chord: Qt.platform.os === "osx" ? "Ctrl+Alt+" : "Meta+Alt+"
     readonly property string chordLabel: Qt.platform.os === "osx" ? "⌘⌥" : "Super+Alt+"
@@ -174,24 +217,27 @@ ApplicationWindow {
     property int dropSpace: -1
     property int dropPosition: -1
     property int dropRaw: -1
+    property int dropProjected: -1
     property point dragPoint: Qt.point(0, 0)
     property bool dropAllowed: false
-    function cancelDrag() { dragSlot = -1; dropSpace = -1; dropPosition = -1; dropAllowed = false }
+    function cancelDrag() { dragSlot = -1; Qt.callLater(rebuildOverview); dropSpace = -1; dropPosition = -1; dropAllowed = false }
     function updateDrop(point) {
         dragPoint = point; dropSpace = -1; dropPosition = -1; dropAllowed = false
         if (point.x < 0 || point.x > deck.width || point.y < 0 || point.y > deck.height) return
         const y = point.y + deck.contentY
         for (let w = 0; w < spaces.length; ++w) {
+            if (overviewFiltered && overviewIndices(w).length === 0) continue
             if (y < deck.groupTop(w) || y >= deck.groupTop(w + 1)) continue
             dropSpace = w
-            const row = Math.max(0, Math.floor((y - deck.groupTop(w) - 30) / (deck.previewHeight + 12)))
+            const row = Math.max(0, Math.floor((y - deck.groupTop(w) - deck.previewTop) / deck.rowStride))
             const cellWidth = (deck.width + 12) / 3
             const col = Math.max(0, Math.min(2, Math.floor(point.x / cellWidth)))
-            const items = indices(w), slot = items[row * 3 + col]
+            const items = overviewIndices(w), slot = items[row * 3 + col]
             const half = slot === undefined ? cellWidth / 2 : panel(slot).width * panel(slot).previewScale / 2
-            const raw = Math.min(counts[w], row * 3 + col + (point.x - col * cellWidth >= half ? 1 : 0))
+            const projected = Math.min(items.length, row * 3 + col + (point.x - col * cellWidth >= half ? 1 : 0))
+            const raw = projected >= items.length ? (items.length ? terminalModel.get(items[items.length - 1]).ordinal + 1 : 0) : terminalModel.get(items[projected]).ordinal
             const source = terminalModel.get(dragSlot)
-            dropRaw = raw
+            dropRaw = raw; dropProjected = projected
             dropPosition = raw - (source.spaceIndex === w && source.ordinal < raw ? 1 : 0)
             dropAllowed = source.spaceIndex === w || counts[w] < 8
             break
@@ -214,7 +260,45 @@ ApplicationWindow {
     }
     function enterPane(i) { focusPane(i); if (overview) toggleOverview() }
     function navigate(delta) {
-        const items = indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
+        const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
+    }
+    readonly property bool moveKeyContext: !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    property string moveNotice: ""
+    property bool followMove: false
+    function canReorder(delta) {
+        if (selected < 0 || studySession.busy || (overview && overviewOrdinals[selected] < 0)) return false
+        const source = terminalModel.get(selected), count = counts[source.spaceIndex]
+        return source.ordinal + delta >= 0 && source.ordinal + delta < count
+    }
+    function reorderSelected(delta) {
+        if (!canReorder(delta)) return
+        moveNotice = ""
+        const source = terminalModel.get(selected)
+        followMove = true
+        studySession.moveTerminal(source.terminalId, spaceIds[source.spaceIndex], source.ordinal + delta)
+    }
+    function canMoveWorkspace(delta) {
+        const target = workspace + delta
+        return selected >= 0 && (!overview || overviewOrdinals[selected] >= 0) && !studySession.busy && target >= 0 && target < spaces.length && counts[target] < 8
+    }
+    function moveSelectedWorkspace(delta) {
+        if (selected < 0 || studySession.busy || (overview && overviewOrdinals[selected] < 0)) return
+        const target = workspace + delta
+        if (target < 0 || target >= spaces.length) return
+        if (counts[target] >= 8) {
+            moveNotice = spaces[target] + " already has eight terminals"; moveNoticeTimer.restart(); return
+        }
+        moveNotice = ""
+        followMove = true
+        studySession.moveTerminal(terminalModel.get(selected).terminalId, spaceIds[target], -1)
+    }
+    function revealOverview(i) {
+        const source = terminalModel.get(i)
+        if (overviewOrdinals[i] < 0) return
+        const top = deck.groupTop(source.spaceIndex) + Math.floor(overviewOrdinals[i] / 3) * deck.rowStride + deck.previewTop
+        if (top < deck.contentY) deck.contentY = top
+        else if (top + deck.previewHeight > deck.contentY + deck.height) deck.contentY = top + deck.previewHeight - deck.height
+        deck.contentY = Math.max(0, Math.min(deck.contentHeight - deck.height, deck.contentY))
     }
     function cycleWidth() {
         if (selected < 0) return
@@ -226,66 +310,88 @@ ApplicationWindow {
         if (selected < 0) return
         let values = fullWidths.slice(); values[selected] = !values[selected]; fullWidths = values; Qt.callLater(reveal)
     }
-    component QuietButton: Button {
-        id: control
-        property string hint: text
-        property bool fixedPalette: false
-        implicitWidth: Math.max(36, contentItem.implicitWidth + 22); implicitHeight: 36
-        hoverEnabled: true; focusPolicy: Qt.StrongFocus
-        Accessible.name: hint
-        contentItem: Text { text: control.text; color: control.fixedPalette ? "#c2c9d4" : window.chrome.foreground; font.pixelSize: 13; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-        background: Rectangle { radius: 7; color: control.down || control.hovered || control.visualFocus ? (control.fixedPalette ? "#323b4b" : window.chrome.hover) : "transparent"; border.width: control.visualFocus ? 1 : 0; border.color: window.accent }
-        ToolTip.visible: hovered; ToolTip.delay: 650; ToolTip.text: hint
+    component QuietButton: ChromeButton { tones: window.chrome }
+    component MenuAction: ChromeMenuItem { tones: window.chrome }
+    component MenuRule: MenuSeparator {
+        topPadding: 5; bottomPadding: 5; leftPadding: 8; rightPadding: 8
+        contentItem: Rectangle { implicitWidth: 248; implicitHeight: 1; color: window.chrome.border }
     }
-    Rectangle { x: 48; y: 0; width: 1; height: parent.height; color: window.chrome.border }
+    Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.surface }
+    Rectangle { x: 0; y: 40; width: 44; height: parent.height - 40; color: window.chrome.surface }
+    QuietButton { objectName: "applicationMenuButton"; x: 8; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
     Column {
-        x: 6; y: 10; spacing: 8
-        QuietButton { text: "▤"; hint: "Workspaces"; onClicked: drawer.open() }
-        QuietButton { text: "▦"; hint: "Overview · " + window.chordLabel + "O"; onClicked: window.toggleOverview() }
+        x: 8; y: 52; spacing: 14
+        QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: drawer.visible; onClicked: drawer.open() }
+        QuietButton { objectName: "agentsButton"; height: 28; iconName: "agents"; hint: "Agents"; selected: window.overview && window.agentsOnly; onClicked: window.openAgents() }
     }
-    QuietButton { x: 6; anchors.bottom: parent.bottom; anchors.bottomMargin: 10; text: "?"; hint: "Keyboard shortcuts"; onClicked: help.open() }
+    Rectangle {
+        x: 27; y: 87; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
+        Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: 10 }
+    }
+    QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; onClicked: help.open() }
     Item {
-        id: topbar; x: 60; y: 8; width: parent.width - 72; height: 40
-        QuietButton { id: workspaceButton; text: window.overview ? "Overview" : (window.spaces[window.workspace] || ""); hint: "Choose workspace"; onClicked: drawer.open() }
+        id: topbar; x: 44; y: 4; width: parent.width - 56; height: 32
+        QuietButton { id: workspaceButton; objectName: "workspaceButton"; leftAligned: true; width: Math.min(200, Math.max(80, topbar.width / 4)); text: window.overview ? "Overview" : (window.spaces[window.workspace] || ""); hint: "Choose workspace"; onClicked: drawer.open() }
+        Rectangle {
+            anchors.centerIn: parent; width: indicatorRow.width + 8; height: 28; radius: 14; color: window.chrome.background
+            visible: !window.overview && window.counts[window.workspace] > 0
+        }
         Row {
-            anchors.centerIn: parent; spacing: 6; visible: !window.overview && window.counts[window.workspace] > 0
+            id: indicatorRow; objectName: "indicatorRow"; anchors.centerIn: parent; spacing: 0; visible: !window.overview && window.counts[window.workspace] > 0
             Repeater {
                 model: window.counts[window.workspace] || 0
                 QuietButton {
                     required property int index
-                    implicitWidth: 32; text: ""; hint: "Terminal " + (index + 1)
+                    implicitWidth: 28; implicitHeight: 28; text: ""; hint: { const item = paneIndex < 0 ? null : window.panel(paneIndex); return item ? item.facts.title : "Terminal" }
                     readonly property int paneIndex: window.indices(window.workspace)[index] ?? -1
                     Rectangle {
-                        anchors.centerIn: parent; width: window.selected === parent.paneIndex ? 24 : 12; height: 4; radius: 2
+                        anchors.centerIn: parent; width: window.selected === parent.paneIndex ? 24 : 14; height: 8; radius: 4
                         color: window.selected === parent.paneIndex ? window.accent : window.left(parent.paneIndex) + window.paneWidth(parent.paneIndex) > deck.contentX && window.left(parent.paneIndex) < deck.contentX + deck.width ? window.chrome.muted : window.chrome.border
+                    }
+                    Rectangle {
+                        x: parent.width - 5; y: 1; width: 4; height: 4; radius: 2; color: window.chrome.waiting
+                        visible: { const item = parent.paneIndex < 0 ? null : window.panel(parent.paneIndex); return item !== null && item.facts.needs_input }
                     }
                     onClicked: window.enterPane(paneIndex)
                 }
             }
         }
-        Row {
-            anchors.right: parent.right; spacing: 6
-            QuietButton { text: studySession.busy ? "…" : "+"; hint: "New terminal · " + window.chordLabel + "T"; enabled: window.canCreateTerminal; onClicked: window.newTerminal() }
-            QuietButton { text: window.overview ? "Done" : "Overview"; onClicked: window.toggleOverview() }
-            QuietButton { objectName: "applicationMenuButton"; text: "☰"; hint: "Application menu"; onClicked: appMenu.open() }
+        Label {
+            id: focusedCount; objectName: "focusedCount"
+            anchors.left: indicatorRow.right; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter
+            visible: !window.overview && window.counts[window.workspace] > 0
+            text: (window.selected < 0 ? 0 : window.ordinal(window.selected) + 1) + " / " + (window.counts[window.workspace] || 0)
+            color: window.chrome.muted; font.pixelSize: 12
         }
+        QuietButton {
+            objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal · " + window.chordLabel + "T"; enabled: window.canCreateTerminal
+            x: window.overview ? overviewButton.x - width - 12 : focusedCount.x + focusedCount.width + 12
+            onClicked: window.newTerminal()
+        }
+        QuietButton { id: overviewButton; objectName: "overviewButton"; anchors.right: parent.right; text: window.overview ? "Done" : "Overview"; onClicked: window.toggleOverview() }
+    }
+    Row {
+        x: 60; y: 54; spacing: 8; visible: window.overview
+        QuietButton { objectName: "overviewAgentFilter"; hint: "Filter terminal or agent identity"; text: window.agentsOnly ? "Show: Agents" : "Show: All terminals"; onClicked: window.changeFilter(!window.agentsOnly, window.needsOnly); background: Rectangle { radius: 6; color: window.agentsOnly ? window.chrome.surface : "transparent"; border.width: window.agentsOnly ? 1 : 0; border.color: window.accent } }
+        QuietButton { objectName: "overviewStateFilter"; hint: "Filter agents that need input"; text: window.needsOnly ? "State: Needs input" : "State: All states"; onClicked: window.changeFilter(window.agentsOnly, !window.needsOnly); background: Rectangle { radius: 6; color: window.needsOnly ? window.chrome.surface : "transparent"; border.width: window.needsOnly ? 1 : 0; border.color: window.accent } }
     }
     Flickable {
         id: deck; objectName: "deck"
-        x: 60; y: 60; width: parent.width - 72; height: parent.height - 72
+        x: 60; y: window.overview ? 102 : 60; width: parent.width - 72; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
         interactive: window.overview && window.dragSlot < 0
         contentWidth: window.overview ? width : window.stripWidth()
         contentHeight: window.overview ? overviewHeight() : height
         readonly property real previewHeight: Math.min(240, Math.max(150, (height - 100) / 2))
-        readonly property real groupHeight: previewHeight + 56
-        function rows(space) { return Math.max(1, Math.ceil((window.counts[space] || 0) / 3)) }
-        function groupTop(space) { let y = 0; for (let i = 0; i < space; ++i) y += rows(i) * (previewHeight + 12) + 44; return y }
+        readonly property real previewTop: 52
+        readonly property real rowStride: previewHeight + 34
+        function rows(space) { return Math.max(1, Math.ceil(window.overviewIndices(space).length / 3)) }
+        function groupTop(space) { let y = 0; for (let i = 0; i < space; ++i) if (!window.overviewFiltered || window.overviewIndices(i).length) y += rows(i) * rowStride + 64; return y }
         function overviewHeight() { return Math.max(height, groupTop(window.spaces.length)) }
         Behavior on contentX { enabled: !window.overview; NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
         Repeater {
             model: window.spaces.length
-            Label { required property int index; visible: window.overview; x: 0; y: deck.groupTop(index); text: window.spaces[index] + (window.counts[index] > 0 ? "  ·  " + window.counts[index] + " terminals" : ""); color: window.chrome.muted; font.pixelSize: 13 }
+            Label { required property int index; visible: window.overview && (!window.overviewFiltered || window.overviewIndices(index).length > 0); x: 0; y: deck.groupTop(index); text: window.spaces[index] + (window.overviewIndices(index).length > 0 ? "  ·  " + window.overviewIndices(index).length + (window.overviewIndices(index).length === 1 ? " terminal" : " terminals") : ""); color: window.chrome.muted; font.pixelSize: 13 }
         }
         Repeater {
             id: panels; model: terminalModel
@@ -294,28 +400,38 @@ ApplicationWindow {
                 required property int spaceIndex
                 required property int ordinal
                 required property string terminalId
+                Connections { target: pane.runtimeFacts; function onChanged() { Qt.callLater(window.rebuildOverview) } }
                 property alias terminal: terminal
+                readonly property var runtimeFacts: studySession.observe(terminalId)
+                readonly property var facts: runtimeFacts ? runtimeFacts.facts : ({title: "Terminal", agent: "", state: ""})
                 opacity: window.dragSlot === index ? 0.45 : 1
+                readonly property int overviewOrdinal: window.overviewOrdinals[index] ?? -1
                 readonly property real previewScale: Math.min((deck.width - 24) / 3 / width, deck.previewHeight / height)
                 objectName: "pane" + index
-                width: window.paneWidth(index); height: deck.height
-                x: window.overview ? (ordinal % 3) * (deck.width + 12) / 3 : window.left(index)
-                y: window.overview ? deck.groupTop(spaceIndex) + Math.floor(ordinal / 3) * (deck.previewHeight + 12) + 30 : 0
+                width: window.paneWidth(index); height: window.height - 72
+                x: window.overview ? (overviewOrdinal % 3) * (deck.width + 12) / 3 : window.left(index)
+                y: window.overview ? deck.groupTop(spaceIndex) + Math.floor(overviewOrdinal / 3) * deck.rowStride + deck.previewTop : 0
                 scale: window.overview ? previewScale : 1
                 transformOrigin: Item.TopLeft
-                visible: window.overview || spaceIndex === window.workspace
-                color: studySession.themes[window.themeIndexFor(spaceIndex)].surface; radius: 6
-                border.width: 1; border.color: window.selected === index ? studySession.themes[window.themeIndexFor(spaceIndex)].accent : studySession.themes[window.themeIndexFor(spaceIndex)].border
+                visible: window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace
+                color: studyThemes.theme(window.themeIndexFor(spaceIndex)).surface; radius: 6
+                border.width: 1; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : studyThemes.theme(window.themeIndexFor(spaceIndex)).border
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
-                Text { x: 14; y: 10; width: parent.width - 65; elide: Text.ElideMiddle; text: "~  /  terminal " + (ordinal + 1); font.pixelSize: 12; color: studySession.themes[window.themeIndexFor(spaceIndex)].foreground }
-                QuietButton { anchors.right: parent.right; anchors.rightMargin: 3; y: 0; text: "⋯"; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
+                Text { x: 14; y: 10; width: parent.width - 65 - headerState.width - (headerState.width > 0 ? 12 : 0); elide: Text.ElideMiddle; text: pane.facts.title; textFormat: Text.PlainText; font.pixelSize: 12; color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground }
+                Text {
+                    id: headerState; x: parent.width - 48 - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
+                    text: pane.facts.agent ? pane.facts.agent + " · " + pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
+                    color: pane.facts.needs_input ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : pane.facts.state === "Ready" ? studyThemes.theme(window.themeIndexFor(spaceIndex)).ready : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
+                }
+                QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: 3; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
                     id: terminal; objectName: "terminal" + index
                     property int workspaceIndex: pane.spaceIndex
                     property int orderInWorkspace: pane.ordinal
                     property string stableIdentity: pane.terminalId
+                    property var runtimeFacts: pane.facts
                     x: 4; y: 36; width: parent.width - 8; height: parent.height - 40
                     enabled: !window.overview
                     themeIndex: window.themeIndexFor(pane.spaceIndex)
@@ -332,7 +448,7 @@ ApplicationWindow {
                             } else event.accepted = false
                         }
                     }
-                    Accessible.role: Accessible.Terminal; Accessible.name: "Terminal " + (index + 1) + " in " + window.spaces[pane.spaceIndex]
+                    Accessible.role: Accessible.Terminal; Accessible.name: pane.facts.title + " in " + window.spaces[pane.spaceIndex]
                     Component.onCompleted: {
                         studySession.attach(terminal, pane.terminalId)
                         let items = window.terminalItems.slice(); items.push(terminal); window.terminalItems = items
@@ -342,7 +458,7 @@ ApplicationWindow {
                 Text { anchors.centerIn: terminal; visible: !terminal.status.startsWith("Attached"); text: terminal.status; color: "#d9be91"; font.pixelSize: 13 }
                 MouseArea {
                     anchors.fill: parent; enabled: window.overview && !studySession.busy
-                    cursorShape: window.dragSlot >= 0 ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    cursorShape: window.dragSlot === index ? Qt.ClosedHandCursor : Qt.ArrowCursor
                     preventStealing: true
                     property point pressedAt
                     property bool moved: false
@@ -360,6 +476,22 @@ ApplicationWindow {
                 }
             }
         }
+        Repeater {
+            model: terminalModel
+            Label {
+                required property int index
+                objectName: "overviewCaption" + index
+                Component.onCompleted: { let labels = window.overviewLabels.slice(); labels[index] = this; window.overviewLabels = labels }
+                readonly property var pane: { const ready = window.terminalItems.length; return panels.itemAt(index) }
+                visible: window.overview && pane !== null && pane.visible
+                x: pane ? pane.x : 0; y: pane ? pane.y - 22 : 0
+                width: (deck.width - 24) / 3; height: 18
+                text: pane ? pane.facts.title + (pane.facts.agent ? " · " + pane.facts.agent + " · " + pane.facts.state : "") : ""
+                textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
+                color: pane && pane.facts.needs_input ? window.chrome.waiting : window.chrome.foreground
+            }
+        }
+        Label { anchors.centerIn: parent; visible: window.overview && window.overviewFiltered && window.overviewMatches === 0; text: window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: 14 }
         Label { anchors.centerIn: parent; visible: !window.overview && (window.counts[window.workspace] || 0) === 0; text: "An empty workspace"; color: window.chrome.muted; font.pixelSize: 14 }
     }
     Item {
@@ -373,11 +505,11 @@ ApplicationWindow {
         }
         Rectangle {
             visible: window.dragSlot >= 0 && window.dropSpace >= 0 && window.dropAllowed
-            readonly property int total: window.counts[window.dropSpace] || 0
-            readonly property int before: Math.min(window.dropRaw, Math.max(0, total - 1))
-            readonly property int slot: window.dropSpace < 0 ? -1 : (window.indices(window.dropSpace)[before] ?? -1)
-            x: slot < 0 ? 6 : (before % 3) * (deck.width + 12) / 3 + (window.dropRaw === total ? window.panel(slot).width * window.panel(slot).previewScale + 5 : -5)
-            y: deck.groupTop(window.dropSpace) + Math.floor(before / 3) * (deck.previewHeight + 12) + 30 - deck.contentY
+            readonly property int total: window.overviewIndices(window.dropSpace).length
+            readonly property int before: Math.min(window.dropProjected, Math.max(0, total - 1))
+            readonly property int slot: window.dropSpace < 0 ? -1 : (window.overviewIndices(window.dropSpace)[before] ?? -1)
+            x: slot < 0 ? 6 : (before % 3) * (deck.width + 12) / 3 + (window.dropProjected === total ? window.panel(slot).width * window.panel(slot).previewScale + 5 : -5)
+            y: deck.groupTop(window.dropSpace) + Math.floor(before / 3) * deck.rowStride + deck.previewTop - deck.contentY
             width: 3; height: deck.previewHeight; radius: 1.5; color: window.accent
         }
     }
@@ -397,41 +529,57 @@ ApplicationWindow {
         }
     }
     Drawer {
-        id: drawer; y: 56; width: 248; height: window.height - 56; edge: Qt.LeftEdge
-        background: Rectangle { color: window.chrome.surface; radius: 8 }
+        id: drawer; y: 40; width: 288; height: window.height - 40; edge: Qt.LeftEdge; leftPadding: 44
+        background: Rectangle { color: window.chrome.surface; border.color: window.chrome.border }
         Column {
             anchors.fill: parent; anchors.margins: 14; spacing: 8
-            Label { text: "Workspaces"; color: window.chrome.muted; font.pixelSize: 12; padding: 10 }
-            Repeater { model: window.spaces.length; QuietButton { required property int index; width: 220; text: window.spaces[index]; onClicked: window.chooseWorkspace(index) } }
-            QuietButton { objectName: "newWorkspaceButton"; width: 220; text: "New workspace…"; enabled: window.canCreateWorkspace; onClicked: window.newWorkspace() }
-            Label { width: 220; padding: 10; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: window.chrome.muted; font.pixelSize: 12 }
+            Label { text: "Workspaces"; color: window.chrome.foreground; font.pixelSize: 16; topPadding: 6; bottomPadding: 12; leftPadding: 8 }
+            Repeater { model: window.spaces.length; QuietButton { required property int index; width: parent.width; height: 46; leftAligned: true; selected: index === window.workspace; trailingText: String(window.counts[index]); text: window.spaces[index]; onClicked: window.chooseWorkspace(index) } }
+            QuietButton { objectName: "newWorkspaceButton"; width: parent.width; leftAligned: true; text: "New workspace…"; enabled: window.canCreateWorkspace; onClicked: window.newWorkspace() }
+            Label { width: parent.width; padding: 8; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: window.chrome.muted; font.pixelSize: 12 }
         }
         onClosed: window.restoreAfterPopup()
     }
-    Menu {
+    ChromeMenu {
+        tones: window.chrome
         onClosed: window.restoreAfterPopup()
-        id: appMenu; x: window.width - width - 12; y: 50
-        MenuItem { text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.newTerminal() }
-        MenuItem { text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.newWorkspace() }
-        MenuSeparator {}
-        MenuItem { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
-        MenuItem { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
-        MenuSeparator {}
-        MenuItem { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
-        MenuItem { text: "Keyboard shortcuts"; onTriggered: help.open() }
-        MenuItem { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
-        MenuSeparator {}
-        MenuItem { text: "Copy selection"; enabled: window.selected >= 0; onTriggered: window.panel(window.selected).terminal.copy() }
-        MenuItem { text: "Paste"; enabled: window.selected >= 0 && !window.overview; onTriggered: { window.panel(window.selected).terminal.paste(); window.panel(window.selected).terminal.forceActiveFocus() } }
-        MenuSeparator {}
-        MenuItem { text: "Close UI study"; onTriggered: window.close() }
+        id: appMenu; x: 8; y: 40
+        MenuAction { keyHint: window.chordLabel + "T"; text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.newTerminal() }
+        MenuAction { keyHint: window.chordLabel + "N"; text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.newWorkspace() }
+        MenuRule {}
+        MenuAction { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
+        MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
+        MenuRule {}
+        MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
+        MenuAction { keyHint: window.chordLabel + "/"; text: "Keyboard shortcuts"; onTriggered: help.open() }
+        MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
+        MenuRule {}
+        MenuAction { text: "Copy selection"; enabled: window.selected >= 0; onTriggered: window.panel(window.selected).terminal.copy() }
+        MenuAction { text: "Paste"; enabled: window.selected >= 0 && !window.overview; onTriggered: { window.panel(window.selected).terminal.paste(); window.panel(window.selected).terminal.forceActiveFocus() } }
+        MenuRule {}
+        MenuAction { text: "Close UI study"; onTriggered: window.close() }
     }
-    Menu {
+    ChromeMenu {
+        tones: window.chrome
         id: paneMenu
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
-        MenuItem { text: "Cycle width"; onTriggered: window.cycleWidth() }
-        MenuItem { text: "Toggle full width"; onTriggered: window.toggleFull() }
+        MenuAction { text: "Cycle width"; onTriggered: window.cycleWidth() }
+        MenuAction { text: "Toggle full width"; onTriggered: window.toggleFull() }
+        MenuRule {}
+        MenuAction { objectName: "moveLeftMenuItem"; text: "Move terminal left"; enabled: window.canReorder(-1); onTriggered: window.reorderSelected(-1) }
+        MenuAction { objectName: "moveRightMenuItem"; text: "Move terminal right"; enabled: window.canReorder(1); onTriggered: window.reorderSelected(1) }
+        MenuRule {}
+        MenuAction { text: "Move to workspace above"; enabled: window.canMoveWorkspace(-1); onTriggered: window.moveSelectedWorkspace(-1) }
+        MenuAction { text: "Move to workspace below"; enabled: window.canMoveWorkspace(1); onTriggered: window.moveSelectedWorkspace(1) }
     }
+    Rectangle {
+        visible: window.moveNotice.length > 0 && studySession.error.length === 0 && window.moveKeyContext
+        anchors.bottom: parent.bottom; anchors.bottomMargin: 16; anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width - 100, moveNoticeText.implicitWidth + 32); height: 42; radius: 8; z: 4
+        color: window.chrome.surface; border.color: window.chrome.border
+        Label { id: moveNoticeText; anchors.centerIn: parent; text: window.moveNotice; color: window.chrome.foreground; font.pixelSize: 13 }
+    }
+    Timer { id: moveNoticeTimer; interval: 3000; onTriggered: window.moveNotice = "" }
     Rectangle {
         visible: studySession.error.length > 0 && !createDialog.visible && !window.appearanceOpen
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
@@ -439,9 +587,19 @@ ApplicationWindow {
         Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error; wrapMode: Text.Wrap; color: "#f0d6b8" }
         QuietButton { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Refresh"; enabled: !studySession.busy; onClicked: studySession.refresh() }
     }
+    Connections {
+        target: studyThemes
+        function onImported(index) {
+            window.previewTheme = index; themeImport.close()
+            Qt.callLater(function() { appearance.revealTheme(index) })
+        }
+    }
+    ThemeImport { id: themeImport; themes: studyThemes; session: studySession }
     ThemePicker {
         id: appearance; anchors.centerIn: parent
-        catalog: studySession.themes; themeIndex: window.previewTheme
+        importOpen: themeImport.visible
+        onImportRequested: themeImport.open()
+        catalog: studyThemes.catalog; themeIndex: window.previewTheme
         workspaceName: window.spaces[window.spaceIds.indexOf(window.appearanceWorkspace)] || ""
         onPreviewSelected: index => window.previewTheme = index
         onApplySelected: {
@@ -515,10 +673,25 @@ ApplicationWindow {
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
     Dialog {
-        id: help; implicitWidth: 560; implicitHeight: 400; width: Math.min(implicitWidth, window.width - 64); height: Math.min(implicitHeight, window.height - 64); title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
-        contentItem: Label { padding: 18; text: window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
+        id: help; implicitWidth: 560; implicitHeight: 460; width: Math.min(implicitWidth, window.width - 64); height: Math.min(implicitHeight, window.height - 64); title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
+        padding: 16
+        background: Rectangle { color: window.chrome.raised; radius: 12; border.color: window.chrome.border }
+        header: Label { text: help.title; padding: 20; bottomPadding: 8; color: window.chrome.foreground; font.pixelSize: 22 }
+        footer: Item {
+            implicitHeight: 56
+            QuietButton { anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: "Close"; onClicked: help.close() }
+        }
+        contentItem: Flickable {
+            contentWidth: width; contentHeight: helpText.implicitHeight; clip: true
+            ScrollBar.vertical: ScrollBar {}
+            Label { id: helpText; color: window.chrome.foreground; width: parent.width; padding: 18; text: window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "⇧← / →     Move terminal left / right\n" + window.chordLabel + "⇧↑ / ↓     Move to workspace above / below\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
+        }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
+    Shortcut { sequence: window.chord + "Shift+Left"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(-1) }
+    Shortcut { sequence: window.chord + "Shift+Right"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(1) }
+    Shortcut { sequence: window.chord + "Shift+Up"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(-1) }
+    Shortcut { sequence: window.chord + "Shift+Down"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(1) }
     Shortcut { sequence: window.chord + "T"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.newTerminal() }
     Shortcut { sequence: window.chord + "N"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.newWorkspace() }
     Shortcut { sequence: window.chord + "Left"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.navigate(-1) }

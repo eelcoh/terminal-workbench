@@ -12,7 +12,7 @@ shows live scaled terminal surfaces grouped by workspace. Click a preview to
 return to that terminal, or use Done/Escape. Its geometry is a visual transform:
 terminal grids and processes do not change merely because Overview opened.
 The initial workspace names are fixtures; new names and folders use the private
-session catalog. Pane labels are still study labels, not live cwd/Git metadata.
+session catalog. Pane and Overview captions use cached runtime directory/Git/worktree metadata.
 
 Width changes affect the selected terminal only; full width restores its prior
 preset. Terminal geometry changes once when the width preference changes,
@@ -30,6 +30,8 @@ Use **Cmd–Option** on Mac or **Super–Alt** on Linux:
 | --- | --- |
 | Left / Right | Previous / next terminal in this workspace |
 | Up / Down | Previous / next workspace, restoring its focused terminal |
+| Shift + Left / Right | Move the selected terminal one position left / right |
+| Shift + Up / Down | Move to the adjacent workspace and follow its focus |
 | T | New terminal in the current workspace |
 | N | New workspace (name and folder) |
 | O | Enter / leave Overview |
@@ -147,9 +149,58 @@ Parsing/catalog construction happens once, outside refresh/paint loops; theme
 application happens when a selection changes. Hidden terminals continue parsing
 and skip raster work until revealed.
 
-The study's themes are kept only for its current window lifetime, like its other
-presentation preferences. Dotfile defaults, theme import and saved appearance
-integration are later work; this does not change the daily-use viewer's settings.
+Workspace theme choices are kept only for the current study window, like its
+other presentation preferences. Imported palette files are saved separately as
+described below. Dotfile defaults and saved workspace appearance integration are
+later work; this does not change the daily-use viewer's selected theme.
+
+## Importing TerminalColors and Ghostty themes
+
+Open **Appearance → Import…**. Paste a local Ghostty color-file path, choose it
+with Browse, or paste a [TerminalColors theme link](https://terminalcolors.com/ghostty/).
+Both a theme page such as `/themes/nord/default/` and its direct Ghostty download
+link are accepted. A name is inferred from the file/theme; an optional name and
+author/license notes can be supplied. **Import & preview** validates and saves
+the palette, then previews this workspace in Appearance. **Apply** keeps the
+workspace's new look; Appearance **Cancel** restores the prior look. An imported
+palette remains in the gallery for future use after Appearance cancellation.
+Cancelling the import form or an in-flight download adds nothing.
+
+Imports retain the exact original text, source URL/file reference and supplied
+attribution. They live under the normal Workbench configuration directory at
+`themes/imports/`: content-addressed `.ghostty` files plus an atomic `imports.json`
+index. The study's workspace/session catalog remains private and disposable;
+imported colors are a separate, explicit durable collection. Existing imports
+load offline without requests to the website. The importer preserves supplied
+comments/licenses; it does not infer redistribution rights or bundle downloaded
+TerminalColors files with Workbench. The live export checked on 2026-10-18 had
+Ghostty color fields and no embedded author/license notice.
+
+Only color fields reach the terminal defaults. Unknown Ghostty settings are
+counted and ignored; files, commands and keybindings are never followed or run.
+Explicit RGB cells and application palette overrides survive preview/apply.
+Invalid colors, empty/unsupported files, non-UTF-8/NUL text, files/downloads over
+64 KiB and a collection beyond 64 imports fail without replacing existing themes.
+Exact duplicate content selects the existing palette. Corrupt saved data stays
+untouched and built-in palettes remain usable. Concurrent window imports merge
+under a short lock; no lock spans a network request.
+
+Downloads start only when Import is invoked. HTTPS requests are limited to the
+TerminalColors Ghostty export endpoint, with a deadline, bounded buffering and
+no automatic redirect or retry. Broken/unavailable links leave the form editable
+and the active theme intact. The link adapter is based on the site's currently
+published export URLs; a local downloaded Ghostty file also uses the same parser.
+No website images, catalog scraping or background update requests are needed.
+
+`just toolkit-theme-import-test` runs offline on Mac/Linux with temporary stores
+and deterministic network replies. It covers duplicate/offline reload, source
+metadata, stale-window merging, writer locks, checksums/corruption, bounds,
+unsupported hosts, redirected/failed downloads, cancellation and deadlines.
+Native xcb/Wayland UI tests exercise import preview/Apply/Cancel, a native-input
+file chooser cancellation, invalid files, persistent metadata, deduplication and
+unchanged original terminal PIDs/grids/input. A real TerminalColors Nord export
+and its live link were also verified through Qt HTTPS/parsing in disposable storage;
+external assets were not committed. Native Mac import review remains open.
 
 ## Moving terminals in Overview
 
@@ -171,8 +222,17 @@ workspace's theme. Focus memory is reconciled by terminal identity, and the
 working strip, indicators and keyboard navigation follow the confirmed order.
 
 Dragging currently starts from Overview with a mouse/trackpad press and drag.
-Touchpad two-finger scrolling retains its Overview behavior. Keyboard-only move
-commands remain later work. In the working terminal, an ordinary click focuses
+Touchpad two-finger scrolling retains its Overview behavior.
+
+Add **Shift** to the normal navigation chord to move the selected terminal:
+Cmd–Option–Shift on Mac, Super–Alt–Shift on Linux. Left/Right reorder one position;
+Up/Down append it to the adjacent workspace. There is no boundary wrapping.
+The same terminal keeps focus after a confirmed move, while empty source workspaces
+retain an empty focus state. In Overview the viewport follows the moved selection.
+The pane layout menu also exposes these actions. Full destinations produce a short
+capacity notice; their move shortcuts remain consumed and never reach the shell.
+Move shortcuts are inactive in dialogs, menus, help, and during a pointer drag;
+while a service request is pending they are consumed without duplicate mutations. In the working terminal, an ordinary click focuses
 and clears text selection; text selection starts only after the platform drag
 threshold, so a click no longer leaves a selected cell behind.
 
@@ -231,10 +291,74 @@ Overview captures and opt-in disposable-terminal reports. Reports are never
 created by ordinary interactive runs.
 
 The owner confirmed the initial UI and creation flows on Mac and Linux, and
-confirmed that Appearance and cursor styling work. The new click/drag interactions
-and workspace editing still need native Mac review. This slice does not yet
-implement agents,
-persistence, configured shortcuts or session ownership workflows.
-It avoids dead controls for those actions. They remain later design slices,
-along with typography, motion, accessibility and cache/backing-surface budgets.
-Review this interaction slice before expanding it into the production frontend.
+confirmed that Appearance, cursor styling, workspace editing and native folder
+browsing work. The latest keyboard moves, theme import and agent Overview need
+native Mac review. Agent metadata is implemented as described below; production
+session persistence, dotfile/font/shortcut integration and lifecycle/ownership
+workflows remain later slices. Typography, motion, accessibility and cache/backing-
+surface budgets remain adoption gates. Review this interaction slice before
+expanding it into the production frontend.
+
+
+## Live context and agents
+
+Pane headers show the current directory, or repository · branch · linked worktree
+when the runtime knows it. Overview keeps these captions at a readable size above
+scaled previews. Remote sessions show “Remote session” when local process context
+would be misleading. Unknown context falls back to “Terminal”. Shell titles and
+terminal output cannot set these facts.
+
+The small Agents rail action opens an agent-only Overview. “Show: All terminals” /
+“Show: Agents” and “State: All states” / “State: Needs input” state their actual
+filters and highlight active restrictions. No matches shows an explicit message.
+Filters update from real runtime state without replacing terminal items or
+changing PTY geometry. A filtered drag maps visible neighbors back to the actual
+catalog order, preserving hidden terminals.
+
+Agent captions report Working, Needs input, Ready or Status unknown. Process
+identification can recognize a plain agent invocation; reliable attention status
+uses the existing `wb-*` launchers/hooks. Identification alone does not establish
+that an agent is working or waiting. Only the runtime's attested lifecycle reports
+set these states. Current agent/runtime support is unchanged.
+
+The Qt adapter opens independent `CTX1` and `WAT2` read-only subscriptions to each
+existing terminal control socket. It never attaches another PTY owner, starts a
+runtime, runs Git, or polls process trees. Frames, strings and initial reply time
+are bounded; identical updates do not notify the UI. Malformed/closed metadata
+feeds clear only their own cached facts; terminal input and the other subscription
+remain independent. Refresh reconnects failed feeds explicitly, with no retry timer.
+
+`just toolkit-runtime-facts-test` runs the socket/parser contracts without a display.
+The native UI suite also exercises real cwd/Git/linked-worktree and Codex lifecycle
+reports with private test processes. Native Mac UI acceptance remains open.
+
+To review manually, run `just toolkit-ui`, `cd` into a repository or linked
+worktree, then launch an installed agent with its `wb-*` wrapper. Check the pane
+caption and Agents Overview; use Needs input while the agent requests a decision,
+then verify it leaves that filter after work resumes. Switch to All terminals and
+All states to restore the complete overview.
+
+
+## Qt chrome aligned with the working viewer
+
+The Qt study now uses the spike's bundled Adwaita Sans for interface text,
+with native toolkit text rendering and separate terminal typography. Original
+geometric icons replace font-dependent symbols. The compact 40-pixel top bar
+and 44-pixel rail restore the left menu placement, workspace label, centered
+pane-position pill, focused/count text and adjacent New terminal action.
+
+Chrome colors follow the same light/dark mixing rules as the working viewer,
+including cursor-derived accents and semantic attention colors. Menus, section
+separators, check marks, disabled actions, tooltips and workspace rows use shared
+controls. Long names elide; eight indicators, count and actions fit the minimum
+680-pixel window. Agent attention has a rail count and pane-position dot, with
+status text retained separately in the pane header. Idle previews use an arrow;
+the grab cursor appears during dragging only.
+
+This ports the approved visual direction into `just toolkit-ui`; `just spike`
+remains the daily-use frontend. Native Mac visual acceptance is still required.
+The UI suite checks actual bundled font selection, minimum-width non-overlap,
+long workspace names, attention transitions, existing keyboard/menu/focus flows,
+and stable terminal identities/geometry through overlays. Review captures include
+`chrome-menu.png`, `chrome-workspaces.png` and `chrome-narrow.png` under
+`.local/artifacts/qt-ui/{xcb,wayland}/`.

@@ -4,6 +4,8 @@ import os
 import re
 from pathlib import Path
 import select
+import shutil
+import uuid
 import shlex
 import subprocess
 import sys
@@ -17,14 +19,18 @@ wayland='--wayland' in sys.argv[3:]
 ROOT=Path(__file__).resolve().parent.parent
 artifacts=ROOT/'.local/artifacts/qt-ui'/('wayland' if wayland else 'xcb');artifacts.mkdir(parents=True,exist_ok=True)
 report=artifacts/'report.json';report.unlink(missing_ok=True)
+(artifacts/'chrome-menu.png').unlink(missing_ok=True)
 sys.path.insert(0,str(ROOT/'scripts'))
 from session_service import request
 import workspace_catalog
 os.environ['SHELL']='/bin/sh'
-processes=[];sockets=[]
+processes=[];sockets=[];client=None
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:
     root=Path(directory);project=root/'Project folder';project.mkdir();child=project/'child';child.mkdir();chosen=project/'café #100% &';chosen.mkdir()
     try:
+        imported_theme=root/'Imported.conf';imported_theme.write_text('background = #132435\nforeground = #dceeff\npalette = 1=#a1b2c3\ncommand = /never/execute\n')
+        invalid_theme=root/'Invalid.conf';invalid_theme.write_text('background = #zzzzzz\n')
+        theme_store=root/'theme-cache'
         reader=root/'reader.py';reader.write_text('''import os,tty,time,select,termios,struct,fcntl
 from pathlib import Path
 tty.setraw(0);Path('pid').write_text(str(os.getpid()));os.write(1,(b'\\x1b]4;2;rgb:11/22/33\\x07' if Path.cwd().name=='3' else b'')+b'\\x1b[2J\\x1b[HUI-READY\\r\\n\\x1b[31mR\\x1b[0m\\x1b[38;2;1;2;3mT\\x1b[0m\\x1b[32mG\\x1b[0m')
@@ -49,7 +55,7 @@ while True:
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog}))
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store)}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -108,7 +114,15 @@ while True:
             (host if wayland else cmd)(action,1)
         def click(x,y,button=1):
             move(x,y);(host if wayland else cmd)('click',button)
+        def show_preview(slot):
+            deadline=time.monotonic()+6
+            while True:
+                pane=data()['panes'][slot]
+                if pane['bottom']>175 and pane['top']<620:return
+                assert time.monotonic()<deadline,'preview did not scroll into view'
+                click(1120,650,5 if pane['top']>=620 else 4);time.sleep(.1)
         def drag(slot,x,y,cancel=False):
+            show_preview(slot)
             pane=data()['panes'][slot];start=(pane['x'],(max(60,pane['top'])+min(748,pane['bottom']))/2)
             move(*start);button('mousedown')
             try:
@@ -118,6 +132,20 @@ while True:
                 if not cancel and slot == 1 and y < 650: capture('drag-target.png')
                 if cancel:
                     key('Escape');wait_until(lambda:data()['drag_slot']==-1)
+            finally:button('mouseup')
+        def drag_workspace(slot,workspace):
+            pane=data()['panes'][slot]
+            start=(pane['x'],(max(105,pane['top'])+min(748,pane['bottom']))/2)
+            move(*start);button('mousedown')
+            try:
+                move(start[0]+30,start[1]);wait_until(lambda:data()['drag_slot']==slot)
+                deadline=time.monotonic()+8
+                while not 115 < data()['overview_groups'][workspace]+25 < 690:
+                    assert time.monotonic()<deadline,'edge scroll did not reach workspace'
+                    move(160,735 if data()['overview_groups'][workspace]+25>=690 else 106)
+                    time.sleep(.08)
+                move(160,data()['overview_groups'][workspace]+25)
+                wait_until(lambda:data()['drop_space']==workspace and data()['drop_allowed'])
             finally:button('mouseup')
         def workspace_form(mode):
             click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
@@ -139,6 +167,8 @@ while True:
         def sizes():return [(p['columns'],p['rows']) for p in data()['panes']]
         def capture(name):
             Path(str(report)+'.capture').touch();wait_until(lambda:not Path(str(report)+'.capture').exists());(artifacts/name).write_bytes(Path(str(report)+'.png').read_bytes())
+        assert 'Adwaita' in data()['interface_font'],'bundled interface font was not applied'
+        wait_until(lambda:all(p['facts'].get('cwd')==str(root/str(i)) for i,p in enumerate(data()['panes'])))
         wait_until(lambda:data()['panes'][0]['focus']);typed('first');wait_until(lambda:received(0)==b'first')
         # Focus/style changes must paint real cursor pixels without replacing readers.
         wait_until(lambda:data()['panes'][0]['cursor']=='block' and data()['panes'][1]['cursor']=='outline')
@@ -162,7 +192,7 @@ while True:
         cursor(b'\x1b[?25l','hidden');capture('cursor-hidden.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
         assert pixels[0]['cursor_pixels']==0,'hidden cursor still painted'
         cursor(b'\x1b[?25h\x1b[2 q','block')
-        key('super+alt+slash');wait_until(lambda:data()['panes'][0]['cursor']=='outline')
+        key('super+alt+slash');wait_until(lambda:data()['panes'][0]['cursor']=='outline');capture('chrome-shortcuts.png')
         key('Escape');wait_until(lambda:data()['panes'][0]['cursor']=='block')
         assert sizes()==cursor_grid
         initial_sizes=sizes();pane=data()['panes'][0];click(pane['x'],pane['y'],7)
@@ -193,6 +223,7 @@ while True:
         theme_catalog_before=(root/'workspaces.json').read_bytes();theme_sizes=sizes()
         def appearance():
             click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+            if not (artifacts/'chrome-menu.png').exists():capture('chrome-menu.png')
             click(*data()['appearance_menu_item']);wait_until(lambda:data()['appearance_open'] and data()['theme_search_focus'])
         def theme_state(index,background,red):
             value=data()
@@ -209,6 +240,37 @@ while True:
         assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'appearance mutated runtime organization'
         appearance();typed('no-theme-matches-this');wait_until(lambda:data()['theme_matches']==0);capture('theme-no-results.png');key('Escape')
         wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
+        # Imported palette preview is scoped to this workspace; cache is separate from organization.
+        def import_form():
+            click(*data()['import_theme_button']);wait_until(lambda:data()['theme_import_open'] and data()['theme_import_source_focus'])
+        appearance();import_form();typed(str(invalid_theme));key('Return')
+        wait_until(lambda:'Invalid theme color' in data()['theme_import_error'])
+        assert data()['theme_catalog_count']==7 and theme_state(2,'#282a36','#ff5555') and not theme_store.exists()
+        click(*data()['import_file_button']);wait_until(lambda:data()['theme_file_open']);key('Escape')
+        wait_until(lambda:not data()['theme_file_open'] and data()['theme_import_open'] and data()['theme_import_source_focus'])
+        assert data()['theme_import_source']==str(invalid_theme),'file picker cancellation replaced import source'
+        key('ctrl+a');typed(str(imported_theme))
+        click(*data()['import_name_field']);typed('Imported fixture')
+        click(*data()['import_attribution_field']);typed('Workbench synthetic fixture')
+        click(*data()['import_submit_button'])
+        wait_until(lambda:not data()['theme_import_open'] and data()['theme_catalog_count']==8 and data()['panes'][4]['theme']>=7)
+        imported_index=data()['panes'][4]['theme']
+        wait_until(lambda:theme_state(imported_index,'#132435','#a1b2c3'))
+        assert all(p['theme']==0 for p in data()['panes'][:3]) and sizes()==theme_sizes
+        saved=json.loads((theme_store/'imports.json').read_text());entry=saved['imports'][0]
+        assert entry['name']=='Imported fixture' and entry['attribution']=='Workbench synthetic fixture' and entry['source'].startswith('file:')
+        assert (theme_store/(entry['id']+'.ghostty')).read_bytes()==imported_theme.read_bytes()
+        cache_before=(theme_store/'imports.json').read_bytes();capture('theme-import-preview.png')
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
+        assert data()['theme_catalog_count']==8 and (root/'workspaces.json').read_bytes()==theme_catalog_before
+        appearance();typed('Imported fixture');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return')
+        wait_until(lambda:not data()['appearance_open'] and theme_state(imported_index,'#132435','#a1b2c3'))
+        appearance();typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return')
+        wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
+        appearance();import_form();typed(str(imported_theme));key('Return')
+        wait_until(lambda:not data()['theme_import_open'] and 'Already imported' in data()['theme_import_status'])
+        assert data()['theme_catalog_count']==8 and (theme_store/'imports.json').read_bytes()==cache_before
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['chrome_background']=='#15191f')
         key('super+alt+Down');wait_until(lambda:data()['workspace']==1 and data()['chrome_background']=='#282a36')
         # Actual native overview drags use existing IDs without recreating delegates.
@@ -232,10 +294,10 @@ while True:
         wait_until(lambda:order(0)==['terminal-0','terminal-1','terminal-2'])
         time.sleep(.3)
         # Empty workspace is a drop target, and moving back preserves its shell cwd.
-        drag(0,160,710)
+        drag_workspace(0,2)
         wait_until(lambda:order(2)==['terminal-0'] and data()['panes'][0]['workspace']==2)
         assert sizes()==drag_sizes
-        time.sleep(.3);drag(0,65,110)
+        time.sleep(.3);drag_workspace(0,0)
         wait_until(lambda:order(0)==['terminal-0','terminal-1','terminal-2'] and data()['panes'][0]['workspace']==0)
         assert workspace_catalog.load(root)==catalog_before,'restoring the move changed catalog metadata'
         time.sleep(.3)
@@ -245,7 +307,7 @@ while True:
         assert order(1)==['terminal-3','terminal-4','terminal-5','terminal-1'] and sizes()==drag_sizes
         capture('drag-moved.png')
         # Extra destination row pushes later groups offscreen; edge-scroll reaches them.
-        time.sleep(.35);pane=data()['panes'][1]
+        time.sleep(.35);show_preview(1);pane=data()['panes'][1]
         move(pane['x'],(max(60,pane['top'])+min(748,pane['bottom']))/2);button('mousedown')
         try:
             move(150,740);wait_until(lambda:data()['drag_slot']==1)
@@ -270,6 +332,34 @@ while True:
         wait_until(lambda:order(0)==['terminal-0','terminal-1','terminal-2'] and data()['panes'][1]['workspace']==0)
         assert workspace_catalog.load(root)==catalog_before and sizes()==drag_sizes
         key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
+        # Shift extends the same navigation chord to identity-preserving pane moves.
+        keyboard_catalog=workspace_catalog.load(root);keyboard_sizes=sizes()
+        key('super+alt+shift+Right')
+        wait_until(lambda:order(1)==['terminal-3','terminal-5','terminal-4'] and data()['panes'][4]['focus'])
+        key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
+        key('super+alt+shift+Up')
+        wait_until(lambda:order(0)==['terminal-0','terminal-1','terminal-2','terminal-4'] and data()['workspace']==0 and data()['selected']==4 and data()['panes'][4]['focus'] and data()['panes'][4]['theme']==0)
+        key('super+alt+shift+Down');wait_until(lambda:data()['workspace']==1 and data()['panes'][4]['focus'] and data()['panes'][4]['theme']==2)
+        key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
+        key('super+alt+shift+Down');wait_until(lambda:order(2)==['terminal-4'] and data()['workspace']==2 and data()['panes'][4]['focus'])
+        key('super+alt+shift+Up');wait_until(lambda:data()['workspace']==1 and data()['panes'][4]['focus'])
+        key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
+        key('super+alt+Down');wait_until(lambda:data()['workspace']==2 and data()['selected']==-1)
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==1 and data()['selected']==4 and data()['panes'][4]['focus'])
+        key('super+alt+o');wait_until(lambda:data()['overview'])
+        key('super+alt+shift+Up');wait_until(lambda:data()['workspace']==0 and data()['overview'] and not data()['busy'])
+        key('super+alt+shift+Down');wait_until(lambda:data()['workspace']==1 and data()['overview'] and not data()['busy'])
+        key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
+        key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
+        assert sizes()==keyboard_sizes,'keyboard move resized a terminal'
+        time.sleep(.3);click(*data()['panes'][4]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+        click(*data()['move_right_item']);wait_until(lambda:order(1)==['terminal-3','terminal-5','terminal-4'] and not data()['layout_menu_open'] and data()['panes'][4]['focus'])
+        key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==0)
+        key('super+alt+Left');wait_until(lambda:data()['selected']==0)
+        key('super+alt+shift+Left');key('super+alt+shift+Up')
+        assert workspace_catalog.load(root)==keyboard_catalog,'boundary move wrapped or mutated organization'
+        key('super+alt+Down');wait_until(lambda:data()['selected']==4 and data()['panes'][4]['focus'])
         # Creation uses the real service, keeping the original six attached readers.
         key('super+alt+t')
         wait_until(lambda:len(data()['panes'])==7 and data()['panes'][6]['ready'] and data()['selected']==6 and data()['panes'][6]['focus'])
@@ -285,7 +375,7 @@ while True:
         capture('invalid-folder.png')
         # Failed Create keeps fields editable; replace the invalid folder in place.
         key('Escape');wait_until(lambda:not data()['creation_open'])
-        click(24,28);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3);capture('chrome-workspaces.png')
         click(*data()['new_workspace_button']);wait_until(lambda:data()['creation_open']);time.sleep(.3)
         assert data()['name_focus'],'closing the drawer stole dialog focus'
         typed('Project test');key('Tab');key('ctrl+a');typed(str(root/'missing'/'nested'))
@@ -384,16 +474,87 @@ while True:
         new_cwd=root/'edited-new-shell-cwd';typed('pwd > '+shlex.quote(str(new_cwd)));key('Return');wait_until(new_cwd.exists)
         assert new_cwd.read_text().strip()==str(chosen),'new shell ignored edited folder'
         assert data()['panes'][7]['theme']==0 and data()['panes'][13]['theme']==0
+        # A full destination consumes the move shortcut without sending it to a PTY.
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==2 and data()['panes'][8]['focus'])
+        full_move_catalog=workspace_catalog.load(root);full_move_sizes=sizes()
+        key('super+alt+shift+Up');wait_until(lambda:'eight terminals' in data()['move_notice'])
+        assert workspace_catalog.load(root)==full_move_catalog and data()['selected']==8
+        capture('keyboard-move-full.png')
+        key('super+alt+shift+Down');wait_until(lambda:data()['workspace']==3 and data()['selected']==8 and data()['panes'][8]['focus'])
+        key('super+alt+shift+Up');wait_until(lambda:data()['workspace']==2 and data()['panes'][8]['focus'] and not data()['busy'])
+        assert workspace_catalog.load(root)==full_move_catalog and sizes()==full_move_sizes
         expected=[b'first',b'second',b'',b'peer',b'chosen\x1b',b'']
         assert [received(i) for i in range(6)]==expected,'navigation/overview shortcuts leaked into a PTY'
         for i,pid in enumerate(pids):
             assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
             assert Path(f'/proc/{pid}/cwd').resolve()==root/str(i),'move changed an existing shell cwd'
+        # Real runtime context and attention, independently observed from the PTY.
+        metadata_catalog=workspace_catalog.load(root);metadata_sizes=sizes()
+        repo=project/'Repo café';repo.mkdir()
+        def git(*args):return subprocess.run(['git','-C',str(repo),*args],check=True,capture_output=True,text=True).stdout.strip()
+        git('init','-q','-b','feature/context');git('-c','user.name=Test','-c','user.email=test@example.invalid','commit','-q','--allow-empty','-m','fixture')
+        tree=project/'Linked tree';git('worktree','add','-q','-b','topic',str(tree))
+        command='cd '+shlex.quote(str(tree))+'; echo $$ > '+shlex.quote(str(root/'metadata-shell-pid'))
+        typed(command);key('Return');wait_until((root/'metadata-shell-pid').exists)
+        wait_until(lambda:data()['panes'][8]['facts'].get('branch')=='topic' and data()['panes'][8]['facts'].get('worktree'))
+        assert data()['panes'][8]['facts']['cwd']==str(tree)
+        assert 'topic' in data()['panes'][8]['facts']['title'] and 'Linked tree' in data()['panes'][8]['facts']['title']
+        capture('metadata-worktree.png')
+        fixture=root/'codex';shutil.copyfile('/usr/bin/sleep',fixture);fixture.chmod(0o700)
+        typed("sh -c "+shlex.quote('echo $$ > '+shlex.quote(str(root/'agent.pid'))+'; exec '+shlex.quote(str(fixture))+' 120'));key('Return')
+        wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='Codex')
+        wait_until((root/'agent.pid').exists)
+        group=os.getpgid(int((root/'agent.pid').read_text()))
+        hook_env=dict(os.environ,WORKBENCH_SESSION_SOCKET=str(root/(data()['panes'][8]['identity']+'.sock')),WORKBENCH_AGENT_GROUP=str(group),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
+        def hook(event,label):
+            result=subprocess.run([sys.executable,str(ROOT/'scripts/agent-hook.py'),'codex'],input=json.dumps({'hook_event_name':event}),env=hook_env,text=True,capture_output=True,timeout=3)
+            assert result.returncode==0 and not result.stdout and not result.stderr
+            wait_until(lambda:data()['panes'][8]['facts'].get('state')==label)
+        hook('UserPromptSubmit','Working')
+        click(*data()['agents_button']);wait_until(lambda:data()['overview'] and data()['agents_only'] and data()['overview_matches']==1)
+        assert [i for i,p in enumerate(data()['panes']) if p['visible']]==[8]
+        assert sizes()==metadata_sizes,'metadata/filter presentation resized the PTY'
+        click(*data()['state_filter_button']);wait_until(lambda:data()['needs_only'] and data()['overview_matches']==0)
+        capture('metadata-no-needs.png')
+        hook('PermissionRequest','Needs input');wait_until(lambda:data()['overview_matches']==1 and data()['waiting_count']==1)
+        assert data()['panes'][8]['visible']
+        time.sleep(.35)
+        assert data()['panes'][8]['caption_visible'] and 'Codex · Needs input' in data()['panes'][8]['caption'],'native-size Overview caption missing'
+        move(50,180);capture('metadata-needs-input.png')
+        # Filtered drag maps the sole visible card back to the real ordinal.
+        drag_workspace(8,2);wait_until(lambda:data()['drag_slot']==-1)
+        assert workspace_catalog.load(root)==metadata_catalog,'filtered no-op reordered hidden terminals'
+        hook('Stop','Ready');wait_until(lambda:data()['overview_matches']==0 and data()['waiting_count']==0)
+        click(*data()['state_filter_button']);wait_until(lambda:not data()['needs_only'] and data()['overview_matches']==1)
+        click(*data()['agent_filter_button']);wait_until(lambda:not data()['agents_only'] and data()['overview_matches']==14)
+        key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][8]['focus'])
+        key('ctrl+c');wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='')
+        typed('echo $$ > '+shlex.quote(str(root/'metadata-shell-after')));key('Return');wait_until((root/'metadata-shell-after').exists)
+        assert (root/'metadata-shell-after').read_text()==(root/'metadata-shell-pid').read_text(),'metadata changed the shell owner'
+        assert workspace_catalog.load(root)==metadata_catalog and sizes()==metadata_sizes
+        # Eight pane indicators and a long name must fit the minimum window width.
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
+        workspace_form('rename');key('ctrl+a');typed('A long workspace name that stays within the compact top bar');key('Return')
+        wait_until(lambda:not data()['creation_open'])
+        if wayland:run('niri','msg','action','set-window-width','680')
+        else:cmd('windowsize','--sync',window,680,760)
+        wait_until(lambda:data()['window_width']==680 and all(p['geometry_ready'] for p in data()['panes']))
+        boxes=data()['chrome_boxes']
+        assert boxes['workspace'][2] < boxes['indicators'][0] and boxes['indicators'][2] < boxes['count'][0]
+        assert boxes['count'][2] <= boxes['add'][0] and boxes['add'][2] < boxes['overview'][0],'top-bar controls overlap'
+        capture('chrome-narrow.png')
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, creation/invalid-folder/cancel/empty-workspace, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, unchanged reader PIDs and isolated input')
+    except BaseException:
+        if report.exists():(artifacts/'failure.json').write_bytes(report.read_bytes())
+        for evidence in root.glob('*.log'):(artifacts/('failure-'+evidence.name)).write_bytes(evidence.read_bytes())
+        if client and client.poll() is None:
+            try:capture('failure.png')
+            except Exception:pass
+        raise
     finally:
         for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
         request(root,Path(runtime),root,"service.shutdown")

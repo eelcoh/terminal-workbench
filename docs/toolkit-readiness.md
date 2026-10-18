@@ -1,6 +1,6 @@
 # Production toolkit readiness
 
-Status: 2026-10-17. Keep the approved minimal chrome and Overview interaction.
+Status: 2026-10-18. Keep the approved minimal chrome and Overview interaction.
 The Raylib viewer remains the working experiment; it is not ready for production
 adoption. Qt Quick is the first candidate to test, not a selected replacement.
 
@@ -1047,3 +1047,116 @@ remains open; no saved production
 catalog or renderer adoption is introduced. Qt Quick Dialogs is an existing Qt
 module, linked explicitly by the UI study target.
 See [folder browsing](toolkit-ui-study.md#browsing-for-a-folder).
+
+
+## Qt study: keyboard pane moves
+
+Add Shift to Cmd–Option on Mac or Super–Alt on Linux: Left/Right reorder the
+selected terminal, Up/Down append it to the adjacent workspace and follow focus.
+Boundaries do not wrap, full destinations show a brief notice, and pending move
+requests consume repeat shortcuts without sending them to a shell. Pane menus
+and the scrollable shortcut overlay expose the same actions. Overview follows
+keyboard moves without changing PTY geometry.
+
+Native xcb/Wayland checks pass reordered navigation, focus following, workspace
+appearance, empty-source memory, full/boundary no-ops, Overview moves, menu access,
+stable grids and original-reader PID/cwd/input isolation. Native Mac keyboard
+move review remains open. Folder browsing is owner-confirmed on Mac.
+See [keyboard review](toolkit-ui-study.md#keyboard-review).
+
+
+## Qt study: TerminalColors and Ghostty imports
+
+Appearance now imports a local Ghostty file or a chosen TerminalColors page/direct
+download link, with optional name and attribution. Import validates and saves an
+offline palette, then previews the current workspace through the existing
+Apply/Cancel workflow. Source/raw text/license notes are retained in a separate
+configuration theme collection; no downloaded external palettes are bundled.
+
+The existing bounded color parser is reused. Non-color settings never execute.
+Exact duplicates, corrupt state, concurrent-window merges, failed/redirected or
+oversized downloads and cancellation are covered without changing running shells
+or existing themes. Built-ins remain usable if saved imports are invalid.
+
+Cross-platform offline model/store/network tests and native xcb/Wayland UI checks
+pass. The real Nord Ghostty export and a live TerminalColors page link passed
+Qt HTTPS + parsing + disposable caching on 2026-10-18. Native Mac import acceptance
+remains open; this adds palette import, not a production frontend switch.
+See [imports](toolkit-ui-study.md#importing-terminalcolors-and-ghostty-themes).
+
+
+## Qt study: runtime captions and agent Overview
+
+The Qt candidate now consumes the existing read-only context and agent lifecycle
+subscriptions. Pane and native-size Overview captions show directory/Git/branch/
+linked-worktree context, with remote/unavailable fallbacks. Agent labels expose
+Working, Needs input, Ready and Status unknown without interpreting terminal text.
+
+The rail has an Agents entry and Overview has explicit, visibly active identity
+and attention filters plus empty-result messages. Filtered previews use a cached
+projection of the real catalog; terminals keep stable items, readers and grid
+sizes. Drag insertion maps back to real ordinals rather than reordering hidden
+terminals accidentally.
+
+The metadata adapter is bounded, validates user-owned control sockets, deduplicates
+updates and isolates malformed/disconnected/timed-out feeds from terminal input.
+It does not attach PTYs, start runtimes, poll or launch Git. Native Mac review and
+production adoption remain open. See
+[live context and agents](toolkit-ui-study.md#live-context-and-agents).
+
+## Session service shutdown acknowledgement
+
+The full check exposed an immediate shutdown/reopen race: a caller could receive
+the shutdown reply and connect to the still-listening socket before its service
+exited, leaving a request that would never be accepted. Shutdown now closes and
+retires its own endpoint and releases service ownership before acknowledging.
+The existing no-replay rule for mutations remains intact. Runtime shells survive
+service-only shutdown. The shutdown/reopen, lifecycle, concurrency and soak checks
+pass, including an assertion that the endpoint is retired before acknowledgement.
+
+
+## Runtime hardening: short input bursts
+
+Expanded native UI tests exposed a healthy terminal losing its connection during
+a short typed command. The runtime's PTY writer queue counted messages: sixteen
+single-key packets could exhaust it while the writer was briefly unscheduled,
+even though only a few bytes were pending.
+
+The writer queue now retains its 1 MiB byte budget, including a packet held by a
+blocked writer, while allowing up to 4096 small packets. A separate message limit
+keeps descriptor memory bounded. Failed sends, receiver shutdown and completed
+writes release their reservations; input remains ordered, and genuine queue
+exhaustion still isolates the attached sender. No protocol or saved state changes.
+Transport/event queues retain their own existing bounds.
+
+Deterministic tests hold the writer back while queuing 2048 single-byte packets,
+exercise byte/message limits and confirm budget release. The real PTY regression
+sends those 2048 packets followed by 120 KiB of paste data, verifies exact ordered
+bytes, then checks the same reader/attachment accepts a resize. It runs as part
+of `just check`. The capability fixture also waits for its one expected request,
+removing an unrelated background-thread exception from otherwise passing checks.
+
+
+## Qt chrome aligned with the working viewer
+
+The Qt study now uses the spike's bundled Adwaita Sans for interface text,
+with native toolkit text rendering and separate terminal typography. Original
+geometric icons replace font-dependent symbols. The compact 40-pixel top bar
+and 44-pixel rail restore the left menu placement, workspace label, centered
+pane-position pill, focused/count text and adjacent New terminal action.
+
+Chrome colors follow the same light/dark mixing rules as the working viewer,
+including cursor-derived accents and semantic attention colors. Menus, section
+separators, check marks, disabled actions, tooltips and workspace rows use shared
+controls. Long names elide; eight indicators, count and actions fit the minimum
+680-pixel window. Agent attention has a rail count and pane-position dot, with
+status text retained separately in the pane header. Idle previews use an arrow;
+the grab cursor appears during dragging only.
+
+This ports the approved visual direction into `just toolkit-ui`; `just spike`
+remains the daily-use frontend. Native Mac visual acceptance is still required.
+The UI suite checks actual bundled font selection, minimum-width non-overlap,
+long workspace names, attention transitions, existing keyboard/menu/focus flows,
+and stable terminal identities/geometry through overlays. Review captures include
+`chrome-menu.png`, `chrome-workspaces.png` and `chrome-narrow.png` under
+`.local/artifacts/qt-ui/{xcb,wayland}/`.

@@ -77,7 +77,10 @@ def main():
                 assert all(t["state"] == ("running" if t["id"] == sibling else "stopped") for t in health["terminals"])
                 assert all(t["lifecycle"]["reason"] == "stopped" for t in health["terminals"] if t["id"] != sibling)
                 # Repetition and service/window-style reopening never restart anything.
-                call(state, "session.stop", targets=selected); call(state, "service.shutdown"); call(state)
+                call(state, "session.stop", targets=selected)
+                call(state, "service.shutdown")
+                assert not (state / "service.rpc").exists(), "shutdown replied before retiring its endpoint"
+                call(state)
                 assert all(not (state / (i + ".sock")).exists() for i in selected)
                 send(peer, 16, ("printf '%s:%s' \"$$\" \"$keep\" > " + str(marker) + "after\n").encode())
                 assert wait_until(lambda: Path(str(marker)+"after").exists() and Path(str(marker)+"after").read_text()) == pid + ":survives"

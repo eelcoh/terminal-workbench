@@ -19,6 +19,7 @@ check: runtime-build
     cargo test --workspace
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
+    python3 tests/input_burst_test.py target/debug/workbench-session
     python3 tests/context_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
     python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
@@ -334,3 +335,11 @@ toolkit-ui: runtime-build
 # Linux: native input/focus and stable PTY geometry across UI transitions.
 toolkit-ui-test: runtime-build
     python3 scripts/toolkit-probe.py ui-test
+
+# Mac/Linux: offline theme store and deterministic TerminalColors download behavior.
+toolkit-theme-import-test: runtime-build
+    python3 scripts/toolkit-probe.py theme-import-test
+
+# Read-only runtime metadata adapter contracts (no display required).
+toolkit-runtime-facts-test: runtime-build
+    python3 scripts/toolkit-probe.py runtime-facts-test

@@ -292,10 +292,10 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
     drop(pair.slave);
     let mut output = pair.master.try_clone_reader()?;
     let mut input = pair.master.take_writer()?;
-    let (input_tx, input_rx) = mpsc::sync_channel::<Vec<u8>>(16);
+    let (input_tx, input_rx) = crate::input_queue::channel();
     thread::spawn(move || {
         for bytes in input_rx {
-            if let Err(error) = input.write_all(&bytes).and_then(|()| input.flush()) {
+            if let Err(error) = input.write_all(bytes.as_ref()).and_then(|()| input.flush()) {
                 eprintln!("PTY input ended: {error}");
                 break;
             }
@@ -474,7 +474,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                 }
                 Event::Input(id, bytes) => {
                     if client.as_ref().is_some_and(|(current, _)| *current == id)
-                        && input_tx.try_send(bytes).is_err()
+                        && !input_tx.enqueue(bytes)
                     {
                         eprintln!("client {id} disconnected: PTY input queue unavailable");
                         client = None;
@@ -499,7 +499,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
                     // detached session answers from the same state it snapshots.
                     match terminal.feed(&bytes, client.is_none()) {
                         Ok(replies) if !replies.is_empty() => {
-                            if input_tx.try_send(replies).is_err() {
+                            if !input_tx.enqueue(replies) {
                                 eprintln!("detached terminal reply queue unavailable");
                             }
                         }
