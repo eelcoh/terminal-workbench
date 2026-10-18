@@ -157,6 +157,7 @@ int main(int argc,char **argv) {
                 {"layout_menu_open",window->property("layoutMenuOpen").toBool()},
                 {"move_right_item",center("moveRightMenuItem")},
                 {"theme_search_focus",window->property("themeSearchFocus").toBool()},
+                {"theme_search_field",center("themeSearch")},{"theme_help_button",center("themeHelpButton")},{"theme_help_open",window->property("themeHelpOpen").toBool()},
                 {"theme_matches",window->property("themeMatchCount").toInt()},
                 {"theme_directory",themes.themesPath()},{"theme_directory_status",themes.directoryStatus()},{"theme_catalog_count",themes.catalog().size()},
                 {"chrome_background",window->color().name()},

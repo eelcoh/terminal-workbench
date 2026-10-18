@@ -92,7 +92,7 @@ void UiThemes::append(int index,const StoredTheme *record,int ignored) {
     const auto color=[](WorkbenchThemeColor c){return QColor(c.r,c.g,c.b);};
     const auto mix=[](QColor a,QColor b,qreal t){return QColor::fromRgbF(a.redF()*(1-t)+b.redF()*t,a.greenF()*(1-t)+b.greenF()*t,a.blueF()*(1-t)+b.blueF()*t);};
     const auto bg=color(value.background),fg=color(value.foreground);QVariantList swatches;
-    for(int i=0;i<8;++i)swatches.append(color(value.palette[i]).name());
+    for(int i=0;i<16;++i)swatches.append(color(value.palette[i]).name());
     QVariantMap entry{{"index",index},{"name",record?record->name:QString::fromUtf8(workbench_theme_name(index))},{"light",value.light},
         {"background",bg.name()},{"foreground",fg.name()},{"accent",color(value.cursor).name()},
         {"surface",mix(bg,fg,value.light?.035:.045).name()},{"hover",mix(bg,fg,value.light?.11:.14).name()},{"border",mix(bg,fg,value.light?.18:.19).name()},

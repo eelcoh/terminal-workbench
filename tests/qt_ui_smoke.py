@@ -320,7 +320,9 @@ while True:
         def theme_state(index,background,red):
             value=data()
             return value['panes'][3]['sample_green']=='#112233' and value['chrome_background']==background and all(p['theme']==index and p['background']==background and p['sample_red']==red and p['sample_rgb']=='#010203' for p in value['panes'][3:6])
-        appearance();typed('Workbench Dawn');wait_until(lambda:data()['theme_matches']==1);key('Down')
+        appearance();click(*data()['theme_help_button']);wait_until(lambda:data()['theme_help_open']);capture('theme-help.png')
+        key('Escape');wait_until(lambda:not data()['theme_help_open'] and data()['appearance_open'])
+        click(*data()['theme_search_field']);typed('Workbench Dawn');wait_until(lambda:data()['theme_matches']==1);key('Down')
         wait_until(lambda:theme_state(1,'#f4f1eb','#a93f4a'))
         assert all(p['theme']==0 and p['background']=='#15191f' for p in data()['panes'][:3])
         assert sizes()==theme_sizes;capture('theme-light-preview.png')

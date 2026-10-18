@@ -134,6 +134,7 @@ ApplicationWindow {
     property string appearanceWorkspace: ""
     property int previewTheme: 0
     readonly property bool appearanceOpen: appearance.visible
+    readonly property bool themeHelpOpen: appearance.helpOpen
     readonly property bool applicationMenuOpen: appMenu.visible
     readonly property bool layoutMenuOpen: paneMenu.visible
     readonly property bool themeSearchFocus: appearance.searchFocused

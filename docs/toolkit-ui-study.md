@@ -156,7 +156,7 @@ later work; this does not change the daily-use viewer's selected theme.
 
 ## TerminalColors and Ghostty themes
 
-Use the [drop-in theme directory](theme-directory.md). Appearance explains that
+Use the [drop-in theme directory](theme-directory.md). Appearance’s help icon explains that
 folder contents appear automatically and offers an **Open themes folder** link
 to the file manager. Add files there, then reopen Appearance to refresh the list.
 Select a theme in Appearance and choose **Apply**; do not open the theme file.
@@ -431,9 +431,17 @@ follow-ups. See [configuration and validation](shortcuts.md#qt-candidate-managed
 ## Drop-in theme directory
 
 The primary Qt theme workflow now uses the per-user configuration `themes/`
-directory. Appearance has an **Open themes folder** link and explains automatic discovery. Drop Ghostty files there,
+directory. Appearance’s help icon explains automatic discovery and offers an **Open themes folder** link. Drop Ghostty files there,
 including TerminalColors `.default` downloads, and reopen Appearance to select
 them. Files remain read-only and offline; discovery does not require the optional
 import form. Preview/Apply/Cancel preserves PTYs and terminal geometry. Invalid
 files are skipped; editing/removing a file retains existing window colors until a
 new theme is chosen. See [paths, usage and validation](theme-directory.md).
+
+## Appearance preview clarity
+
+Folder instructions and the folder link now live behind the small **?** help
+icon beside the theme filters. Theme cards show sample terminal text on the
+actual background, plus larger normal and bright ANSI swatches. Appearance keeps
+input modal without dimming the workspace, so live preview colors match Apply.
+Help closes independently with Escape; Apply and Cancel retain their behavior.

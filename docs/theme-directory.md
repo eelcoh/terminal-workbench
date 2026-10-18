@@ -1,8 +1,10 @@
 # Drop-in Ghostty themes
 
 In `just toolkit-ui`, put Ghostty theme files in your Workbench configuration
-folder’s `themes/` directory. Open the **Open themes folder** link in Appearance to open the
-actual location in your file manager. The directory is created when needed.
+folder’s `themes/` directory. Use **Appearance → ? → Open themes folder** to open the
+actual location in your file manager. The help icon keeps the folder instructions
+out of the theme list. Larger samples show each theme’s actual background,
+foreground and palette; the live workspace preview is not dimmed. The directory is created when needed.
 
 | Platform | Default folder |
 | --- | --- |

@@ -139,7 +139,7 @@ visual quality and interaction feel before the UX milestone can be called comple
 
 ## Qt candidate: drop-in themes
 
-For `just toolkit-ui`, the primary flow is now the **Open themes folder** link in Appearance.
+For `just toolkit-ui`, the primary flow is now **Appearance → ? → Open themes folder**.
 Drop Ghostty files into the configuration `themes/` directory, retaining
 TerminalColors’ `.default` suffix, and reopen Appearance. Preview and Apply use
 the existing workspace flow; Cancel restores the old colors. The link opens a
