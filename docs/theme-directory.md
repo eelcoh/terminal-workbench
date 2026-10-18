@@ -29,7 +29,9 @@ app restart. Source files stay untouched; discovery does not create copies or an
 import manifest. Previously imported themes remain in the list, but the import form has been removed. Removing
 or editing a file does not recolor an already-themed terminal: existing colors
 remain in the window until you choose a replacement. New selections use the
-updated file. Choices remain temporary in this disposable Qt study.
+updated file. Choices remain temporary in `just toolkit-ui`. Saved `just toolkit-workbench`
+windows retain committed colors in their separate view profiles, even when
+the original file is removed; reselect a changed file to adopt its new colors.
 
 Only supported color fields are applied. Shell commands and other non-color
 settings are ignored. Invalid or unreadable files are skipped with a status in

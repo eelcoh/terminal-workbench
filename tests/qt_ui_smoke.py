@@ -56,7 +56,7 @@ while True:
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
         managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'view_state':str(root/'qt-view.json'),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -408,7 +408,38 @@ while True:
         appearance();typed('Folder Fixture');key('Down');wait_until(lambda:data()['chrome_background']=='#214365');key('Return')
         wait_until(lambda:not data()['appearance_open'] and theme_state(folder_index,'#214365','#aa1133'))
         assert drop_file.read_bytes()==drop_bytes and not theme_store.exists() and sizes()==theme_sizes
-        drop_file.unlink();appearance();wait_until(lambda:data()['theme_catalog_count']==7)
+        drop_file.unlink()
+        # Save a non-default layout/Overview and an immutable color snapshot.
+        key('super+alt+r');key('super+alt+f');wait_until(lambda:data()['panes'][4]['columns']>data()['panes'][3]['columns'])
+        command_search('reduce motion');key('Return');wait_until(lambda:data()['reduced_motion'])
+        key('super+alt+o');wait_until(lambda:data()['overview'])
+        def saved_view():
+            try:return json.loads((root/'qt-view.json').read_text())
+            except (FileNotFoundError,ValueError):return {}
+        wait_until(lambda:saved_view().get('overview') and saved_view()['terminals']['terminal-4']['full'] and saved_view()['motion'])
+        preserved_input=[received(i) for i in range(6)];saved_geometry=sizes()
+        client.terminate();client.wait(timeout=5)
+        # Unknown old identities and JSON member order must not retarget state.
+        saved=saved_view();saved['terminals']['removed-terminal']={'width':1/3,'full':False}
+        saved['terminals']=dict(reversed(list(saved['terminals'].items())))
+        (root/'qt-view.json').write_text(json.dumps(saved));report.unlink(missing_ok=True)
+        client=subprocess.Popen([viewer,str(config),'--test-report',str(report)],env=env,stdout=log,stderr=log);processes.append(client)
+        wait_until(ready_ui,timeout=30)
+        if wayland:
+            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study'),None))
+            run('niri','msg','action','focus-window','--id',window);run('niri','msg','action','move-window-to-floating')
+            run('niri','msg','action','set-window-width','1240');run('niri','msg','action','set-window-height','760');run('niri','msg','action','move-floating-window','--x','70','--y','50')
+        else:
+            window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
+        wait_until(lambda:data()['overview'] and data()['workspace']==1 and data()['selected']==4 and data()['reduced_motion'] and sizes()==saved_geometry)
+        assert not data()['view_error'] and data()['chrome_background']=='#214365'
+        folder_index=data()['panes'][3]['theme'];assert theme_state(folder_index,'#214365','#aa1133')
+        assert [received(i) for i in range(6)]==preserved_input
+        for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
+        capture('view-restored.png');key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
+        key('super+alt+f');key('super+alt+r');key('super+alt+r')
+        command_search('enable animations');key('Return');wait_until(lambda:not data()['reduced_motion'] and sizes()==theme_sizes)
+        appearance();wait_until(lambda:data()['theme_catalog_count']==8)
         assert theme_state(folder_index,'#214365','#aa1133'),'removing a file changed the active terminal colors'
         typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return')
         wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))

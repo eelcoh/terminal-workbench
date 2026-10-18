@@ -1306,3 +1306,21 @@ and service PIDs after normal/failed viewer exits, preserve stopped entries and
 remove only temporary viewer config. Native UI regressions retain disposable
 cleanup. Mac acceptance, saved Qt view/theme state and automatic catalog updates
 remain pending; this is not production frontend adoption.
+
+## Qt leased view restoration
+
+The Qt launcher reuses the existing descriptor-held slot lease helper under its
+own `qt/windows` namespace; it never reads/writes spike view codecs. The client
+saves a bounded versioned JSON profile through atomic replacement. Typed model
+coverage exercises identity maps, fractional layout/scroll, filter booleans,
+invalid/future/oversized/stale preservation and local write failures. Theme
+snapshots preserve all 256 palette entries plus defaults/selection/cursor; restored
+colors remain available if the original theme file was removed. Saves use a
+cached color snapshot and a 350 ms client-state debounce, without parse/render I/O.
+
+Launcher checks prove independent concurrent slots and reuse with retained
+shell/service PIDs. Native Linux UI checks restart the viewer after changing
+width/full-width, focus, Overview/motion and a directory theme, then remove the
+source and verify unchanged colors, input, geometry and reader PIDs. The remaining
+existing UI/ownership/lifecycle flows still run. Mac physical display/view review
+and automatic peer catalog synchronization remain pending.

@@ -87,6 +87,25 @@ void UiThemes::openThemesDirectory() {
     if(!QDir().mkpath(themesPath_) || !QDesktopServices::openUrl(QUrl::fromLocalFile(themesPath_))){directoryStatus_="Could not open themes folder: "+themesPath_;Q_EMIT changed();}
 }
 QVariantMap UiThemes::theme(int index) const {return lookup_.value(index,lookup_.value(0));}
+QVariantMap UiThemes::snapshot(int index) const {
+    if(snapshots_.contains(index))return snapshots_.value(index);
+    WorkbenchTheme value;if(!workbench_theme_get(index,&value))return {};
+    const auto color=[](WorkbenchThemeColor c){return QColor(c.r,c.g,c.b).name();};
+    QString text="background = "+color(value.background)+"\nforeground = "+color(value.foreground)+"\ncursor-color = "+color(value.cursor)+"\nselection-background = "+color(value.selection_background)+"\nselection-foreground = "+color(value.selection_foreground)+"\n";
+    for(int i=0;i<256;++i)text+="palette = "+QString::number(i)+"="+color(value.palette[i])+"\n";
+    const auto entry=theme(index);QVariantMap result{{"name",entry["name"]},{"colors",text},{"source",entry.value("source",QString())},{"attribution",entry.value("attribution",QString())}};
+    snapshots_.insert(index,result);return result;
+}
+int UiThemes::restoreSnapshot(const QVariantMap &saved){
+    const auto name=saved["name"].toString(),text=saved["colors"].toString();
+    if(!label(name,120) || text.toUtf8().size()>ThemeStore::maxBytes)return -1;
+    for(const auto &item:catalog_){const auto entry=item.toMap();if(entry["name"].toString()==name && snapshot(entry["index"].toInt())["colors"].toString()==text)return entry["index"].toInt();}
+    WorkbenchTheme colors;int ignored=0;QString error;
+    if(!parse(text.toUtf8(),colors,ignored,error) || ignored)return -1;
+    const int index=workbench_theme_register(name.toUtf8().constData(),&colors);if(index<0)return -1;
+    const StoredTheme record{ThemeStore::digest(text.toUtf8()),name,saved["source"].toString(),saved["attribution"].toString(),text.toUtf8()};
+    append(index,&record,0);Q_EMIT catalogChanged();return index;
+}
 void UiThemes::append(int index,const StoredTheme *record,int ignored) {
     WorkbenchTheme value;if(!workbench_theme_get(index,&value))return;
     const auto color=[](WorkbenchThemeColor c){return QColor(c.r,c.g,c.b);};

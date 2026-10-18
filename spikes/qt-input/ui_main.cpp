@@ -5,6 +5,7 @@
 #include "ui_session.h"
 #include "ui_themes.h"
 #include "ui_fonts.h"
+#include "ui_view_state.h"
 #include "ui_shortcuts.h"
 #include <QDir>
 #include <QQmlContext>
@@ -44,6 +45,7 @@ int main(int argc,char **argv) {
     const auto configuration=QJsonDocument::fromJson(config.readAll()).object();
     if(!configuration["catalog"].isObject() || configuration["state"].toString().isEmpty())return 2;
     UiSession session(configuration);
+    UiViewState view(configuration["view_state"].toString());
 #if defined(Q_OS_MACOS)
     constexpr bool apple=true;
 #else
@@ -58,11 +60,13 @@ int main(int argc,char **argv) {
     QQmlApplicationEngine engine;
     QObject::connect(&engine,&QQmlEngine::warnings,&app,[](const QList<QQmlError> &errors){for(const auto &error:errors)std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));});
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
+    engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
     engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
     engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
     auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
+    QObject::connect(&app,&QCoreApplication::aboutToQuit,window,[window]{QMetaObject::invokeMethod(window,"persistView");});
     // Explicit test-only snapshots; no user terminal content is recorded by default.
     const int reportIndex=args.indexOf("--test-report");QTimer reporter;
     if(reportIndex>=0 && reportIndex+1<args.size()) {
@@ -144,7 +148,7 @@ int main(int argc,char **argv) {
                 {"terminal_action_open",window->property("terminalActionOpen").toBool()},
                 {"terminal_action_kind",window->property("actionKind").toString()},
                 {"terminal_close_item",center("terminalCloseMenuItem")},{"confirm_terminal_action",center("confirmTerminalAction")},{"cancel_terminal_action",center("cancelTerminalAction")},
-                {"window_width",window->width()},{"interface_font",app.font().family()},
+                {"view_enabled",view.enabled()},{"view_error",view.error()},{"window_width",window->width()},{"interface_font",app.font().family()},
                 {"chrome_boxes",QJsonObject{{"workspace",box("workspaceButton")},{"indicators",box("indicatorRow")},{"count",box("focusedCount")},{"add",box("newTerminalButton")},{"overview",box("overviewButton")}}},
                 {"workspaces_button",center("workspacesButton")},
                 {"workspace",window->property("workspace").toInt()},

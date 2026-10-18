@@ -336,6 +336,10 @@ toolkit-ui: runtime-build
 toolkit-workbench: runtime-build
     python3 scripts/toolkit-probe.py workbench
 
+# Mac/Linux: typed client view persistence without a display.
+toolkit-view-state-test: runtime-build
+    python3 scripts/toolkit-probe.py view-state-test
+
 # Mac/Linux: saved launcher lifecycle/reattachment without a display.
 toolkit-saved-session-test: runtime-build
     python3 tests/qt_saved_launcher_test.py target/debug/workbench-session

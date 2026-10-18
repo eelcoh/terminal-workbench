@@ -488,3 +488,14 @@ attachment never steals another window’s terminal. The private disposable
 `just toolkit-ui` workflow is unchanged. View/theme restoration and automatic
 peer-window catalog updates remain separate work; **Refresh workspaces** updates
 the current catalog on request. See [saved-session review](qt-saved-sessions.md).
+
+## View profiles for saved Qt windows
+
+`just toolkit-workbench` now keeps each window’s layout, focus, Overview/filter
+state and committed workspace themes in a separate leased Qt view profile.
+Reopening reuses a free profile without restarting shells or taking ownership.
+The disposable launcher still omits durable view paths. Theme snapshots keep
+selected colors if their source file disappears; only Apply changes committed
+colors. View saving is debounced and errors stay local without overwriting invalid
+files. See [saved views](qt-saved-sessions.md#saved-qt-window-views) for paths,
+limits and native review steps. Automatic catalog updates remain a follow-up.

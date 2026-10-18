@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Dialogs as NativeDialogs
 import Workbench.Probe
@@ -20,6 +21,68 @@ ApplicationWindow {
         for (let i = 0; i < terminalModel.count; ++i) { const pane = panel(i); if (pane) items.push(pane.terminal); labels.push(captions.itemAt(i)) }
         terminalItems = items; overviewLabels = labels; rebuildOverview(); if (!overview) { if (selected >= 0) reveal(); else { deck.scrollTarget = 0; deck.contentX = 0 } }
     }
+    property bool viewReady: false
+    function scheduleViewSave() { if (viewReady && studyView.enabled) viewSaveTimer.restart() }
+    function captureView() {
+        let workspaces = {}, terminals = {}
+        for (let w = 0; w < spaceIds.length; ++w) {
+            const focus = remembered[w], validFocus = indices(w).indexOf(focus) >= 0
+            const x = !overview && w === workspace ? deck.contentX : (positions[w] || 0)
+            workspaces[spaceIds[w]] = {focus: validFocus ? terminalModel.get(focus).terminalId : "", x: Math.max(0,x), theme: studyThemes.snapshot(workspaceThemes[w] || 0)}
+        }
+        for (let i = 0; i < terminalModel.count; ++i) terminals[terminalModel.get(i).terminalId] = {width: widths[i] || 0.5, full: fullWidths[i] || false}
+        return {version: 1, window: {width: Math.max(680,Math.min(16384,Math.round(width))), height: Math.max(440,Math.min(16384,Math.round(height)))},
+            workspace: spaceIds[workspace] || "", terminal: selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : "",
+            overview: overview, agents: agentsOnly, needs: needsOnly, motion: reducedMotion, overview_y: overview ? Math.max(0,deck.contentY) : 0,
+            workspaces: workspaces, terminals: terminals}
+    }
+    function persistView() { if (viewReady && studyView.enabled) studyView.save(captureView()) }
+    function restoreView(saved) {
+        if (!saved.version) return
+        width = Math.max(minimumWidth, Math.min(saved.window.width, Screen.desktopAvailableWidth || saved.window.width))
+        height = Math.max(minimumHeight, Math.min(saved.window.height, Screen.desktopAvailableHeight || saved.window.height))
+        let sizes = widths.slice(), full = fullWidths.slice(), themes = [], focus = [], scroll = []
+        for (let i = 0; i < terminalModel.count; ++i) {
+            const value = saved.terminals[terminalModel.get(i).terminalId]
+            if (value) { sizes[i] = value.width; full[i] = value.full }
+        }
+        widths = sizes; fullWidths = full
+        for (let w = 0; w < spaceIds.length; ++w) {
+            const value = saved.workspaces[spaceIds[w]], items = indices(w)
+            const candidate = value ? identityIndex(value.focus) : -1
+            focus.push(items.indexOf(candidate) >= 0 ? candidate : (items[0] ?? -1)); scroll.push(value ? value.x : 0)
+            const theme = value ? studyThemes.restoreSnapshot(value.theme) : 0
+            themes.push(Math.max(0,theme))
+            if (theme < 0) studyView.invalidate("A saved workspace theme is invalid. Using default colors; view file left untouched.")
+        }
+        workspaceThemes = themes; remembered = focus; positions = scroll
+        workspace = Math.max(0,spaceIds.indexOf(saved.workspace)); selected = identityIndex(saved.terminal)
+        if (selected >= 0) workspace = terminalModel.get(selected).spaceIndex
+        else selected = remembered[workspace] ?? -1
+        reducedMotion = saved.motion; agentsOnly = saved.agents; needsOnly = saved.needs; overview = saved.overview
+        rebuildOverview()
+        Qt.callLater(function() {
+            deck.scrollTarget = overview ? 0 : Math.max(0,Math.min(positions[workspace] || 0,stripWidth() - deck.width)); deck.contentX = deck.scrollTarget
+            deck.contentY = overview ? Math.max(0,Math.min(saved.overview_y,deck.contentHeight-deck.height)) : 0
+            if (!overview && selected >= 0) { reveal(); panel(selected).terminal.forceActiveFocus() }
+            else window.contentItem.forceActiveFocus()
+        })
+    }
+    Timer { id: viewSaveTimer; interval: 350; onTriggered: window.persistView() }
+    onClosing: { viewSaveTimer.stop(); persistView() }
+    onWidthChanged: scheduleViewSave()
+    onHeightChanged: scheduleViewSave()
+    onWorkspaceChanged: scheduleViewSave()
+    onSelectedChanged: scheduleViewSave()
+    onWidthsChanged: scheduleViewSave()
+    onFullWidthsChanged: scheduleViewSave()
+    onRememberedChanged: scheduleViewSave()
+    onPositionsChanged: scheduleViewSave()
+    onWorkspaceThemesChanged: scheduleViewSave()
+    onSpaceIdsChanged: scheduleViewSave()
+    onAgentsOnlyChanged: scheduleViewSave()
+    onNeedsOnlyChanged: scheduleViewSave()
+    onReducedMotionChanged: scheduleViewSave()
     function requestTerminalAction(identity, kind) {
         if (studySession.busy || terminalAction.visible) return
         actionTarget = identity; actionKind = kind; const i = identityIndex(identity); actionContext = i < 0 ? "" : panel(i).facts.title + " · " + spaces[terminalModel.get(i).spaceIndex]; paneMenu.close()
@@ -59,7 +122,7 @@ ApplicationWindow {
     function changeFilter(agents, needs) {
         cancelDrag(); agentsOnly = agents; needsOnly = needs; rebuildOverview(); deck.contentY = 0
     }
-    onOverviewChanged: Qt.callLater(rebuildOverview)
+    onOverviewChanged: { Qt.callLater(rebuildOverview); scheduleViewSave() }
     function openAgents() { if (!overview) toggleOverview(); changeFilter(true, false) }
     WorkbenchActions { id: commandRegistry; host: window; session: studySession }
     readonly property bool shortcutSettingsOpen: shortcutSettings.visible
@@ -183,7 +246,11 @@ ApplicationWindow {
     function applyCatalog(catalog, method) {
         const selectedId = selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : ""
         const oldWorkspace = workspace
-        const focusIds = remembered.map(i => i >= 0 && i < terminalModel.count ? terminalModel.get(i).terminalId : "")
+        let previous = {}
+        for (let w = 0; w < spaceIds.length; ++w) {
+            const i = remembered[w]
+            previous[spaceIds[w]] = {focus: i >= 0 && i < terminalModel.count ? terminalModel.get(i).terminalId : "", x: positions[w] || 0, theme: workspaceThemes[w] || 0}
+        }
         let incoming = []
         for (let space of catalog.workspaces) for (let terminal of space.terminals) incoming.push(terminal.id)
         let sizes = widths.slice(), full = fullWidths.slice()
@@ -193,12 +260,13 @@ ApplicationWindow {
         }
         widths = sizes; fullWidths = full
         let names = [], ids = [], folders = [], totals = []
-        let focus = focusIds.map(identityIndex), scroll = positions.slice()
+        let focus = [], scroll = [], themes = []
         let added = -1
         for (let w = 0; w < catalog.workspaces.length; ++w) {
             const space = catalog.workspaces[w]
             names.push(space.name); ids.push(space.id); folders.push(space.directory || studySession.defaultDirectory); totals.push(space.terminals.length)
-            if (focus[w] === undefined) { focus.push(-1); scroll.push(0) }
+            const retained = previous[space.id]
+            focus.push(retained ? identityIndex(retained.focus) : -1); scroll.push(retained ? retained.x : 0); themes.push(retained ? retained.theme : 0)
             for (let j = 0; j < space.terminals.length; ++j) {
                 const terminal = space.terminals[j]
                 let existing = -1
@@ -214,7 +282,7 @@ ApplicationWindow {
                 if (focus[w] < 0) focus[w] = added
             }
         }
-        spaces = names; spaceIds = ids; directories = folders; counts = totals
+        spaces = names; spaceIds = ids; directories = folders; counts = totals; workspaceThemes = themes
         ++catalogRevision
         Qt.callLater(rebuildOverview)
         for (let w = 0; w < names.length; ++w) {
@@ -495,6 +563,8 @@ ApplicationWindow {
     }
     Flickable {
         id: deck; objectName: "deck"
+        onContentXChanged: window.scheduleViewSave()
+        onContentYChanged: window.scheduleViewSave()
         property real scrollTarget: 0
         x: 60; y: window.overview ? 102 : 60; width: parent.width - 72; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
@@ -775,11 +845,12 @@ ApplicationWindow {
         Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 85; text: "Next key goes to this terminal · Escape cancels"; color: window.chrome.foreground; elide: Text.ElideRight }
         QuietButton { objectName: "cancelForwardKey"; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Cancel"; onClicked: if (window.selected >= 0) window.panel(window.selected).terminal.cancelForwarding() }
     }
+    Connections { target: studyView; function onChanged() { window.fontWarningDismissed = false } }
     property bool fontWarningDismissed: false
     Rectangle {
-        visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
+        visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0 || studyView.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
         QuietButton { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Dismiss"; onClicked: window.fontWarningDismissed = true }
-        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyFonts.error, studyShortcuts.error].filter(value => value.length > 0).join("\n") }
+        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyFonts.error, studyShortcuts.error, studyView.error].filter(value => value.length > 0).join("\n") }
     }
     CommandPalette {
         id: commands; objectName: "commandPalette"; anchors.centerIn: parent
@@ -934,5 +1005,5 @@ ApplicationWindow {
     }
     Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
-    Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
+    Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

@@ -130,11 +130,23 @@ void limits(const QString &base) {
     check(themes.error().contains("64") && get(base+"/limit/imports.json")==before,"capacity changed saved themes");
 }
 }
+void snapshotChecks(const QString &base) {
+    QDir().mkpath(base+"/snapshot-folder");put(base+"/snapshot-folder/keep.default",palette(88));
+    UiThemes source(base+"/snapshot-imports",nullptr,nullptr,15000,base+"/snapshot-folder");
+    const auto entry=source.catalog().last().toMap();const auto saved=source.snapshot(entry["index"].toInt());
+    check(saved["colors"].toString().contains("palette = 255="),"full theme palette snapshot");
+    QFile::remove(base+"/snapshot-folder/keep.default");UiThemes target(base+"/snapshot-imports");
+    const int restored=target.restoreSnapshot(saved);check(restored>=0 && target.snapshot(restored)==saved,"missing source retains exact theme snapshot");
+    check(target.restoreSnapshot(saved)==restored,"restored theme deduplication");
+    const auto builtin=target.snapshot(0);check(target.restoreSnapshot(builtin)==0,"built-in name/colors resolve current index");
+    auto bad=saved;bad["colors"]="background = #invalid\n";check(target.restoreSnapshot(bad)<0,"bad snapshot colors reject");
+    bad=saved;bad["colors"]="background = #123456\ncommand = /never/execute\n";check(target.restoreSnapshot(bad)<0,"snapshot contains colors only");
+}
 int main(int argc,char **argv) {
     QCoreApplication app(argc,argv);
     try {
         QTemporaryDir directory;check(directory.isValid(),"temporary directory");
-        modelChecks(directory.path());networkChecks(directory.path());directoryChecks(directory.path());limits(directory.path());
+        snapshotChecks(directory.path());modelChecks(directory.path());networkChecks(directory.path());directoryChecks(directory.path());limits(directory.path());
         if(argc==3 && QString::fromLocal8Bit(argv[1])=="--live-file") {
             UiThemes live(directory.path()+"/live");live.importTheme(QString::fromLocal8Bit(argv[2]),"Live export verification");check(live.error().isEmpty(),"live export parse");
             std::puts("PASS: supplied live Ghostty export parsed and cached in disposable storage");

@@ -83,3 +83,9 @@ to the compact rail. Invalid/truncated chrome records preserve the same all-or-
 fallback contract as layout records. Only persistent presentation preferences
 are saved; a temporary drawer, menu or its keyboard focus is never reopened.
 Pinning changes terminal estate; opening a temporary drawer leaves it unchanged.
+
+## Qt candidate profiles
+
+Saved Qt windows now use their own JSON format under `<state>/qt/windows/`,
+with the same reusable descriptor-held leasing strategy. They do not consume
+or rewrite these spike `.view` profiles. See [Qt saved views](qt-saved-sessions.md#saved-qt-window-views).

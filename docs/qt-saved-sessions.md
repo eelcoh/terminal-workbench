@@ -20,9 +20,10 @@ its window exits. Use it for experiments that should not affect real workspaces.
 
 Current limits:
 
-- Workspace organization and live processes persist. Qt window layout, focused
-  panes, filters and workspace theme choices are still local to the window.
-  Saved view profiles and workspace appearance are the next integration work.
+- Workspace organization and live processes persist in the service. Qt window
+  layout, focus, filters and workspace colors now persist in separate leased
+  view profiles, described below. Theme edits are local to that view profile;
+  this slice does not broadcast appearance changes to peer windows.
 - Font defaults and application shortcuts already use the separate user config
   directory. They do not move into the session catalog.
 - For catalog changes made in another window, use **Refresh workspaces** in the
@@ -48,3 +49,49 @@ verify retained organization, same shell/service PIDs across successful and
 failed viewer exits, ephemeral launch-config cleanup and stopped-entry retention.
 `just toolkit-ui-test` retains the X11/Wayland interaction and disposable-launcher
 cleanup checks. Native Mac saved-window and migration acceptance remain pending.
+
+## Saved Qt window views
+
+Each saved launch leases the lowest available Qt window slot. Its profile is
+`<state>/qt/windows/1.json` (or another number), with a persistent `.lock` file.
+The Qt slots are separate from the spike’s `windows/*.view` format. Two concurrent
+Qt windows get different slots and keep independent focus and layout. Closing or
+crashing a window releases its slot; reopening reuses the first free profile.
+The viewer inherits the lease descriptor so an interrupted launcher cannot free
+a slot while its window still runs. At most 64 Qt slots can be active.
+
+The view saves window dimensions, pane width fractions/full-width toggles,
+selected workspace/terminal, remembered focus and horizontal position per
+workspace, Overview/filter/reduced-motion state, Overview scroll and committed
+workspace themes. Layout and focus use stable IDs, not array positions. Deleted
+identities fall back to the current catalog; current geometry clamps scrolling,
+and selected terminals are revealed. Saved dimensions are clamped to the current
+screen’s available size. Window position and display assignment stay with the OS.
+
+Each workspace theme is saved as its name, source metadata and a bounded snapshot
+of supported colors. Removing/editing its original file does not change an already
+saved view’s colors. Choose the current file again in Appearance to adopt its new
+colors. No commands, network requests or external file loads come from a saved
+snapshot. Appearance preview is temporary: only Apply changes the committed view
+choice. Source themes and the import index stay untouched.
+
+View changes save after a short idle delay and again on normal close. No file I/O
+or snapshot formatting is added to terminal parsing or per-pane painting. Invalid,
+oversized, future-version or externally edited view files are left untouched,
+with a visible notice; terminals remain usable. Per-window font zoom, dialogs,
+selection, composition, armed shortcuts and pending confirmations are not stored.
+Font defaults continue to use the separate platform UI preferences.
+
+To review, change pane widths, select a workspace/terminal, Apply a theme and
+optionally leave Overview open. Close and reopen `just toolkit-workbench`: those
+choices should return while shell PIDs remain unchanged. Open a second window
+to check independent slots. A stopped or remotely owned terminal stays stopped
+or remotely owned: restoring focus never performs recovery or Move here.
+
+`just toolkit-view-state-test` checks the typed bounded format and safe saves;
+`just toolkit-theme-import-test` covers full theme snapshots and removed sources;
+`just toolkit-saved-session-test` checks concurrent leases and slot reuse with
+real retained shells. Native X11/Wayland UI tests now restart the viewer after
+layout/theme/Overview changes and source removal, checking exact colors, focus,
+geometry and retained reader PIDs/input. Native Mac view/display review remains
+pending. Automatic catalog subscription is still the next integration gap.

@@ -9,6 +9,7 @@ import sys
 import tempfile
 from session_service import request
 from workspace_catalog import load
+from window_slots import acquire_window_slot
 
 ROOT=Path(__file__).resolve().parent.parent
 
@@ -27,11 +28,19 @@ def saved_window(runtime,viewer,preferences):
     # Match the working viewer's service configuration; initialization never
     # starts stopped saved terminals or takes ownership from another window.
     data=request(state,runtime,ROOT)['data']
-    with tempfile.TemporaryDirectory(prefix='wb-qt-window-',dir='/tmp') as directory:
-        config=Path(directory)/'ui.json'
-        config.write_text(json.dumps(configuration(state,runtime,ROOT,data,preferences,True)))
-        print(f'Qt saved sessions: {state}. Closing detaches; shells and workspaces remain.',flush=True)
-        return subprocess.run([str(viewer),str(config)]).returncode
+    views=state/'qt';views.mkdir(mode=0o700,exist_ok=True)
+    lease,view=acquire_window_slot(views)
+    try:
+        with tempfile.TemporaryDirectory(prefix='wb-qt-window-',dir='/tmp') as directory:
+            config=Path(directory)/'ui.json';settings=configuration(state,runtime,ROOT,data,preferences,True)
+            settings['view_state']=str(view.with_suffix('.json'))
+            config.write_text(json.dumps(settings))
+            print(f'Qt saved sessions: {state}. Closing detaches; shells and workspaces remain.',flush=True)
+            print(f'Qt window view: {settings["view_state"]}',flush=True)
+            return subprocess.run([str(viewer),str(config)],pass_fds=(lease,)).returncode
+    finally:
+        os.close(lease)
+
 
 
 parser=argparse.ArgumentParser(description='Launch Qt with disposable or saved Workbench sessions.')

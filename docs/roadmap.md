@@ -20,8 +20,9 @@ is pending. No production frontend switch has been made.
 
 `just toolkit-workbench` now opens the Qt candidate on the existing saved
 catalog without study seeding. Closing detaches instead of stopping shells.
-Workspace organization and live processes persist; Qt view/theme restoration
-and automatic cross-window catalog updates remain integration follow-ups. See
+Workspace organization and live processes persist. Qt layout/focus/Overview and
+workspace colors now restore from separate leased view profiles. Automatic
+cross-window catalog updates and Mac view acceptance remain integration follow-ups. See
 [the saved-session slice](qt-saved-sessions.md).
 
 The Qt candidate now follows the approved `just spike` chrome: bundled interface
@@ -1345,3 +1346,18 @@ A menu action refreshes catalog changes from peer windows until automatic
 subscription is integrated. Real-runtime launcher checks and native Linux UI
 regressions cover this first slice. Saved Qt window profiles/theme choices and
 native Mac review remain ahead.
+
+## Qt saved window views and workspace colors
+
+Saved Qt launches now lease independent reusable view profiles. Stable workspace
+and terminal IDs restore layout, focus, scroll, Overview/filter/motion state and
+committed workspace themes. Theme snapshots retain full palette/default colors
+without requiring the source file to remain present. Preview/Cancel never stores
+temporary colors. Restore cannot recover a shell or transfer terminal ownership.
+
+Views save on a debounced client-state change and normal close; terminal parse
+and paint paths perform no persistence work. Invalid/future/oversized/stale view
+files stay untouched with a local notice. Independent slot reuse, theme roundtrip
+and removed-source restoration are covered alongside native Linux restart checks
+with real readers. Mac view/display acceptance, automatic catalog updates and
+cross-window appearance synchronization remain open.

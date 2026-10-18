@@ -9,6 +9,7 @@ ROOT=Path(__file__).resolve().parent.parent
 sys.path[:0]=[str(ROOT/'scripts'),str(ROOT/'tests')]
 from session_service import request
 from session_smoke import wait_until
+from window_slots import acquire_window_slot
 runtime=Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory(prefix='wb-qt-saved-',dir='/tmp') as directory:
     root=Path(directory);state=root/'sessions';viewer=root/'viewer';evidence=root/'evidence.json'
@@ -28,7 +29,7 @@ if not os.environ.get('WB_SAVED_STOPPED'):
  finally:connection.close()
 if os.environ.get('WB_SAVED_CREATE'):
  data=request(state,runtime,cwd,'workspace.create_at',title='Retained project',project_directory=str(cwd))['data']
-Path(os.environ['WB_SAVED_EVIDENCE']).write_text(json.dumps(dict(config_path=str(path),catalog=data,pid=pid,terminal=terminal,saved=config['saved_session'],state=config['state'],cwd=config['cwd'])))
+Path(os.environ['WB_SAVED_EVIDENCE']).write_text(json.dumps(dict(config_path=str(path),catalog=data,pid=pid,terminal=terminal,view=config['view_state'],saved=config['saved_session'],state=config['state'],cwd=config['cwd'])))
 sys.exit(int(os.environ.get('WB_SAVED_EXIT','0')))
 """);viewer.chmod(0o700)
     env=dict(os.environ,SHELL='/bin/sh',WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(root/'config'),WB_SAVED_EVIDENCE=str(evidence))
@@ -42,7 +43,12 @@ sys.exit(int(os.environ.get('WB_SAVED_EXIT','0')))
     try:
         first=launch(WB_SAVED_CREATE='1');os.kill(first['pid'],0)
         service_pid=request(state,runtime,ROOT,'health')['service_pid']
-        second=launch();assert second['catalog']==first['catalog'] and second['pid']==first['pid'],'relaunch replaced a shell or workspace'
+        assert Path(first['view']).name=='1.json'
+        lease,_=acquire_window_slot(state/'qt')
+        try:
+            peer=launch();assert Path(peer['view']).name=='2.json' and peer['pid']==first['pid'],'window lease isolation'
+        finally:os.close(lease)
+        second=launch();assert second['view']==first['view'];assert second['catalog']==first['catalog'] and second['pid']==first['pid'],'relaunch replaced a shell or workspace'
         failed=launch(WB_SAVED_EXIT='42');assert failed['pid']==first['pid'] and failed['catalog']==first['catalog'];os.kill(first['pid'],0)
         assert request(state,runtime,ROOT,'health')['service_pid']==service_pid,'viewer exit stopped the service'
         request(state,runtime,ROOT,'session.stop',terminal_ids=[first['terminal']])

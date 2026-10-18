@@ -31,6 +31,8 @@ public:
     Q_INVOKABLE void reloadDirectory();
     Q_INVOKABLE void openThemesDirectory();
     Q_INVOKABLE QVariantMap theme(int index) const;
+    Q_INVOKABLE QVariantMap snapshot(int index) const;
+    Q_INVOKABLE int restoreSnapshot(const QVariantMap &snapshot);
     Q_INVOKABLE void importTheme(const QString &source,const QString &name={},const QString &attribution={});
     Q_INVOKABLE void cancelImport();
     Q_INVOKABLE void clearError();
@@ -45,6 +47,7 @@ private:
     void finish(const QByteArray &text,const QString &source,const QString &name,const QString &attribution);
     void fail(const QString &error);
     static bool parse(const QByteArray &text,WorkbenchTheme &theme,int &ignored,QString &error);
+    mutable QHash<int,QVariantMap> snapshots_;
     QString themesPath_,directoryStatus_;QHash<QString,int> directoryIndices_;
     QString directory_,error_,storeError_,status_,pendingSource_,pendingName_,pendingAttribution_;
     QVector<StoredTheme> records_;
