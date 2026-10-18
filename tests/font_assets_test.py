@@ -38,6 +38,10 @@ def main():
     assert hashlib.sha256(fira.read_bytes()).hexdigest() in (fira.parent/'README.md').read_text()
     assert 'SIL OPEN FONT LICENSE Version 1.1' in (fira.parent/'OFL.txt').read_text()
     assert all(ord(cp) in codepoints(fira.read_bytes()) for cp in 'Workbench café Ελληνικά / →')
+    jetbrains=ROOT/'fonts/jetbrains-mono/JetBrainsMono-Regular.ttf'
+    assert hashlib.sha256(jetbrains.read_bytes()).hexdigest() in (jetbrains.parent/'README.md').read_text()
+    assert 'SIL OPEN FONT LICENSE Version 1.1' in (jetbrains.parent/'OFL.txt').read_text()
+    assert all(ord(cp) in codepoints(jetbrains.read_bytes()) for cp in 'Workbench café Ελληνικά / →')
     print('PASS: bundled interface integrity/coverage/license; cmap format 4/12, non-BMP/missing glyphs, symbol coverage, font digest and license')
 
 if __name__=='__main__':main()

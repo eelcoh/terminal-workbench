@@ -56,7 +56,8 @@ while True:
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store)}))
+        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n');managed_bytes=managed.read_bytes()
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed)}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -236,6 +237,33 @@ while True:
         key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][0]['focus'])
         assert sizes()==command_grid and [p['instance'] for p in data()['panes']]==command_pids
         assert [received(i) for i in range(6)]==command_input,'palette keys leaked into a PTY'
+        # Preview is a window transaction; all panes retain their items and PTYs.
+        font_grid=sizes();font_items=[p['instance'] for p in data()['panes']];font_input=[received(i) for i in range(6)]
+        assert data()['font_defaults']=={'family':'Fira Code','size':16}
+        def settled_font(family,size):
+            return data()['font_preferences']=={'family':family,'size':size} and all(p['font']=={'family':family,'size':size} and p['geometry_ready'] for p in data()['panes'])
+        def font_menu():
+            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+            click(*data()['font_menu_item']);wait_until(lambda:data()['font_settings_open'] and not data()['application_menu_open'])
+        font_menu();key('super+alt+t');key('super+alt+Right');time.sleep(.1)
+        assert len(data()['panes'])==6 and data()['selected']==0,'global shortcut escaped font dialog'
+        click(*data()['font_plus']);wait_until(lambda:settled_font('Fira Code',17))
+        assert sizes()!=font_grid,'text size did not change the real PTY grid'
+        click(*data()['font_jetbrains']);wait_until(lambda:settled_font('JetBrains Mono',17));capture('font-preview.png')
+        key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('Fira Code',16) and sizes()==font_grid and data()['panes'][0]['focus'])
+        command_search('bundled font');key('Return');wait_until(lambda:data()['font_settings_open'] and not data()['commands_open'])
+        click(*data()['font_jetbrains']);click(*data()['font_plus']);wait_until(lambda:settled_font('JetBrains Mono',17))
+        click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
+        font_menu();click(*data()['font_defaults_button']);wait_until(lambda:settled_font('Fira Code',16))
+        key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
+        key('super+alt+0');wait_until(lambda:settled_font('JetBrains Mono',16))
+        key('super+alt+equal');wait_until(lambda:settled_font('JetBrains Mono',17))
+        key('super+alt+minus');wait_until(lambda:settled_font('JetBrains Mono',16))
+        font_menu();click(*data()['font_defaults_button']);wait_until(lambda:settled_font('Fira Code',16))
+        click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and sizes()==font_grid and data()['panes'][0]['focus'])
+        assert [p['instance'] for p in data()['panes']]==font_items and [received(i) for i in range(6)]==font_input
+        assert managed.read_bytes()==managed_bytes,'font UI rewrote managed settings'
+        for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
         initial_sizes=sizes();pane=data()['panes'][0];click(pane['x'],pane['y'],7)
         wait_until(lambda:data()['content_x']>0)
         assert sizes()==initial_sizes and data()['panes'][0]['focus'],'horizontal wheel changed grid or focus'
@@ -653,13 +681,14 @@ while True:
         assert boxes['workspace'][2] < boxes['indicators'][0] and boxes['indicators'][2] < boxes['count'][0]
         assert boxes['count'][2] <= boxes['add'][0] and boxes['add'][2] < boxes['overview'][0],'top-bar controls overlap'
         capture('chrome-narrow.png')
+        font_menu();capture('font-narrow.png');key('Escape');wait_until(lambda:not data()['font_settings_open'])
         command_search('workspace');capture('commands-narrow.png')
         key('Escape');wait_until(lambda:not data()['commands_open'])
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except BaseException:
         if report.exists():(artifacts/'failure.json').write_bytes(report.read_bytes())
         for evidence in root.glob('*.log'):(artifacts/('failure-'+evidence.name)).write_bytes(evidence.read_bytes())

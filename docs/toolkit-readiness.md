@@ -1215,3 +1215,16 @@ Wayland coverage exercises input isolation, unavailable/no-match choices, safe
 dialog handoff, mouse/Tab navigation and stable terminal instances/grids. Native
 Mac palette acceptance remains open. Font/configuration, saved sessions and
 packaging remain before a frontend decision; `just spike` remains the daily viewer.
+
+
+## Qt font and configuration slice
+
+The candidate adds bundled JetBrains Mono/Fira Code, native logical-point sizing,
+preview/apply/cancel/defaults and scoped size shortcuts. Startup font defaults reuse
+the current managed shared/platform parser. Configuration stays read-only; invalid
+input falls back with a dismissible notice. Window changes remain temporary.
+Core contracts cover precedence, symlinks and transaction boundaries. Native GUI
+coverage checks six-pane preview/cancel geometry, stable processes/items/input,
+modal scope, new-pane inheritance and minimum-width controls. Mac font/dialog and
+mixed-display acceptance remain open. Remaining managed settings, saved window
+preferences and packaging still precede adoption.

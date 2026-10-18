@@ -62,6 +62,13 @@ ApplicationWindow {
     onOverviewChanged: Qt.callLater(rebuildOverview)
     function openAgents() { if (!overview) toggleOverview(); changeFilter(true, false) }
     WorkbenchActions { id: commandRegistry; host: window; session: studySession }
+    property bool pendingFontSettings: false
+    readonly property bool fontSettingsOpen: fontSettings.visible
+    function openFontSettings() {
+        if (fontSettings.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible || help.visible) return
+        if (appMenu.visible) { pendingFontSettings = true; appMenu.close() }
+        else { studyFonts.begin(); fontSettings.open() }
+    }
     property bool pendingCommands: false
     property string pendingCommand: ""
     property string commandTerminal: ""
@@ -71,7 +78,7 @@ ApplicationWindow {
     readonly property int commandCurrent: commands.currentResult
     readonly property var commandMatches: commands.matches
     function openCommands() {
-        if (terminalAction.visible || createDialog.visible || appearance.visible || help.visible || drawer.visible || paneMenu.visible || commands.visible || dragSlot >= 0) return
+        if (terminalAction.visible || createDialog.visible || appearance.visible || help.visible || drawer.visible || paneMenu.visible || fontSettings.visible || commands.visible || dragSlot >= 0) return
         if (appMenu.visible) { pendingCommands = true; appMenu.close() }
         else showCommands()
     }
@@ -84,6 +91,10 @@ ApplicationWindow {
         const entry = commandRegistry.find(id)
         if (!entry || !entry.available) return
         switch (id) {
+        case "font-settings": openFontSettings(); break
+        case "font-increase": studyFonts.step(1); break
+        case "font-decrease": studyFonts.step(-1); break
+        case "font-reset": studyFonts.resetSize(); break
         case "new-terminal": newTerminal(); break
         case "new-workspace": newWorkspace(); break
         case "overview": toggleOverview(); break
@@ -259,13 +270,15 @@ ApplicationWindow {
         else studySession.createWorkspace(newName.text, newFolder.text)
     }
     function restoreAfterPopup() {
-        if (pendingCommands) {
+        if (pendingFontSettings) {
+            pendingFontSettings = false; Qt.callLater(function() { studyFonts.begin(); fontSettings.open() })
+        } else if (pendingCommands) {
             pendingCommands = false; Qt.callLater(showCommands)
         } else if (pendingAppearance) {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !commands.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !fontSettings.visible && !commands.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -354,7 +367,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -527,6 +540,7 @@ ApplicationWindow {
                     property var runtimeFacts: pane.facts
                     x: 4; y: 36; width: parent.width - 8; height: parent.height - 40
                     enabled: !window.overview
+                    textFont: studyFonts.current
                     themeIndex: window.themeIndexFor(pane.spaceIndex)
                     presentationEnabled: pane.visible && pane.x + pane.width * pane.scale > deck.contentX && pane.x < deck.contentX + deck.width && pane.y + pane.height * pane.scale > deck.contentY && pane.y < deck.contentY + deck.height
                     opacity: presentationEnabled ? 1 : 0
@@ -680,6 +694,7 @@ ApplicationWindow {
         MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
         MenuRule {}
         MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
+        MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; onTriggered: window.openFontSettings() }
         MenuAction { keyHint: window.chordLabel + "/"; text: "Keyboard shortcuts"; onTriggered: help.open() }
         MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
         MenuRule {}
@@ -739,6 +754,16 @@ ApplicationWindow {
             close()
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+    }
+    FontSettings {
+        id: fontSettings; anchors.centerIn: parent; tones: window.chrome; preferences: studyFonts
+        onClosed: Qt.callLater(window.restoreAfterPopup)
+    }
+    property bool fontWarningDismissed: false
+    Rectangle {
+        visible: studyFonts.error.length > 0 && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
+        QuietButton { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Dismiss"; onClicked: window.fontWarningDismissed = true }
+        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: studyFonts.error }
     }
     CommandPalette {
         id: commands; objectName: "commandPalette"; anchors.centerIn: parent
@@ -852,15 +877,18 @@ ApplicationWindow {
         contentItem: Flickable {
             contentWidth: width; contentHeight: helpText.implicitHeight; clip: true
             ScrollBar.vertical: ScrollBar {}
-            Label { id: helpText; color: window.chrome.foreground; width: parent.width; padding: 18; text: window.chordLabel + "P             Commands\n" + window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "⇧← / →     Move terminal left / right\n" + window.chordLabel + "⇧↑ / ↓     Move to workspace above / below\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
+            Label { id: helpText; color: window.chrome.foreground; width: parent.width; padding: 18; text: window.chordLabel + "= / − / 0   Text size + / − / reset\n" + window.chordLabel + "P             Commands\n" + window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "⇧← / →     Move terminal left / right\n" + window.chordLabel + "⇧↑ / ↓     Move to workspace above / below\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: dragSlot < 0 && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: dragSlot < 0 && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     Shortcut { sequence: window.chord + "Shift+Left"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(-1) }
     Shortcut { sequence: window.chord + "Shift+Right"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(1) }
     Shortcut { sequence: window.chord + "Shift+Up"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(-1) }
     Shortcut { sequence: window.chord + "Shift+Down"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(1) }
+    Shortcut { sequence: window.chord + "="; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("font-increase") }
+    Shortcut { sequence: window.chord + "-"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("font-decrease") }
+    Shortcut { sequence: window.chord + "0"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("font-reset") }
     Shortcut { sequence: window.chord + "P"; enabled: window.globalKeyContext; onActivated: window.openCommands() }
     Shortcut { sequence: window.chord + "T"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("new-terminal") }
     Shortcut { sequence: window.chord + "N"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("new-workspace") }
@@ -872,7 +900,7 @@ ApplicationWindow {
     Shortcut { sequence: window.chord + "R"; enabled: !window.overview && window.globalKeyContext; onActivated: window.dispatchCommand("cycle-width") }
     Shortcut { sequence: window.chord + "F"; enabled: !window.overview && window.globalKeyContext; onActivated: window.dispatchCommand("full-width") }
     Shortcut { sequence: window.chord + "/"; enabled: window.globalKeyContext; onActivated: help.open() }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

@@ -439,3 +439,15 @@ reader input across the palette flows. Review captures are `commands-search.png`
 and `commands-narrow.png` under `.local/artifacts/qt-ui/{xcb,wayland}/`.
 Native Mac keyboard/visual acceptance remains pending. `just spike` is still the
 daily-use viewer; this does not adopt Qt as the production frontend.
+
+
+## Qt font controls
+
+Terminal text settings now preview/apply/cancel bundled JetBrains Mono or Fira
+Code at 10–32 logical points across the study window. Commands and the default
+application modifier with = / − / 0 provide size changes. New panes inherit the
+window choice; existing PTYs retain their identities/processes. Dotfile font
+baselines use the existing shared/platform parser at startup, with untouched
+managed files and a visible fallback diagnostic. Changes remain window-local
+and temporary; saved overrides and the other portable settings are follow-ups.
+See [font controls and validation](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults).

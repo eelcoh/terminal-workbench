@@ -347,3 +347,7 @@ toolkit-runtime-facts-test: runtime-build
 # Read-only lifecycle status contracts, without a GUI.
 toolkit-lifecycle-test: runtime-build
     python3 scripts/toolkit-probe.py lifecycle-test
+
+# Read-only dotfiles and window-local Qt font transactions, without a display.
+toolkit-fonts-test: runtime-build
+    python3 scripts/toolkit-probe.py fonts-test

@@ -11,6 +11,7 @@
 // this client restores a snapshot and maintains only its presentation replica.
 class TerminalItem : public QQuickPaintedItem {
     Q_OBJECT
+    Q_PROPERTY(QVariantMap textFont READ textFont WRITE setTextFont NOTIFY textFontChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(bool ready READ ready NOTIFY statusChanged)
     Q_PROPERTY(QString attachment READ attachment NOTIFY statusChanged)
@@ -24,6 +25,8 @@ public:
     QString attachment() const{return attachment_;}
     QString status() const { return status_; }
     bool ready() const { return ready_; }
+    QVariantMap textFont() const {return {{"family",font_.family()},{"size",fontPoints_}};}
+    void setTextFont(const QVariantMap &style);
     int themeIndex() const {return themeIndex_;}
     void setThemeIndex(int index);
     QColor backgroundColor() const {return background_;}
@@ -63,6 +66,7 @@ public:
 Q_SIGNALS:
     void statusChanged();
     void themeChanged();
+    void textFontChanged();
     void presentationEnabledChanged();
 protected:
     bool event(QEvent *) override;
@@ -112,6 +116,7 @@ private:
     QColor cursorColor_{"#a8c7fa"},selectionBackground_{"#405575"},selectionForeground_{"#ffffff"};
     int themeIndex_=-1;
     QFont font_;
+    int fontPoints_=0;
     qreal cellWidth_=10, cellHeight_=22, ascent_=17;
     quint16 columns_=0, lines_=0, wantedColumns_=0, wantedLines_=0;
     QRectF caret_;

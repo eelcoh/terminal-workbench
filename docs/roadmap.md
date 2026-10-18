@@ -28,7 +28,10 @@ exit reasons, non-stealing reconnect, guarded recovery, explicit ownership
 transfer and confirmed terminal close, now owner-confirmed. The command palette
 adds searchable, context-aware actions with shared creation/layout dispatch and
 safe dialog handoff. Native Mac palette review remains open. Next are portable
-font/configuration controls, saved-session integration and packaging. Retain the external-display/accessibility/native-input acceptance
+remaining portable settings/shortcuts, saved-session integration and packaging.
+The Qt terminal-text slice now loads managed shared/platform font defaults and
+provides bundled face/size preview, Apply/Cancel and size shortcuts. Window edits
+remain temporary until saved-session integration; native Mac review is pending. Retain the external-display/accessibility/native-input acceptance
 gates before adoption. The sections below record evidence and remaining scope.
 
 The Linux integration prototype has established:

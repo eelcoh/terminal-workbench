@@ -153,3 +153,13 @@ cancel/failed-save handling and malformed settings, retaining PID/socket/grid.
 The Linux viewer build, full `just check`, dotfiles GUI check, one/fifteen-terminal
 theme regressions and ordinary/reduced-motion shortcut-help checks pass.
 Native Mac filesystem and keyboard review remains pending.
+
+
+## Qt candidate scope
+
+`just toolkit-ui` now reads the same managed shared/platform `[font]` defaults.
+It validates the existing file as a whole and uses built-in fonts plus a visible
+notice when invalid. Its Terminal text settings preview/apply/cancel changes for
+that disposable window without writing configuration. Other managed settings and
+saved per-window font overrides are not yet connected to Qt. See
+[Qt font controls](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults).

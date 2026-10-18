@@ -4,6 +4,7 @@
 #include <QFontDatabase>
 #include "ui_session.h"
 #include "ui_themes.h"
+#include "ui_fonts.h"
 #include <QDir>
 #include <QQmlContext>
 #include <QJSValue>
@@ -42,12 +43,20 @@ int main(int argc,char **argv) {
     const auto configuration=QJsonDocument::fromJson(config.readAll()).object();
     if(!configuration["catalog"].isObject() || configuration["state"].toString().isEmpty())return 2;
     UiSession session(configuration);
+#if defined(Q_OS_MACOS)
+    constexpr bool apple=true;
+#else
+    constexpr bool apple=false;
+#endif
+    UiFonts fonts(configuration["preferences"].toString(),apple);
+    if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")));
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QQmlApplicationEngine engine;
     QObject::connect(&engine,&QQmlEngine::warnings,&app,[](const QList<QQmlError> &errors){for(const auto &error:errors)std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));});
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studyThemes",&themes);
+    engine.rootContext()->setContextProperty("studyFonts",&fonts);
     engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
     auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
     // Explicit test-only snapshots; no user terminal content is recorded by default.
@@ -82,7 +91,7 @@ int main(int argc,char **argv) {
                     {"workspace",item->property("workspaceIndex").toInt()},{"ordinal",item->property("orderInWorkspace").toInt()},
                     {"theme",item->themeIndex()},{"background",item->backgroundColor().name()},
                     {"sample_green",item->cellForeground(1,2).name()},{"sample_red",item->cellForeground(1,0).name()},{"sample_rgb",item->cellForeground(1,1).name()},
-                    {"columns",size.width()},{"rows",size.height()},{"geometry_ready",size==geometry},{"focus",item->hasActiveFocus()},
+                    {"font",QJsonObject::fromVariantMap(item->textFont())},{"columns",size.width()},{"rows",size.height()},{"geometry_ready",size==geometry},{"focus",item->hasActiveFocus()},
                     {"left",bounds.left()},{"top",bounds.top()},{"right",bounds.right()},{"bottom",bounds.bottom()},
                     {"x",position.x()},{"y",position.y()},{"rasterized_rows",double(item->rasterizedRows())}});
             }
@@ -108,7 +117,12 @@ int main(int argc,char **argv) {
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
-            const QJsonObject data{{"commands_open",window->property("commandsOpen").toBool()},
+            const QJsonObject data{{"font_settings_open",window->property("fontSettingsOpen").toBool()},
+                {"font_preferences",QJsonObject::fromVariantMap(fonts.current())},
+                {"font_defaults",QJsonObject::fromVariantMap(fonts.defaults())},
+                {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},
+                {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},
+                {"commands_open",window->property("commandsOpen").toBool()},
                 {"command_first_row",center("commandRow0")},{"reduced_motion",window->property("reducedMotion").toBool()},
                 {"command_current",window->property("commandCurrent").toInt()},
                 {"command_search_focus",window->property("commandSearchFocus").toBool()},

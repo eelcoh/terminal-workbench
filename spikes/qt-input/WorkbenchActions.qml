@@ -12,6 +12,10 @@ QtObject {
     readonly property var neighbours: host.overview ? host.overviewIndices(host.workspace) : host.indices(host.workspace)
     readonly property int position: neighbours.indexOf(host.selected)
     readonly property var entries: [
+        row("font-settings", "Terminal text…", "Choose a bundled font and preview its size", "", true, ""),
+        row("font-increase", "Increase terminal text size", "Larger text across this window", "=", studyFonts.current.size < 32, "Already at 32 pt"),
+        row("font-decrease", "Decrease terminal text size", "Smaller text across this window", "−", studyFonts.current.size > 10, "Already at 10 pt"),
+        row("font-reset", "Reset terminal text size", "Use dotfile size and retain the chosen font", "0", true, ""),
         row("new-terminal", "New terminal", "Start a shell in this workspace’s folder", "T", host.canCreateTerminal, session.busy ? "Another change is in progress" : "Workspace already has eight terminals"),
         row("new-workspace", "New workspace…", "Choose a name and project folder", "N", host.canCreateWorkspace, session.busy ? "Another change is in progress" : "Already at eight workspaces"),
         row("overview", host.overview ? "Leave Overview" : "Show Overview", "See workspaces and live terminal previews", "O", true, ""),

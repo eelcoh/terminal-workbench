@@ -67,8 +67,8 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     connect(this,&QQuickItem::visibleChanged,this,[this] {
         if(isVisible() && ready_ && !refreshTimer_.isActive())refreshTimer_.start();
     });
-    const int fontId=QFontDatabase::addApplicationFont(":/fonts/fira-code/FiraCode-Regular.ttf");
-    const auto families=QFontDatabase::applicationFontFamilies(fontId);
+    // Register once per process, not once per pane.
+    static const auto families=QFontDatabase::applicationFontFamilies(QFontDatabase::addApplicationFont(":/fonts/fira-code/FiraCode-Regular.ttf"));
     if(families.isEmpty()) {fail("Bundled Fira Code could not load");return;}
     font_=QFont(families.first()); font_.setPixelSize(18);
     QFontMetricsF metrics(font_);
@@ -141,6 +141,27 @@ void TerminalItem::applyTheme()
     ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_COLOR_PALETTE,&palette);
     selectionBackground_=QColor(theme.selection_background.r,theme.selection_background.g,theme.selection_background.b);
     selectionForeground_=QColor(theme.selection_foreground.r,theme.selection_foreground.g,theme.selection_foreground.b);
+}
+void TerminalItem::setTextFont(const QVariantMap &style)
+{
+    const auto family=style.value("family").toString();const auto size=style.value("size");
+    if((family!="Fira Code" && family!="JetBrains Mono") || size.toDouble()!=size.toInt() || size.toInt()<10 || size.toInt()>32)return;
+    if(font_.family()==family && fontPoints_==size.toInt())return;
+    // Only explicitly bundled faces; never silently select an installed fallback.
+    static QHash<QString,QString> loaded;
+    if(!loaded.contains(family)) {
+        const auto resource=family=="Fira Code" ? ":/fonts/fira-code/FiraCode-Regular.ttf" : ":/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf";
+        const auto names=QFontDatabase::applicationFontFamilies(QFontDatabase::addApplicationFont(resource));
+        if(names.isEmpty()){qWarning("Bundled terminal font unavailable");return;}loaded.insert(family,names.first());
+    }
+    // Clear old composition before changing its metrics; never commit preedit.
+    if(composition_.active() && hasActiveFocus())QGuiApplication::inputMethod()->reset();
+    composition_.set(QInputMethodEvent(),font_);
+    font_=QFont(loaded.value(family));fontPoints_=size.toInt();font_.setPointSizeF(fontPoints_);
+    QFontMetricsF metrics(font_);cellWidth_=std::ceil(metrics.horizontalAdvance('M'));cellHeight_=std::ceil(metrics.height());ascent_=metrics.ascent();
+    dragging_=false;selectionStarted_=false;cursorGlyph_=QImage();cursorRowKey_=0;
+    resizeTerminal();if(ready_ && !refreshTimer_.isActive())refreshTimer_.start();
+    update(boundingRect().toAlignedRect());QGuiApplication::inputMethod()->update(Qt::ImFont|Qt::ImCursorRectangle);Q_EMIT textFontChanged();
 }
 void TerminalItem::setPresentationEnabled(bool enabled)
 {
