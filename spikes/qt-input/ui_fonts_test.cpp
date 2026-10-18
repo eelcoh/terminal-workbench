@@ -3,6 +3,10 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QDir>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLockFile>
 #include <cstdio>
 #include <cstdlib>
 static void require(bool ok,const char *message){if(!ok){std::fprintf(stderr,"FAIL: %s\n",message);std::exit(1);}}
@@ -37,5 +41,25 @@ int main(int argc,char **argv){
     write(target,"workbench-config-v1\n[appearance]\nterminal-theme = absent\n[font]\nsize = 99\n");UiFonts badFontWithTheme(link,true);
     require(!badFontWithTheme.error().isEmpty() && badFontWithTheme.current()["size"]==16,"font validation remains active with unused themes");
     UiFonts absent(dir.filePath("missing"),true);require(absent.error().isEmpty() && absent.current()==invalid.defaults(),"missing config defaults");
-    std::puts("PASS: shared/platform font defaults, managed symlink preservation, preview/apply/cancel/reset, bounds and transactional invalid-file fallback");
+    write(target,managed);const auto layer=dir.filePath("ui/linux/terminal-font.json");
+    UiFonts saved(link,false,nullptr,layer);saved.begin();saved.preview("JetBrains Mono",18);saved.cancel();
+    require(!QFile::exists(layer) && saved.current()==saved.defaults(),"preview cancel creates no file");
+    saved.begin();saved.preview("JetBrains Mono",18);require(saved.apply(),"font durable apply");saved.cancel();
+    UiFonts restored(link,false,nullptr,layer);require(restored.current()==saved.current() && restored.current()["size"]==18,"font survives reopening");
+    require(!(QFile::permissions(layer)&(QFileDevice::ReadGroup|QFileDevice::WriteGroup|QFileDevice::ReadOther|QFileDevice::WriteOther)),"private UI permissions");
+    QFile savedFile(layer);require(savedFile.open(QIODevice::ReadOnly),"font store read");const auto savedBytes=savedFile.readAll();savedFile.close();
+    restored.step(1);UiFonts afterShortcut(link,false,nullptr,layer);require(afterShortcut.current()["size"]==18,"size shortcuts are temporary until Apply");
+    restored.begin();restored.useDefaults();require(restored.apply(),"save inherited font");
+    require(savedFile.open(QIODevice::ReadOnly),"read reset layer");const auto sparse=QJsonDocument::fromJson(savedFile.readAll()).object();savedFile.close();require(sparse.size()==1 && sparse["version"].toInt()==1,"managed fields omitted");
+    UiFonts stale(link,false,nullptr,layer);stale.begin();stale.preview("JetBrains Mono",22);write(layer,savedBytes);
+    require(!stale.apply() && !stale.editError().isEmpty(),"stale UI settings reject save");stale.cancel();require(stale.current()==stale.defaults(),"failed save remains cancellable");
+    UiFonts staleManaged(link,false,nullptr,layer);write(target,managed+"# external edit\n");staleManaged.begin();require(!staleManaged.apply(),"managed changes before opening editor rejected");write(target,managed);
+    UiFonts locked(link,false,nullptr,layer);locked.begin();locked.preview("Fira Code",22);QLockFile lock(layer+".lock");require(lock.tryLock(0),"test lock");require(!locked.apply(),"locked writer rejected");lock.unlock();require(locked.apply(),"save after lock release");
+    write(dir.filePath("blocked"),"file");UiFonts failed(link,false,nullptr,dir.filePath("blocked/font.json"));failed.begin();failed.preview("Fira Code",22);require(!failed.apply(),"write failure rejects Apply");failed.cancel();require(failed.current()==failed.defaults(),"write failure cancel restores current");
+    const QList<QByteArray> bad={"{broken", "{\"version\":2}", "{\"version\":1,\"size\":18.5}", "{\"version\":1,\"family\":\"missing\"}", "{\"version\":1,\"size\":99}", "{\"version\":1,\"extra\":true}", QByteArray(4097,' ')};
+    for(const auto &payload:bad){write(layer,payload);UiFonts invalidSaved(link,false,nullptr,layer);require(!invalidSaved.error().isEmpty() && invalidSaved.current()==invalidSaved.defaults(),"invalid saved font falls back transactionally");invalidSaved.begin();require(!invalidSaved.apply(),"invalid saved file preserved");require(savedFile.open(QIODevice::ReadOnly) && savedFile.readAll()==payload,"invalid bytes untouched");savedFile.close();}
+    write(layer,"{\"version\":1,\"size\":19}");UiFonts sparseSaved(link,false,nullptr,layer);require(sparseSaved.current()["family"]=="Fira Code" && sparseSaved.current()["size"]==19,"omitted family inherits managed default");
+    UiFonts macSaved(link,true,nullptr,dir.filePath("ui/macos/terminal-font.json"));require(macSaved.current()["size"]==20,"Mac separate platform layer");
+    require(check.open(QIODevice::ReadOnly) && check.readAll()==managed && QFileInfo(link).isSymLink(),"persistent apply preserves managed symlink");check.close();
+    std::puts("PASS: font defaults, preview/apply/cancel, sparse durable settings, restart, inherited defaults, managed symlinks, invalid stores, locks and failed/stale saves");
 }

@@ -467,3 +467,14 @@ Focus, visibility, connection and composition changes retire an unused request.
 The same live item encodes the next chord, bypassing application/clipboard and
 host word-motion interception. Normal key handling resumes afterward. No runtime
 or protocol changes are involved. See [Qt forwarding](shortcuts.md#qt-one-shot-forwarding).
+
+## Durable terminal font defaults
+
+Terminal text Apply now saves a sparse platform UI layer in
+`ui/<platform>/terminal-font.json`, while managed fonts remain read-only. New
+launches inherit saved face/size; existing other windows retain their choices.
+Preview and Cancel do not save, and size shortcuts remain temporary until Apply.
+Use dotfile defaults followed by Apply removes overrides. Invalid stores are
+preserved; stale or failed saves keep the dialog open for Cancel. Font saving is
+independent of the disposable session catalog. Workspace theme persistence and
+saved per-window sessions remain follow-ups. See [font persistence](terminal-fonts.md#qt-saved-font-defaults).

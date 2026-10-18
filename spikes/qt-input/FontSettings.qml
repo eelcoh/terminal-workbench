@@ -24,12 +24,13 @@ Dialog {
             Label { width: 60; height: 32; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: popup.preferences.current.size + " pt"; color: popup.tones.foreground }
             ChromeButton { objectName: "fontPlus"; tones: popup.tones; text: "+"; hint: "Increase terminal text size"; enabled: popup.preferences.current.size < 32; onClicked: popup.preferences.step(1) }
         }
-        Label { width: parent.width; text: "Preview across this window. Apply keeps the change until this study closes."; wrapMode: Text.Wrap; color: popup.tones.muted; font.pixelSize: 12 }
+        Label { width: parent.width; text: "Preview across this window. Apply saves the font and size for future launches on this platform."; wrapMode: Text.Wrap; color: popup.tones.muted; font.pixelSize: 12 }
+        Label { width: parent.width; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: 12 }
         Row {
             width: parent.width; spacing: 8
             ChromeButton { objectName: "fontDefaults"; tones: popup.tones; text: "Use dotfile defaults"; onClicked: popup.preferences.useDefaults() }
             ChromeButton { id: cancelButton; tones: popup.tones; text: "Cancel"; onClicked: popup.close() }
-            ChromeButton { objectName: "fontApply"; tones: popup.tones; text: "Apply"; onClicked: { popup.preferences.apply(); popup.close() } }
+            ChromeButton { objectName: "fontApply"; tones: popup.tones; text: "Apply"; onClicked: if (popup.preferences.apply()) popup.close() }
         }
     }
     onOpened: cancelButton.forceActiveFocus()

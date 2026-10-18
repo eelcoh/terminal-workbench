@@ -111,7 +111,8 @@ metadata wiring), and the primary/fallback Unicode font GUI check pass.
 Run `just toolkit-ui`, then choose **Terminal text…** from the hamburger menu
 or Commands. Select **JetBrains Mono** or **Fira Code**, adjust the size from
 **10 to 32 logical points**, and preview it across the window. **Apply** keeps
-the choice for this study window, including terminals created afterward;
+the choice in this window and saves defaults for future launches on this
+platform, including terminals created afterward;
 **Cancel** or Escape restores the opening font/size. **Use dotfile defaults**
 previews the configured face and size, and can itself be cancelled.
 
@@ -130,8 +131,9 @@ transactionally with a dismissible startup diagnostic. The managed file and
 its symlink/comments stay untouched. The existing field syntax and shortcut
 rules are validated, but this font-only adapter does not open theme files that
 Qt does not yet consume. A missing or malformed external theme cannot discard
-valid fonts or trigger a font warning. Managed appearance, generated shortcut overrides and saved per-window fonts
-remain follow-ups; supported managed application bindings now load at startup.
+valid fonts or trigger a font warning. Generated shortcut overrides and saved
+font defaults now load at startup; managed appearance and per-session font
+restoration remain follow-ups.
 
 Both faces are bundled with their OFL notices. The existing shaped row
 renderer uses the chosen face and Qt point metrics, with backing density
@@ -151,3 +153,31 @@ and sizing on Mac. The unrelated missing-theme warning is covered by both
 platform adapters and native Linux startup regressions; its Mac recheck,
 external-display sharpness and saved-window restoration remain open. The daily
 viewer is still `just spike`.
+## Qt saved font defaults
+
+Terminal text **Apply** writes sparse overrides to
+`ui/linux/terminal-font.json` or `ui/macos/terminal-font.json` under the normal
+configuration directory. `WORKBENCH_CONFIG_DIR` still selects that directory.
+Only fields different from managed font defaults are stored; **Use dotfile
+defaults → Apply** removes those field overrides. Managed settings, comments
+and symlinks stay untouched. The JSON file has `version: 1` and optional `family`
+and `size` fields. It is a generated client preference, separate from sessions.
+
+Preview, Cancel and Escape do not save. Size shortcuts remain temporary for the
+current window; open Terminal text and Apply to save the current size. Other
+already-open windows retain their own font choices; new launches load the saved
+platform defaults. Per-window session restoration remains later work.
+
+Writes use a short lock and atomic replacement. A failed or conflicting save
+keeps the dialog open with an explanation; Cancel still restores its opening
+values. External config changes require reopening the app. Invalid, unsupported
+or oversized saved files fall back to managed defaults with a startup notice;
+they stay untouched and saving is blocked until corrected and the app reopened.
+
+`just toolkit-fonts-test` covers save/reopen, sparse inheritance, preview/cancel,
+locks and failed/stale writes, invalid-file preservation and managed symlinks.
+Native X11/Wayland checks verify saved bytes and inheritance reset alongside
+real PTY resizing and stable shell identities. Native Mac persistence review is
+pending. To review manually, choose a font/size, Apply, close `just toolkit-ui`
+and run it again: the new window should use that choice. Cancel a different
+preview and reopen once more to confirm it was not saved.

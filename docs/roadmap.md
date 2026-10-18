@@ -35,8 +35,8 @@ Commands/menu/help hints. The recorder/editor now supports Apply/Cancel, clear
 and managed-default restoration; one-shot key forwarding is implemented; native Mac recorder/forwarding review
 remains open.
 The Qt terminal-text slice now loads managed shared/platform font defaults and
-provides bundled face/size preview, Apply/Cancel and size shortcuts. Window edits
-remain temporary until saved-session integration. The owner confirmed Mac font
+provides bundled face/size preview, Apply/Cancel and size shortcuts. Apply now saves font defaults in a sparse platform UI file; size shortcuts
+remain temporary until explicitly applied. Per-session restoration is later work. The owner confirmed Mac font
 selection and sizing; the unrelated theme-file fallback warning fix is pushed
 and awaits a Mac recheck. Retain the external-display/accessibility/native-input
 acceptance gates before adoption. The sections below record evidence and remaining scope.
@@ -1308,3 +1308,14 @@ host word-motion shortcuts through the existing terminal encoder, retaining held
 repeats and application-requested release reports. Native Linux real-reader and
 key regression coverage validate this; Mac acceptance remains pending. Saved
 session integration and persistent font/theme preferences are still ahead.
+
+## Qt font preference persistence
+
+Terminal text Apply now saves face/size differences from managed defaults to a
+separate atomic per-platform UI file. Preview/Cancel preserve the saved choice;
+Use dotfile defaults clears field overrides when applied. New launches load the
+saved defaults. Existing other windows and temporary size shortcuts retain local
+behavior. Invalid stores remain untouched; conflicting/failed saves are inline,
+cancellable outcomes. Model and Linux native UI checks cover these boundaries.
+Native Mac persistence review, workspace theme persistence and saved-session
+integration remain ahead.

@@ -1282,3 +1282,15 @@ ten-second timer, Escape, pointer/focus/visibility loss, composition or disconne
 Native input coverage uses real PTY readers for legacy F10, native Copy bypass,
 Kitty F10 press/release, menu focus handoff, cancellation and ordinary interception
 restoration. Existing terminal-key checks remain required. Mac review is pending.
+
+## Qt durable font defaults
+
+Font Apply now commits sparse per-platform UI defaults separately from managed
+configuration and session data. Bounded/versioned loading falls back cleanly on
+invalid saved state and never overwrites that invalid file. QSaveFile and a short
+lock protect commits; stale managed/UI bytes reject saves without closing the
+dialog. Model tests cover both platform bases, managed symlinks, save/reopen,
+sparse inheritance, temporary sizing, invalid/oversized state, write failures,
+locks and stale updates. Native Linux UI checks verify durable bytes, cancellable
+preview/reset, real PTY grids and unchanged terminal items/readers. Native Mac
+save/relaunch review remains pending.

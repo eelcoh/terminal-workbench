@@ -49,7 +49,7 @@ int main(int argc,char **argv) {
 #else
     constexpr bool apple=false;
 #endif
-    UiFonts fonts(configuration["preferences"].toString(),apple);
+    UiFonts fonts(configuration["preferences"].toString(),apple,nullptr,configuration["font_overrides"].toString());
     UiShortcuts shortcuts(configuration["preferences"].toString(),apple,nullptr,configuration["shortcut_overrides"].toString());
     if(!shortcuts.error().isEmpty())std::fprintf(stderr,"Qt UI shortcut settings: %s\n",qPrintable(shortcuts.error()));
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
@@ -131,7 +131,7 @@ int main(int argc,char **argv) {
                 {"shortcut_settings_menu",center("shortcutSettingsMenuItem")},{"shortcut_record",center("shortcutRecord")},
                 {"shortcut_apply",center("shortcutApply")},{"shortcut_cancel",center("shortcutCancel")},
                 {"shortcut_clear",center("shortcutClear")},{"shortcut_reset",center("shortcutReset")},
-                {"font_preferences",QJsonObject::fromVariantMap(fonts.current())},
+                {"font_edit_error",fonts.editError()},{"font_preferences",QJsonObject::fromVariantMap(fonts.current())},
                 {"font_defaults",QJsonObject::fromVariantMap(fonts.defaults())},
                 {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},
                 {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},

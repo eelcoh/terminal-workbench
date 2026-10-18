@@ -21,7 +21,7 @@ with tempfile.TemporaryDirectory(prefix='wb-ui-',dir='/tmp') as directory:
             data=call('terminal.create',workspace['id'],'Shell')
         data=call('workspace.create',title='Empty workspace');empty=data['workspaces'][-1]
         data=call('terminal.close',empty['terminals'][0]['id'])
-        config=state/'ui.json';config.write_text(json.dumps({'state':str(state),'runtime':str(runtime),'cwd':str(cwd),'catalog':data,'preferences':str(config_directory(os.environ,sys.platform)/'config.conf'),'shortcut_overrides':str(config_directory(os.environ,sys.platform)/'ui'/('macos' if sys.platform=='darwin' else 'linux')/'shortcuts.conf'),'theme_directory':str(config_directory(os.environ,sys.platform)/'themes'),'theme_store':str(config_directory(os.environ,sys.platform)/'themes'/'imports')}))
+        config=state/'ui.json';config.write_text(json.dumps({'state':str(state),'runtime':str(runtime),'cwd':str(cwd),'catalog':data,'preferences':str(config_directory(os.environ,sys.platform)/'config.conf'),'font_overrides':str(config_directory(os.environ,sys.platform)/'ui'/('macos' if sys.platform=='darwin' else 'linux')/'terminal-font.json'),'shortcut_overrides':str(config_directory(os.environ,sys.platform)/'ui'/('macos' if sys.platform=='darwin' else 'linux')/'shortcuts.conf'),'theme_directory':str(config_directory(os.environ,sys.platform)/'themes'),'theme_store':str(config_directory(os.environ,sys.platform)/'themes'/'imports')}))
         print('UI study: private disposable sessions. Closing stops every shell created in this study.',flush=True)
         subprocess.run([str(viewer),str(config)],check=True)
     finally:

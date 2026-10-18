@@ -56,7 +56,7 @@ while True:
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
         managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'theme_directory':str(root/'themes')}))
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -333,16 +333,21 @@ while True:
         assert sizes()!=font_grid,'text size did not change the real PTY grid'
         click(*data()['font_jetbrains']);wait_until(lambda:settled_font('JetBrains Mono',17));capture('font-preview.png')
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('Fira Code',16) and sizes()==font_grid and data()['panes'][0]['focus'])
+        assert not (root/'ui/linux/terminal-font.json').exists(),'cancel persisted font preview'
         command_search('bundled font');key('Return');wait_until(lambda:data()['font_settings_open'] and not data()['commands_open'])
         click(*data()['font_jetbrains']);click(*data()['font_plus']);wait_until(lambda:settled_font('JetBrains Mono',17))
         click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
+        font_layer=root/'ui/linux/terminal-font.json';font_saved=font_layer.read_bytes()
+        assert json.loads(font_saved)=={'version':1,'family':'JetBrains Mono','size':17}
         font_menu();click(*data()['font_defaults_button']);wait_until(lambda:settled_font('Fira Code',16))
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
+        assert font_layer.read_bytes()==font_saved,'cancel changed saved font'
         key('super+alt+0');wait_until(lambda:settled_font('JetBrains Mono',16))
         key('super+alt+equal');wait_until(lambda:settled_font('JetBrains Mono',17))
         key('super+alt+minus');wait_until(lambda:settled_font('JetBrains Mono',16))
         font_menu();click(*data()['font_defaults_button']);wait_until(lambda:settled_font('Fira Code',16))
         click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and sizes()==font_grid and data()['panes'][0]['focus'])
+        assert json.loads(font_layer.read_text())=={'version':1} and not data()['font_edit_error']
         assert [p['instance'] for p in data()['panes']]==font_items and [received(i) for i in range(6)]==font_input
         assert managed.read_bytes()==managed_bytes,'font UI rewrote managed settings'
         for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)

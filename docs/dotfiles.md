@@ -163,10 +163,12 @@ rules, with defaults and a visible notice when invalid. They do not resolve unus
 appearance files, so a missing or malformed theme cannot discard valid fonts or
 bindings. The working viewer retains full theme validation.
 
-Terminal text settings preview/apply/cancel changes for the disposable window
-without writing configuration. Qt application shortcuts load the existing
+Terminal text settings preview changes across the window; Apply saves sparse
+platform UI font defaults in `ui/<platform>/terminal-font.json`. Cancel leaves
+the saved defaults untouched. Qt application shortcuts load the existing
 platform `ui/` layer and their editor saves sparse overrides there, preserving
-managed files. Managed appearance and saved per-window fonts remain follow-ups. See
+managed files. Managed appearance and per-session font restoration remain
+follow-ups. See
 [Qt fonts](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults) and
 [Qt shortcut scope](shortcuts.md#qt-candidate-managed-application-shortcuts).
 
