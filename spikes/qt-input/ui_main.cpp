@@ -155,7 +155,7 @@ int main(int argc,char **argv) {
                 {"workspace",window->property("workspace").toInt()},
                 {"move_notice",window->property("moveNotice").toString()},
                 {"agents_only",window->property("agentsOnly").toBool()},{"needs_only",window->property("needsOnly").toBool()},
-                {"overview_matches",window->property("overviewMatches").toInt()},{"waiting_count",window->property("waitingCount").toInt()},{"overview_groups",QJsonArray::fromVariantList(listProperty(window,"overviewGroupTops"))},
+                {"overview_columns",window->property("overviewColumns").toInt()},{"overview_clear_filters",center("overviewClearFilters")},{"overview_matches",window->property("overviewMatches").toInt()},{"waiting_count",window->property("waitingCount").toInt()},{"overview_groups",QJsonArray::fromVariantList(listProperty(window,"overviewGroupTops"))},
                 {"agent_filter_button",center("overviewAgentFilter")},{"state_filter_button",center("overviewStateFilter")},{"agents_button",center("agentsButton")},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},
                 {"drop_allowed",window->property("dropAllowed").toBool()},

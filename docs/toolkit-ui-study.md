@@ -523,3 +523,26 @@ filters. The Overview identity/state filters remain available independently.
 `just toolkit-ui` keeps it only for the disposable window. Older saved profiles
 open compact by default. Check both tabs, workspace selection, pin/unpin, a narrow
 window, Overview and a live agent. Native Mac review remains pending.
+
+## Overview refinement
+
+Overview now gives each workspace a clear heading, folder context and terminal
+count, with quiet separators between groups. Empty workspaces retain the plain
+background and a small empty label. Terminal context and agent state sit below
+each live preview at normal interface text sizes. Selection/hover outlines remain
+unscaled, with room inside the clip for the first column’s border. Captions also
+focus their terminal when clicked.
+
+The grid uses up to three columns, reducing its column count as the terminal area
+narrows. One/two-column layouts allow taller previews. Source terminal dimensions
+and live readers remain unchanged when toggling Overview. The same column geometry
+drives previews, captions, keyboard reveal and drag targets. Entering Overview
+reveals the selection; workspace/terminal shortcuts keep the target visible.
+
+Filters retain explicit identity/state labels, a match count and a Clear filters
+action. An empty filtered view can return to all terminals without guessing which
+filter is active. Dedicated agent navigation remains in the left panel.
+
+Native Linux checks cover dense/empty workspaces, filtered drag, narrow two-column
+layout, visible keyboard selection/captions, reset from no matches, unchanged PTY
+grids and retained readers. Native Mac visual/trackpad acceptance remains pending.

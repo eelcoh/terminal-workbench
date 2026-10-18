@@ -99,6 +99,7 @@ ApplicationWindow {
     readonly property bool overviewFiltered: agentsOnly || needsOnly
     property var overviewGroups: []
     property var overviewOrdinals: []
+    readonly property int overviewColumns: deck.columns
     property int overviewMatches: 0
     property int waitingCount: 0
     property var agentIndices: []
@@ -420,13 +421,14 @@ ApplicationWindow {
         selected = i; workspace = terminalModel.get(i).spaceIndex
         let values = remembered.slice(); values[workspace] = i; remembered = values
         if (!overview) { reveal(); panel(i).terminal.forceActiveFocus() }
+        else Qt.callLater(function() { revealOverview(i) })
     }
     function chooseWorkspace(i) {
         let values = positions.slice(); values[workspace] = deck.contentX; positions = values
         workspace = Math.max(0, Math.min(spaces.length - 1, i)); selected = remembered[workspace] === undefined ? -1 : remembered[workspace]
         drawer.close(); deck.scrollTarget = overview ? 0 : Math.max(0, Math.min(positions[workspace] || 0, stripWidth() - deck.width)); deck.contentX = deck.scrollTarget
         if (!overview && selected >= 0) Qt.callLater(function() { reveal(); panel(selected).terminal.forceActiveFocus() })
-        else window.contentItem.forceActiveFocus()
+        else { window.contentItem.forceActiveFocus(); if (overview) deck.contentY = Math.max(0, Math.min(deck.groupTop(workspace), deck.contentHeight - deck.height)) }
     }
     // Drag is client presentation only. Commit one existing service mutation on drop.
     property int dragSlot: -1
@@ -446,11 +448,11 @@ ApplicationWindow {
             if (y < deck.groupTop(w) || y >= deck.groupTop(w + 1)) continue
             dropSpace = w
             const row = Math.max(0, Math.floor((y - deck.groupTop(w) - deck.previewTop) / deck.rowStride))
-            const cellWidth = (deck.width + 12) / 3
-            const col = Math.max(0, Math.min(2, Math.floor(point.x / cellWidth)))
-            const items = overviewIndices(w), slot = items[row * 3 + col]
+            const cellWidth = deck.cellWidth
+            const col = Math.max(0, Math.min(deck.columns - 1, Math.floor(point.x / cellWidth)))
+            const items = overviewIndices(w), slot = items[row * deck.columns + col]
             const half = slot === undefined ? cellWidth / 2 : panel(slot).width * panel(slot).previewScale / 2
-            const projected = Math.min(items.length, row * 3 + col + (point.x - col * cellWidth >= half ? 1 : 0))
+            const projected = Math.min(items.length, row * deck.columns + col + (point.x - col * cellWidth >= half ? 1 : 0))
             const raw = projected >= items.length ? (items.length ? terminalModel.get(items[items.length - 1]).ordinal + 1 : 0) : terminalModel.get(items[projected]).ordinal
             const source = terminalModel.get(dragSlot)
             dropRaw = raw; dropProjected = projected
@@ -471,7 +473,7 @@ ApplicationWindow {
         cancelDrag()
         if (!overview) { let values = positions.slice(); values[workspace] = deck.contentX; positions = values }
         overview = !overview; deck.scrollTarget = overview ? 0 : Math.max(0, Math.min(positions[workspace] || 0, stripWidth() - deck.width)); deck.contentX = deck.scrollTarget; deck.contentY = 0
-        if (overview) window.contentItem.forceActiveFocus()
+        if (overview) { window.contentItem.forceActiveFocus(); if (selected >= 0) Qt.callLater(function() { revealOverview(selected) }) }
         else if (selected >= 0) Qt.callLater(function() { reveal(); panel(selected).terminal.forceActiveFocus() })
     }
     function enterPane(i) { focusPane(i); if (overview) toggleOverview() }
@@ -511,9 +513,9 @@ ApplicationWindow {
     function revealOverview(i) {
         const source = terminalModel.get(i)
         if (overviewOrdinals[i] < 0) return
-        const top = deck.groupTop(source.spaceIndex) + Math.floor(overviewOrdinals[i] / 3) * deck.rowStride + deck.previewTop
+        const top = deck.groupTop(source.spaceIndex) + Math.floor(overviewOrdinals[i] / deck.columns) * deck.rowStride + deck.previewTop
         if (top < deck.contentY) deck.contentY = top
-        else if (top + deck.previewHeight > deck.contentY + deck.height) deck.contentY = top + deck.previewHeight - deck.height
+        else if (top + deck.previewHeight + 52 > deck.contentY + deck.height) deck.contentY = top + deck.previewHeight + 52 - deck.height
         deck.contentY = Math.max(0, Math.min(deck.contentHeight - deck.height, deck.contentY))
     }
     function cycleWidth() {
@@ -586,31 +588,59 @@ ApplicationWindow {
         }
         QuietButton { id: overviewButton; objectName: "overviewButton"; anchors.right: parent.right; text: window.overview ? "Done" : "Overview"; onClicked: window.toggleOverview() }
     }
-    Row {
-        x: window.navigationEdge + 16; y: 54; spacing: 8; visible: window.overview
+    Flow {
+        id: overviewFilters; x: window.navigationEdge + 16; y: 54; width: window.width - x - 12; spacing: 8; visible: window.overview
         QuietButton { objectName: "overviewAgentFilter"; hint: "Filter terminal or agent identity"; text: window.agentsOnly ? "Show: Agents" : "Show: All terminals"; onClicked: window.changeFilter(!window.agentsOnly, window.needsOnly); background: Rectangle { radius: 6; color: window.agentsOnly ? window.chrome.surface : "transparent"; border.width: window.agentsOnly ? 1 : 0; border.color: window.accent } }
         QuietButton { objectName: "overviewStateFilter"; hint: "Filter agents that need input"; text: window.needsOnly ? "State: Needs input" : "State: All states"; onClicked: window.changeFilter(window.agentsOnly, !window.needsOnly); background: Rectangle { radius: 6; color: window.needsOnly ? window.chrome.surface : "transparent"; border.width: window.needsOnly ? 1 : 0; border.color: window.accent } }
+        QuietButton { objectName: "overviewClearFilters"; text: "Clear filters"; visible: window.overviewFiltered; onClicked: window.changeFilter(false, false) }
+        Label { height: 32; verticalAlignment: Text.AlignVCenter; text: window.overviewMatches + (window.overviewMatches === 1 ? " match" : " matches"); color: window.chrome.muted; font.pixelSize: 12 }
     }
     Flickable {
         id: deck; objectName: "deck"
         onContentXChanged: window.scheduleViewSave()
         onContentYChanged: window.scheduleViewSave()
         property real scrollTarget: 0
-        x: window.navigationEdge + 16; y: window.overview ? 102 : 60; width: parent.width - x - 12; height: parent.height - y - 12
+        x: window.navigationEdge + 16; y: window.overview ? overviewFilters.y + overviewFilters.implicitHeight + 16 : 60; width: parent.width - x - 12; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
         interactive: window.overview && window.dragSlot < 0
         contentWidth: window.overview ? width : window.stripWidth()
         contentHeight: window.overview ? overviewHeight() : height
-        readonly property real previewHeight: Math.min(240, Math.max(150, (height - 100) / 2))
-        readonly property real previewTop: 52
-        readonly property real rowStride: previewHeight + 34
-        function rows(space) { return Math.max(1, Math.ceil(window.overviewIndices(space).length / 3)) }
-        function groupTop(space) { let y = 0; for (let i = 0; i < space; ++i) if (!window.overviewFiltered || window.overviewIndices(i).length) y += rows(i) * rowStride + 64; return y }
+        readonly property real previewHeight: columns < 3 ? Math.max(150, Math.min(columns === 1 ? 460 : 340, height - 110)) : Math.min(240, Math.max(150, (height - 100) / 2))
+        readonly property int columns: Math.max(1, Math.min(3, Math.floor((width + 16) / 296)))
+        readonly property real cellWidth: (width + 16) / columns
+        readonly property real cardWidth: cellWidth - 22
+        readonly property real previewTop: 66
+        readonly property real rowStride: previewHeight + 64
+        function rows(space) { return Math.max(1, Math.ceil(window.overviewIndices(space).length / columns)) }
+        function groupTop(space) { let y = 0; for (let i = 0; i < space; ++i) if (!window.overviewFiltered || window.overviewIndices(i).length) y += window.overviewIndices(i).length ? rows(i) * rowStride + 76 : 152; return y }
         function overviewHeight() { return Math.max(height, groupTop(window.spaces.length)) }
         Behavior on contentX { enabled: !window.overview; NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
         Repeater {
             model: window.spaces.length
-            Label { required property int index; visible: window.overview && (!window.overviewFiltered || window.overviewIndices(index).length > 0); x: 0; y: deck.groupTop(index); text: window.spaces[index] + (window.overviewIndices(index).length > 0 ? "  ·  " + window.overviewIndices(index).length + (window.overviewIndices(index).length === 1 ? " terminal" : " terminals") : ""); color: window.chrome.muted; font.pixelSize: 13 }
+            Item {
+                required property int index
+                x: 0; y: deck.groupTop(index); width: deck.width; height: 52
+                visible: window.overview && (!window.overviewFiltered || window.overviewIndices(index).length > 0)
+                Label { x: 0; y: 0; width: parent.width - 100; text: window.spaces[index]; textFormat: Text.PlainText; elide: Text.ElideRight; color: window.chrome.foreground; font.pixelSize: 16; font.weight: Font.Medium }
+                Label { anchors.right: parent.right; y: 3; text: window.overviewIndices(index).length + (window.overviewIndices(index).length === 1 ? " terminal" : " terminals"); color: window.chrome.muted; font.pixelSize: 12 }
+                Label { x: 0; y: 25; width: parent.width; text: window.directories[index] || ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12 }
+                Label { x: 0; y: deck.previewTop + 6; visible: window.overviewIndices(index).length === 0; text: window.dragSlot >= 0 && window.dropSpace === index ? "Drop terminal here" : "No terminals yet"; leftPadding: window.dragSlot >= 0 && window.dropSpace === index ? 14 : 0; color: window.chrome.muted; font.pixelSize: 13 }
+                Rectangle { visible: index > 0; x: 0; y: -18; width: parent.width; height: 1; color: window.chrome.border }
+            }
+        }
+        // Unscaled outlines keep focus and pointer feedback crisp around previews.
+        Repeater {
+            model: terminalModel
+            Rectangle {
+                required property int index
+                readonly property var pane: { const revision = window.catalogRevision; const ready = window.terminalItems.length; return window.panel(index) }
+                visible: window.overview && pane !== null && pane.visible
+                x: pane ? pane.x - 3 : 0; y: pane ? pane.y - 3 : 0
+                width: pane ? pane.width * pane.scale + 6 : 0; height: pane ? pane.height * pane.scale + 6 : 0
+                color: "transparent"; radius: 9
+                border.width: window.selected === index ? 2 : 1
+                border.color: pane ? window.selected === index || pane.previewHovered ? studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).accent : window.chrome.border : window.chrome.border
+            }
         }
         Repeater {
             id: panels; model: terminalModel
@@ -625,16 +655,16 @@ ApplicationWindow {
                 readonly property var facts: runtimeFacts ? runtimeFacts.facts : ({title: "Terminal", agent: "", state: ""})
                 opacity: window.dragSlot === index ? 0.45 : 1
                 readonly property int overviewOrdinal: window.overviewOrdinals[index] ?? -1
-                readonly property real previewScale: Math.min((deck.width - 24) / 3 / width, deck.previewHeight / height)
+                readonly property real previewScale: Math.min(deck.cardWidth / width, deck.previewHeight / height)
                 objectName: "pane" + index
                 width: window.paneWidth(index); height: window.height - 72
-                x: window.overview ? (overviewOrdinal % 3) * (deck.width + 12) / 3 : window.left(index)
-                y: window.overview ? deck.groupTop(spaceIndex) + Math.floor(overviewOrdinal / 3) * deck.rowStride + deck.previewTop : 0
+                x: window.overview ? 3 + (overviewOrdinal % deck.columns) * deck.cellWidth : window.left(index)
+                y: window.overview ? deck.groupTop(spaceIndex) + Math.floor(overviewOrdinal / deck.columns) * deck.rowStride + deck.previewTop : 0
                 scale: window.overview ? previewScale : 1
                 transformOrigin: Item.TopLeft
                 visible: window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace
                 color: studyThemes.theme(window.themeIndexFor(spaceIndex)).surface; radius: 6
-                border.width: 1; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : studyThemes.theme(window.themeIndexFor(spaceIndex)).border
+                border.width: window.overview ? 0 : 1; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : studyThemes.theme(window.themeIndexFor(spaceIndex)).border
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
@@ -710,7 +740,9 @@ ApplicationWindow {
                         }
                     }
                 }
+                readonly property bool previewHovered: previewPointer.containsMouse
                 MouseArea {
+                    id: previewPointer; hoverEnabled: true
                     anchors.fill: parent; enabled: window.overview && !studySession.busy
                     cursorShape: window.dragSlot === index ? Qt.ClosedHandCursor : Qt.ArrowCursor
                     preventStealing: true
@@ -732,17 +764,23 @@ ApplicationWindow {
         }
         Repeater {
             id: captions; model: terminalModel
-            Label {
+            Item {
+                id: caption
                 required property int index
                 objectName: "overviewCaption" + index
                 Component.onCompleted: { let labels = window.overviewLabels.slice(); labels[index] = this; window.overviewLabels = labels }
-                readonly property var pane: { const ready = window.terminalItems.length; return panels.itemAt(index) }
+                readonly property var pane: { const revision = window.catalogRevision; const ready = window.terminalItems.length; return panels.itemAt(index) }
                 visible: window.overview && pane !== null && pane.visible
-                x: pane ? pane.x : 0; y: pane ? pane.y - 22 : 0
-                width: (deck.width - 24) / 3; height: 18
-                text: pane ? pane.facts.title + (pane.facts.agent ? " · " + pane.facts.agent + " · " + pane.facts.state : "") : ""
-                textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
-                color: pane && pane.facts.needs_input ? window.chrome.waiting : window.chrome.foreground
+                x: pane ? pane.x : 0; y: pane ? pane.y + pane.height * pane.scale + 10 : 0
+                width: deck.cardWidth; height: 42
+                readonly property string text: pane ? pane.facts.title + (pane.facts.agent ? " · " + pane.facts.agent + " · " + pane.facts.state : "") : ""
+                Accessible.name: text
+                TapHandler { onTapped: window.enterPane(caption.index) }
+                Column {
+                    anchors.fill: parent; spacing: 4
+                    Text { width: parent.width; text: caption.pane ? caption.pane.facts.title : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 13; color: window.selected === caption.index ? window.chrome.foreground : window.chrome.muted }
+                    Text { width: parent.width; text: caption.pane && caption.pane.facts.agent ? caption.pane.facts.agent + " · " + caption.pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: caption.pane && caption.pane.facts.needs_input ? window.chrome.waiting : window.chrome.muted }
+                }
             }
         }
         Label { anchors.centerIn: parent; visible: window.overview && window.overviewFiltered && window.overviewMatches === 0; text: window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: 14 }
@@ -762,9 +800,9 @@ ApplicationWindow {
             readonly property int total: window.overviewIndices(window.dropSpace).length
             readonly property int before: Math.min(window.dropProjected, Math.max(0, total - 1))
             readonly property int slot: window.dropSpace < 0 ? -1 : (window.overviewIndices(window.dropSpace)[before] ?? -1)
-            x: slot < 0 ? 6 : (before % 3) * (deck.width + 12) / 3 + (window.dropProjected === total ? window.panel(slot).width * window.panel(slot).previewScale + 5 : -5)
-            y: deck.groupTop(window.dropSpace) + Math.floor(before / 3) * deck.rowStride + deck.previewTop - deck.contentY
-            width: 3; height: deck.previewHeight; radius: 1.5; color: window.accent
+            x: slot < 0 ? 6 : (before % deck.columns) * deck.cellWidth + (window.dropProjected === total ? window.panel(slot).width * window.panel(slot).previewScale + 5 : -5)
+            y: deck.groupTop(window.dropSpace) + Math.floor(before / deck.columns) * deck.rowStride + deck.previewTop - deck.contentY
+            width: 3; height: window.dropSpace >= 0 && window.overviewIndices(window.dropSpace).length === 0 ? 56 : deck.previewHeight; radius: 1.5; color: window.accent
         }
     }
     Rectangle {

@@ -150,7 +150,8 @@ while True:
                 if cancel:
                     key('Escape');wait_until(lambda:data()['drag_slot']==-1)
             finally:button('mouseup')
-        def drag_workspace(slot,workspace):
+        def drag_workspace(slot,workspace,allowed=True):
+            show_preview(slot)
             pane=data()['panes'][slot]
             start=(pane['x'],(max(105,pane['top'])+min(748,pane['bottom']))/2)
             move(*start);button('mousedown')
@@ -162,7 +163,8 @@ while True:
                     move(160,735 if data()['overview_groups'][workspace]+25>=690 else 106)
                     time.sleep(.08)
                 move(160,data()['overview_groups'][workspace]+25)
-                wait_until(lambda:data()['drop_space']==workspace and data()['drop_allowed'])
+                wait_until(lambda:data()['drop_space']==workspace and data()['drop_allowed']==allowed)
+                if not allowed:capture('drag-full-workspace.png')
             finally:button('mouseup')
         def workspace_form(mode):
             click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
@@ -656,12 +658,7 @@ while True:
         wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']))
         full_catalog=workspace_catalog.load(root);assert len(order(1))==8
         full_sizes=sizes();key('super+alt+o');wait_until(lambda:data()['overview']);time.sleep(.35)
-        pane=data()['panes'][0];target=data()['panes'][3]
-        move(pane['x'],pane['y']);button('mousedown')
-        try:
-            move(target['x'],target['y']);wait_until(lambda:data()['drag_slot']==0 and data()['drop_space']==1 and not data()['drop_allowed'])
-            capture('drag-full-workspace.png')
-        finally:button('mouseup')
+        drag_workspace(0,1,allowed=False)
         wait_until(lambda:data()['drag_slot']==-1)
         assert workspace_catalog.load(root)==full_catalog and sizes()==full_sizes,'full destination accepted a drop'
         last=data()['panes'][5];drag(3,last['right']-8,last['y'])
@@ -861,6 +858,20 @@ while True:
         assert boxes['workspace'][2] < boxes['indicators'][0] and boxes['indicators'][2] < boxes['count'][0]
         assert boxes['count'][2] <= boxes['add'][0] and boxes['add'][2] < boxes['overview'][0],'top-bar controls overlap'
         capture('chrome-narrow.png')
+        # Narrow Overview keeps readable two-column previews and stable PTY grids.
+        overview_sizes=sizes();overview_ids=[p['instance'] for p in data()['panes']]
+        key('super+alt+o');wait_until(lambda:data()['overview'] and data()['overview_columns']==2);time.sleep(.35)
+        active=sorted((p for p in data()['panes'] if p['workspace']==1),key=lambda p:p['ordinal'])
+        assert abs(active[0]['top']-active[1]['top'])<1 and active[2]['top']>active[1]['top']
+        key('super+alt+Left');wait_until(lambda:data()['selected']!=11);time.sleep(.3)
+        chosen=data()['panes'][data()['selected']]
+        assert chosen['top']>=95 and chosen['bottom']+45<=748,'keyboard selection/caption remained outside viewport'
+        capture('overview-narrow.png')
+        assert sizes()==overview_sizes and [p['instance'] for p in data()['panes']]==overview_ids
+        click(*data()['agent_filter_button']);wait_until(lambda:data()['agents_only'] and data()['overview_matches']==0)
+        capture('overview-narrow-empty.png')
+        click(*data()['overview_clear_filters']);wait_until(lambda:not data()['agents_only'] and not data()['needs_only'] and data()['overview_matches']==13)
+        key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][data()['selected']]['focus'])
         font_menu();capture('font-narrow.png');key('Escape');wait_until(lambda:not data()['font_settings_open'])
         command_search('workspace');capture('commands-narrow.png')
         key('Escape');wait_until(lambda:not data()['commands_open'])

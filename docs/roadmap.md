@@ -213,13 +213,14 @@ review remains required. Overview visual polish remains the next separate slice.
 
 ## Qt Overview visual refinement
 
-The owner finds the Qt Overview visually unfinished. Revisit spacing, hierarchy,
-workspace grouping, terminal captions, selected/hover states, filters and empty
-states against Niri and the approved minimal chrome. Keep live terminal previews
-legible, with fluid entry/exit and scrolling, while preserving drag targets and
-keyboard navigation. Review dark/light themes, dense workspaces and narrow
-windows on both platforms. The dedicated left-panel agent list is a separate
-navigation surface, not a replacement for spatial Overview.
+The first refinement now adds clear workspace headings/folders/counts, quiet group
+separators, native-size context/status captions and unscaled selection/hover
+outlines. Narrow windows use fewer columns and taller previews. Keyboard navigation
+reveals the selected preview and caption; the same geometry drives drag targets.
+Filters show their scope/count and offer Clear filters after an empty result.
+Empty workspace backgrounds remain plain. Dedicated left-panel agent navigation
+stays separate from spatial Overview. Native Mac visual/trackpad review and owner
+acceptance remain open. See [Overview refinement](toolkit-ui-study.md#overview-refinement).
 
 ## Dotfiles and portable configuration
 
