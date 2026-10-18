@@ -5,6 +5,7 @@
 #include "ui_session.h"
 #include "ui_themes.h"
 #include "ui_fonts.h"
+#include "ui_shortcuts.h"
 #include <QDir>
 #include <QQmlContext>
 #include <QJSValue>
@@ -49,14 +50,17 @@ int main(int argc,char **argv) {
     constexpr bool apple=false;
 #endif
     UiFonts fonts(configuration["preferences"].toString(),apple);
+    UiShortcuts shortcuts(configuration["preferences"].toString(),apple);
+    if(!shortcuts.error().isEmpty())std::fprintf(stderr,"Qt UI shortcut settings: %s\n",qPrintable(shortcuts.error()));
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
-    UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")));
+    UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QQmlApplicationEngine engine;
     QObject::connect(&engine,&QQmlEngine::warnings,&app,[](const QList<QQmlError> &errors){for(const auto &error:errors)std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));});
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
+    engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
     engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
     auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
     // Explicit test-only snapshots; no user terminal content is recorded by default.
@@ -117,7 +121,9 @@ int main(int argc,char **argv) {
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
-            const QJsonObject data{{"font_settings_open",window->property("fontSettingsOpen").toBool()},
+            const QJsonObject data{{"shortcut_sequences",QJsonObject::fromVariantMap(shortcuts.sequences())},
+                {"shortcut_error",shortcuts.error()},{"shortcut_labels",QJsonObject::fromVariantMap(shortcuts.labels())},
+                {"font_settings_open",window->property("fontSettingsOpen").toBool()},
                 {"font_preferences",QJsonObject::fromVariantMap(fonts.current())},
                 {"font_defaults",QJsonObject::fromVariantMap(fonts.defaults())},
                 {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},
@@ -152,14 +158,7 @@ int main(int argc,char **argv) {
                 {"move_right_item",center("moveRightMenuItem")},
                 {"theme_search_focus",window->property("themeSearchFocus").toBool()},
                 {"theme_matches",window->property("themeMatchCount").toInt()},
-                {"theme_catalog_count",themes.catalog().size()},{"theme_import_error",themes.error()},{"theme_import_status",themes.status()},
-                {"theme_import_open",window->property("themeImportOpen").toBool()},
-                {"theme_import_source_focus",window->property("themeImportSourceFocus").toBool()},
-                {"theme_import_source",window->property("themeImportSource").toString()},
-                {"theme_file_open",window->property("themeFileOpen").toBool()},
-                {"import_theme_button",center("importThemeButton")},{"import_file_button",center("themeImportBrowse")},
-                {"import_name_field",center("themeImportName")},{"import_attribution_field",center("themeImportAttribution")},
-                {"import_submit_button",center("themeImportSubmit")},
+                {"theme_directory",themes.themesPath()},{"theme_directory_status",themes.directoryStatus()},{"theme_catalog_count",themes.catalog().size()},
                 {"chrome_background",window->color().name()},
                 {"application_menu_button",center("applicationMenuButton")},{"appearance_menu_item",center("appearanceMenuItem")},
                 {"rename_workspace_item",center("renameWorkspaceMenuItem")},{"workspace_folder_item",center("workspaceFolderMenuItem")},

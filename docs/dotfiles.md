@@ -157,13 +157,22 @@ Native Mac filesystem and keyboard review remains pending.
 
 ## Qt candidate scope
 
-`just toolkit-ui` now reads the same managed shared/platform `[font]`
-defaults. It validates existing field syntax and shortcut rules, and uses
-built-in fonts plus a visible notice when invalid. Because Qt currently reads
-only font defaults, this adapter does not resolve unused appearance files.
-Missing or malformed theme files cannot trigger a font fallback; the working
-viewer still validates themes. Its Terminal text settings preview/apply/cancel
-changes for that disposable window without writing configuration. Other
-managed settings and saved per-window font overrides are not yet connected to
-Qt. See [Qt font
-controls](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults).
+`just toolkit-ui` reads managed shared/platform font defaults and supported
+application shortcuts. The adapters validate existing field syntax and shortcut
+rules, with defaults and a visible notice when invalid. They do not resolve unused
+appearance files, so a missing or malformed theme cannot discard valid fonts or
+bindings. The working viewer retains full theme validation.
+
+Terminal text settings preview/apply/cancel changes for the disposable window
+without writing configuration. Managed appearance, generated `ui/` overrides,
+the shortcut recorder/editor and saved per-window fonts remain follow-ups. See
+[Qt fonts](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults) and
+[Qt shortcut scope](shortcuts.md#qt-candidate-managed-application-shortcuts).
+
+
+## Qt theme directory
+
+Place Ghostty palettes in the configuration root’s `themes/` directory and reopen
+Appearance to discover them. TerminalColors `.default` downloads work unchanged;
+no import wizard or metadata entry is needed. **Themes folder** opens the native
+location. Source files and symlinks remain untouched. See [drop-in themes](theme-directory.md).

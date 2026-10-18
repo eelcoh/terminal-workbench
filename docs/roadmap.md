@@ -12,7 +12,8 @@ reference for simplicity. Both qualities are part of the target.
 As of 2026-10-18, `just spike` remains the daily-use viewer. `just toolkit-ui`
 is a separate, disposable Qt candidate with the approved minimal chrome, live
 Overview, creation/folder editing, workspace Appearance, keyboard and pointer
-pane moves, TerminalColors/Ghostty imports, and live context/agent filters.
+pane moves, a drop-in Ghostty/TerminalColors theme directory,
+and live context/agent filters.
 Imports are explicitly saved as an offline palette collection; study sessions
 remain private. Native Mac acceptance of the latest moves/imports/agent Overview
 is pending. No production frontend switch has been made.
@@ -28,11 +29,14 @@ exit reasons, non-stealing reconnect, guarded recovery, explicit ownership
 transfer and confirmed terminal close, now owner-confirmed. The command palette
 adds searchable, context-aware actions with shared creation/layout dispatch and
 safe dialog handoff. Native Mac palette review remains open. Next are the
-remaining portable settings/shortcuts, saved-session integration and packaging.
+remaining portable settings/shortcut editing, Ghostty/TerminalColors theme-directory discovery,
+saved-session integration and packaging. Supported Qt application chords now
+load from managed dotfiles, with active Commands/menu/help hints; editor/UI
+overrides and key forwarding remain follow-ups.
 The Qt terminal-text slice now loads managed shared/platform font defaults and
 provides bundled face/size preview, Apply/Cancel and size shortcuts. Window edits
 remain temporary until saved-session integration. The owner confirmed Mac font
-selection and sizing; the unrelated theme-file fallback warning is fixed locally
+selection and sizing; the unrelated theme-file fallback warning fix is pushed
 and awaits a Mac recheck. Retain the external-display/accessibility/native-input
 acceptance gates before adoption. The sections below record evidence and remaining scope.
 
@@ -504,6 +508,23 @@ review establishes whether the result approaches the requested Dank Linux beauty
 and feel. Passing functional tests alone does not satisfy this gate.
 See [the UX spike brief](ux-spike.md).
 
+## Ghostty and TerminalColors theme directory
+
+The primary workflow is a user-managed `themes/` directory under the Workbench
+configuration directory. Drop Ghostty files there and select them in Appearance;
+no import wizard, pasted URL or extension renaming should be required.
+TerminalColors downloads ending in `.default` must work, alongside `.theme`,
+`.conf` and extensionless Ghostty themes. Open Appearance again to discover new
+or changed files. Keep installed choices offline and never rewrite user files.
+
+Retain workspace preview/Apply/Cancel and clear invalid-file feedback without
+losing valid themes or restarting terminals. Explain automatic discovery beside
+an Open themes folder link, rather than a button suggesting a file selector.
+Remove the import form while preserving previously saved imported themes. A remote catalogue browser is deferred; it is not required for this
+simple local workflow. Discovery, edits, cancellation and malformed-file isolation
+are implemented and covered on Linux X11/Wayland; Mac folder opening/discovery
+remains for owner acceptance. See [the directory workflow](theme-directory.md).
+
 ## Theming direction
 
 Use the [Ghostty theme format](https://ghostty.org/docs/features/theme) for terminal
@@ -532,19 +553,15 @@ palettes and desktop-wide theme synchronization are later options, not
 prerequisites for the initial theme milestone. Workspace themes and terminal
 overrides are already part of the prototype.
 
-## Theme imports from TerminalColors
+## Previous TerminalColors imports
 
-The owner requested importing themes from [TerminalColors](https://terminalcolors.com/).
-Explore browsing/searching its catalog or importing a chosen download/link into
-Workbench's palette gallery. The site lists Ghostty among its supported formats;
-reuse the existing Ghostty color-field loader where the downloaded format matches.
+The Qt candidate retains previously imported themes and their saved offline
+metadata; the import form has been removed.
+The owner prefers a simpler primary flow: drop Ghostty files into the user themes
+directory, including unchanged `.default` downloads. Directory discovery is now
+implemented; see [the drop-in theme workflow](theme-directory.md).
 
-Provide an import preview with Apply/Cancel, a saved name/source and appropriate
-author/license attribution, and an offline local copy after import. Establish the
-available download/API contract and theme redistribution terms before integration.
-Cover malformed/unsupported imports, duplicates and unavailable downloads without
-changing existing themes or running terminals. This is planned; current import
-support remains local Ghostty files. Font controls remain the active slice.
+Remote catalogue browsing is deferred in favor of the directory workflow. Native Mac directory opening/discovery remains an acceptance item.
 
 ## Release gates
 

@@ -104,6 +104,23 @@ void networkChecks(const QString &base) {
     const int requests=network.requested.size();themes.importTheme("https://unrelated.invalid/theme");
     check(network.requested.size()==requests && !themes.error().isEmpty(),"unsupported host was requested");
 }
+void directoryChecks(const QString &base) {
+    const auto folder=base+"/drop-themes",store=base+"/drop-imports";check(QDir().mkpath(folder),"theme directory fixture");
+    const auto original=palette();put(folder+"/Nord.default",original);put(folder+"/Light.theme",palette(18));put(folder+"/NoSuffix",palette(19));
+    put(folder+"/Broken.default","background = #invalid\n");put(folder+"/TooBig.default",QByteArray(ThemeStore::maxBytes+1,'x'));
+    Network network;UiThemes themes(store,nullptr,&network,15000,folder);const int builtins=workbench_theme_builtin_count();
+    check(themes.catalog().size()==builtins+3 && network.requested.isEmpty(),"directory discovery must be offline and extension independent");
+    int nord=-1;for(const auto &entry:themes.catalog()){const auto value=entry.toMap();if(value["name"]=="Nord")nord=value["index"].toInt();}
+    check(nord>=builtins && themes.theme(nord)["background"]=="#132435" && themes.theme(nord)["folderTheme"].toBool(),".default file not parsed/named");
+    check(themes.directoryStatus().contains("skipped") && get(folder+"/Nord.default")==original && !QFileInfo::exists(store+"/imports.json"),"bad-file isolation or read-only discovery");
+    const int registrations=workbench_theme_count();themes.reloadDirectory();check(workbench_theme_count()==registrations && themes.catalog().size()==builtins+3,"unchanged reload registered duplicate slots");
+    put(folder+"/Nord.default",palette(20));themes.reloadDirectory();
+    check(themes.theme(nord)["background"]=="#132435","editing a file rethemed an already-selected slot before Apply");
+    check(QFile::remove(folder+"/Nord.default"),"remove own theme fixture");themes.reloadDirectory();check(themes.catalog().size()==builtins+2 && themes.theme(nord)["background"]=="#132435","removed file broke retained colors");
+    const auto linked=base+"/linked.ghostty";put(linked,palette(21));check(QFile::link(linked,folder+"/Linked.default"),"theme symlink fixture");themes.reloadDirectory();check(themes.catalog().size()==builtins+3,"managed theme symlink not discovered");
+    check(QDir().mkpath(store),"broken store fixture");put(store+"/imports.json","broken");UiThemes brokenStore(store,nullptr,&network,15000,folder);
+    check(!brokenStore.error().isEmpty() && brokenStore.catalog().size()==builtins+3,"broken legacy import index hid directory themes");
+}
 void limits(const QString &base) {
     QVector<StoredTheme> records;QString error;
     for(int i=0;i<ThemeStore::maxThemes;++i) {const auto data=palette(100+i);records.append({ThemeStore::digest(data),"Fixture "+QString::number(i),"file:///fixture",{},data});}
@@ -117,7 +134,7 @@ int main(int argc,char **argv) {
     QCoreApplication app(argc,argv);
     try {
         QTemporaryDir directory;check(directory.isValid(),"temporary directory");
-        modelChecks(directory.path());networkChecks(directory.path());limits(directory.path());
+        modelChecks(directory.path());networkChecks(directory.path());directoryChecks(directory.path());limits(directory.path());
         if(argc==3 && QString::fromLocal8Bit(argv[1])=="--live-file") {
             UiThemes live(directory.path()+"/live");live.importTheme(QString::fromLocal8Bit(argv[2]),"Live export verification");check(live.error().isEmpty(),"live export parse");
             std::puts("PASS: supplied live Ghostty export parsed and cached in disposable storage");
@@ -128,6 +145,6 @@ int main(int argc,char **argv) {
             check(live.catalog().size()==workbench_theme_builtin_count()+1,"live link did not add a palette");
             std::puts("PASS: live TerminalColors link through Qt HTTPS, Ghostty parsing and disposable offline storage");
         }
-        std::puts("PASS: bounded Ghostty imports, offline metadata/checksums, duplicates, stale-window merge, writer isolation, corruption preservation, URL scope, download failures/redirects/limits/cancel/deadline");return 0;
+        std::puts("PASS: read-only directory themes (.default/.theme/extensionless), refresh/edit/remove/symlink/invalid isolation, bounded Ghostty imports, offline metadata/checksums, duplicates, stale-window merge, writer isolation, corruption preservation, URL scope, download failures/redirects/limits/cancel/deadline");return 0;
     } catch(const std::exception &error) {std::fprintf(stderr,"FAIL: %s\n",error.what());return 1;}
 }

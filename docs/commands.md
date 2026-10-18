@@ -69,7 +69,7 @@ Unicode/wrapping, live refresh and bounds.
 
 `just toolkit-ui` now has a separate native-control palette with the same default
 Command+Option+P / Super+Alt+P chord. It includes core workspace, layout, Overview,
-clipboard and confirmed terminal-close actions. This candidate has temporary
-settings and fixed defaults; shortcut customization, one-shot key forwarding and
-terminal search still belong to the working viewer. See the
+clipboard and confirmed terminal-close actions. Supported managed application
+bindings now load at startup, with active hints. The recorder/editor, UI override files, one-shot key forwarding
+and terminal search still belong to the working viewer. See the
 [Qt study](toolkit-ui-study.md#qt-command-palette) for exact scope and review steps.

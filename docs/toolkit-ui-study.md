@@ -42,8 +42,8 @@ Use **Cmd–Option** on Mac or **Super–Alt** on Linux:
 Escape closes Overview/overlays and otherwise reaches the shell. Copy/paste
 retain the platform bindings proved by the Qt terminal probe. The top bar
 indicators, workspace drawer, pane layout menu and help button provide mouse
-access. Bindings are fixed for this isolated study; dotfile shortcut settings
-and the production command registry are not connected yet.
+access. Managed application bindings now load at startup; the recorder/editor,
+generated UI overrides and production-session integration remain follow-ups.
 
 ## Creating workspaces and terminals
 
@@ -154,53 +154,16 @@ other presentation preferences. Imported palette files are saved separately as
 described below. Dotfile defaults and saved workspace appearance integration are
 later work; this does not change the daily-use viewer's selected theme.
 
-## Importing TerminalColors and Ghostty themes
+## TerminalColors and Ghostty themes
 
-Open **Appearance → Import…**. Paste a local Ghostty color-file path, choose it
-with Browse, or paste a [TerminalColors theme link](https://terminalcolors.com/ghostty/).
-Both a theme page such as `/themes/nord/default/` and its direct Ghostty download
-link are accepted. A name is inferred from the file/theme; an optional name and
-author/license notes can be supplied. **Import & preview** validates and saves
-the palette, then previews this workspace in Appearance. **Apply** keeps the
-workspace's new look; Appearance **Cancel** restores the prior look. An imported
-palette remains in the gallery for future use after Appearance cancellation.
-Cancelling the import form or an in-flight download adds nothing.
+Use the [drop-in theme directory](theme-directory.md). Appearance explains that
+folder contents appear automatically and offers an **Open themes folder** link
+to the file manager. Add files there, then reopen Appearance to refresh the list.
+Select a theme in Appearance and choose **Apply**; do not open the theme file.
 
-Imports retain the exact original text, source URL/file reference and supplied
-attribution. They live under the normal Workbench configuration directory at
-`themes/imports/`: content-addressed `.ghostty` files plus an atomic `imports.json`
-index. The study's workspace/session catalog remains private and disposable;
-imported colors are a separate, explicit durable collection. Existing imports
-load offline without requests to the website. The importer preserves supplied
-comments/licenses; it does not infer redistribution rights or bundle downloaded
-TerminalColors files with Workbench. The live export checked on 2026-10-18 had
-Ghostty color fields and no embedded author/license notice.
-
-Only color fields reach the terminal defaults. Unknown Ghostty settings are
-counted and ignored; files, commands and keybindings are never followed or run.
-Explicit RGB cells and application palette overrides survive preview/apply.
-Invalid colors, empty/unsupported files, non-UTF-8/NUL text, files/downloads over
-64 KiB and a collection beyond 64 imports fail without replacing existing themes.
-Exact duplicate content selects the existing palette. Corrupt saved data stays
-untouched and built-in palettes remain usable. Concurrent window imports merge
-under a short lock; no lock spans a network request.
-
-Downloads start only when Import is invoked. HTTPS requests are limited to the
-TerminalColors Ghostty export endpoint, with a deadline, bounded buffering and
-no automatic redirect or retry. Broken/unavailable links leave the form editable
-and the active theme intact. The link adapter is based on the site's currently
-published export URLs; a local downloaded Ghostty file also uses the same parser.
-No website images, catalog scraping or background update requests are needed.
-
-`just toolkit-theme-import-test` runs offline on Mac/Linux with temporary stores
-and deterministic network replies. It covers duplicate/offline reload, source
-metadata, stale-window merging, writer locks, checksums/corruption, bounds,
-unsupported hosts, redirected/failed downloads, cancellation and deadlines.
-Native xcb/Wayland UI tests exercise import preview/Apply/Cancel, a native-input
-file chooser cancellation, invalid files, persistent metadata, deduplication and
-unchanged original terminal PIDs/grids/input. A real TerminalColors Nord export
-and its live link were also verified through Qt HTTPS/parsing in disposable storage;
-external assets were not committed. Native Mac import review remains open.
+The earlier import form is no longer exposed. Previously imported palettes still
+load offline from `themes/imports/`. The import backend and its offline validation
+tests remain available for existing stored data.
 
 ## Moving terminals in Overview
 
@@ -428,8 +391,8 @@ terminal. Escape closes only the palette when opened over Overview.
 The registry is client presentation state. Filtering performs no filesystem or
 runtime requests, snapshots or process inspection. The palette never changes
 terminal ownership. Its query/open state and motion toggle remain temporary in
-this disposable study. Configurable bindings, key forwarding and saved settings
-are follow-ups; these existing `just spike` features have not all moved to Qt.
+this disposable study. Supported managed bindings now load at startup; the
+recorder/editor, UI overrides, key forwarding and saved settings are follow-ups; these existing `just spike` features have not all moved to Qt.
 
 `just toolkit-ui-test` exercises menu/chord entry, title-priority filtering,
 no-match and disabled actions, arrow/Tab navigation, mouse activation, safe
@@ -451,3 +414,26 @@ baselines use the existing shared/platform parser at startup, with untouched
 managed files and a visible fallback diagnostic. Changes remain window-local
 and temporary; saved overrides and the other portable settings are follow-ups.
 See [font controls and validation](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults).
+
+
+## Managed shortcut loading
+
+The Qt candidate imports supported application chords from the existing managed
+shared/platform configuration. Commands, menus, tooltip and help show the active
+bindings. Unbinding releases the old chord to terminal input; modals own their
+keys. Native copy/paste remains independent, with conflicting application chords
+rejected. Qt-only move defaults yield to configured actions. No file is written,
+no runtime protocol changes, and unsupported actions remain unintercepted.
+The editor/recorder, generated UI override files and one-shot key forwarding are
+follow-ups. See [configuration and validation](shortcuts.md#qt-candidate-managed-application-shortcuts).
+
+
+## Drop-in theme directory
+
+The primary Qt theme workflow now uses the per-user configuration `themes/`
+directory. Appearance has an **Open themes folder** link and explains automatic discovery. Drop Ghostty files there,
+including TerminalColors `.default` downloads, and reopen Appearance to select
+them. Files remain read-only and offline; discovery does not require the optional
+import form. Preview/Apply/Cancel preserves PTYs and terminal geometry. Invalid
+files are skipped; editing/removing a file retains existing window colors until a
+new theme is chosen. See [paths, usage and validation](theme-directory.md).

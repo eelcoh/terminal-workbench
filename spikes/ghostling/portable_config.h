@@ -111,7 +111,7 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
     *out=next;error[0]=0;return true;
 }
 /* The working viewer retains full theme validation and its transaction boundary. */
-static bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)
+static inline bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)
 {
     return portable_read_with_theme_files(path,apple,true,out,error,capacity);
 }

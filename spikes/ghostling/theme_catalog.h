@@ -13,7 +13,7 @@ static bool theme_catalog_load(Theme *themes, int *ignored, char *error, size_t 
         if (!theme_read_text(theme_bundled_sources[i-2],&themes[0],&themes[i],&ignored[i],error,capacity)) return false;
     return true;
 }
-static bool theme_catalog_matches(const char *name, const Theme *theme, const char *query, int mode)
+static inline bool theme_catalog_matches(const char *name, const Theme *theme, const char *query, int mode)
 {
     if (mode && theme_light(theme)!=(mode==2)) return false;
     for (const char *p=name;;p++) {

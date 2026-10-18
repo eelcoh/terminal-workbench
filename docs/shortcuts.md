@@ -200,3 +200,61 @@ unchanged clipboard/control keys, and legacy/Kitty forwarded input. Pure tests
 also preserve complete old Linux maps, sparse overrides and explicit unbindings.
 The test client now retries connection refusal briefly because socket-path
 publication precedes listener readiness; protocol/ownership rejections still fail.
+
+
+## Qt candidate: managed application shortcuts
+
+`just toolkit-ui` now reads supported application chords from `config.conf` at
+startup, using the same `[shortcuts]`, `[linux.shortcuts]` and `[macos.shortcuts]`
+precedence and versioned field validation as the daily viewer. The managed file
+stays read-only. Commands, menus, the New terminal tooltip and shortcut help show
+active bindings rather than fixed defaults. Restart the study after file edits.
+
+For example, these bindings open Commands, help and workspace rename:
+
+```text
+workbench-config-v1
+
+[shortcuts]
+commands = F10
+shortcuts.help = F9
+workspace.rename = F8
+```
+
+The Qt adapter currently supports Commands, Overview, Appearance, workspace
+creation/name/folder/navigation, terminal creation/confirmed close/navigation,
+width cycle/full, font settings/sizing and shortcut help. Use the corresponding
+action IDs:
+
+- `commands`, `overview`, `appearance`, `shortcuts.help`
+- `workspace.new`, `workspace.rename`, `workspace.folder`,
+  `workspace.previous`, `workspace.next`
+- `terminal.new`, `terminal.stop`, `terminal.previous`, `terminal.next`
+- `terminal.width.cycle`, `terminal.width.full`
+- `terminal.font.settings`, `terminal.font.increase`,
+  `terminal.font.decrease`, `terminal.font.reset`
+
+`none` unbinds an action, allowing that former chord to reach the terminal. Actions unavailable in
+the current view remain consumed. Boundary navigation still reveals the selected
+pane after manual scrolling. Qt-only move defaults yield when a configured action
+uses their chord.
+
+Command/Super maps to Command on Mac and Super on Linux; Ctrl means the physical
+Control key on both. Mac labels distinguish Command and Control. Missing config
+uses defaults; malformed or conflicting configuration falls back transactionally
+with a startup notice. Unused appearance files are never opened by this adapter.
+Native text-field editing and terminal copy/paste keep their platform shortcuts.
+An application binding conflicting with those native clipboard chords is rejected.
+
+This slice imports managed application shortcuts only. Existing `ui/` override
+files, the shortcut recorder/editor, clipboard remapping, one-shot forwarding and
+unsupported actions have not moved to Qt. Unsupported actions are not intercepted.
+The working viewer retains those workflows. Qt settings stay independent of the
+session service and do not change runtime ownership or protocols.
+
+`just toolkit-shortcuts-test` checks shared/platform precedence, exact Mac modifier
+mapping, unbinding, unsupported actions, reserved controls, clipboard conflicts and
+move-default collisions without a display. `just toolkit-ui-test` exercises real
+F10/F9/F8 remaps, former-chord passthrough, dynamic hints/help, modal isolation and
+existing workflows on private X11 and Wayland desktops. X11 uses the established window-directed key path, with physical XTest function
+keys to avoid Xdotool’s incorrect Alt synthesis. Native Mac shortcut review remains pending.

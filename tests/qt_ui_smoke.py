@@ -1,5 +1,6 @@
 """Real native input and PTY invariants for the isolated Qt UI slice (Linux)."""
 import json
+import ctypes
 import os
 import re
 from pathlib import Path
@@ -25,12 +26,10 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from session_service import request
 import workspace_catalog
 os.environ['SHELL']='/bin/sh'
-processes=[];sockets=[];client=None
+processes=[];sockets=[];client=None;xdisplay=None
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:
     root=Path(directory);project=root/'Project folder';project.mkdir();child=project/'child';child.mkdir();chosen=project/'café #100% &';chosen.mkdir()
     try:
-        imported_theme=root/'Imported.conf';imported_theme.write_text('background = #132435\nforeground = #dceeff\npalette = 1=#a1b2c3\ncommand = /never/execute\n')
-        invalid_theme=root/'Invalid.conf';invalid_theme.write_text('background = #zzzzzz\n')
         theme_store=root/'theme-cache'
         reader=root/'reader.py';reader.write_text('''import os,tty,time,select,termios,struct,fcntl
 from pathlib import Path
@@ -56,8 +55,8 @@ while True:
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
-        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n');managed_bytes=managed.read_bytes()
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed)}))
+        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\n');managed_bytes=managed.read_bytes()
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -98,11 +97,27 @@ while True:
             run('niri','msg','action','move-floating-window','--x','70','--y','50');time.sleep(.35)
         else:
             window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
-        def key(value):
+        # Xdotool incorrectly synthesizes Alt for bare function keys in this XKB map.
+        # Use XTest's physical keycode path for those keys, as a real keyboard does.
+        xdisplay=None
+        if not wayland:
+            xlib=ctypes.CDLL('libX11.so.6');xtest=ctypes.CDLL('libXtst.so.6')
+            xlib.XOpenDisplay.argtypes=[ctypes.c_char_p];xlib.XOpenDisplay.restype=ctypes.c_void_p
+            xlib.XKeysymToKeycode.argtypes=[ctypes.c_void_p,ctypes.c_ulong];xlib.XKeysymToKeycode.restype=ctypes.c_uint
+            xlib.XFlush.argtypes=[ctypes.c_void_p];xlib.XCloseDisplay.argtypes=[ctypes.c_void_p]
+            xtest.XTestFakeKeyEvent.argtypes=[ctypes.c_void_p,ctypes.c_uint,ctypes.c_int,ctypes.c_ulong]
+            xdisplay=xlib.XOpenDisplay(env['DISPLAY'].encode());assert xdisplay
+        def raw_key(value):
             if wayland:
                 pieces=value.split('+');mods=[{'super':'Mod4','alt':'Mod1','ctrl':'Control','shift':'Shift'}.get(v,v) for v in pieces[:-1]]
                 run(root/'keyboard','key',pieces[-1],*mods)
+            elif re.fullmatch(r'F(?:[1-9]|1[01])',value):
+                code=xlib.XKeysymToKeycode(xdisplay,0xffbe+int(value[1:])-1);assert code
+                assert xtest.XTestFakeKeyEvent(xdisplay,code,1,0) and xtest.XTestFakeKeyEvent(xdisplay,code,0,0)
+                xlib.XFlush(xdisplay)
             else:cmd('key','--window',window,value)
+        def key(value):
+            raw_key({'super+alt+p':'F10','super+alt+slash':'F9'}.get(value,value))
         def typed(value):
             if wayland:run(root/'keyboard','text',value)
             else:cmd('type','--window',window,'--delay',1,value)
@@ -171,7 +186,14 @@ while True:
             Path(str(report)+'.capture').touch();wait_until(lambda:not Path(str(report)+'.capture').exists());(artifacts/name).write_bytes(Path(str(report)+'.png').read_bytes())
         assert 'Adwaita' in data()['interface_font'],'bundled interface font was not applied'
         wait_until(lambda:all(p['facts'].get('cwd')==str(root/str(i)) for i,p in enumerate(data()['panes'])))
-        wait_until(lambda:data()['panes'][0]['focus']);typed('first');wait_until(lambda:received(0)==b'first')
+        wait_until(lambda:data()['panes'][0]['focus'])
+        assert not data()['shortcut_error'] and data()['shortcut_sequences']['commands']=='F10' and data()['shortcut_labels']['help']=='F9'
+        raw_key('super+alt+p');wait_until(lambda:len(received(0))>0);time.sleep(.1)
+        assert not data()['commands_open'],'old managed Commands binding still intercepted'
+        (root/'0'/'input').write_bytes(b'')
+        raw_key('F8');wait_until(lambda:data()['creation_open'] and data()['workspace_form_mode']=='rename')
+        key('Escape');wait_until(lambda:not data()['creation_open'] and data()['panes'][0]['focus'])
+        typed('first');wait_until(lambda:received(0)==b'first')
         # Focus/style changes must paint real cursor pixels without replacing readers.
         wait_until(lambda:data()['panes'][0]['cursor']=='block' and data()['panes'][1]['cursor']=='outline')
         capture('cursor-active.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
@@ -310,37 +332,20 @@ while True:
         assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'appearance mutated runtime organization'
         appearance();typed('no-theme-matches-this');wait_until(lambda:data()['theme_matches']==0);capture('theme-no-results.png');key('Escape')
         wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
-        # Imported palette preview is scoped to this workspace; cache is separate from organization.
-        def import_form():
-            click(*data()['import_theme_button']);wait_until(lambda:data()['theme_import_open'] and data()['theme_import_source_focus'])
-        appearance();import_form();typed(str(invalid_theme));key('Return')
-        wait_until(lambda:'Invalid theme color' in data()['theme_import_error'])
-        assert data()['theme_catalog_count']==7 and theme_state(2,'#282a36','#ff5555') and not theme_store.exists()
-        click(*data()['import_file_button']);wait_until(lambda:data()['theme_file_open']);key('Escape')
-        wait_until(lambda:not data()['theme_file_open'] and data()['theme_import_open'] and data()['theme_import_source_focus'])
-        assert data()['theme_import_source']==str(invalid_theme),'file picker cancellation replaced import source'
-        key('ctrl+a');typed(str(imported_theme))
-        click(*data()['import_name_field']);typed('Imported fixture')
-        click(*data()['import_attribution_field']);typed('Workbench synthetic fixture')
-        click(*data()['import_submit_button'])
-        wait_until(lambda:not data()['theme_import_open'] and data()['theme_catalog_count']==8 and data()['panes'][4]['theme']>=7)
-        imported_index=data()['panes'][4]['theme']
-        wait_until(lambda:theme_state(imported_index,'#132435','#a1b2c3'))
-        assert all(p['theme']==0 for p in data()['panes'][:3]) and sizes()==theme_sizes
-        saved=json.loads((theme_store/'imports.json').read_text());entry=saved['imports'][0]
-        assert entry['name']=='Imported fixture' and entry['attribution']=='Workbench synthetic fixture' and entry['source'].startswith('file:')
-        assert (theme_store/(entry['id']+'.ghostty')).read_bytes()==imported_theme.read_bytes()
-        cache_before=(theme_store/'imports.json').read_bytes();capture('theme-import-preview.png')
-        key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
-        assert data()['theme_catalog_count']==8 and (root/'workspaces.json').read_bytes()==theme_catalog_before
-        appearance();typed('Imported fixture');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return')
-        wait_until(lambda:not data()['appearance_open'] and theme_state(imported_index,'#132435','#a1b2c3'))
-        appearance();typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return')
+        # Drop a TerminalColors .default file; opening Appearance discovers it.
+        drop_file=root/'themes'/'folder-fixture.default';drop_bytes=b'background = #214365\nforeground = #e0e6ef\npalette = 1=#aa1133\ncommand = /never/execute\n'
+        drop_file.write_bytes(drop_bytes);(root/'themes'/'invalid.default').write_text('background = #invalid\n')
+        appearance();typed('Folder Fixture');wait_until(lambda:data()['theme_matches']==1 and data()['theme_catalog_count']==8)
+        key('Down');wait_until(lambda:data()['chrome_background']=='#214365')
+        folder_index=data()['panes'][3]['theme'];assert theme_state(folder_index,'#214365','#aa1133')
+        capture('theme-directory-preview.png');key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
+        appearance();typed('Folder Fixture');key('Down');wait_until(lambda:data()['chrome_background']=='#214365');key('Return')
+        wait_until(lambda:not data()['appearance_open'] and theme_state(folder_index,'#214365','#aa1133'))
+        assert drop_file.read_bytes()==drop_bytes and not theme_store.exists() and sizes()==theme_sizes
+        drop_file.unlink();appearance();wait_until(lambda:data()['theme_catalog_count']==7)
+        assert theme_state(folder_index,'#214365','#aa1133'),'removing a file changed the active terminal colors'
+        typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return')
         wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
-        appearance();import_form();typed(str(imported_theme));key('Return')
-        wait_until(lambda:not data()['theme_import_open'] and 'Already imported' in data()['theme_import_status'])
-        assert data()['theme_catalog_count']==8 and (theme_store/'imports.json').read_bytes()==cache_before
-        key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['chrome_background']=='#15191f')
         key('super+alt+Down');wait_until(lambda:data()['workspace']==1 and data()['chrome_background']=='#282a36')
         # Actual native overview drags use existing IDs without recreating delegates.
@@ -689,7 +694,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except BaseException:
         if report.exists():(artifacts/'failure.json').write_bytes(report.read_bytes())
         for evidence in root.glob('*.log'):(artifacts/('failure-'+evidence.name)).write_bytes(evidence.read_bytes())
@@ -698,6 +703,7 @@ while True:
             except Exception:pass
         raise
     finally:
+        if xdisplay:xlib.XCloseDisplay(xdisplay)
         for sock in root.glob('*.sock'):subprocess.run([runtime,'stop',str(sock)],capture_output=True,timeout=12)
         request(root,Path(runtime),root,"service.shutdown")
         for process in reversed(processes):

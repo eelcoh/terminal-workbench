@@ -130,8 +130,8 @@ transactionally with a dismissible startup diagnostic. The managed file and
 its symlink/comments stay untouched. The existing field syntax and shortcut
 rules are validated, but this font-only adapter does not open theme files that
 Qt does not yet consume. A missing or malformed external theme cannot discard
-valid fonts or trigger a font warning. Managed appearance/shortcuts and
-per-window saved font overrides remain follow-ups.
+valid fonts or trigger a font warning. Managed appearance, generated shortcut overrides and saved per-window fonts
+remain follow-ups; supported managed application bindings now load at startup.
 
 Both faces are bundled with their OFL notices. The existing shaped row
 renderer uses the chosen face and Qt point metrics, with backing density

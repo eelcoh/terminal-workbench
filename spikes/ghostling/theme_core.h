@@ -114,7 +114,7 @@ static bool theme_read_source(FILE *file, const char *text, const Theme *base, T
 invalid:
     snprintf(error,capacity,"Invalid theme color at line %d",number); return false;
 }
-static bool theme_read(FILE *file, const Theme *base, Theme *result, int *ignored, char *error, size_t capacity)
+static inline bool theme_read(FILE *file, const Theme *base, Theme *result, int *ignored, char *error, size_t capacity)
 {
     return theme_read_source(file,NULL,base,result,ignored,error,capacity);
 }

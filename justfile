@@ -351,3 +351,7 @@ toolkit-lifecycle-test: runtime-build
 # Read-only dotfiles and window-local Qt font transactions, without a display.
 toolkit-fonts-test: runtime-build
     python3 scripts/toolkit-probe.py fonts-test
+
+# Managed Qt application chords, platform mapping and conflict contracts.
+toolkit-shortcuts-test: runtime-build
+    python3 scripts/toolkit-probe.py shortcuts-test

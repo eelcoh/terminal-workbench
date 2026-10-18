@@ -16,14 +16,20 @@ class UiThemes final : public QObject {
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY changed)
+    Q_PROPERTY(QString themesPath READ themesPath CONSTANT)
+    Q_PROPERTY(QString directoryStatus READ directoryStatus NOTIFY changed)
     Q_PROPERTY(QString storePath READ storePath CONSTANT)
 public:
-    explicit UiThemes(const QString &store,QObject *parent=nullptr,QNetworkAccessManager *network=nullptr,int timeoutMs=15000);
+    explicit UiThemes(const QString &store,QObject *parent=nullptr,QNetworkAccessManager *network=nullptr,int timeoutMs=15000,const QString &themesPath={});
     QVariantList catalog() const {return catalog_;}
     bool busy() const {return busy_;}
     QString error() const {return error_;}
     QString status() const {return status_;}
     QString storePath() const {return directory_;}
+    QString themesPath() const {return themesPath_;}
+    QString directoryStatus() const {return directoryStatus_;}
+    Q_INVOKABLE void reloadDirectory();
+    Q_INVOKABLE void openThemesDirectory();
     Q_INVOKABLE QVariantMap theme(int index) const;
     Q_INVOKABLE void importTheme(const QString &source,const QString &name={},const QString &attribution={});
     Q_INVOKABLE void cancelImport();
@@ -39,6 +45,7 @@ private:
     void finish(const QByteArray &text,const QString &source,const QString &name,const QString &attribution);
     void fail(const QString &error);
     static bool parse(const QByteArray &text,WorkbenchTheme &theme,int &ignored,QString &error);
+    QString themesPath_,directoryStatus_;QHash<QString,int> directoryIndices_;
     QString directory_,error_,storeError_,status_,pendingSource_,pendingName_,pendingAttribution_;
     QVector<StoredTheme> records_;
     QVariantList catalog_;QHash<int,QVariantMap> lookup_;QVector<int> importIndices_;

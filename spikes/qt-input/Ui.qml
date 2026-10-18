@@ -91,6 +91,7 @@ ApplicationWindow {
         const entry = commandRegistry.find(id)
         if (!entry || !entry.available) return
         switch (id) {
+        case "commands": openCommands(); break
         case "font-settings": openFontSettings(); break
         case "font-increase": studyFonts.step(1); break
         case "font-decrease": studyFonts.step(-1); break
@@ -135,10 +136,6 @@ ApplicationWindow {
     readonly property bool appearanceOpen: appearance.visible
     readonly property bool applicationMenuOpen: appMenu.visible
     readonly property bool layoutMenuOpen: paneMenu.visible
-    readonly property bool themeImportOpen: themeImport.visible
-    readonly property bool themeImportSourceFocus: themeImport.sourceFocused
-    readonly property bool themeFileOpen: themeImport.browserOpen
-    readonly property string themeImportSource: themeImport.sourceText
     readonly property bool themeSearchFocus: appearance.searchFocused
     readonly property int themeMatchCount: appearance.matches.length
     readonly property var chrome: studyThemes.theme(themeIndexFor(workspace))
@@ -149,6 +146,7 @@ ApplicationWindow {
         else showAppearance()
     }
     function showAppearance() {
+        studyThemes.reloadDirectory()
         appearanceWorkspace = spaceIds[workspace]; previewTheme = workspaceThemes[workspace] || 0; appearance.open()
     }
     property var widths: []
@@ -288,8 +286,6 @@ ApplicationWindow {
         }
         function onChanged() { if (!studySession.busy && studySession.error.length > 0) window.followMove = false }
     }
-    readonly property string chord: Qt.platform.os === "osx" ? "Ctrl+Alt+" : "Meta+Alt+"
-    readonly property string chordLabel: Qt.platform.os === "osx" ? "⌘⌥" : "Super+Alt+"
     readonly property color accent: chrome.accent
     readonly property int motion: reducedMotion ? 0 : 220
     function panel(i) { return panels.itemAt(i) }
@@ -469,7 +465,7 @@ ApplicationWindow {
             color: window.chrome.muted; font.pixelSize: 12
         }
         QuietButton {
-            objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal · " + window.chordLabel + "T"; enabled: window.canCreateTerminal
+            objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal" + (studyShortcuts.labels["new-terminal"] ? " · " + studyShortcuts.labels["new-terminal"] : ""); enabled: window.canCreateTerminal
             x: window.overview ? overviewButton.x - width - 12 : focusedCount.x + focusedCount.width + 12
             onClicked: window.newTerminal()
         }
@@ -685,17 +681,17 @@ ApplicationWindow {
         tones: window.chrome
         onClosed: window.restoreAfterPopup()
         id: appMenu; x: 8; y: 40
-        MenuAction { objectName: "commandsMenuItem"; keyHint: window.chordLabel + "P"; text: "Open Commands"; onTriggered: window.openCommands() }
+        MenuAction { objectName: "commandsMenuItem"; keyHint: studyShortcuts.labels["commands"] || ""; text: "Open Commands"; onTriggered: window.openCommands() }
         MenuRule {}
-        MenuAction { keyHint: window.chordLabel + "T"; text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.dispatchCommand("new-terminal") }
-        MenuAction { keyHint: window.chordLabel + "N"; text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.dispatchCommand("new-workspace") }
+        MenuAction { keyHint: studyShortcuts.labels["new-terminal"] || ""; text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.dispatchCommand("new-terminal") }
+        MenuAction { keyHint: studyShortcuts.labels["new-workspace"] || ""; text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.dispatchCommand("new-workspace") }
         MenuRule {}
         MenuAction { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
         MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
         MenuRule {}
         MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
         MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; onTriggered: window.openFontSettings() }
-        MenuAction { keyHint: window.chordLabel + "/"; text: "Keyboard shortcuts"; onTriggered: help.open() }
+        MenuAction { keyHint: studyShortcuts.labels["help"] || ""; text: "Keyboard shortcuts"; onTriggered: help.open() }
         MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
         MenuRule {}
         MenuAction { text: "Copy selection"; enabled: window.selected >= 0; onTriggered: window.panel(window.selected).terminal.copy() }
@@ -733,18 +729,11 @@ ApplicationWindow {
         Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error; wrapMode: Text.Wrap; color: "#f0d6b8" }
         QuietButton { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Refresh"; enabled: !studySession.busy; onClicked: studySession.refresh() }
     }
-    Connections {
-        target: studyThemes
-        function onImported(index) {
-            window.previewTheme = index; themeImport.close()
-            Qt.callLater(function() { appearance.revealTheme(index) })
-        }
-    }
-    ThemeImport { id: themeImport; themes: studyThemes; session: studySession }
     ThemePicker {
         id: appearance; anchors.centerIn: parent
-        importOpen: themeImport.visible
-        onImportRequested: themeImport.open()
+        retainedTheme: studyThemes.theme(window.previewTheme)
+        directoryPath: studyThemes.themesPath; directoryStatus: studyThemes.directoryStatus
+        onFolderRequested: studyThemes.openThemesDirectory()
         catalog: studyThemes.catalog; themeIndex: window.previewTheme
         workspaceName: window.spaces[window.spaceIds.indexOf(window.appearanceWorkspace)] || ""
         onPreviewSelected: index => window.previewTheme = index
@@ -761,13 +750,13 @@ ApplicationWindow {
     }
     property bool fontWarningDismissed: false
     Rectangle {
-        visible: studyFonts.error.length > 0 && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
+        visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
         QuietButton { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Dismiss"; onClicked: window.fontWarningDismissed = true }
-        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: studyFonts.error }
+        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyFonts.error, studyShortcuts.error].filter(value => value.length > 0).join("\n") }
     }
     CommandPalette {
         id: commands; objectName: "commandPalette"; anchors.centerIn: parent
-        tones: window.chrome; actions: commandRegistry.entries; chordLabel: window.chordLabel
+        tones: window.chrome; actions: commandRegistry.entries
         contextLabel: window.spaces[window.workspace] + (window.selected >= 0 && window.panel(window.selected) ? " · " + window.panel(window.selected).facts.title : " · Empty workspace")
         onChosen: id => { window.pendingCommand = id; close() }
         onClosed: {
@@ -874,32 +863,42 @@ ApplicationWindow {
             implicitHeight: 56
             QuietButton { anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: "Close"; onClicked: help.close() }
         }
-        contentItem: Flickable {
-            contentWidth: width; contentHeight: helpText.implicitHeight; clip: true
+        contentItem: ListView {
+            clip: true; spacing: 4
+            model: commandRegistry.entries.filter(entry => entry.key.length > 0)
             ScrollBar.vertical: ScrollBar {}
-            Label { id: helpText; color: window.chrome.foreground; width: parent.width; padding: 18; text: window.chordLabel + "= / − / 0   Text size + / − / reset\n" + window.chordLabel + "P             Commands\n" + window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "⇧← / →     Move terminal left / right\n" + window.chordLabel + "⇧↑ / ↓     Move to workspace above / below\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
+            delegate: Item {
+                required property var modelData
+                width: ListView.view.width; height: 34
+                Label { x: 8; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.56; elide: Text.ElideRight; text: modelData.title; textFormat: Text.PlainText; color: window.chrome.foreground }
+                Label { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: modelData.key; color: window.chrome.muted }
+            }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
     readonly property bool globalKeyContext: dragSlot < 0 && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
-    Shortcut { sequence: window.chord + "Shift+Left"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(-1) }
-    Shortcut { sequence: window.chord + "Shift+Right"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(1) }
-    Shortcut { sequence: window.chord + "Shift+Up"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(-1) }
-    Shortcut { sequence: window.chord + "Shift+Down"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(1) }
-    Shortcut { sequence: window.chord + "="; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("font-increase") }
-    Shortcut { sequence: window.chord + "-"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("font-decrease") }
-    Shortcut { sequence: window.chord + "0"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("font-reset") }
-    Shortcut { sequence: window.chord + "P"; enabled: window.globalKeyContext; onActivated: window.openCommands() }
-    Shortcut { sequence: window.chord + "T"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("new-terminal") }
-    Shortcut { sequence: window.chord + "N"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("new-workspace") }
-    Shortcut { sequence: window.chord + "Left"; enabled: window.globalKeyContext; onActivated: window.navigate(-1) }
-    Shortcut { sequence: window.chord + "Right"; enabled: window.globalKeyContext; onActivated: window.navigate(1) }
-    Shortcut { sequence: window.chord + "Up"; enabled: window.globalKeyContext; onActivated: window.chooseWorkspace(window.workspace - 1) }
-    Shortcut { sequence: window.chord + "Down"; enabled: window.globalKeyContext; onActivated: window.chooseWorkspace(window.workspace + 1) }
-    Shortcut { sequence: window.chord + "O"; enabled: window.globalKeyContext; onActivated: window.toggleOverview() }
-    Shortcut { sequence: window.chord + "R"; enabled: !window.overview && window.globalKeyContext; onActivated: window.dispatchCommand("cycle-width") }
-    Shortcut { sequence: window.chord + "F"; enabled: !window.overview && window.globalKeyContext; onActivated: window.dispatchCommand("full-width") }
-    Shortcut { sequence: window.chord + "/"; enabled: window.globalKeyContext; onActivated: help.open() }
+    function activateShortcut(id) {
+        // Boundary navigation still reveals/focuses the selected pane after scrolling.
+        if (id === "previous-terminal") navigate(-1)
+        else if (id === "next-terminal") navigate(1)
+        else if (id === "previous-workspace") chooseWorkspace(workspace - 1)
+        else if (id === "next-workspace") chooseWorkspace(workspace + 1)
+        else if (id === "move-up") moveSelectedWorkspace(-1)
+        else if (id === "move-down") moveSelectedWorkspace(1)
+        else dispatchCommand(id)
+    }
+    Repeater {
+        model: Object.keys(studyShortcuts.sequences).filter(id => studyShortcuts.sequences[id].length > 0)
+        delegate: Item {
+            id: bindingEntry; required property string modelData
+            width: 0; height: 0
+            Shortcut {
+                sequence: studyShortcuts.sequences[bindingEntry.modelData]
+                enabled: window.globalKeyContext
+                onActivated: window.activateShortcut(bindingEntry.modelData)
+            }
+        }
+    }
     Shortcut { sequence: "Escape"; enabled: window.overview && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }

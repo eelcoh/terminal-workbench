@@ -5,7 +5,6 @@ Dialog {
     id: commandPopup
     required property var tones
     required property var actions
-    required property string chordLabel
     property string contextLabel: ""
     readonly property int currentResult: results.currentIndex
     readonly property bool searchFocused: search.activeFocus
@@ -60,7 +59,7 @@ Dialog {
                 contentItem: Item {
                     Text { x: 8; y: 5; width: parent.width - shortcut.width - 24; elide: Text.ElideRight; text: modelData.title; textFormat: Text.PlainText; font.pixelSize: 14; color: commandPopup.tones.foreground; opacity: modelData.available ? 1 : 0.5 }
                     Text { x: 8; y: 27; width: parent.width - 16; elide: Text.ElideRight; text: modelData.available ? modelData.detail : modelData.reason; textFormat: Text.PlainText; font.pixelSize: 12; color: commandPopup.tones.muted }
-                    Text { id: shortcut; anchors.right: parent.right; anchors.rightMargin: 8; y: 6; text: modelData.key ? commandPopup.chordLabel + modelData.key : ""; font.pixelSize: 12; color: commandPopup.tones.muted }
+                    Text { id: shortcut; anchors.right: parent.right; anchors.rightMargin: 8; y: 6; text: modelData.key; font.pixelSize: 12; color: commandPopup.tones.muted }
                 }
                 background: Rectangle { radius: 6; color: parent.highlighted || parent.hovered ? commandPopup.tones.hover : "transparent"; border.width: parent.visualFocus ? 1 : 0; border.color: commandPopup.tones.accent }
             }

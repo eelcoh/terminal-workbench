@@ -3,9 +3,11 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QDesktopServices>
 #include <QNetworkRequest>
 #include <QRegularExpression>
 #include <QStringDecoder>
+#include <QSet>
 
 namespace {
 bool label(const QString &value,int maximum,bool optional=false) {
@@ -22,11 +24,12 @@ QString inferredName(const QString &source) {
     return words.join(' ');
 }
 }
-UiThemes::UiThemes(const QString &store,QObject *parent,QNetworkAccessManager *network,int timeoutMs)
-    :QObject(parent),directory_(store),network_(network?network:new QNetworkAccessManager(this)) {
+UiThemes::UiThemes(const QString &store,QObject *parent,QNetworkAccessManager *network,int timeoutMs,const QString &themesPath)
+    :QObject(parent),themesPath_(themesPath),directory_(store),network_(network?network:new QNetworkAccessManager(this)) {
     deadline_.setSingleShot(true);deadline_.setInterval(timeoutMs);
     connect(&deadline_,&QTimer::timeout,this,[this]{fail("Theme download timed out. Existing themes were kept.");});
     for(int i=0;i<workbench_theme_builtin_count();++i)append(i);
+    reloadDirectory();
     QVector<StoredTheme> loaded;
     if(!ThemeStore::load(directory_,loaded,storeError_)) {error_=storeError_;return;}
     QVector<WorkbenchTheme> colors;QVector<int> ignored;
@@ -42,6 +45,46 @@ UiThemes::UiThemes(const QString &store,QObject *parent,QNetworkAccessManager *n
         if(index<0) {storeError_="Theme registration capacity reached.";error_=storeError_;return;}
         importIndices_.append(index);append(index,&loaded[i],ignored[i]);
     }
+}
+void UiThemes::reloadDirectory() {
+    if(themesPath_.isEmpty())return;
+    const QDir folder(themesPath_);
+    if(!folder.isAbsolute()){directoryStatus_="Themes folder must be an absolute path.";Q_EMIT changed();return;}
+    if(!folder.exists() && !QDir().mkpath(themesPath_)){directoryStatus_="Could not create the themes folder.";Q_EMIT changed();return;}
+    const auto old=catalog_;QVariantList retained;
+    for(const auto &value:catalog_)if(!value.toMap().value("folderTheme").toBool())retained.append(value);
+    catalog_=retained;int loaded=0,skipped=0,examined=0;QString firstProblem;QSet<QString> seen;
+    const auto files=folder.entryInfoList(QDir::Files|QDir::NoDotAndDotDot,QDir::Name|QDir::IgnoreCase);
+    for(const auto &info:files) {
+        if(++examined>256){firstProblem="Only the first 256 files are scanned.";break;}
+        // Content determines validity: .default, .theme, .conf and extensionless files all work.
+        QFile file(info.absoluteFilePath());QString problem;WorkbenchTheme colors;int ignored=0;
+        if(!info.isFile() || info.size()>ThemeStore::maxBytes || !file.open(QIODevice::ReadOnly))problem="Cannot read file (maximum 64 KiB).";
+        QByteArray bytes;
+        if(problem.isEmpty()){bytes=file.read(ThemeStore::maxBytes+1);if(file.error()!=QFileDevice::NoError)problem="Could not read file.";}
+        const bool valid=problem.isEmpty() && parse(bytes,colors,ignored,problem);
+        if(!valid){++skipped;if(firstProblem.isEmpty())firstProblem=info.fileName()+": "+problem;continue;}
+        const auto digest=ThemeStore::digest(bytes),name=inferredName(info.fileName());
+        if(seen.contains(digest))continue;
+        seen.insert(digest);
+        if(!label(name,120)){++skipped;continue;}
+        int index=directoryIndices_.value(digest,-1);
+        if(index<0){index=workbench_theme_register(name.toUtf8().constData(),&colors);if(index>=0)directoryIndices_.insert(digest,index);}
+        if(index<0){++skipped;firstProblem="Theme registry is full; reopen this window to load more changes.";continue;}
+        const StoredTheme record{digest,name,QUrl::fromLocalFile(info.absoluteFilePath()).toString(),{},bytes};
+        append(index,&record,ignored);
+        auto entry=catalog_.takeLast().toMap();entry["folderTheme"]=true;catalog_.append(entry);lookup_[index]=entry;++loaded;
+    }
+    directoryStatus_=QString("%1 folder theme(s)").arg(loaded);
+    if(skipped)directoryStatus_+=QString(" · %1 file(s) skipped").arg(skipped);
+    if(!firstProblem.isEmpty())directoryStatus_+=" · "+firstProblem;
+    // Removed/edited files leave old color slots alive for already-themed terminals.
+    if(catalog_!=old)Q_EMIT catalogChanged();
+    Q_EMIT changed();
+}
+void UiThemes::openThemesDirectory() {
+    if(themesPath_.isEmpty())return;
+    if(!QDir().mkpath(themesPath_) || !QDesktopServices::openUrl(QUrl::fromLocalFile(themesPath_))){directoryStatus_="Could not open themes folder: "+themesPath_;Q_EMIT changed();}
 }
 QVariantMap UiThemes::theme(int index) const {return lookup_.value(index,lookup_.value(0));}
 void UiThemes::append(int index,const StoredTheme *record,int ignored) {

@@ -135,3 +135,13 @@ format/error checks, scoped roundtrip/corruption/limit tests, and parses all fiv
 bundled official Ghostty files;
 compatibility beyond the documented color subset is not claimed. Native macOS and physical Linux desktop review must establish
 visual quality and interaction feel before the UX milestone can be called complete.
+
+
+## Qt candidate: drop-in themes
+
+For `just toolkit-ui`, the primary flow is now the **Open themes folder** link in Appearance.
+Drop Ghostty files into the configuration `themes/` directory, retaining
+TerminalColors’ `.default` suffix, and reopen Appearance. Preview and Apply use
+the existing workspace flow; Cancel restores the old colors. The link opens a
+file manager, not a selector; files in the folder appear automatically when
+Appearance reopens. The import form has been removed. See [theme directory](theme-directory.md) for Mac/Linux paths.

@@ -136,7 +136,7 @@ static bool shortcut_read_layer(const char *path, bool apple, const ShortcutStat
     if (!shortcut_valid(&next,error,capacity)) return false;
     *out=next; return true;
 }
-static bool shortcut_read(const char *path,bool apple,ShortcutState *out,char *error,size_t capacity)
+static inline bool shortcut_read(const char *path,bool apple,ShortcutState *out,char *error,size_t capacity)
 { return shortcut_read_layer(path,apple,NULL,out,error,capacity); }
 static bool shortcut_write_layer(const char *path, const ShortcutState *state, const ShortcutState *base, char *error, size_t capacity)
 {
@@ -155,6 +155,6 @@ static bool shortcut_write_layer(const char *path, const ShortcutState *state, c
     if (success && rename(temporary,path)==0) return true;
     snprintf(error,capacity,"Cannot save shortcuts: %s",strerror(errno));unlink(temporary);return false;
 }
-static bool shortcut_write(const char *path,const ShortcutState *state,char *error,size_t capacity)
+static inline bool shortcut_write(const char *path,const ShortcutState *state,char *error,size_t capacity)
 { return shortcut_write_layer(path,state,NULL,error,capacity); }
 #endif

@@ -1232,3 +1232,31 @@ existing field validation; full theme validation remains in the working
 viewer. The warning fix needs a Mac recheck, and mixed-display acceptance
 remains open. Remaining managed settings, saved window preferences and
 packaging still precede adoption.
+
+## Managed Qt shortcut loading
+
+Supported managed application chords now load with shared/platform precedence,
+exact Command/Control mapping and dynamic hints/help. Invalid/conflicting settings
+retain built-in bindings with a notice. Native clipboard is reserved; unsupported
+actions are unintercepted. Qt-only move defaults yield to configured actions.
+Core tests cover both platform mappings and failures; private X11/Wayland tests
+exercise real remapped keys, old-chord passthrough and modal isolation. Native Mac
+acceptance, the editor/recorder, UI override loading and forwarding remain open.
+
+The shared C adapters' header helpers are now inline rather than unused static
+functions. They compile with `-Wall -Wextra -Werror` in build-machine, addressing
+the reported Mac unused-function warnings without disabling diagnostics. The
+optional Vulkan discovery message is separate from those compiler warnings.
+
+
+## Drop-in theme discovery
+
+Appearance now scans the configuration `themes/` directory at startup/opening,
+including TerminalColors `.default` downloads and extensionless Ghostty files.
+An Open themes folder text link opens the native location, with an explanation
+that files appear automatically when Appearance reopens. The import form is no
+longer exposed; existing imported themes remain available. Source files stay read-only;
+no import manifest or network request is needed. Invalid files are isolated,
+unchanged scans reuse registry slots, and active colors survive edits/removal.
+Core and native UI coverage exercise these boundaries. Mac folder/discovery
+acceptance remains open; see [the directory workflow](theme-directory.md).
