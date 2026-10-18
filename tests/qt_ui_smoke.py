@@ -196,6 +196,46 @@ while True:
         key('super+alt+slash');wait_until(lambda:data()['panes'][0]['cursor']=='outline');capture('chrome-shortcuts.png')
         key('Escape');wait_until(lambda:data()['panes'][0]['cursor']=='block')
         assert sizes()==cursor_grid
+        # Palette matching/input is local: no shell, geometry or ownership changes.
+        command_grid=sizes();command_pids=[p['instance'] for p in data()['panes']]
+        command_input=[received(i) for i in range(6)]
+        def command_search(query):
+            if not data()['commands_open']:
+                key('super+alt+p');wait_until(lambda:data()['commands_open'] and data()['command_search_focus'])
+            key('ctrl+a');typed(query)
+            wait_until(lambda:bool(data()['command_matches']) and all(all(word in (entry['title']+' '+entry['detail']).lower() for word in query.lower().split()) for entry in data()['command_matches']))
+        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+        click(*data()['commands_menu_item']);wait_until(lambda:data()['commands_open'] and data()['command_search_focus'] and not data()['application_menu_open'])
+        typed('definitely-no-such-command');wait_until(lambda:not data()['command_matches'])
+        key('Return');key('Down');key('Up');time.sleep(.1)
+        assert data()['commands_open'] and not data()['creation_open']
+        key('Escape');wait_until(lambda:not data()['commands_open'] and data()['panes'][0]['focus'])
+        command_search('terminal');wait_until(lambda:len(data()['command_matches'])>4)
+        key('Down');wait_until(lambda:data()['command_current']==1)
+        key('Up');wait_until(lambda:data()['command_current']==0)
+        capture('commands-search.png');key('Escape');wait_until(lambda:not data()['commands_open'])
+        command_search('reduce motion');wait_until(lambda:len(data()['command_first_row'])==2);click(*data()['command_first_row']);wait_until(lambda:not data()['commands_open'] and data()['reduced_motion'])
+        command_search('enable animations');key('Return');wait_until(lambda:not data()['commands_open'] and not data()['reduced_motion'])
+        command_search('terminal');key('Tab');wait_until(lambda:not data()['command_search_focus'])
+        key('shift+Tab');wait_until(lambda:data()['command_search_focus'])
+        key('Tab');key('Tab');key('Return');wait_until(lambda:not data()['commands_open'] and data()['panes'][0]['focus'])
+        command_search('previous terminal');assert not data()['command_matches'][0]['available'] and data()['command_matches'][0]['reason']
+        key('Return');time.sleep(.1);assert data()['commands_open'] and data()['selected']==0
+        key('Escape');wait_until(lambda:not data()['commands_open'])
+        command_search('new workspace');key('Return');wait_until(lambda:data()['creation_open'] and not data()['commands_open'] and data()['name_focus'])
+        assert data()['workspace_count']==3 and data()['name_input']=='','palette Enter submitted the next dialog'
+        key('Escape');wait_until(lambda:not data()['creation_open'])
+        command_search('close terminal');key('Return');wait_until(lambda:data()['terminal_action_open'] and not data()['commands_open'])
+        time.sleep(.1);assert len(data()['panes'])==6 and all(p['ready'] for p in data()['panes'])
+        key('Escape');wait_until(lambda:not data()['terminal_action_open'] and data()['panes'][0]['focus'])
+        command_search('show overview');key('Return');wait_until(lambda:data()['overview'] and not data()['commands_open'])
+        command_search('workspace appearance');wait_until(lambda:len(data()['command_matches'])==1)
+        assert not data()['command_matches'][0]['available']
+        key('Return');time.sleep(.1);assert data()['commands_open'] and data()['overview'] and not data()['appearance_open']
+        key('Escape');wait_until(lambda:not data()['commands_open']);assert data()['overview'],'palette Escape also closed Overview'
+        key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][0]['focus'])
+        assert sizes()==command_grid and [p['instance'] for p in data()['panes']]==command_pids
+        assert [received(i) for i in range(6)]==command_input,'palette keys leaked into a PTY'
         initial_sizes=sizes();pane=data()['panes'][0];click(pane['x'],pane['y'],7)
         wait_until(lambda:data()['content_x']>0)
         assert sizes()==initial_sizes and data()['panes'][0]['focus'],'horizontal wheel changed grid or focus'
@@ -613,11 +653,13 @@ while True:
         assert boxes['workspace'][2] < boxes['indicators'][0] and boxes['indicators'][2] < boxes['count'][0]
         assert boxes['count'][2] <= boxes['add'][0] and boxes['add'][2] < boxes['overview'][0],'top-bar controls overlap'
         capture('chrome-narrow.png')
+        command_search('workspace');capture('commands-narrow.png')
+        key('Escape');wait_until(lambda:not data()['commands_open'])
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, unchanged reader PIDs and isolated input')
     except BaseException:
         if report.exists():(artifacts/'failure.json').write_bytes(report.read_bytes())
         for evidence in root.glob('*.log'):(artifacts/('failure-'+evidence.name)).write_bytes(evidence.read_bytes())

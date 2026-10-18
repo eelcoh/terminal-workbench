@@ -61,6 +61,53 @@ ApplicationWindow {
     }
     onOverviewChanged: Qt.callLater(rebuildOverview)
     function openAgents() { if (!overview) toggleOverview(); changeFilter(true, false) }
+    WorkbenchActions { id: commandRegistry; host: window; session: studySession }
+    property bool pendingCommands: false
+    property string pendingCommand: ""
+    property string commandTerminal: ""
+    property string commandWorkspace: ""
+    readonly property bool commandsOpen: commands.visible
+    readonly property bool commandSearchFocus: commands.searchFocused
+    readonly property int commandCurrent: commands.currentResult
+    readonly property var commandMatches: commands.matches
+    function openCommands() {
+        if (terminalAction.visible || createDialog.visible || appearance.visible || help.visible || drawer.visible || paneMenu.visible || commands.visible || dragSlot >= 0) return
+        if (appMenu.visible) { pendingCommands = true; appMenu.close() }
+        else showCommands()
+    }
+    function showCommands() {
+        commandTerminal = selected >= 0 ? terminalModel.get(selected).terminalId : ""
+        commandWorkspace = spaceIds[workspace]
+        commands.open()
+    }
+    function dispatchCommand(id) {
+        const entry = commandRegistry.find(id)
+        if (!entry || !entry.available) return
+        switch (id) {
+        case "new-terminal": newTerminal(); break
+        case "new-workspace": newWorkspace(); break
+        case "overview": toggleOverview(); break
+        case "agents": openAgents(); break
+        case "previous-terminal": navigate(-1); break
+        case "next-terminal": navigate(1); break
+        case "previous-workspace": chooseWorkspace(workspace - 1); break
+        case "next-workspace": chooseWorkspace(workspace + 1); break
+        case "rename-workspace": editWorkspace("rename"); break
+        case "workspace-folder": editWorkspace("folder"); break
+        case "appearance": openAppearance(); break
+        case "cycle-width": cycleWidth(); break
+        case "full-width": toggleFull(); break
+        case "move-left": reorderSelected(-1); break
+        case "move-right": reorderSelected(1); break
+        case "move-up": moveSelectedWorkspace(-1); break
+        case "move-down": moveSelectedWorkspace(1); break
+        case "close-terminal": requestTerminalAction(terminalModel.get(selected).terminalId, "close"); break
+        case "copy": panel(selected).terminal.copy(); break
+        case "paste": panel(selected).terminal.paste(); break
+        case "motion": reducedMotion = !reducedMotion; break
+        case "help": help.open(); break
+        }
+    }
     property bool reducedMotion: false
     property bool pendingWorkspaceDialog: false
     property string workspaceFormMode: "create"
@@ -212,11 +259,13 @@ ApplicationWindow {
         else studySession.createWorkspace(newName.text, newFolder.text)
     }
     function restoreAfterPopup() {
-        if (pendingAppearance) {
+        if (pendingCommands) {
+            pendingCommands = false; Qt.callLater(showCommands)
+        } else if (pendingAppearance) {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !commands.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -305,7 +354,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -622,8 +671,10 @@ ApplicationWindow {
         tones: window.chrome
         onClosed: window.restoreAfterPopup()
         id: appMenu; x: 8; y: 40
-        MenuAction { keyHint: window.chordLabel + "T"; text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.newTerminal() }
-        MenuAction { keyHint: window.chordLabel + "N"; text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.newWorkspace() }
+        MenuAction { objectName: "commandsMenuItem"; keyHint: window.chordLabel + "P"; text: "Open Commands"; onTriggered: window.openCommands() }
+        MenuRule {}
+        MenuAction { keyHint: window.chordLabel + "T"; text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.dispatchCommand("new-terminal") }
+        MenuAction { keyHint: window.chordLabel + "N"; text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.dispatchCommand("new-workspace") }
         MenuRule {}
         MenuAction { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
         MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
@@ -643,8 +694,8 @@ ApplicationWindow {
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
         MenuAction { objectName: "terminalCloseMenuItem"; text: "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.requestTerminalAction(window.paneMenuTarget, "close") }
         MenuRule {}
-        MenuAction { text: "Cycle width"; onTriggered: window.cycleWidth() }
-        MenuAction { text: "Toggle full width"; onTriggered: window.toggleFull() }
+        MenuAction { text: "Cycle width"; onTriggered: window.dispatchCommand("cycle-width") }
+        MenuAction { text: "Toggle full width"; onTriggered: window.dispatchCommand("full-width") }
         MenuRule {}
         MenuAction { objectName: "moveLeftMenuItem"; text: "Move terminal left"; enabled: window.canReorder(-1); onTriggered: window.reorderSelected(-1) }
         MenuAction { objectName: "moveRightMenuItem"; text: "Move terminal right"; enabled: window.canReorder(1); onTriggered: window.reorderSelected(1) }
@@ -688,6 +739,22 @@ ApplicationWindow {
             close()
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+    }
+    CommandPalette {
+        id: commands; objectName: "commandPalette"; anchors.centerIn: parent
+        tones: window.chrome; actions: commandRegistry.entries; chordLabel: window.chordLabel
+        contextLabel: window.spaces[window.workspace] + (window.selected >= 0 && window.panel(window.selected) ? " · " + window.panel(window.selected).facts.title : " · Empty workspace")
+        onChosen: id => { window.pendingCommand = id; close() }
+        onClosed: {
+            const action = window.pendingCommand; window.pendingCommand = ""
+            // Reject stale context rather than applying an action to a different pane.
+            const targetWorkspace = window.commandWorkspace, targetTerminal = window.commandTerminal
+            Qt.callLater(function() {
+                const sameContext = targetWorkspace === window.spaceIds[window.workspace] && targetTerminal === (window.selected >= 0 ? terminalModel.get(window.selected).terminalId : "")
+                if (action && sameContext) window.dispatchCommand(action)
+                window.restoreAfterPopup()
+            })
+        }
     }
     Dialog {
         id: terminalAction; objectName: "terminalActionDialog"; anchors.centerIn: parent; modal: true
@@ -785,26 +852,27 @@ ApplicationWindow {
         contentItem: Flickable {
             contentWidth: width; contentHeight: helpText.implicitHeight; clip: true
             ScrollBar.vertical: ScrollBar {}
-            Label { id: helpText; color: window.chrome.foreground; width: parent.width; padding: 18; text: window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "⇧← / →     Move terminal left / right\n" + window.chordLabel + "⇧↑ / ↓     Move to workspace above / below\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
+            Label { id: helpText; color: window.chrome.foreground; width: parent.width; padding: 18; text: window.chordLabel + "P             Commands\n" + window.chordLabel + "← / →     Previous / next terminal\n" + window.chordLabel + "↑ / ↓     Previous / next workspace\n" + window.chordLabel + "⇧← / →     Move terminal left / right\n" + window.chordLabel + "⇧↑ / ↓     Move to workspace above / below\n" + window.chordLabel + "T              New terminal\n" + window.chordLabel + "N             New workspace\n" + window.chordLabel + "O             Overview\n" + window.chordLabel + "R             Cycle ½ → ⅔ → ⅓\n" + window.chordLabel + "F              Full width / restore\n" + window.chordLabel + "/              This help\nEscape             Close Overview or overlay"; lineHeight: 1.6 }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: dragSlot < 0 && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     Shortcut { sequence: window.chord + "Shift+Left"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(-1) }
     Shortcut { sequence: window.chord + "Shift+Right"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(1) }
     Shortcut { sequence: window.chord + "Shift+Up"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(-1) }
     Shortcut { sequence: window.chord + "Shift+Down"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(1) }
-    Shortcut { sequence: window.chord + "T"; enabled: window.globalKeyContext; onActivated: window.newTerminal() }
-    Shortcut { sequence: window.chord + "N"; enabled: window.globalKeyContext; onActivated: window.newWorkspace() }
+    Shortcut { sequence: window.chord + "P"; enabled: window.globalKeyContext; onActivated: window.openCommands() }
+    Shortcut { sequence: window.chord + "T"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("new-terminal") }
+    Shortcut { sequence: window.chord + "N"; enabled: window.globalKeyContext; onActivated: window.dispatchCommand("new-workspace") }
     Shortcut { sequence: window.chord + "Left"; enabled: window.globalKeyContext; onActivated: window.navigate(-1) }
     Shortcut { sequence: window.chord + "Right"; enabled: window.globalKeyContext; onActivated: window.navigate(1) }
     Shortcut { sequence: window.chord + "Up"; enabled: window.globalKeyContext; onActivated: window.chooseWorkspace(window.workspace - 1) }
     Shortcut { sequence: window.chord + "Down"; enabled: window.globalKeyContext; onActivated: window.chooseWorkspace(window.workspace + 1) }
     Shortcut { sequence: window.chord + "O"; enabled: window.globalKeyContext; onActivated: window.toggleOverview() }
-    Shortcut { sequence: window.chord + "R"; enabled: !window.overview && window.globalKeyContext; onActivated: window.cycleWidth() }
-    Shortcut { sequence: window.chord + "F"; enabled: !window.overview && window.globalKeyContext; onActivated: window.toggleFull() }
+    Shortcut { sequence: window.chord + "R"; enabled: !window.overview && window.globalKeyContext; onActivated: window.dispatchCommand("cycle-width") }
+    Shortcut { sequence: window.chord + "F"; enabled: !window.overview && window.globalKeyContext; onActivated: window.dispatchCommand("full-width") }
     Shortcut { sequence: window.chord + "/"; enabled: window.globalKeyContext; onActivated: help.open() }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

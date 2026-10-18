@@ -406,3 +406,36 @@ terminal…, cancel once, then confirm. The workspace should become empty when i
 last terminal closes; its neighbours should keep running. Native Mac acceptance
 of this slice remains pending. Paired-window saved-session integration remains a
 later slice; the study launcher still owns only private disposable sessions.
+
+
+## Qt command palette
+
+In `just toolkit-ui`, open **Open Commands** from the hamburger menu, or use
+**Command+Option+P** on macOS / **Super+Alt+P** on Linux. Type to search titles
+and descriptions; title matches rank first. Up/Down selects a result, Enter
+runs it, and Escape or Done closes the palette. Tab/Shift+Tab cycles search,
+results and Done. Clicking an available result also runs it. Unavailable actions
+remain visible with a reason, and no-match Enter does nothing.
+
+The palette covers creation, workspace name/folder, appearance/import access,
+Overview/agents, focus/navigation, widths, terminal moves/confirmed close,
+clipboard, motion and shortcut help. Actions target the current workspace and
+focused terminal, with stable IDs checked again at dispatch. Existing service
+commands and confirmation dialogs remain authoritative. Opening Enter does not
+also submit the next dialog or confirm a close. Palette input never goes to a
+terminal. Escape closes only the palette when opened over Overview.
+
+The registry is client presentation state. Filtering performs no filesystem or
+runtime requests, snapshots or process inspection. The palette never changes
+terminal ownership. Its query/open state and motion toggle remain temporary in
+this disposable study. Configurable bindings, key forwarding and saved settings
+are follow-ups; these existing `just spike` features have not all moved to Qt.
+
+`just toolkit-ui-test` exercises menu/chord entry, title-priority filtering,
+no-match and disabled actions, arrow/Tab navigation, mouse activation, safe
+creation/close handoff, Overview scope and minimum-width layout on private X11
+and Wayland desktops. It also checks unchanged terminal objects, grids and raw
+reader input across the palette flows. Review captures are `commands-search.png`
+and `commands-narrow.png` under `.local/artifacts/qt-ui/{xcb,wayland}/`.
+Native Mac keyboard/visual acceptance remains pending. `just spike` is still the
+daily-use viewer; this does not adopt Qt as the production frontend.

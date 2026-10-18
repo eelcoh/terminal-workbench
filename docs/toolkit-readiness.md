@@ -1204,3 +1204,14 @@ terminal…, cancel once, then confirm. The workspace should become empty when i
 last terminal closes; its neighbours should keep running. Native Mac acceptance
 of this slice remains pending. Paired-window saved-session integration remains a
 later slice; the study launcher still owns only private disposable sessions.
+
+
+## Qt command access
+
+The candidate adds a themed native-control command palette, context reasons,
+shortcut hints and a client-only action registry. Shared creation/layout dispatch
+reuses existing handlers; close reuses the existing confirmation. Native X11 and
+Wayland coverage exercises input isolation, unavailable/no-match choices, safe
+dialog handoff, mouse/Tab navigation and stable terminal instances/grids. Native
+Mac palette acceptance remains open. Font/configuration, saved sessions and
+packaging remain before a frontend decision; `just spike` remains the daily viewer.

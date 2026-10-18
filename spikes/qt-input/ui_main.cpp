@@ -88,7 +88,10 @@ int main(int argc,char **argv) {
             }
             const auto *createButton=window->findChild<QQuickItem *>("newWorkspaceButton");
             const auto createPoint=createButton->mapToScene(QPointF(createButton->width()/2,createButton->height()/2));
-            const auto center=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
+            const auto center=[window](const char *name){const QQuickItem *item=window->findChild<QQuickItem *>(name);
+                if(!item) { QList<QQuickItem *> items{window->contentItem()};while(!items.isEmpty()) {auto *candidate=items.takeLast();if(candidate->objectName()==QLatin1String(name)){item=candidate;break;}items.append(candidate->childItems());} }
+                if(!item)return QJsonArray();
+                const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
             const auto box=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto rect=item->mapRectToScene(item->boundingRect());return QJsonArray{rect.left(),rect.top(),rect.right(),rect.bottom()};};
             QJsonArray folderChoices;QJsonArray folderAccept;QJsonArray folderList;bool folderMoving=false;
             // Observe the installed fallback controls; no test actions enter production QML.
@@ -105,7 +108,13 @@ int main(int argc,char **argv) {
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
-            const QJsonObject data{{"terminal_action_open",window->property("terminalActionOpen").toBool()},
+            const QJsonObject data{{"commands_open",window->property("commandsOpen").toBool()},
+                {"command_first_row",center("commandRow0")},{"reduced_motion",window->property("reducedMotion").toBool()},
+                {"command_current",window->property("commandCurrent").toInt()},
+                {"command_search_focus",window->property("commandSearchFocus").toBool()},
+                {"command_matches",QJsonArray::fromVariantList(listProperty(window,"commandMatches"))},
+                {"commands_menu_item",center("commandsMenuItem")},
+                {"terminal_action_open",window->property("terminalActionOpen").toBool()},
                 {"terminal_action_kind",window->property("actionKind").toString()},
                 {"terminal_close_item",center("terminalCloseMenuItem")},{"confirm_terminal_action",center("confirmTerminalAction")},{"cancel_terminal_action",center("cancelTerminalAction")},
                 {"window_width",window->width()},{"interface_font",app.font().family()},

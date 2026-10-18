@@ -70,7 +70,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
     target_include_directories(workbench-ui-study PRIVATE "${VT_ROOT}/include")
     target_link_libraries(workbench-ui-study PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
-    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml)
+    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml)
     qt_add_resources(workbench-ui-study "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
         FILES "../../fonts/adwaita-sans/AdwaitaSans-Regular.ttf" "../../fonts/adwaita-sans/OFL.txt" "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")

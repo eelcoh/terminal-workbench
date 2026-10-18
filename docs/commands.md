@@ -63,3 +63,13 @@ output and scrollback. Enter moves to the next match; Shift+Enter moves back;
 Escape restores the starting view. The action is configurable and listed in
 shortcut help. See [terminal search](terminal-search.md) for literal matching,
 Unicode/wrapping, live refresh and bounds.
+
+
+## Qt candidate
+
+`just toolkit-ui` now has a separate native-control palette with the same default
+Command+Option+P / Super+Alt+P chord. It includes core workspace, layout, Overview,
+clipboard and confirmed terminal-close actions. This candidate has temporary
+settings and fixed defaults; shortcut customization, one-shot key forwarding and
+terminal search still belong to the working viewer. See the
+[Qt study](toolkit-ui-study.md#qt-command-palette) for exact scope and review steps.
