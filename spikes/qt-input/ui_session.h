@@ -13,6 +13,7 @@
 // Client adapter for the existing organization service. Never owns PTYs/catalog data.
 class UiSession final : public QObject {
     Q_OBJECT
+    Q_PROPERTY(bool savedSession READ savedSession CONSTANT)
     Q_PROPERTY(QVariantMap initialCatalog READ initialCatalog CONSTANT)
     Q_PROPERTY(QString defaultDirectory READ defaultDirectory CONSTANT)
     Q_PROPERTY(QVariantMap lifecycle READ lifecycle NOTIFY lifecycleChanged)
@@ -20,6 +21,7 @@ class UiSession final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
     explicit UiSession(const QJsonObject &config,QObject *parent=nullptr);
+    bool savedSession() const {return config_["saved_session"].toBool();}
     QVariantMap initialCatalog() const {return config_["catalog"].toObject().toVariantMap();}
     QString defaultDirectory() const {return config_["cwd"].toString();}
     bool busy() const {return busy_;}

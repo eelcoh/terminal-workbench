@@ -1294,3 +1294,15 @@ sparse inheritance, temporary sizing, invalid/oversized state, write failures,
 locks and stale updates. Native Linux UI checks verify durable bytes, cancellable
 preview/reset, real PTY grids and unchanged terminal items/readers. Native Mac
 save/relaunch review remains pending.
+
+## Config-root parity and saved-session launch
+
+Mac/Linux preference discovery now shares the XDG default under `~/.config`.
+Mac migration tests cover missing-only copies, theme/import/font preservation,
+symlinks, existing destination choices, explicit-root exclusion and once-only
+behavior, without copying sessions. Saved Qt launch is an explicit alternative
+to the disposable study. Real-runtime launcher tests retain catalogs, same shell
+and service PIDs after normal/failed viewer exits, preserve stopped entries and
+remove only temporary viewer config. Native UI regressions retain disposable
+cleanup. Mac acceptance, saved Qt view/theme state and automatic catalog updates
+remain pending; this is not production frontend adoption.

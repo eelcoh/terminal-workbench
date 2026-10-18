@@ -1,4 +1,4 @@
-// Isolated UI slice; the launcher owns disposable runtime lifecycle.
+// Qt candidate: client presentation around disposable or explicitly saved sessions.
 #include "terminal_item.h"
 #include "chrome_icon.h"
 #include <QFontDatabase>

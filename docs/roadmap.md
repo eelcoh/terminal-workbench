@@ -18,6 +18,12 @@ Imports are explicitly saved as an offline palette collection; study sessions
 remain private. Native Mac acceptance of the latest moves/imports/agent Overview
 is pending. No production frontend switch has been made.
 
+`just toolkit-workbench` now opens the Qt candidate on the existing saved
+catalog without study seeding. Closing detaches instead of stopping shells.
+Workspace organization and live processes persist; Qt view/theme restoration
+and automatic cross-window catalog updates remain integration follow-ups. See
+[the saved-session slice](qt-saved-sessions.md).
+
 The Qt candidate now follows the approved `just spike` chrome: bundled interface
 font, compact top bar/rail, geometric icons, pane-position pill/count and themed
 controls. The owner approved its revised appearance. The spike remains the
@@ -1319,3 +1325,23 @@ behavior. Invalid stores remain untouched; conflicting/failed saves are inline,
 cancellable outcomes. Model and Linux native UI checks cover these boundaries.
 Native Mac persistence review, workspace theme persistence and saved-session
 integration remain ahead.
+
+## Shared configuration location
+
+Both Mac and Linux now use `$XDG_CONFIG_HOME/terminal-workbench`, defaulting to
+`~/.config/terminal-workbench`. `WORKBENCH_CONFIG_DIR` remains an explicit override.
+Mac startup copies missing managed config, themes and platform UI preferences
+once from the former Application Support location. Existing destination choices
+and symlinks win; original files and session/runtime data remain untouched.
+Isolated migration tests pass; native Mac acceptance remains pending.
+
+## Qt saved-session startup
+
+`just toolkit-workbench` uses the existing service and saved workspace catalog;
+closing or failing the viewer does not stop its shells. Existing shell PIDs,
+workspace identity and stopped entries survive reopening. Live owners are not
+replaced by normal attachment. The disposable study remains available separately.
+A menu action refreshes catalog changes from peer windows until automatic
+subscription is integrated. Real-runtime launcher checks and native Linux UI
+regressions cover this first slice. Saved Qt window profiles/theme choices and
+native Mac review remain ahead.

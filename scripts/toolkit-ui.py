@@ -1,7 +1,8 @@
-"""Launch a private session service for the Qt UI study; never saved user state."""
+"""Launch Qt with private disposable sessions or explicitly selected saved sessions."""
+import argparse
 import json
 import os
-from config_paths import config_directory
+from config_paths import prepare_config_directory
 from pathlib import Path
 import subprocess
 import sys
@@ -9,7 +10,36 @@ import tempfile
 from session_service import request
 from workspace_catalog import load
 
-runtime,viewer=[Path(value).resolve() for value in sys.argv[1:3]]
+ROOT=Path(__file__).resolve().parent.parent
+
+def configuration(state,runtime,cwd,data,preferences,saved=False):
+    platform = 'macos' if sys.platform == 'darwin' else 'linux'
+    return dict(state=str(state),runtime=str(runtime),cwd=str(cwd),catalog=data,
+                preferences=str(preferences/'config.conf'),
+                font_overrides=str(preferences/'ui'/platform/'terminal-font.json'),
+                shortcut_overrides=str(preferences/'ui'/platform/'shortcuts.conf'),
+                theme_directory=str(preferences/'themes'),theme_store=str(preferences/'themes/imports'),
+                saved_session=saved)
+
+
+def saved_window(runtime,viewer,preferences):
+    state=Path(os.environ.get('WORKBENCH_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
+    # Match the working viewer's service configuration; initialization never
+    # starts stopped saved terminals or takes ownership from another window.
+    data=request(state,runtime,ROOT)['data']
+    with tempfile.TemporaryDirectory(prefix='wb-qt-window-',dir='/tmp') as directory:
+        config=Path(directory)/'ui.json'
+        config.write_text(json.dumps(configuration(state,runtime,ROOT,data,preferences,True)))
+        print(f'Qt saved sessions: {state}. Closing detaches; shells and workspaces remain.',flush=True)
+        return subprocess.run([str(viewer),str(config)]).returncode
+
+
+parser=argparse.ArgumentParser(description='Launch Qt with disposable or saved Workbench sessions.')
+parser.add_argument('runtime',type=Path);parser.add_argument('viewer',type=Path);parser.add_argument('--saved',action='store_true')
+args=parser.parse_args();runtime=args.runtime.resolve();viewer=args.viewer.resolve()
+preferences=prepare_config_directory(os.environ,sys.platform)
+if args.saved:
+    sys.exit(saved_window(runtime,viewer,preferences))
 with tempfile.TemporaryDirectory(prefix='wb-ui-',dir='/tmp') as directory:
     state=Path(directory);cwd=Path.home().resolve()
     def call(method='initialize',identity='',title=''):
@@ -21,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='wb-ui-',dir='/tmp') as directory:
             data=call('terminal.create',workspace['id'],'Shell')
         data=call('workspace.create',title='Empty workspace');empty=data['workspaces'][-1]
         data=call('terminal.close',empty['terminals'][0]['id'])
-        config=state/'ui.json';config.write_text(json.dumps({'state':str(state),'runtime':str(runtime),'cwd':str(cwd),'catalog':data,'preferences':str(config_directory(os.environ,sys.platform)/'config.conf'),'font_overrides':str(config_directory(os.environ,sys.platform)/'ui'/('macos' if sys.platform=='darwin' else 'linux')/'terminal-font.json'),'shortcut_overrides':str(config_directory(os.environ,sys.platform)/'ui'/('macos' if sys.platform=='darwin' else 'linux')/'shortcuts.conf'),'theme_directory':str(config_directory(os.environ,sys.platform)/'themes'),'theme_store':str(config_directory(os.environ,sys.platform)/'themes'/'imports')}))
+        config=state/'ui.json';config.write_text(json.dumps(configuration(state,runtime,cwd,data,preferences)))
         print('UI study: private disposable sessions. Closing stops every shell created in this study.',flush=True)
         subprocess.run([str(viewer),str(config)],check=True)
     finally:

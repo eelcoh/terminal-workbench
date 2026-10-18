@@ -38,8 +38,6 @@ def config_directory(environment, platform):
     if override:
         return Path(override).expanduser().absolute()
     home = Path(environment.get('HOME', str(Path.home())))
-    if platform == 'darwin':
-        return home / 'Library/Application Support/Terminal Workbench'
     return Path(environment.get('XDG_CONFIG_HOME') or home / '.config') / 'terminal-workbench'
 
 def publish_once(destination, data):
@@ -57,6 +55,47 @@ def publish_once(destination, data):
 def copy_once(source, destination):
     if source.exists() and not destination.exists():
         publish_once(destination, source.read_bytes())
+
+def _copy_missing(source, destination):
+    # Never follow a destination symlink or overwrite an existing choice.
+    if destination.is_symlink():
+        return
+    if source.is_symlink():
+        if not destination.exists():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                destination.symlink_to(source.resolve(strict=False), target_is_directory=source.is_dir())
+            except FileExistsError:
+                pass
+    elif source.is_dir():
+        if destination.exists() and not destination.is_dir():
+            return
+        destination.mkdir(parents=True, exist_ok=True, mode=0o700)
+        for child in sorted(source.iterdir()):
+            if not child.name.startswith('.') and not child.name.endswith('.lock'):
+                _copy_missing(child, destination / child.name)
+    elif source.is_file() and not destination.exists():
+        destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        publish_once(destination, source.read_bytes())
+
+
+def prepare_config_directory(environment, platform):
+    directory = config_directory(environment, platform)
+    if platform != 'darwin' or environment.get('WORKBENCH_CONFIG_DIR'):
+        return directory
+    home = Path(environment.get('HOME', str(Path.home())))
+    legacy = home / 'Library/Application Support/Terminal Workbench'
+    marker = directory / '.migrated-macos-config-v1'
+    if marker.exists() or not legacy.is_dir() or directory.resolve() == legacy.resolve():
+        return directory
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _copy_missing(legacy / 'config.conf', directory / 'config.conf')
+    _copy_missing(legacy / 'themes', directory / 'themes')
+    for name in ('shortcuts.conf', 'appearance.state', 'appearance.conf', 'terminal-font.json', '.migrated-v1'):
+        _copy_missing(legacy / 'ui/macos' / name, directory / 'ui/macos' / name)
+    publish_once(marker, b'Application Support preferences copied; original files retained.\n')
+    return directory
+
 
 def global_appearance(data):
     # Retain only global sections; scoped identities remain with local sessions.
@@ -76,7 +115,7 @@ def global_appearance(data):
     return ''.join(lines).encode()
 
 def prepare_preferences(root, sessions, environment, platform):
-    directory = config_directory(environment, platform)
+    directory = prepare_config_directory(environment, platform)
     system = 'macos' if platform == 'darwin' else 'linux'
     ui = directory / 'ui' / system
     ui.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -111,7 +150,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--init', action='store_true')
     args = parser.parse_args()
-    path = config_directory(os.environ, sys.platform) / 'config.conf'
+    directory = prepare_config_directory(os.environ, sys.platform) if args.init else config_directory(os.environ, sys.platform)
+    path = directory / 'config.conf'
     if args.init:
         path.parent.mkdir(parents=True, exist_ok=True)
         try:

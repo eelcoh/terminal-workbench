@@ -13,7 +13,7 @@ to create a commented example. Init preserves an existing file or symlink.
 | Platform | Default directory |
 | --- | --- |
 | Linux | `$XDG_CONFIG_HOME/terminal-workbench`, otherwise `~/.config/terminal-workbench` |
-| macOS | `~/Library/Application Support/Terminal Workbench` |
+| macOS | `~/.config/terminal-workbench` |
 
 Set `WORKBENCH_CONFIG_DIR` to use another directory, for example a shared
 dotfiles checkout. Directory and `config.conf` symlinks are supported. Theme
@@ -179,3 +179,10 @@ Place Ghostty palettes in the configuration root’s `themes/` directory and reo
 Appearance to discover them. TerminalColors `.default` downloads work unchanged;
 no import wizard or metadata entry is needed. **Appearance → ? → Open themes folder** opens the native
 location. Source files and symlinks remain untouched. See [drop-in themes](theme-directory.md).
+
+On macOS, startup copies existing preferences from the previous
+`~/Library/Application Support/Terminal Workbench` location once. Managed config,
+themes and Mac UI settings are copied only where a destination does not already
+exist; existing destination symlinks are left alone. Original files stay intact,
+and session/runtime data is never copied. Explicit `WORKBENCH_CONFIG_DIR` overrides
+skip this migration. A marker prevents removed settings/themes from reappearing.

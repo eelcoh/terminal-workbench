@@ -478,3 +478,13 @@ Use dotfile defaults followed by Apply removes overrides. Invalid stores are
 preserved; stale or failed saves keep the dialog open for Cancel. Font saving is
 independent of the disposable session catalog. Workspace theme persistence and
 saved per-window sessions remain follow-ups. See [font persistence](terminal-fonts.md#qt-saved-font-defaults).
+
+## Opt-in saved-session mode
+
+Run `just toolkit-workbench` for the same Qt client on saved Workbench workspaces.
+It shares the existing service and `.local/sessions` catalog, honoring
+`WORKBENCH_STATE_DIR`. Closing detaches rather than stopping shells; normal
+attachment never steals another window’s terminal. The private disposable
+`just toolkit-ui` workflow is unchanged. View/theme restoration and automatic
+peer-window catalog updates remain separate work; **Refresh workspaces** updates
+the current catalog on request. See [saved-session review](qt-saved-sessions.md).

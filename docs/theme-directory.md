@@ -9,9 +9,9 @@ foreground and palette; the live workspace preview is not dimmed. The directory 
 | Platform | Default folder |
 | --- | --- |
 | Linux | `~/.config/terminal-workbench/themes/` |
-| macOS | `~/Library/Application Support/Terminal Workbench/themes/` |
+| macOS | `~/.config/terminal-workbench/themes/` |
 
-Linux honors `XDG_CONFIG_HOME`. On either platform, `WORKBENCH_CONFIG_DIR` selects
+Both platforms honor `XDG_CONFIG_HOME`. On either platform, `WORKBENCH_CONFIG_DIR` selects
 a different configuration root; themes then live in its `themes/` directory.
 This can point to a shared dotfiles checkout. File and directory symlinks work.
 
@@ -43,3 +43,10 @@ preservation, edits/removal, symlinks, invalid files and the optional import sto
 unchanged terminal processes/geometry and the existing UI on X11 and Wayland.
 Native Mac folder opening and discovery still need owner review. `just spike`
 remains the daily-use frontend; this directory workflow belongs to the Qt candidate.
+
+On macOS, startup copies existing preferences from the previous
+`~/Library/Application Support/Terminal Workbench` location once. Managed config,
+themes and Mac UI settings are copied only where a destination does not already
+exist; existing destination symlinks are left alone. Original files stay intact,
+and session/runtime data is never copied. Explicit `WORKBENCH_CONFIG_DIR` overrides
+skip this migration. A marker prevents removed settings/themes from reappearing.

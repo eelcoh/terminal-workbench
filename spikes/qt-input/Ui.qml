@@ -5,7 +5,7 @@ import Workbench.Probe
 ApplicationWindow {
     id: window
     width: 1240; height: 760; minimumWidth: 680; minimumHeight: 440
-    visible: true; title: "Terminal Workbench · Qt UI study"; color: chrome.background
+    visible: true; title: studySession.savedSession ? "Terminal Workbench" : "Terminal Workbench · Qt UI study"; color: chrome.background
     property int workspace: 0
     property int selected: 0
     property bool overview: false
@@ -716,7 +716,8 @@ ApplicationWindow {
         MenuAction { text: "Copy selection"; enabled: window.selected >= 0; onTriggered: window.panel(window.selected).terminal.copy() }
         MenuAction { text: "Paste"; enabled: window.selected >= 0 && !window.overview; onTriggered: { window.panel(window.selected).terminal.paste(); window.panel(window.selected).terminal.forceActiveFocus() } }
         MenuRule {}
-        MenuAction { text: "Close UI study"; onTriggered: window.close() }
+        MenuAction { text: studySession.savedSession ? "Refresh workspaces" : "Refresh study workspaces"; enabled: !studySession.busy; onTriggered: studySession.refresh() }
+        MenuAction { text: studySession.savedSession ? "Close window" : "Close UI study"; onTriggered: window.close() }
     }
     ChromeMenu {
         tones: window.chrome

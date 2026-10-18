@@ -332,6 +332,14 @@ toolkit-live-perf-test: runtime-build
 toolkit-ui: runtime-build
     python3 scripts/toolkit-probe.py ui
 
+# Mac/Linux: Qt candidate on the existing saved catalog; closing detaches shells.
+toolkit-workbench: runtime-build
+    python3 scripts/toolkit-probe.py workbench
+
+# Mac/Linux: saved launcher lifecycle/reattachment without a display.
+toolkit-saved-session-test: runtime-build
+    python3 tests/qt_saved_launcher_test.py target/debug/workbench-session
+
 # Linux: native input/focus and stable PTY geometry across UI transitions.
 toolkit-ui-test: runtime-build
     python3 scripts/toolkit-probe.py ui-test
