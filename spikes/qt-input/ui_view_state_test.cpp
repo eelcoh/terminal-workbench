@@ -19,6 +19,9 @@ int main(int argc,char **argv){
     check(UiViewState::valid(state),"typed view fixture");UiViewState fresh(path);check(fresh.initial().isEmpty() && fresh.save(state),"initial atomic save");
     UiViewState restored(path);check(restored.initial()==state,"stable identity and fractional layout roundtrip");
     const auto bytes=read(path);check(restored.save(state) && read(path)==bytes,"unchanged save");
+    auto pinned=state;pinned["navigation_pinned"]=true;check(UiViewState::valid(pinned),"optional pin preference accepts old profiles");
+    const auto pinnedPath=dir.filePath("pinned.json");UiViewState pinStore(pinnedPath);check(pinStore.save(pinned),"pin preference save");UiViewState pinRestore(pinnedPath);check(pinRestore.initial()==pinned,"pin preference roundtrip");
+    pinned["navigation_pinned"]="true";check(!UiViewState::valid(pinned),"pin preference stays typed");
     auto invalid=state;invalid["version"]=2;check(!UiViewState::valid(invalid),"future version rejected");
     invalid=state;invalid["overview"]="true";check(!UiViewState::valid(invalid),"filter booleans stay typed");
     invalid=state;invalid["window"]=QVariantMap{{"width",40000},{"height",760}};check(!UiViewState::valid(invalid),"geometry bounded");

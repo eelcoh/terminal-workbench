@@ -1341,6 +1341,22 @@ for rename, folder, creation, move and deletion, including deletion during editi
 original readers, input and ownership survive. Runtime-facts regressions pass after
 sharing the existing owned-socket check. Native Mac catalog-sync review is pending.
 
+## Qt pinned navigation
+
+One panel moves between the temporary drawer and a reserved column; pinning does
+not introduce a second terminal model or runtime subscription. Its Workspaces and
+Agents tabs share existing read-only metadata and lifecycle observers. Stable
+agent membership avoids rebuilding rows on status-only changes, retaining keyboard
+focus. Selecting an agent focuses its existing terminal across workspaces without
+transferring ownership or changing Overview filters.
+
+The optional typed `navigation_pinned` view field accepts existing profiles with
+no pin preference. Model checks cover old profiles, roundtrip and invalid types.
+Native Linux UI checks cover pin/unpin, workspace keyboard navigation, narrow
+fallback, restored pin/layout/theme state and cross-workspace agent focus. Live
+status-label checks use the controlled runtime process/hook fixture. Native Mac
+input, layout and saved-pin review remain pending.
+
 ## Qt retained-runtime compatibility
 
 Linux saved-session inspection found runtime sockets without a control endpoint,

@@ -21,7 +21,7 @@ QtObject {
         row("new-terminal", "New terminal", "Start a shell in this workspace’s folder", host.canCreateTerminal, session.busy ? "Another change is in progress" : "Workspace already has eight terminals"),
         row("new-workspace", "New workspace…", "Choose a name and project folder", host.canCreateWorkspace, session.busy ? "Another change is in progress" : "Already at eight workspaces"),
         row("overview", host.overview ? "Leave Overview" : "Show Overview", "See workspaces and live terminal previews", true, ""),
-        row("agents", "Show agents", "Open Overview filtered to coding agents", true, ""),
+        row("agents", "Show agents", "Open the agent list across workspaces", true, ""),
         row("previous-terminal", "Previous terminal", "Focus the terminal to the left", position > 0, "No previous terminal in this view"),
         row("next-terminal", "Next terminal", "Focus the terminal to the right", position >= 0 && position + 1 < neighbours.length, "No next terminal in this view"),
         row("previous-workspace", "Previous workspace", "Switch to the workspace above", host.workspace > 0, "Already at the first workspace"),

@@ -195,18 +195,21 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
 
 ## Qt navigation: pinnable left panel
 
-Bring the spike’s pin/unpin behavior to the Qt workspace and agent panel.
-Keep the compact rail as the default; allow the expanded panel to stay visible
-beside the terminal area instead of closing after navigation. Unpinning restores
-the temporary drawer. Include the spike’s dedicated agent list in the left panel: agent identity,
-status and a way to focus its terminal across workspaces. This is separate from
-the spatial Overview and must not simply open Overview filtered to agents.
-Keep workspace and agent selection, keyboard focus and Overview navigation
-consistent in both modes.
+The Qt panel now supports pin/unpin with separate Workspaces and Agents tabs.
+The compact rail remains the default. Pinning reserves a column beside the
+terminal area; navigation and application shortcuts stay available. Unpinning
+returns to the temporary drawer. Below 920 pixels the column collapses into the
+drawer while retaining its pin preference for a wider window.
 
-Persist the pin preference with client presentation settings during saved-session
-integration. Check narrow windows, pane widths, light/dark themes and Mac/Linux
-input. This is planned Qt parity with the spike, not implemented in the Qt study.
+The dedicated agent list shows identity, lifecycle status, workspace and terminal
+context across all workspaces. Selecting a row focuses that terminal directly,
+leaving Overview if necessary. It neither changes Overview filters nor transfers
+terminal ownership. Existing read-only observers supply the facts.
+
+Saved Qt view profiles retain the pin preference, with older profiles defaulting
+to compact navigation. Native Linux checks cover pinning, workspace navigation,
+narrow fallback, restart restoration and cross-workspace agent focus. Native Mac
+review remains required. Overview visual polish remains the next separate slice.
 
 ## Qt Overview visual refinement
 

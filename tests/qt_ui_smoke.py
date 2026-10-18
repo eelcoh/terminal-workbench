@@ -194,6 +194,28 @@ while True:
         raw_key('F8');wait_until(lambda:data()['creation_open'] and data()['workspace_form_mode']=='rename')
         key('Escape');wait_until(lambda:not data()['creation_open'] and data()['panes'][0]['focus'])
         typed('first');wait_until(lambda:received(0)==b'first')
+        # Pinning reserves layout space; navigation stays usable without modal focus.
+        nav_sizes=sizes();nav_instances=[p['instance'] for p in data()['panes']]
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['navigation_pin']);wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'] and all(p['geometry_ready'] for p in data()['panes']))
+        capture('navigation-pinned.png')
+        click(*data()['navigation_workspace_1']);wait_until(lambda:data()['workspace']==1 and data()['panes'][3]['focus'])
+        assert data()['navigation_docked'] and not data()['drawer_open']
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['panes'][0]['focus'])
+        click(*data()['agents_button']);wait_until(lambda:data()['navigation_section']=='agents')
+        assert not data()['overview'] and not data()['navigation_agent_indices']
+        capture('navigation-agents-empty.png')
+        if wayland:run('niri','msg','action','set-window-width','680')
+        else:cmd('windowsize','--sync',window,680,760)
+        wait_until(lambda:data()['window_width']==680 and not data()['navigation_docked'])
+        assert data()['navigation_pinned']
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);key('Escape');wait_until(lambda:not data()['drawer_open'])
+        if wayland:run('niri','msg','action','set-window-width','1240')
+        else:cmd('windowsize','--sync',window,1240,760)
+        wait_until(lambda:data()['navigation_docked'])
+        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open']);key('Escape')
+        wait_until(lambda:not data()['drawer_open'] and data()['panes'][0]['focus'] and sizes()==nav_sizes)
+        assert [p['instance'] for p in data()['panes']]==nav_instances and received(0)==b'first'
         # Focus/style changes must paint real cursor pixels without replacing readers.
         wait_until(lambda:data()['panes'][0]['cursor']=='block' and data()['panes'][1]['cursor']=='outline')
         capture('cursor-active.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
@@ -447,6 +469,9 @@ while True:
         wait_until(lambda:not data()['appearance_open'] and theme_state(folder_index,'#214365','#aa1133'))
         assert drop_file.read_bytes()==drop_bytes and not theme_store.exists() and sizes()==theme_sizes
         drop_file.unlink()
+        # Save pin preference with the existing layout/theme view profile.
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['navigation_pin']);wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'])
         # Save a non-default layout/Overview and an immutable color snapshot.
         key('super+alt+r');key('super+alt+f');wait_until(lambda:data()['panes'][4]['columns']>data()['panes'][3]['columns'])
         command_search('reduce motion');key('Return');wait_until(lambda:data()['reduced_motion'])
@@ -454,7 +479,7 @@ while True:
         def saved_view():
             try:return json.loads((root/'qt-view.json').read_text())
             except (FileNotFoundError,ValueError):return {}
-        wait_until(lambda:saved_view().get('overview') and saved_view()['terminals']['terminal-4']['full'] and saved_view()['motion'])
+        wait_until(lambda:saved_view().get('overview') and saved_view()['terminals']['terminal-4']['full'] and saved_view()['motion'] and saved_view().get('navigation_pinned'))
         preserved_input=[received(i) for i in range(6)];saved_geometry=sizes()
         client.terminate();client.wait(timeout=5)
         # Unknown old identities and JSON member order must not retarget state.
@@ -470,11 +495,12 @@ while True:
         else:
             window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
         wait_until(lambda:data()['overview'] and data()['workspace']==1 and data()['selected']==4 and data()['reduced_motion'] and sizes()==saved_geometry)
-        assert not data()['view_error'] and data()['chrome_background']=='#214365'
+        assert data()['navigation_docked'] and not data()['view_error'] and data()['chrome_background']=='#214365'
         folder_index=data()['panes'][3]['theme'];assert theme_state(folder_index,'#214365','#aa1133')
         assert [received(i) for i in range(6)]==preserved_input
         for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
         capture('view-restored.png');key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
+        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open']);key('Escape');wait_until(lambda:not data()['drawer_open'])
         key('super+alt+f');key('super+alt+r');key('super+alt+r')
         command_search('enable animations');key('Return');wait_until(lambda:not data()['reduced_motion'] and sizes()==theme_sizes)
         appearance();wait_until(lambda:data()['theme_catalog_count']==8)
@@ -721,7 +747,20 @@ while True:
             assert result.returncode==0 and not result.stdout and not result.stderr
             wait_until(lambda:data()['panes'][8]['facts'].get('state')==label)
         hook('UserPromptSubmit','Working')
-        click(*data()['agents_button']);wait_until(lambda:data()['overview'] and data()['agents_only'] and data()['overview_matches']==1)
+        # The left agent list is separate from the spatial Overview.
+        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_agent_indices']==[8]);time.sleep(.3)
+        assert not data()['overview']
+        wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
+        capture('navigation-agent-working.png')
+        hook('PermissionRequest','Needs input');wait_until(lambda:any('Codex · Needs input' in label for label in data()['navigation_agent_labels']))
+        capture('navigation-agent-needs.png')
+        hook('UserPromptSubmit','Working');wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
+        click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
+        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'])
+        key('super+alt+o');wait_until(lambda:data()['overview'])
+        click(*data()['agent_filter_button']);wait_until(lambda:data()['agents_only'] and data()['overview_matches']==1)
         assert [i for i,p in enumerate(data()['panes']) if p['visible']]==[8]
         assert sizes()==metadata_sizes,'metadata/filter presentation resized the PTY'
         click(*data()['state_filter_button']);wait_until(lambda:data()['needs_only'] and data()['overview_matches']==0)

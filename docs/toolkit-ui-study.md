@@ -502,3 +502,24 @@ limits and native review steps. The owner confirmed appearance retention with
 `f80f00b`. Saved mode follows peer catalog changes automatically through filesystem
 notifications and read-only service requests; disposable studies keep this feed
 disabled. See [automatic updates](qt-saved-sessions.md#automatic-workspace-updates).
+
+## Pinned navigation and a dedicated agent list
+
+Open Workspaces from the rail and use the pin icon to keep the panel beside the
+terminals. It reserves space rather than covering output. Workspace selection
+keeps the pinned panel open and restores terminal focus; normal navigation
+shortcuts still work. Unpinning returns to a temporary drawer, dismissible with
+Escape. Below 920 pixels, the pinned panel falls back to the drawer; widening
+restores it. Pinning is unavailable in an already narrow unpinned window.
+
+The Agents rail entry and Show agents command open the panel’s separate Agents
+tab. Each row shows agent identity, Working/Ready/Needs input/Unknown state,
+workspace and terminal context. Select a row to focus its terminal, including in
+another workspace. This does not take ownership from another window. An empty
+list says no agents are detected; it does not reuse the spatial Overview or its
+filters. The Overview identity/state filters remain available independently.
+
+`just toolkit-workbench` saves the pin preference with each leased view profile;
+`just toolkit-ui` keeps it only for the disposable window. Older saved profiles
+open compact by default. Check both tabs, workspace selection, pin/unpin, a narrow
+window, Overview and a live agent. Native Mac review remains pending.

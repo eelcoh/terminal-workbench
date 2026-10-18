@@ -63,7 +63,8 @@ a slot while its window still runs. At most 64 Qt slots can be active.
 The view saves window dimensions, pane width fractions/full-width toggles,
 selected workspace/terminal, remembered focus and horizontal position per
 workspace, Overview/filter/reduced-motion state, Overview scroll and committed
-workspace themes. Layout and focus use stable IDs, not array positions. Deleted
+workspace themes, plus the navigation pin preference. Older profiles default to
+compact navigation. Layout and focus use stable IDs, not array positions. Deleted
 identities fall back to the current catalog; current geometry clamps scrolling,
 and selected terminals are revealed. Saved dimensions are clamped to the current
 screen’s available size. Window position and display assignment stay with the OS.

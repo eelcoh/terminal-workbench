@@ -11,6 +11,7 @@ void ChromeIcon::paint(QPainter *p) {
     else if(name_=="plus") {p->drawLine(QPointF(5,12),QPointF(19,12));p->drawLine(QPointF(12,5),QPointF(12,19));}
     else if(name_=="more") {p->setPen(Qt::NoPen);p->setBrush(color_);for(int x:{5,12,19})p->drawEllipse(QPointF(x,12),1,1);}
     else if(name_=="chevron") {p->drawLine(QPointF(7,10),QPointF(12,15));p->drawLine(QPointF(12,15),QPointF(17,10));}
+    else if(name_=="pin") {p->drawLine(QPointF(8,4),QPointF(16,4));p->drawLine(QPointF(9,4),QPointF(9,10));p->drawLine(QPointF(15,4),QPointF(15,10));QPainterPath path;path.moveTo(9,10);path.lineTo(6,14);path.lineTo(18,14);path.lineTo(15,10);p->drawPath(path);p->drawLine(QPointF(12,14),QPointF(12,21));}
     else if(name_=="check") {p->drawLine(QPointF(5,12),QPointF(10,17));p->drawLine(QPointF(10,17),QPointF(20,6));}
     else if(name_=="help") {QPainterPath path;path.moveTo(8,8);path.cubicTo(8,3,17,3,17,8);path.cubicTo(17,12,12,11,12,15);p->drawPath(path);p->drawPoint(QPointF(12,20));}
 }

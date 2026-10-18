@@ -33,7 +33,7 @@ ApplicationWindow {
         for (let i = 0; i < terminalModel.count; ++i) terminals[terminalModel.get(i).terminalId] = {width: widths[i] || 0.5, full: fullWidths[i] || false}
         return {version: 1, window: {width: Math.max(680,Math.min(16384,Math.round(width))), height: Math.max(440,Math.min(16384,Math.round(height)))},
             workspace: spaceIds[workspace] || "", terminal: selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : "",
-            overview: overview, agents: agentsOnly, needs: needsOnly, motion: reducedMotion, overview_y: overview ? Math.max(0,deck.contentY) : 0,
+            navigation_pinned: navigationPinned, overview: overview, agents: agentsOnly, needs: needsOnly, motion: reducedMotion, overview_y: overview ? Math.max(0,deck.contentY) : 0,
             workspaces: workspaces, terminals: terminals}
     }
     function persistView() { if (viewReady && studyView.enabled) studyView.save(captureView()) }
@@ -59,6 +59,7 @@ ApplicationWindow {
         workspace = Math.max(0,spaceIds.indexOf(saved.workspace)); selected = identityIndex(saved.terminal)
         if (selected >= 0) workspace = terminalModel.get(selected).spaceIndex
         else selected = remembered[workspace] ?? -1
+        navigationPinned = saved.navigation_pinned === true
         reducedMotion = saved.motion; agentsOnly = saved.agents; needsOnly = saved.needs; overview = saved.overview
         rebuildOverview()
         Qt.callLater(function() {
@@ -100,21 +101,46 @@ ApplicationWindow {
     property var overviewOrdinals: []
     property int overviewMatches: 0
     property int waitingCount: 0
+    property var agentIndices: []
+    property bool navigationPinned: false
+    property string navigationSection: "workspaces"
+    readonly property bool navigationDocked: navigationPinned && width >= 920
+    readonly property int navigationEdge: navigationDocked ? 288 : 44
+    onNavigationPinnedChanged: scheduleViewSave()
+    onNavigationDockedChanged: {
+        if (navigationDocked) drawer.close()
+        Qt.callLater(function() { if (!overview && selected >= 0) reveal() })
+    }
+    function openNavigation(section) {
+        navigationSection = section
+        if (!navigationDocked) drawer.open()
+    }
+    function toggleNavigationPin() {
+        navigationPinned = !navigationPinned
+        if (navigationDocked) drawer.close()
+        else drawer.open()
+    }
+    function chooseAgent(i) {
+        drawer.close(); enterPane(i)
+        Qt.callLater(restoreAfterPopup)
+    }
     readonly property var overviewGroupTops: { let tops = []; for (let w = 0; w < spaces.length; ++w) tops.push(deck.y + deck.groupTop(w) - deck.contentY); return tops }
     function rebuildOverview() {
         if (dragSlot >= 0) return
-        let groups = [], positions = [], total = 0, waiting = 0
+        let groups = [], positions = [], agents = [], total = 0, waiting = 0
         for (let i = 0; i < terminalModel.count; ++i) positions.push(-1)
         for (let w = 0; w < spaces.length; ++w) {
             let matches = []
             for (let i of indices(w)) {
                 const pane = panel(i), facts = pane ? pane.facts : ({agent: "", needs_input: false})
+                if (facts.agent) agents.push(i)
                 if (facts.needs_input) ++waiting
                 if (overview && ((agentsOnly && !facts.agent) || (needsOnly && !facts.needs_input))) continue
                 positions[i] = matches.length; matches.push(i); ++total
             }
             groups.push(matches)
         }
+        if (agents.length !== agentIndices.length || agents.some((value, index) => value !== agentIndices[index])) agentIndices = agents
         overviewGroups = groups; overviewOrdinals = positions; overviewMatches = total; waitingCount = waiting
         if (overview) deck.contentY = Math.max(0, Math.min(deck.contentY, deck.contentHeight - deck.height))
     }
@@ -123,7 +149,7 @@ ApplicationWindow {
         cancelDrag(); agentsOnly = agents; needsOnly = needs; rebuildOverview(); deck.contentY = 0
     }
     onOverviewChanged: { Qt.callLater(rebuildOverview); scheduleViewSave() }
-    function openAgents() { if (!overview) toggleOverview(); changeFilter(true, false) }
+    function openAgents() { openNavigation("agents") }
     WorkbenchActions { id: commandRegistry; host: window; session: studySession }
     readonly property bool shortcutSettingsOpen: shortcutSettings.visible
     readonly property bool shortcutRecording: shortcutSettings.recordingActive
@@ -511,8 +537,8 @@ ApplicationWindow {
     QuietButton { objectName: "applicationMenuButton"; x: 8; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
     Column {
         x: 8; y: 52; spacing: 14
-        QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: drawer.visible; onClicked: drawer.open() }
-        QuietButton { objectName: "agentsButton"; height: 28; iconName: "agents"; hint: "Agents"; selected: window.overview && window.agentsOnly; onClicked: window.openAgents() }
+        QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.openNavigation("workspaces") }
+        QuietButton { objectName: "agentsButton"; height: 28; iconName: "agents"; hint: "Agents"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "agents"; onClicked: window.openAgents() }
     }
     Rectangle {
         x: 27; y: 87; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
@@ -520,8 +546,8 @@ ApplicationWindow {
     }
     QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; onClicked: help.open() }
     Item {
-        id: topbar; x: 44; y: 4; width: parent.width - 56; height: 32
-        QuietButton { id: workspaceButton; objectName: "workspaceButton"; leftAligned: true; width: Math.min(200, Math.max(80, topbar.width / 4)); text: window.overview ? "Overview" : (window.spaces[window.workspace] || ""); hint: "Choose workspace"; onClicked: drawer.open() }
+        id: topbar; x: window.navigationEdge; y: 4; width: parent.width - x - 12; height: 32
+        QuietButton { id: workspaceButton; objectName: "workspaceButton"; leftAligned: true; width: Math.min(200, Math.max(80, topbar.width / 4)); text: window.overview ? "Overview" : (window.spaces[window.workspace] || ""); hint: "Choose workspace"; onClicked: window.openNavigation("workspaces") }
         Rectangle {
             anchors.centerIn: parent; width: indicatorRow.width + 8; height: 28; radius: 14; color: window.chrome.background
             visible: !window.overview && window.counts[window.workspace] > 0
@@ -561,7 +587,7 @@ ApplicationWindow {
         QuietButton { id: overviewButton; objectName: "overviewButton"; anchors.right: parent.right; text: window.overview ? "Done" : "Overview"; onClicked: window.toggleOverview() }
     }
     Row {
-        x: 60; y: 54; spacing: 8; visible: window.overview
+        x: window.navigationEdge + 16; y: 54; spacing: 8; visible: window.overview
         QuietButton { objectName: "overviewAgentFilter"; hint: "Filter terminal or agent identity"; text: window.agentsOnly ? "Show: Agents" : "Show: All terminals"; onClicked: window.changeFilter(!window.agentsOnly, window.needsOnly); background: Rectangle { radius: 6; color: window.agentsOnly ? window.chrome.surface : "transparent"; border.width: window.agentsOnly ? 1 : 0; border.color: window.accent } }
         QuietButton { objectName: "overviewStateFilter"; hint: "Filter agents that need input"; text: window.needsOnly ? "State: Needs input" : "State: All states"; onClicked: window.changeFilter(window.agentsOnly, !window.needsOnly); background: Rectangle { radius: 6; color: window.needsOnly ? window.chrome.surface : "transparent"; border.width: window.needsOnly ? 1 : 0; border.color: window.accent } }
     }
@@ -570,7 +596,7 @@ ApplicationWindow {
         onContentXChanged: window.scheduleViewSave()
         onContentYChanged: window.scheduleViewSave()
         property real scrollTarget: 0
-        x: 60; y: window.overview ? 102 : 60; width: parent.width - 72; height: parent.height - y - 12
+        x: window.navigationEdge + 16; y: window.overview ? 102 : 60; width: parent.width - x - 12; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
         interactive: window.overview && window.dragSlot < 0
         contentWidth: window.overview ? width : window.stripWidth()
@@ -756,16 +782,21 @@ ApplicationWindow {
             if (delta && window.dragPoint.x >= 0 && window.dragPoint.x <= deck.width) { deck.contentY = Math.max(0, Math.min(deck.contentHeight - deck.height, deck.contentY + delta)); window.updateDrop(window.dragPoint) }
         }
     }
+    Rectangle {
+        id: pinnedNavigation; x: 44; y: 40; width: 244; height: window.height - 40
+        visible: window.navigationDocked; color: window.chrome.surface
+        Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: window.chrome.border }
+    }
+    NavigationPanel {
+        id: navigation
+        parent: window.navigationDocked ? pinnedNavigation : drawer.contentItem
+        anchors.fill: parent
+        host: window; session: studySession
+    }
     Drawer {
         id: drawer; y: 40; width: 288; height: window.height - 40; edge: Qt.LeftEdge; leftPadding: 44
         background: Rectangle { color: window.chrome.surface; border.color: window.chrome.border }
-        Column {
-            anchors.fill: parent; anchors.margins: 14; spacing: 8
-            Label { text: "Workspaces"; color: window.chrome.foreground; font.pixelSize: 16; topPadding: 6; bottomPadding: 12; leftPadding: 8 }
-            Repeater { model: window.spaces.length; QuietButton { required property int index; width: parent.width; height: 46; leftAligned: true; selected: index === window.workspace; trailingText: String(window.counts[index]); text: window.spaces[index]; onClicked: window.chooseWorkspace(index) } }
-            QuietButton { objectName: "newWorkspaceButton"; width: parent.width; leftAligned: true; text: "New workspace…"; enabled: window.canCreateWorkspace; onClicked: window.newWorkspace() }
-            Label { width: parent.width; padding: 8; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: window.chrome.muted; font.pixelSize: 12 }
-        }
+        contentItem: Item {}
         onClosed: window.restoreAfterPopup()
     }
     ChromeMenu {

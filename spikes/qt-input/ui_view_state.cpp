@@ -16,7 +16,8 @@ bool keys(const QJsonObject &object,const QStringList &names){for(auto it=object
 }
 bool UiViewState::valid(const QVariantMap &state){
     const auto root=QJsonObject::fromVariantMap(state),window=root["window"].toObject();
-    if(!keys(root,{"version","window","workspace","terminal","overview","agents","needs","motion","overview_y","workspaces","terminals"}) || root["version"].toDouble()!=1)return false;
+    if(!keys(root,{"navigation_pinned","version","window","workspace","terminal","overview","agents","needs","motion","overview_y","workspaces","terminals"}) || root["version"].toDouble()!=1)return false;
+    if(root.contains("navigation_pinned") && !root["navigation_pinned"].isBool())return false;
     if(!root["window"].isObject() || !keys(window,{"width","height"}) || !number(window["width"],680,16384) || !number(window["height"],440,16384))return false;
     for(const auto &key:{"workspace","terminal"})if(!root[key].isString() || !identity(root[key].toString()))return false;
     for(const auto &key:{"overview","agents","needs","motion"})if(!root[key].isBool())return false;
