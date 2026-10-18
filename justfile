@@ -343,3 +343,7 @@ toolkit-theme-import-test: runtime-build
 # Read-only runtime metadata adapter contracts (no display required).
 toolkit-runtime-facts-test: runtime-build
     python3 scripts/toolkit-probe.py runtime-facts-test
+
+# Read-only lifecycle status contracts, without a GUI.
+toolkit-lifecycle-test: runtime-build
+    python3 scripts/toolkit-probe.py lifecycle-test

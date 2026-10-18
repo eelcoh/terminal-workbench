@@ -2,9 +2,12 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QJsonArray>
+#include <QSet>
 #include <QRegularExpression>
 
-UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),config_(config) {
+UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),lifecycle_(QDir(config["state"].toString()).filePath("service.rpc"),this),config_(config) {
+    connect(&lifecycle_,&UiLifecycle::changed,this,&UiSession::lifecycleChanged);
     socket_.setReadBufferSize(256*1024+1);deadline_.setSingleShot(true);deadline_.setInterval(65000);
     connect(&deadline_,&QTimer::timeout,this,[this]{fail("Session service timed out. Refresh before trying again.");});
     connect(&socket_,&QLocalSocket::connected,this,[this] {
@@ -25,8 +28,8 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
         if(reply["protocol"].toInt()!=1) {fail("Incompatible session service.");return;}
         if(!reply["ok"].toBool()) {fail(reply["error"].toString("Session request failed. Refresh before trying again."));return;}
         if(!reply["data"].isObject() || !reply["data"].toObject()["workspaces"].isArray()) {fail("Missing session catalog. Refresh before trying again.");return;}
-        const auto catalog=reply["data"].toObject().toVariantMap();const auto method=method_;
-        deadline_.stop();busy_=false;socket_.abort();receive_.clear();Q_EMIT changed();Q_EMIT completed(catalog,method);
+        const auto catalog=reply["data"].toObject().toVariantMap();const auto method=method_,identity=identity_;
+        deadline_.stop();busy_=false;socket_.abort();receive_.clear();Q_EMIT changed();Q_EMIT completed(catalog,method);prune(reply["data"].toObject());Q_EMIT actionCompleted(identity,method);
     });
     connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(busy_)fail("Session service closed before replying. Refresh before trying again.");});
     connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){if(busy_)fail(sent_?"Request outcome is unknown. Refresh before trying again.":socket_.errorString());});
@@ -46,7 +49,7 @@ void UiSession::attach(TerminalItem *item,const QString &identity) {
 }
 void UiSession::request(const QString &method,const QString &identity,const QString &name,const QString &directory,const QString &destination,int position) {
     if(busy_)return;
-    socket_.abort();sent_=false;busy_=true;error_.clear();method_=method;
+    socket_.abort();sent_=false;busy_=true;error_.clear();method_=method;identity_=identity;
     QJsonObject message{{"protocol",1},{"method",method},{"identity",identity},{"title",name},
         {"runtime",config_["runtime"]},{"cwd",config_["cwd"]}};
     if(method=="terminal.move") {message.insert("destination",destination);message.insert("position",position);}
@@ -81,3 +84,20 @@ QString UiSession::folderPath(const QUrl &url) const {
     return url.isLocalFile() ? QDir::cleanPath(url.toLocalFile()) : QString();
 }
 void UiSession::refresh() {for(auto *facts:facts_)facts->refresh();request("initialize");}
+
+void UiSession::reconnect(TerminalItem *item,const QString &identity,bool takeover) {
+    static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
+    if(busy_ || !item || !id.match(identity).hasMatch())return;
+    if(auto *facts=facts_.value(identity))facts->refresh();
+    item->reconnectSession(QDir(config_["state"].toString()).filePath(identity+".ctl"),takeover);
+}
+void UiSession::recover(const QString &identity) {request("terminal.recover",identity);}
+void UiSession::closeTerminal(const QString &identity) {request("terminal.close",identity);}
+void UiSession::inspect(const QString &identity) {lifecycle_.inspect(identity);}
+
+void UiSession::prune(const QJsonObject &catalog) {
+    QSet<QString> active;
+    for(const auto &workspace:catalog["workspaces"].toArray())for(const auto &terminal:workspace.toObject()["terminals"].toArray())active.insert(terminal.toObject()["id"].toString());
+    for(const auto &id:facts_.keys())if(!active.contains(id))facts_.take(id)->deleteLater();
+    lifecycle_.retain(active);
+}

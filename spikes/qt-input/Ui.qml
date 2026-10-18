@@ -9,6 +9,27 @@ ApplicationWindow {
     property int workspace: 0
     property int selected: 0
     property bool overview: false
+    property string actionTarget: ""
+    property string paneMenuTarget: ""
+    property string actionKind: "close"
+    property string actionContext: ""
+    readonly property bool terminalActionOpen: terminalAction.visible
+    function identityIndex(identity) { for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).terminalId === identity) return i; return -1 }
+    function syncItems() {
+        let items = [], labels = []
+        for (let i = 0; i < terminalModel.count; ++i) { const pane = panel(i); if (pane) items.push(pane.terminal); labels.push(captions.itemAt(i)) }
+        terminalItems = items; overviewLabels = labels; rebuildOverview(); if (!overview) { if (selected >= 0) reveal(); else { deck.scrollTarget = 0; deck.contentX = 0 } }
+    }
+    function requestTerminalAction(identity, kind) {
+        if (studySession.busy || terminalAction.visible) return
+        actionTarget = identity; actionKind = kind; const i = identityIndex(identity); actionContext = i < 0 ? "" : panel(i).facts.title + " · " + spaces[terminalModel.get(i).spaceIndex]; paneMenu.close()
+        Qt.callLater(function() { if (identityIndex(actionTarget) >= 0) terminalAction.open() })
+    }
+    function performTerminalAction() {
+        if (identityIndex(actionTarget) < 0 || studySession.busy) return
+        if (actionKind === "close") studySession.closeTerminal(actionTarget)
+        else { const pane = panel(identityIndex(actionTarget)); studySession.reconnect(pane.terminal, actionTarget, true); terminalAction.close() }
+    }
     property bool agentsOnly: false
     property bool needsOnly: false
     readonly property bool overviewFiltered: agentsOnly || needsOnly
@@ -65,7 +86,7 @@ ApplicationWindow {
     readonly property var chrome: studyThemes.theme(themeIndexFor(workspace))
     function themeIndexFor(space) { return appearance.visible && spaceIds[space] === appearanceWorkspace ? previewTheme : (workspaceThemes[space] || 0) }
     function openAppearance() {
-        if (overview || createDialog.visible || appearance.visible) return
+        if (terminalAction.visible || overview || createDialog.visible || appearance.visible) return
         if (appMenu.visible) { pendingAppearance = true; appMenu.close() }
         else showAppearance()
     }
@@ -92,8 +113,19 @@ ApplicationWindow {
     function indices(space) { const revision = catalogRevision; let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space) result.push(i); return result.sort((a,b) => terminalModel.get(a).ordinal - terminalModel.get(b).ordinal) }
     function ordinal(i) { const revision = catalogRevision; return i >= 0 && i < terminalModel.count ? terminalModel.get(i).ordinal : -1 }
     function applyCatalog(catalog, method) {
+        const selectedId = selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : ""
+        const oldWorkspace = workspace
+        const focusIds = remembered.map(i => i >= 0 && i < terminalModel.count ? terminalModel.get(i).terminalId : "")
+        let incoming = []
+        for (let space of catalog.workspaces) for (let terminal of space.terminals) incoming.push(terminal.id)
+        let sizes = widths.slice(), full = fullWidths.slice()
+        selected = -1
+        for (let i = terminalModel.count - 1; i >= 0; --i) if (incoming.indexOf(terminalModel.get(i).terminalId) < 0) {
+            terminalModel.remove(i); sizes.splice(i, 1); full.splice(i, 1)
+        }
+        widths = sizes; fullWidths = full
         let names = [], ids = [], folders = [], totals = []
-        let sizes = widths.slice(), full = fullWidths.slice(), focus = remembered.slice(), scroll = positions.slice()
+        let focus = focusIds.map(identityIndex), scroll = positions.slice()
         let added = -1
         for (let w = 0; w < catalog.workspaces.length; ++w) {
             const space = catalog.workspaces[w]
@@ -122,6 +154,9 @@ ApplicationWindow {
             if (items.indexOf(focus[w]) < 0) focus[w] = items.length ? items[0] : -1
         }
         remembered = focus; positions = scroll
+        selected = identityIndex(selectedId)
+        if (selected < 0) { workspace = Math.min(oldWorkspace, names.length - 1); selected = focus[workspace] ?? -1 }
+        Qt.callLater(syncItems)
         if (selected >= 0) {
             workspace = terminalModel.get(selected).spaceIndex
             let values = remembered.slice(); values[workspace] = selected; remembered = values
@@ -132,17 +167,20 @@ ApplicationWindow {
             followMove = false
             Qt.callLater(function() { if (overview) revealOverview(selected); else focusPane(selected) })
         }
+        if (method === "terminal.close") {
+            terminalAction.close(); Qt.callLater(restoreAfterPopup)
+        }
         if (method === "workspace.rename" || method === "workspace.directory") createDialog.close()
         if (method === "terminal.create" && added >= 0) { if (overview) toggleOverview(); Qt.callLater(function() { focusPane(added) }) }
     }
-    function newTerminal() { if (canCreateTerminal && !createDialog.visible && !window.appearanceOpen) studySession.createTerminal(spaceIds[workspace]) }
+    function newTerminal() { if (canCreateTerminal && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen) studySession.createTerminal(spaceIds[workspace]) }
     function newWorkspace() {
-        if (!canCreateWorkspace || createDialog.visible) return
+        if (!canCreateWorkspace || terminalAction.visible || createDialog.visible) return
         workspaceFormMode = "create"; editingWorkspace = ""
         queueWorkspaceForm()
     }
     function editWorkspace(mode) {
-        if (studySession.busy || dragSlot >= 0 || createDialog.visible || overview || appearance.visible) return
+        if (studySession.busy || dragSlot >= 0 || terminalAction.visible || createDialog.visible || overview || appearance.visible) return
         workspaceFormMode = mode; editingWorkspace = spaceIds[workspace]
         queueWorkspaceForm()
     }
@@ -178,11 +216,14 @@ ApplicationWindow {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
         function onCompleted(catalog, method) { window.applyCatalog(catalog, method) }
+        function onActionCompleted(identity, method) {
+            if (method === "terminal.recover") { const i = window.identityIndex(identity); if (i >= 0) studySession.reconnect(window.panel(i).terminal, identity, false) }
+        }
         function onChanged() { if (!studySession.busy && studySession.error.length > 0) window.followMove = false }
     }
     readonly property string chord: Qt.platform.os === "osx" ? "Ctrl+Alt+" : "Meta+Alt+"
@@ -195,9 +236,11 @@ ApplicationWindow {
     function stripWidth() { const items = indices(workspace); return items.length === 0 ? deck.width : Math.max(deck.width, left(items[items.length - 1]) + paneWidth(items[items.length - 1])) }
     function reveal() {
         if (overview || selected < 0) return
-        let x = left(selected), w = paneWidth(selected)
-        if (x < deck.contentX) deck.contentX = x
-        else if (x + w > deck.contentX + deck.width) deck.contentX = Math.max(0, x + w - deck.width)
+        const x = left(selected), w = paneWidth(selected)
+        let target = Math.max(0, Math.min(deck.scrollTarget, stripWidth() - deck.width))
+        if (x < target) target = x
+        else if (x + w > target + deck.width) target = Math.max(0, x + w - deck.width)
+        deck.scrollTarget = target; deck.contentX = target
     }
     function focusPane(i) {
         if (i < 0 || i >= terminalModel.count) return
@@ -208,7 +251,7 @@ ApplicationWindow {
     function chooseWorkspace(i) {
         let values = positions.slice(); values[workspace] = deck.contentX; positions = values
         workspace = Math.max(0, Math.min(spaces.length - 1, i)); selected = remembered[workspace] === undefined ? -1 : remembered[workspace]
-        drawer.close(); deck.contentX = overview ? 0 : positions[workspace]
+        drawer.close(); deck.scrollTarget = overview ? 0 : Math.max(0, Math.min(positions[workspace] || 0, stripWidth() - deck.width)); deck.contentX = deck.scrollTarget
         if (!overview && selected >= 0) Qt.callLater(function() { reveal(); panel(selected).terminal.forceActiveFocus() })
         else window.contentItem.forceActiveFocus()
     }
@@ -254,7 +297,7 @@ ApplicationWindow {
     function toggleOverview() {
         cancelDrag()
         if (!overview) { let values = positions.slice(); values[workspace] = deck.contentX; positions = values }
-        overview = !overview; deck.contentX = overview ? 0 : positions[workspace]; deck.contentY = 0
+        overview = !overview; deck.scrollTarget = overview ? 0 : Math.max(0, Math.min(positions[workspace] || 0, stripWidth() - deck.width)); deck.contentX = deck.scrollTarget; deck.contentY = 0
         if (overview) window.contentItem.forceActiveFocus()
         else if (selected >= 0) Qt.callLater(function() { reveal(); panel(selected).terminal.forceActiveFocus() })
     }
@@ -262,7 +305,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -377,6 +420,7 @@ ApplicationWindow {
     }
     Flickable {
         id: deck; objectName: "deck"
+        property real scrollTarget: 0
         x: 60; y: window.overview ? 102 : 60; width: parent.width - 72; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
         interactive: window.overview && window.dragSlot < 0
@@ -425,7 +469,7 @@ ApplicationWindow {
                     text: pane.facts.agent ? pane.facts.agent + " · " + pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
                     color: pane.facts.needs_input ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : pane.facts.state === "Ready" ? studyThemes.theme(window.themeIndexFor(spaceIndex)).ready : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
                 }
-                QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: 3; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
+                QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: 3; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); window.paneMenuTarget = pane.terminalId; const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
                     id: terminal; objectName: "terminal" + index
                     property int workspaceIndex: pane.spaceIndex
@@ -444,18 +488,52 @@ ApplicationWindow {
                         onWheel: event => {
                             const dx = event.pixelDelta.x || event.angleDelta.x
                             if (!window.overview && dx !== 0) {
-                                deck.contentX = Math.max(0, Math.min(deck.contentWidth - deck.width, deck.contentX - dx)); event.accepted = true
+                                deck.scrollTarget = Math.max(0, Math.min(deck.contentWidth - deck.width, deck.contentX - dx)); deck.contentX = deck.scrollTarget; event.accepted = true
                             } else event.accepted = false
                         }
                     }
                     Accessible.role: Accessible.Terminal; Accessible.name: pane.facts.title + " in " + window.spaces[pane.spaceIndex]
+                    onStatusChanged: {
+                        if (!ready && attachment !== "connecting") studySession.inspect(pane.terminalId)
+                        else if (ready && window.selected === pane.index) Qt.callLater(window.restoreAfterPopup)
+                    }
                     Component.onCompleted: {
                         studySession.attach(terminal, pane.terminalId)
                         let items = window.terminalItems.slice(); items.push(terminal); window.terminalItems = items
                     }
                     onActiveFocusChanged: if (activeFocus && !window.overview) window.focusPane(index)
                 }
-                Text { anchors.centerIn: terminal; visible: !terminal.status.startsWith("Attached"); text: terminal.status; color: "#d9be91"; font.pixelSize: 13 }
+                readonly property var lifecycle: studySession.lifecycle[terminalId] || ({state: "unavailable", message: "Checking terminal status…", busy: false})
+                Rectangle {
+                    anchors.centerIn: terminal; width: Math.min(parent.width - 40, 420); height: lifecycleBody.implicitHeight + 32; radius: 10
+                    visible: !terminal.ready; color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).raised; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
+                    Column {
+                        id: lifecycleBody; x: 16; y: 16; width: parent.width - 32; spacing: 10
+                        Label {
+                            width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 14
+                            color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).foreground
+                            text: terminal.attachment === "connecting" ? "Connecting…" : terminal.attachment === "elsewhere" ? "Open in another window" : (pane.lifecycle.message || "Checking terminal status…")
+                        }
+                        Label {
+                            width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 12
+                            color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).muted
+                            text: pane.lifecycle.state === "stopped" ? "Start a new shell in this workspace’s folder. The previous process has ended." : terminal.attachment === "elsewhere" ? "Move this terminal here to continue with the same process." : "Reconnect keeps a running shell. Check again if its status has changed."
+                            visible: terminal.attachment !== "connecting"
+                        }
+                        Flow {
+                            width: parent.width; spacing: 8; visible: terminal.attachment !== "connecting"
+                            QuietButton {
+                                objectName: "terminalPrimary" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex))
+                                text: pane.lifecycle.state === "stopped" ? "Start new shell" : terminal.attachment === "elsewhere" ? "Move here…" : "Reconnect"
+                                visible: pane.lifecycle.state === "stopped" || pane.lifecycle.state === "running"
+                                enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview
+                                onClicked: { if (pane.lifecycle.state === "stopped") studySession.recover(pane.terminalId); else if (terminal.attachment === "elsewhere") window.requestTerminalAction(pane.terminalId, "move"); else studySession.reconnect(terminal, pane.terminalId, false) }
+                            }
+                            QuietButton { objectName: "terminalReconnect" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Reconnect"; visible: terminal.attachment === "elsewhere" && pane.lifecycle.state === "running"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: studySession.reconnect(terminal, pane.terminalId, false) }
+                            QuietButton { objectName: "terminalCheck" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: pane.lifecycle.busy ? "Checking…" : "Check again"; enabled: !pane.lifecycle.busy && !window.overview; onClicked: studySession.inspect(pane.terminalId) }
+                        }
+                    }
+                }
                 MouseArea {
                     anchors.fill: parent; enabled: window.overview && !studySession.busy
                     cursorShape: window.dragSlot === index ? Qt.ClosedHandCursor : Qt.ArrowCursor
@@ -477,7 +555,7 @@ ApplicationWindow {
             }
         }
         Repeater {
-            model: terminalModel
+            id: captions; model: terminalModel
             Label {
                 required property int index
                 objectName: "overviewCaption" + index
@@ -563,6 +641,8 @@ ApplicationWindow {
         tones: window.chrome
         id: paneMenu
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+        MenuAction { objectName: "terminalCloseMenuItem"; text: "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.requestTerminalAction(window.paneMenuTarget, "close") }
+        MenuRule {}
         MenuAction { text: "Cycle width"; onTriggered: window.cycleWidth() }
         MenuAction { text: "Toggle full width"; onTriggered: window.toggleFull() }
         MenuRule {}
@@ -581,7 +661,7 @@ ApplicationWindow {
     }
     Timer { id: moveNoticeTimer; interval: 3000; onTriggered: window.moveNotice = "" }
     Rectangle {
-        visible: studySession.error.length > 0 && !createDialog.visible && !window.appearanceOpen
+        visible: studySession.error.length > 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
         width: Math.min(window.width - 100, 680); height: 76; color: "#352b22"; radius: 8; z: 4
         Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error; wrapMode: Text.Wrap; color: "#f0d6b8" }
@@ -608,6 +688,27 @@ ApplicationWindow {
             close()
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+    }
+    Dialog {
+        id: terminalAction; objectName: "terminalActionDialog"; anchors.centerIn: parent; modal: true
+        width: Math.min(440, window.width - 64); padding: 20
+        closePolicy: studySession.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
+        title: window.actionKind === "close" ? "Close terminal?" : "Move terminal here?"
+        background: Rectangle { color: window.chrome.raised; radius: 12; border.color: window.chrome.border }
+        header: Label { text: terminalAction.title; padding: 20; bottomPadding: 8; color: window.chrome.foreground; font.pixelSize: 22 }
+        contentItem: Column {
+            spacing: 16
+            Label { width: parent.width; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12; text: window.actionContext }
+            Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.foreground; text: window.actionKind === "close" ? "Stop this terminal’s process and remove it from the workspace. Other terminals keep running." : "Continue the same process in this window. The other window will release control." }
+            Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; text: studySession.error; visible: text.length > 0 }
+            Row {
+                spacing: 8
+                QuietButton { id: cancelTerminalAction; objectName: "cancelTerminalAction"; text: "Cancel"; enabled: !studySession.busy; onClicked: terminalAction.close() }
+                QuietButton { objectName: "confirmTerminalAction"; text: studySession.busy ? "Working…" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy; onClicked: window.performTerminalAction() }
+            }
+        }
+        onOpened: { studySession.clearError(); cancelTerminalAction.forceActiveFocus() }
+        onClosed: Qt.callLater(window.restoreAfterPopup)
     }
     component ProjectField: TextField {
         selectByMouse: true; color: "#e0e6ef"; selectionColor: window.accent; selectedTextColor: "#101318"
@@ -688,21 +789,22 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
+    readonly property bool globalKeyContext: !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     Shortcut { sequence: window.chord + "Shift+Left"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(-1) }
     Shortcut { sequence: window.chord + "Shift+Right"; enabled: window.moveKeyContext; onActivated: window.reorderSelected(1) }
     Shortcut { sequence: window.chord + "Shift+Up"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(-1) }
     Shortcut { sequence: window.chord + "Shift+Down"; enabled: window.moveKeyContext; onActivated: window.moveSelectedWorkspace(1) }
-    Shortcut { sequence: window.chord + "T"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.newTerminal() }
-    Shortcut { sequence: window.chord + "N"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.newWorkspace() }
-    Shortcut { sequence: window.chord + "Left"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.navigate(-1) }
-    Shortcut { sequence: window.chord + "Right"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.navigate(1) }
-    Shortcut { sequence: window.chord + "Up"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.chooseWorkspace(window.workspace - 1) }
-    Shortcut { sequence: window.chord + "Down"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.chooseWorkspace(window.workspace + 1) }
-    Shortcut { sequence: window.chord + "O"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: window.toggleOverview() }
-    Shortcut { sequence: window.chord + "R"; enabled: !window.overview && !createDialog.visible && !window.appearanceOpen; onActivated: window.cycleWidth() }
-    Shortcut { sequence: window.chord + "F"; enabled: !window.overview && !createDialog.visible && !window.appearanceOpen; onActivated: window.toggleFull() }
-    Shortcut { sequence: window.chord + "/"; enabled: !createDialog.visible && !window.appearanceOpen; onActivated: help.open() }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: window.chord + "T"; enabled: window.globalKeyContext; onActivated: window.newTerminal() }
+    Shortcut { sequence: window.chord + "N"; enabled: window.globalKeyContext; onActivated: window.newWorkspace() }
+    Shortcut { sequence: window.chord + "Left"; enabled: window.globalKeyContext; onActivated: window.navigate(-1) }
+    Shortcut { sequence: window.chord + "Right"; enabled: window.globalKeyContext; onActivated: window.navigate(1) }
+    Shortcut { sequence: window.chord + "Up"; enabled: window.globalKeyContext; onActivated: window.chooseWorkspace(window.workspace - 1) }
+    Shortcut { sequence: window.chord + "Down"; enabled: window.globalKeyContext; onActivated: window.chooseWorkspace(window.workspace + 1) }
+    Shortcut { sequence: window.chord + "O"; enabled: window.globalKeyContext; onActivated: window.toggleOverview() }
+    Shortcut { sequence: window.chord + "R"; enabled: !window.overview && window.globalKeyContext; onActivated: window.cycleWidth() }
+    Shortcut { sequence: window.chord + "F"; enabled: !window.overview && window.globalKeyContext; onActivated: window.toggleFull() }
+    Shortcut { sequence: window.chord + "/"; enabled: window.globalKeyContext; onActivated: help.open() }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

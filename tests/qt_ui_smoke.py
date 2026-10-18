@@ -13,6 +13,7 @@ import tempfile
 import time
 from session_smoke import attach,send,wait_until
 from gui_smoke import close_window
+from snapshot_attach_smoke import snapshot_attach,collect,revoked
 
 runtime,viewer=[str(Path(value).resolve()) for value in sys.argv[1:3]]
 wayland='--wayland' in sys.argv[3:]
@@ -532,6 +533,75 @@ while True:
         typed('echo $$ > '+shlex.quote(str(root/'metadata-shell-after')));key('Return');wait_until((root/'metadata-shell-after').exists)
         assert (root/'metadata-shell-after').read_text()==(root/'metadata-shell-pid').read_text(),'metadata changed the shell owner'
         assert workspace_catalog.load(root)==metadata_catalog and sizes()==metadata_sizes
+        # Lifecycle facts never guess an exit reason or start a replacement implicitly.
+        life_catalog=workspace_catalog.load(root);life_ids={p['identity']:p['instance'] for p in data()['panes']}
+        target_identity=data()['panes'][8]['identity'];target_socket=root/(target_identity+'.sock')
+        typed('exit 42');key('Return');wait_until(lambda:not data()['panes'][8]['ready'])
+        wait_until(lambda:request(root,Path(runtime),root,'terminal.lifecycle',target_identity)['state']=='stopped')
+        click(*data()['panes'][8]['check_action'])
+        wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='stopped' and '42' in data()['panes'][8]['lifecycle'].get('message',''))
+        capture('lifecycle-exit-42.png')
+        evidence=target_socket.with_suffix('.lifecycle');record=evidence.read_bytes();evidence.unlink()
+        click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('reason')=='unknown')
+        assert 'no exit reason' in data()['panes'][8]['lifecycle']['message']
+        evidence.write_bytes(record);evidence.chmod(0o600)
+        click(*data()['panes'][8]['primary_action']);wait_until(lambda:data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
+        recovered_pid=root/'recovered-pid';typed('echo $$ > '+shlex.quote(str(recovered_pid)));key('Return');wait_until(recovered_pid.exists)
+        assert recovered_pid.read_text()!=(root/'metadata-shell-pid').read_text()
+        wait_until(lambda:data()['panes'][8]['facts'].get('cwd')==str(project))
+        assert data()['panes'][8]['identity']==target_identity and data()['panes'][8]['instance']==life_ids[target_identity]
+        assert workspace_catalog.load(root)==life_catalog
+        # Real ownership revocation: only explicit Move here may take a live owner.
+        peer=snapshot_attach(target_socket,takeover=True);collect(peer)
+        try:
+            wait_until(lambda:data()['panes'][8]['attachment']=='elsewhere' and data()['panes'][8]['lifecycle'].get('state')=='running')
+            click(*data()['panes'][8]['primary_action']);wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='move')
+            key('Return');time.sleep(.1)  # Cancel has initial focus; Enter cannot confirm.
+            if data()['terminal_action_open']:key('Escape')
+            wait_until(lambda:not data()['terminal_action_open'])
+            assert not data()['panes'][8]['ready']
+            send(peer,16,b"printf WB_OWNER_RETAINED\n")
+            from session_smoke import expect
+            expect(peer,b'WB_OWNER_RETAINED')
+            click(*data()['panes'][8]['primary_action']);wait_until(lambda:data()['terminal_action_open'])
+            capture('lifecycle-transfer-confirm.png');click(*data()['confirm_terminal_action'])
+            wait_until(lambda:data()['panes'][8]['ready'] and not data()['terminal_action_open']);revoked(peer)
+        finally:peer.close()
+        # Reconnect is non-stealing, read-only status never resurrects the service.
+        peer=snapshot_attach(target_socket,takeover=True);collect(peer)
+        try:
+            wait_until(lambda:data()['panes'][8]['attachment']=='elsewhere')
+            request(root,Path(runtime),root,'service.shutdown')
+            click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='unavailable' and not data()['panes'][8]['lifecycle'].get('busy'))
+            assert not (root/'service.rpc').exists() and workspace_catalog.load(root)==life_catalog
+            request(root,Path(runtime),root)  # Explicit test-owned service restart.
+            click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='running' and not data()['panes'][8]['lifecycle'].get('busy'))
+            attempts=data()['panes'][8]['attachment_attempts']
+            click(*data()['panes'][8]['reconnect_action']);wait_until(lambda:data()['panes'][8]['attachment_attempts']>attempts and data()['panes'][8]['attachment']=='elsewhere')
+            send(peer,16,b"printf WB_RECONNECT_DID_NOT_STEAL\n");expect(peer,b'WB_RECONNECT_DID_NOT_STEAL')
+        finally:peer.close()
+        time.sleep(.15);click(*data()['panes'][8]['reconnect_action']);wait_until(lambda:data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
+        after_reconnect=root/'after-reconnect-pid';typed('echo $$ > '+shlex.quote(str(after_reconnect)));key('Return');wait_until(after_reconnect.exists)
+        assert after_reconnect.read_bytes()==recovered_pid.read_bytes()
+        assert sizes()==metadata_sizes and {p['identity']:p['instance'] for p in data()['panes']}==life_ids
+        # Cancel/Enter never closes a terminal; confirm removes one stable identity.
+        def close_menu():
+            click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+            click(*data()['terminal_close_item']);wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='close')
+            key('super+alt+Up');key('super+alt+t');time.sleep(.1)
+            assert data()['selected']==8 and data()['workspace']==2 and len(data()['panes'])==14,'global actions escaped confirmation scope'
+        close_menu();key('Return');time.sleep(.1)
+        if data()['terminal_action_open']:key('Escape')
+        wait_until(lambda:not data()['terminal_action_open'])
+        assert workspace_catalog.load(root)==life_catalog and len(data()['panes'])==14
+        close_menu();capture('lifecycle-close-confirm.png');click(*data()['confirm_terminal_action'])
+        wait_until(lambda:not data()['terminal_action_open'] and len(data()['panes'])==13 and data()['selected']==-1)
+        assert data()['workspace']==2 and not target_socket.exists()
+        remaining={p['identity']:p['instance'] for p in data()['panes']}
+        assert remaining=={identity:instance for identity,instance in life_ids.items() if identity!=target_identity},'closing replaced a neighbouring terminal item'
+        assert all(p['ready'] for p in data()['panes'])
+        for pid in pids:os.kill(int(pid),0)
+        capture('lifecycle-empty-workspace.png')
         # Eight pane indicators and a long name must fit the minimum window width.
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
         workspace_form('rename');key('ctrl+a');typed('A long workspace name that stays within the compact top bar');key('Return')
@@ -547,7 +617,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, import/metadata/offline/duplicate/invalid-file/chooser-cancel, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, unchanged reader PIDs and isolated input')
     except BaseException:
         if report.exists():(artifacts/'failure.json').write_bytes(report.read_bytes())
         for evidence in root.glob('*.log'):(artifacts/('failure-'+evidence.name)).write_bytes(evidence.read_bytes())

@@ -1160,3 +1160,47 @@ long workspace names, attention transitions, existing keyboard/menu/focus flows,
 and stable terminal identities/geometry through overlays. Review captures include
 `chrome-menu.png`, `chrome-workspaces.png` and `chrome-narrow.png` under
 `.local/artifacts/qt-ui/{xcb,wayland}/`.
+
+
+## Qt terminal lifecycle and ownership
+
+The Qt study now shows a compact status card when a terminal is disconnected.
+Recorded exit codes/signals, explicit stops and missing-exit evidence come from
+the existing session service. Unknown evidence stays unknown. Status checks are
+bounded, coalesced per terminal and request driven; they never start a missing
+service, replace a shell or attach a PTY owner. Check again refreshes those facts.
+
+- **Reconnect** attempts a normal attachment to the running process. If another
+  window owns it, that window keeps control.
+- **Move here…** asks for confirmation before transferring the existing process.
+  The old owner receives an explicit release state and can later reconnect.
+- **Start new shell** is offered only for a stopped runtime. The existing service
+  revalidates that no shell is live and starts in the workspace's configured
+  folder. It preserves terminal identity, theme and width; it starts a new process.
+- **Close terminal…**, in the pane menu, asks before stopping the process and
+  removing its catalog entry. Cancel receives initial focus; Enter cannot silently
+  confirm destruction. Other terminals retain their live items, PIDs and input.
+
+Snapshot reconnect commits a newly decoded client replica and rebuilds its render
+handles without taking terminal authority from the runtime. A failed snapshot
+keeps the old display; failures stay local to that terminal. Removed panes retire
+their context/agent/status observers. Selection, widths and remembered workspace
+focus are reconciled by stable identity rather than retaining shifted indices.
+
+This slice also fixes returning from Overview with an obsolete animated scroll
+position. Reveal uses the intended scroll target and clamps to the current
+workspace; a disconnected selected terminal's controls remain reachable.
+
+`just toolkit-lifecycle-test` exercises lifecycle-only requests, fragmented,
+malformed, oversized, closed and timed-out replies, missing-service non-start and
+observer retirement without a display. The native UI suite uses real runtimes to
+exercise exit 42, missing evidence, new-shell recovery, explicit ownership transfer,
+non-stealing reconnect, service downtime and confirmed/cancelled close. It verifies
+stable sibling UI instances and reader PIDs, then the normal narrow-window layout.
+
+For manual Mac/Linux review, run `just toolkit-ui`, enter `exit 42`, inspect the
+reason and choose Start new shell. Open that pane's overflow menu, choose Close
+terminal…, cancel once, then confirm. The workspace should become empty when its
+last terminal closes; its neighbours should keep running. Native Mac acceptance
+of this slice remains pending. Paired-window saved-session integration remains a
+later slice; the study launcher still owns only private disposable sessions.

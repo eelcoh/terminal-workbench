@@ -64,7 +64,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-terminal-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.terminal-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
-    qt_add_executable(workbench-ui-study ui_main.cpp chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h theme_bridge.c
+    qt_add_executable(workbench-ui-study ui_main.cpp ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h theme_bridge.c
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
@@ -77,6 +77,11 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-ui-study PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.ui-study"
         MACOSX_BUNDLE_BUNDLE_NAME "Terminal Workbench UI Study")
+    qt_add_executable(workbench-lifecycle-test ui_lifecycle_test.cpp ui_lifecycle.cpp ui_lifecycle.h)
+    target_compile_definitions(workbench-lifecycle-test PRIVATE QT_NO_KEYWORDS)
+    target_compile_options(workbench-lifecycle-test PRIVATE -Wall -Wextra)
+    target_link_libraries(workbench-lifecycle-test PRIVATE Qt6::Core Qt6::Network)
+    set_target_properties(workbench-lifecycle-test PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)
     qt_add_executable(workbench-runtime-facts-test runtime_facts_test.cpp runtime_facts.cpp runtime_facts.h)
     target_compile_definitions(workbench-runtime-facts-test PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-runtime-facts-test PRIVATE -Wall -Wextra)

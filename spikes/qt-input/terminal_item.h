@@ -12,12 +12,16 @@
 class TerminalItem : public QQuickPaintedItem {
     Q_OBJECT
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
+    Q_PROPERTY(bool ready READ ready NOTIFY statusChanged)
+    Q_PROPERTY(QString attachment READ attachment NOTIFY statusChanged)
     Q_PROPERTY(int themeIndex READ themeIndex WRITE setThemeIndex NOTIFY themeChanged)
     Q_PROPERTY(bool presentationEnabled READ presentationEnabled WRITE setPresentationEnabled NOTIFY presentationEnabledChanged)
 public:
     explicit TerminalItem(QQuickItem *parent = nullptr);
     ~TerminalItem() override;
     void connectSession(const QString &control);
+    void reconnectSession(const QString &control,bool takeover=false);
+    QString attachment() const{return attachment_;}
     QString status() const { return status_; }
     bool ready() const { return ready_; }
     int themeIndex() const {return themeIndex_;}
@@ -36,6 +40,7 @@ public:
     qreal textRasterScale() const {return textRows_.size()==0?0:textRows_.image(0).devicePixelRatio();}
     // Narrow client diagnostics for the isolated live-runtime benchmark.
     // Queried at scenario boundaries; no aggregate collection in paint/parse.
+    quint64 connectionAttempts() const{return connectionAttempts_;}
     quint64 receivedBytes() const {return receivedBytes_;}
     quint64 refreshedBytes() const {return refreshedBytes_;}
     quint64 rasterizedRows() const {return textRows_.rasterizedRows();}
@@ -72,7 +77,7 @@ protected:
     void wheelEvent(QWheelEvent *) override;
 private:
     using Cell=TerminalTextCell;
-    void fail(const QString &);
+    void fail(const QString &,const QString &attachment="disconnected");
     void receive();
     bool frame(quint8, const QByteArray &);
     void send(quint8, const QByteArray &);
@@ -89,10 +94,11 @@ private:
     QTimer refreshTimer_, handshakeTimer_;
     QByteArray receive_, snapshot_;
     quint32 snapshotSize_ = 0;
+    quint64 connectionAttempts_=0;
     quint64 receivedBytes_=0,refreshedBytes_=0;
     bool presentationEnabled_=true;
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
-    QString status_="Connecting";
+    QString status_="Connecting",attachment_="connecting";bool takeover_=false;
     TerminalComposition composition_;
     GhosttyTerminal terminal_=nullptr;
     GhosttyRenderState render_=nullptr;

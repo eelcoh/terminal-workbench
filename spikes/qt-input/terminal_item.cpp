@@ -95,7 +95,7 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
     socket_.setReadBufferSize(256*1024);
     connect(&socket_,&QLocalSocket::readyRead,this,&TerminalItem::receive);
     connect(&socket_,&QLocalSocket::connected,this,[this]{
-        socket_.write("ATS1\nf64f4aca2c29b554d111b36c3d946a9bddd159ff");
+        socket_.write((takeover_ ? QByteArray("ATM1\n") : QByteArray("ATS1\n"))+"f64f4aca2c29b554d111b36c3d946a9bddd159ff");
     });
     connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(!failed_)fail("Connection closed");});
     connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){if(!failed_)fail(socket_.errorString());});
@@ -110,7 +110,16 @@ TerminalItem::~TerminalItem()
 void TerminalItem::connectSession(const QString &path)
 {
     if (failed_ || socket_.state()!=QLocalSocket::UnconnectedState) return;
-    handshakeTimer_.start(); socket_.connectToServer(path);
+    ++connectionAttempts_;handshakeTimer_.start(); socket_.connectToServer(path);
+}
+void TerminalItem::reconnectSession(const QString &path,bool takeover) {
+    if(!render_ || !encoder_ || !event_ || attachment_=="connecting" || ready_)return;
+    failed_=true;socket_.abort();handshakeTimer_.stop();refreshTimer_.stop();
+    receive_.clear();snapshot_.clear();snapshotSize_=0;snapshotStarted_=restored_=queued_=false;
+    wantedColumns_=wantedLines_=0;takeover_=takeover;
+    QGuiApplication::inputMethod()->reset();composition_.set(QInputMethodEvent(),font_);
+    failed_=false;attachment_="connecting";status_="Connecting";Q_EMIT statusChanged();
+    ++connectionAttempts_;handshakeTimer_.start();socket_.connectToServer(path);
 }
 void TerminalItem::setThemeIndex(int index)
 {
@@ -141,10 +150,10 @@ void TerminalItem::setPresentationEnabled(bool enabled)
     // Hidden sources keep parsing; one refresh catches the latest grid on reveal.
     if(enabled && !refreshTimer_.isActive())refreshTimer_.start();
 }
-void TerminalItem::fail(const QString &message)
+void TerminalItem::fail(const QString &message,const QString &attachment)
 {
-    failed_=true; ready_=false; status_=message; snapshot_.clear(); receive_.clear();
-    handshakeTimer_.stop(); socket_.abort(); Q_EMIT statusChanged();
+    failed_=true; ready_=false; status_=message;attachment_=attachment; snapshot_.clear(); receive_.clear();
+    handshakeTimer_.stop(); socket_.abort(); updateCursor();Q_EMIT statusChanged();
 }
 void TerminalItem::send(quint8 kind,const QByteArray &data)
 {
@@ -174,7 +183,8 @@ void TerminalItem::receive()
 }
 bool TerminalItem::frame(quint8 kind,const QByteArray &data)
 {
-    if(kind==4) {fail(QString::fromUtf8(data));return false;}
+    if(kind==4) {const auto message=QString::fromUtf8(data);fail(message,message=="a window is already attached" ? "elsewhere" : "disconnected");return false;}
+    if(kind==10 && data.isEmpty()) {fail("Open in another window","elsewhere");return false;}
     if(kind==7 && !snapshotStarted_ && !ready_ && data.size()==4) {
         snapshotSize_=qFromBigEndian<quint32>(data.constData());
         if(!snapshotSize_ || snapshotSize_>maxSnapshot)return false;
@@ -187,9 +197,18 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
         GhosttySnapshotDecoder decoder=nullptr;
         if(ghostty_snapshot_decoder_new_buf(nullptr,&decoder,
             reinterpret_cast<const uint8_t *>(snapshot_.constData()),snapshot_.size())!=GHOSTTY_SUCCESS)return false;
-        auto result=ghostty_snapshot_decoder_decode(decoder,&terminal_);
+        GhosttyTerminal next=nullptr;
+        auto result=ghostty_snapshot_decoder_decode(decoder,&next);
         ghostty_snapshot_decoder_free(decoder);snapshot_.clear();
-        if(result!=GHOSTTY_SUCCESS)return false;
+        if(result!=GHOSTTY_SUCCESS) {ghostty_terminal_free(next);return false;}
+        ghostty_render_state_row_cells_free(cells_);cells_=nullptr;
+        ghostty_render_state_row_iterator_free(rows_);rows_=nullptr;
+        ghostty_render_state_free(render_);render_=nullptr;
+        ghostty_terminal_free(terminal_);terminal_=next;
+        if(ghostty_render_state_new(nullptr,&render_)!=GHOSTTY_SUCCESS
+            || ghostty_render_state_row_iterator_new(nullptr,&rows_)!=GHOSTTY_SUCCESS
+            || ghostty_render_state_row_cells_new(nullptr,&cells_)!=GHOSTTY_SUCCESS)return false;
+        cursorGlyph_=QImage();cursorRowKey_=0;cursorVisible_=false;accessibleDirty_=true;
         restored_=true;applyTheme();
         ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_USERDATA,this);
         ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_WRITE_PTY,reinterpret_cast<const void *>(reply));
@@ -200,7 +219,7 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
         if(!columns_ || !lines_ || columns_>1000 || lines_>1000)return false;
         if(ghostty_terminal_resize(terminal_,columns_,lines_,0,0)!=GHOSTTY_SUCCESS)return false;
     } else if(kind==3 && restored_ && !ready_ && data.isEmpty()) {
-        ready_=true;status_="Attached · experimental Qt painter";handshakeTimer_.stop();
+        ready_=true;attachment_="attached";status_="Attached · experimental Qt painter";handshakeTimer_.stop();
         Q_EMIT statusChanged(); resizeTerminal();
     } else if(kind==1 && ready_) {
         ghostty_terminal_vt_write(terminal_,reinterpret_cast<const uint8_t *>(data.constData()),data.size());
@@ -319,7 +338,7 @@ QString TerminalItem::cursorPresentation() const
 }
 void TerminalItem::updateCursor()
 {
-    const bool focused=hasActiveFocus() && isEnabled() && window() && window()->isActive();
+    const bool focused=ready_ && hasActiveFocus() && isEnabled() && window() && window()->isActive();
     const bool changed=focused!=cursorFocused_;cursorFocused_=focused;
     bool glyphChanged=false;
     if(presentationEnabled_ && isVisible() && cursorVisible_ && focused && cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK) {

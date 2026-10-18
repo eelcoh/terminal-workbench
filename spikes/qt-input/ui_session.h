@@ -7,6 +7,7 @@
 #include <QUrl>
 #include "terminal_item.h"
 #include "runtime_facts.h"
+#include "ui_lifecycle.h"
 #include <QHash>
 
 // Client adapter for the existing organization service. Never owns PTYs/catalog data.
@@ -14,6 +15,7 @@ class UiSession final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantMap initialCatalog READ initialCatalog CONSTANT)
     Q_PROPERTY(QString defaultDirectory READ defaultDirectory CONSTANT)
+    Q_PROPERTY(QVariantMap lifecycle READ lifecycle NOTIFY lifecycleChanged)
     Q_PROPERTY(bool busy READ busy NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
 public:
@@ -21,6 +23,11 @@ public:
     QVariantMap initialCatalog() const {return config_["catalog"].toObject().toVariantMap();}
     QString defaultDirectory() const {return config_["cwd"].toString();}
     bool busy() const {return busy_;}
+    QVariantMap lifecycle() const{return lifecycle_.values();}
+    Q_INVOKABLE void inspect(const QString &identity);
+    Q_INVOKABLE void reconnect(TerminalItem *item,const QString &identity,bool takeover=false);
+    Q_INVOKABLE void recover(const QString &identity);
+    Q_INVOKABLE void closeTerminal(const QString &identity);
     QString error() const {return error_;}
     Q_INVOKABLE QObject *observe(const QString &identity);
     Q_INVOKABLE void attach(TerminalItem *item,const QString &identity);
@@ -35,10 +42,14 @@ public:
     Q_INVOKABLE void refresh();
 Q_SIGNALS:
     void changed();
+    void lifecycleChanged();
+    void actionCompleted(QString identity,QString method);
     void completed(QVariantMap catalog,QString method);
 private:
     void request(const QString &method,const QString &identity={},const QString &name={},const QString &directory={},const QString &destination={},int position=-1);
     void fail(const QString &message);
+    void prune(const QJsonObject &catalog);
+    UiLifecycle lifecycle_;
     QHash<QString,RuntimeFacts *> facts_;
-    QJsonObject config_;QLocalSocket socket_;QTimer deadline_;QByteArray receive_;QString method_,error_;bool busy_=false,sent_=false;
+    QJsonObject config_;QLocalSocket socket_;QTimer deadline_;QByteArray receive_;QString method_,identity_,error_;bool busy_=false,sent_=false;
 };

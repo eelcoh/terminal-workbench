@@ -60,6 +60,8 @@ int main(int argc,char **argv) {
             for(const auto &value:items) {
                 auto *item=qobject_cast<TerminalItem *>(value.value<QObject *>());if(!item)continue;
                 const auto *caption=panes.size()<labels.size() ? qobject_cast<QQuickItem *>(labels[panes.size()].value<QObject *>()) : nullptr;
+                const auto life=item->parentItem()->property("lifecycle").toMap();
+                const auto actionPoint=[item](const QString &name){const auto *button=item->parentItem()->findChild<QQuickItem *>(name);if(!button)return QJsonArray();const auto p=button->mapToScene(QPointF(button->width()/2,button->height()/2));return QJsonArray{p.x(),p.y()};};
                 const auto size=item->terminalGridSize();const auto position=item->mapToScene(QPointF(item->width()/2,item->height()/2));
                 const auto cell=item->cellSize();
                 const auto bounds=item->parentItem()->mapRectToScene(item->parentItem()->boundingRect());
@@ -68,6 +70,11 @@ int main(int argc,char **argv) {
                 const QSize geometry(qBound(1,int((item->width()-16)/cell.width()),1000),qBound(1,int((item->height()-16)/cell.height()),1000));
                 panes.append(QJsonObject{{"ready",item->ready()},{"status",item->status()},{"text",item->viewportText()},
                     {"cursor",item->cursorPresentation()},
+                    {"attachment",item->attachment()},{"attachment_attempts",double(item->connectionAttempts())},{"lifecycle",QJsonObject::fromVariantMap(life)},
+                    {"instance",QString::number(quintptr(item),16)},
+                    {"primary_action",actionPoint("terminalPrimary"+QString::number(panes.size()))},
+                    {"check_action",actionPoint("terminalCheck"+QString::number(panes.size()))},
+                    {"reconnect_action",actionPoint("terminalReconnect"+QString::number(panes.size()))},
                     {"caption",caption ? caption->property("text").toString() : QString()},{"caption_visible",caption && caption->isVisible()},
                     {"facts",QJsonObject::fromVariantMap(item->property("runtimeFacts").toMap())},{"visible",item->parentItem()->isVisible()},
                     {"selection",item->accessibleSnapshot().selectionStart>=0},
@@ -98,7 +105,10 @@ int main(int argc,char **argv) {
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
-            const QJsonObject data{{"window_width",window->width()},{"interface_font",app.font().family()},
+            const QJsonObject data{{"terminal_action_open",window->property("terminalActionOpen").toBool()},
+                {"terminal_action_kind",window->property("actionKind").toString()},
+                {"terminal_close_item",center("terminalCloseMenuItem")},{"confirm_terminal_action",center("confirmTerminalAction")},{"cancel_terminal_action",center("cancelTerminalAction")},
+                {"window_width",window->width()},{"interface_font",app.font().family()},
                 {"chrome_boxes",QJsonObject{{"workspace",box("workspaceButton")},{"indicators",box("indicatorRow")},{"count",box("focusedCount")},{"add",box("newTerminalButton")},{"overview",box("overviewButton")}}},
                 {"workspaces_button",center("workspacesButton")},
                 {"workspace",window->property("workspace").toInt()},
