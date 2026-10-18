@@ -164,8 +164,9 @@ appearance files, so a missing or malformed theme cannot discard valid fonts or
 bindings. The working viewer retains full theme validation.
 
 Terminal text settings preview/apply/cancel changes for the disposable window
-without writing configuration. Managed appearance, generated `ui/` overrides,
-the shortcut recorder/editor and saved per-window fonts remain follow-ups. See
+without writing configuration. Qt application shortcuts load the existing
+platform `ui/` layer and their editor saves sparse overrides there, preserving
+managed files. Managed appearance and saved per-window fonts remain follow-ups. See
 [Qt fonts](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults) and
 [Qt shortcut scope](shortcuts.md#qt-candidate-managed-application-shortcuts).
 
@@ -174,5 +175,5 @@ the shortcut recorder/editor and saved per-window fonts remain follow-ups. See
 
 Place Ghostty palettes in the configuration root’s `themes/` directory and reopen
 Appearance to discover them. TerminalColors `.default` downloads work unchanged;
-no import wizard or metadata entry is needed. **Themes folder** opens the native
+no import wizard or metadata entry is needed. **Appearance → ? → Open themes folder** opens the native
 location. Source files and symlinks remain untouched. See [drop-in themes](theme-directory.md).

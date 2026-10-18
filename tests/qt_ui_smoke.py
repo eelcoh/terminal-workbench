@@ -56,7 +56,7 @@ while True:
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
         managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\n');managed_bytes=managed.read_bytes()
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'theme_directory':str(root/'themes')}))
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -219,6 +219,28 @@ while True:
         key('super+alt+slash');wait_until(lambda:data()['panes'][0]['cursor']=='outline');capture('chrome-shortcuts.png')
         key('Escape');wait_until(lambda:data()['panes'][0]['cursor']=='block')
         assert sizes()==cursor_grid
+        # Real chord recording is modal; drafts and failures never reach the PTY.
+        shortcut_grid=sizes();shortcut_input=[received(i) for i in range(6)]
+        def shortcut_settings():
+            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+            click(*data()['shortcut_settings_menu']);wait_until(lambda:data()['shortcut_settings_open'] and not data()['application_menu_open'])
+        def record_key(value):
+            click(*data()['shortcut_record']);wait_until(lambda:data()['shortcut_recording']);raw_key(value)
+        shortcut_settings();record_key('F9');wait_until(lambda:bool(data()['shortcut_edit_error']))
+        assert data()['shortcut_recording'] and data()['shortcut_sequences']['commands']=='F10'
+        raw_key('ctrl+c');wait_until(lambda:'reserved' in data()['shortcut_edit_error'].lower())
+        raw_key('Escape');wait_until(lambda:not data()['shortcut_recording'] and data()['shortcut_settings_open'])
+        record_key('F7');wait_until(lambda:not data()['shortcut_recording'] and data()['shortcut_draft_labels']['commands']=='F7')
+        capture('shortcut-editor.png');click(*data()['shortcut_cancel']);wait_until(lambda:not data()['shortcut_settings_open'])
+        assert data()['shortcut_sequences']['commands']=='F10' and not (root/'ui/linux/shortcuts.conf').exists()
+        shortcut_settings();record_key('F7');wait_until(lambda:not data()['shortcut_recording'])
+        click(*data()['shortcut_apply']);wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F7')
+        raw_key('F7');wait_until(lambda:data()['commands_open']);raw_key('Escape');wait_until(lambda:not data()['commands_open'])
+        shortcut_settings();click(*data()['shortcut_clear']);wait_until(lambda:not data()['shortcut_draft_labels']['commands'])
+        click(*data()['shortcut_reset']);wait_until(lambda:data()['shortcut_draft_labels']['commands']=='F10')
+        click(*data()['shortcut_apply']);wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F10')
+        assert (root/'ui/linux/shortcuts.conf').read_text()=='workbench-shortcuts-v1\n'
+        assert managed.read_bytes()==managed_bytes and sizes()==shortcut_grid and [received(i) for i in range(6)]==shortcut_input
         # Palette matching/input is local: no shell, geometry or ownership changes.
         command_grid=sizes();command_pids=[p['instance'] for p in data()['panes']]
         command_input=[received(i) for i in range(6)]

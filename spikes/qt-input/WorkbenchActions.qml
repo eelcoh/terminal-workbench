@@ -13,6 +13,7 @@ QtObject {
     readonly property int position: neighbours.indexOf(host.selected)
     readonly property var entries: [
         row("commands", "Open Commands", "Search application actions", true, ""),
+        row("shortcut-settings", "Shortcut settings…", "Record and save application bindings", true, ""),
         row("font-settings", "Terminal text…", "Choose a bundled font and preview its size", true, ""),
         row("font-increase", "Increase terminal text size", "Larger text across this window", studyFonts.current.size < 32, "Already at 32 pt"),
         row("font-decrease", "Decrease terminal text size", "Smaller text across this window", studyFonts.current.size > 10, "Already at 10 pt"),
@@ -27,7 +28,7 @@ QtObject {
         row("next-workspace", "Next workspace", "Switch to the workspace below", host.workspace + 1 < host.spaces.length, "Already at the last workspace"),
         row("rename-workspace", "Rename workspace…", "Edit the current workspace name", !host.overview && !session.busy, host.overview ? "Leave Overview first" : "Another change is in progress"),
         row("workspace-folder", "Workspace folder…", "Choose the folder used by new shells", !host.overview && !session.busy, host.overview ? "Leave Overview first" : "Another change is in progress"),
-        row("appearance", "Workspace appearance…", "Choose or import a Ghostty / TerminalColors theme", !host.overview, "Leave Overview first"),
+        row("appearance", "Workspace appearance…", "Choose a Ghostty / TerminalColors theme", !host.overview, "Leave Overview first"),
         row("cycle-width", "Cycle terminal width", "Half → two thirds → one third", workingPane, host.overview ? "Leave Overview first" : "No terminal selected"),
         row("full-width", "Toggle full width", "Fill the terminal area or restore its width", workingPane, host.overview ? "Leave Overview first" : "No terminal selected"),
         row("move-left", "Move terminal left", "Reorder within this workspace", host.canReorder(-1), session.busy ? "Another change is in progress" : "No previous position"),

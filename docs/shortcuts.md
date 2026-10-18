@@ -223,10 +223,10 @@ workspace.rename = F8
 
 The Qt adapter currently supports Commands, Overview, Appearance, workspace
 creation/name/folder/navigation, terminal creation/confirmed close/navigation,
-width cycle/full, font settings/sizing and shortcut help. Use the corresponding
+width cycle/full, font settings/sizing, shortcut settings and shortcut help. Use the corresponding
 action IDs:
 
-- `commands`, `overview`, `appearance`, `shortcuts.help`
+- `commands`, `overview`, `appearance`, `shortcuts`, `shortcuts.help`
 - `workspace.new`, `workspace.rename`, `workspace.folder`,
   `workspace.previous`, `workspace.next`
 - `terminal.new`, `terminal.stop`, `terminal.previous`, `terminal.next`
@@ -246,9 +246,10 @@ with a startup notice. Unused appearance files are never opened by this adapter.
 Native text-field editing and terminal copy/paste keep their platform shortcuts.
 An application binding conflicting with those native clipboard chords is rejected.
 
-This slice imports managed application shortcuts only. Existing `ui/` override
-files, the shortcut recorder/editor, clipboard remapping, one-shot forwarding and
-unsupported actions have not moved to Qt. Unsupported actions are not intercepted.
+Qt now reads the managed application bindings and the existing platform `ui/`
+shortcut layer. Its recorder/editor saves sparse UI overrides separately. Clipboard
+remapping, one-shot forwarding and unsupported actions remain follow-ups.
+Unsupported actions are not intercepted.
 The working viewer retains those workflows. Qt settings stay independent of the
 session service and do not change runtime ownership or protocols.
 
@@ -258,3 +259,35 @@ move-default collisions without a display. `just toolkit-ui-test` exercises real
 F10/F9/F8 remaps, former-chord passthrough, dynamic hints/help, modal isolation and
 existing workflows on private X11 and Wayland desktops. X11 uses the established window-directed key path, with physical XTest function
 keys to avoid Xdotool’s incorrect Alt synthesis. Native Mac shortcut review remains pending.
+
+## Qt shortcut editor
+
+In `just toolkit-ui`, open **Shortcut settings…** from the application menu,
+Commands or **Edit shortcuts…** in the help overlay. Select an action and choose
+**Record…**, then press its new chord. Double-click or Enter on a selected row
+also starts recording. Bare function keys F1–F11 are supported; ordinary keys
+require an application modifier. Escape cancels recording without closing the
+editor. Conflicts, reserved shell controls and native copy/paste stay rejected,
+with an inline explanation; the recorder remains active so you can try again.
+
+**Clear** unbinds the selected action. **Use dotfile** restores its managed value
+(or the platform default when absent). Changes remain drafts until **Apply**;
+**Cancel** and Escape discard them. Apply updates Commands, menus, help and key
+handling immediately and atomically saves only differences from managed defaults
+at `ui/linux/shortcuts.conf` or `ui/macos/shortcuts.conf` under the configuration
+root. Reopening the app loads those choices. Managed files and comments are never
+rewritten. Previously saved working-viewer overrides use the same format/path.
+Other supported legacy bindings in that file are preserved even when Qt does
+not expose those actions. Qt-only pane-move chords are still fixed defaults.
+
+External config edits require reopening the app. If managed or UI files change
+after launch, Apply refuses to overwrite them; the existing live bindings stay
+active. Saves use a short lock and atomic replacement; no lock spans editing.
+No live file watching or cross-window shortcut broadcast is added by this slice.
+
+Validation: `just toolkit-shortcuts-test` covers recording, conflict/reserved-key
+rejection, Mac physical modifier mapping, drafts, sparse save/reopen, clear/reset,
+managed-file preservation and stale-file rejection. `just toolkit-ui-test` drives
+actual recording on X11/Wayland, tests recording Escape, Cancel and Apply, activates
+the new chord, restores the managed chord and verifies no keys reach shell readers.
+Native Mac recorder acceptance remains pending.

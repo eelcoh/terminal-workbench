@@ -50,7 +50,7 @@ int main(int argc,char **argv) {
     constexpr bool apple=false;
 #endif
     UiFonts fonts(configuration["preferences"].toString(),apple);
-    UiShortcuts shortcuts(configuration["preferences"].toString(),apple);
+    UiShortcuts shortcuts(configuration["preferences"].toString(),apple,nullptr,configuration["shortcut_overrides"].toString());
     if(!shortcuts.error().isEmpty())std::fprintf(stderr,"Qt UI shortcut settings: %s\n",qPrintable(shortcuts.error()));
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
@@ -124,6 +124,12 @@ int main(int argc,char **argv) {
             const QJsonObject data{{"shortcut_sequences",QJsonObject::fromVariantMap(shortcuts.sequences())},
                 {"shortcut_error",shortcuts.error()},{"shortcut_labels",QJsonObject::fromVariantMap(shortcuts.labels())},
                 {"font_settings_open",window->property("fontSettingsOpen").toBool()},
+                {"shortcut_settings_open",window->property("shortcutSettingsOpen").toBool()},
+                {"shortcut_recording",window->property("shortcutRecording").toBool()},
+                {"shortcut_edit_error",shortcuts.editError()},{"shortcut_draft_labels",QJsonObject::fromVariantMap(shortcuts.draftLabels())},
+                {"shortcut_settings_menu",center("shortcutSettingsMenuItem")},{"shortcut_record",center("shortcutRecord")},
+                {"shortcut_apply",center("shortcutApply")},{"shortcut_cancel",center("shortcutCancel")},
+                {"shortcut_clear",center("shortcutClear")},{"shortcut_reset",center("shortcutReset")},
                 {"font_preferences",QJsonObject::fromVariantMap(fonts.current())},
                 {"font_defaults",QJsonObject::fromVariantMap(fonts.defaults())},
                 {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},

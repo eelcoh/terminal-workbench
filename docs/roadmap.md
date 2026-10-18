@@ -29,10 +29,11 @@ exit reasons, non-stealing reconnect, guarded recovery, explicit ownership
 transfer and confirmed terminal close, now owner-confirmed. The command palette
 adds searchable, context-aware actions with shared creation/layout dispatch and
 safe dialog handoff. Native Mac palette review remains open. Next are the
-remaining portable settings/shortcut editing, Ghostty/TerminalColors theme-directory discovery,
-saved-session integration and packaging. Supported Qt application chords now
-load from managed dotfiles, with active Commands/menu/help hints; editor/UI
-overrides and key forwarding remain follow-ups.
+remaining portable settings, saved-session integration and packaging. Supported Qt application chords now
+load from managed dotfiles and sparse platform UI overrides, with active
+Commands/menu/help hints. The recorder/editor now supports Apply/Cancel, clear
+and managed-default restoration; native Mac recorder review and key forwarding
+remain follow-ups.
 The Qt terminal-text slice now loads managed shared/platform font defaults and
 provides bundled face/size preview, Apply/Cancel and size shortcuts. Window edits
 remain temporary until saved-session integration. The owner confirmed Mac font
@@ -189,12 +190,25 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
 Bring the spike’s pin/unpin behavior to the Qt workspace and agent panel.
 Keep the compact rail as the default; allow the expanded panel to stay visible
 beside the terminal area instead of closing after navigation. Unpinning restores
-the temporary drawer. Keep workspace and agent selection, keyboard focus and
-Overview navigation consistent in both modes.
+the temporary drawer. Include the spike’s dedicated agent list in the left panel: agent identity,
+status and a way to focus its terminal across workspaces. This is separate from
+the spatial Overview and must not simply open Overview filtered to agents.
+Keep workspace and agent selection, keyboard focus and Overview navigation
+consistent in both modes.
 
 Persist the pin preference with client presentation settings during saved-session
 integration. Check narrow windows, pane widths, light/dark themes and Mac/Linux
 input. This is planned Qt parity with the spike, not implemented in the Qt study.
+
+## Qt Overview visual refinement
+
+The owner finds the Qt Overview visually unfinished. Revisit spacing, hierarchy,
+workspace grouping, terminal captions, selected/hover states, filters and empty
+states against Niri and the approved minimal chrome. Keep live terminal previews
+legible, with fluid entry/exit and scrolling, while preserving drag targets and
+keyboard navigation. Review dark/light themes, dense workspaces and narrow
+windows on both platforms. The dedicated left-panel agent list is a separate
+navigation surface, not a replacement for spatial Overview.
 
 ## Dotfiles and portable configuration
 
@@ -1272,3 +1286,13 @@ terminal…, cancel once, then confirm. The workspace should become empty when i
 last terminal closes; its neighbours should keep running. Native Mac acceptance
 of this slice remains pending. Paired-window saved-session integration remains a
 later slice; the study launcher still owns only private disposable sessions.
+
+## Qt shortcut editor and sparse persistence
+
+The Qt candidate now exposes Shortcut settings through its menu, Commands and
+help overlay. Real key recording validates conflicts and reserved shell/clipboard
+keys. Apply saves sparse overrides in the existing platform UI layer and updates
+bindings/hints immediately; Cancel keeps live bindings unchanged. Managed files
+remain read-only, and externally changed settings block stale saves. Model and
+native Linux input checks cover these boundaries; native Mac recorder review,
+one-shot forwarding and saved-session integration remain next work.

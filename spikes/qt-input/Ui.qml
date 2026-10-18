@@ -62,10 +62,19 @@ ApplicationWindow {
     onOverviewChanged: Qt.callLater(rebuildOverview)
     function openAgents() { if (!overview) toggleOverview(); changeFilter(true, false) }
     WorkbenchActions { id: commandRegistry; host: window; session: studySession }
+    readonly property bool shortcutSettingsOpen: shortcutSettings.visible
+    readonly property bool shortcutRecording: shortcutSettings.recordingActive
+    property bool pendingShortcutSettings: false
+    function openShortcutSettings() {
+        if (shortcutSettings.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible || fontSettings.visible || drawer.visible || paneMenu.visible) return
+        if (help.visible) help.close()
+        if (appMenu.visible) { pendingShortcutSettings = true; appMenu.close() }
+        else { studyShortcuts.begin(); shortcutSettings.open() }
+    }
     property bool pendingFontSettings: false
     readonly property bool fontSettingsOpen: fontSettings.visible
     function openFontSettings() {
-        if (fontSettings.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible || help.visible) return
+        if (shortcutSettings.visible || fontSettings.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible || help.visible) return
         if (appMenu.visible) { pendingFontSettings = true; appMenu.close() }
         else { studyFonts.begin(); fontSettings.open() }
     }
@@ -78,7 +87,7 @@ ApplicationWindow {
     readonly property int commandCurrent: commands.currentResult
     readonly property var commandMatches: commands.matches
     function openCommands() {
-        if (terminalAction.visible || createDialog.visible || appearance.visible || help.visible || drawer.visible || paneMenu.visible || fontSettings.visible || commands.visible || dragSlot >= 0) return
+        if (terminalAction.visible || createDialog.visible || appearance.visible || help.visible || drawer.visible || paneMenu.visible || shortcutSettings.visible || fontSettings.visible || commands.visible || dragSlot >= 0) return
         if (appMenu.visible) { pendingCommands = true; appMenu.close() }
         else showCommands()
     }
@@ -92,6 +101,7 @@ ApplicationWindow {
         if (!entry || !entry.available) return
         switch (id) {
         case "commands": openCommands(); break
+        case "shortcut-settings": openShortcutSettings(); break
         case "font-settings": openFontSettings(); break
         case "font-increase": studyFonts.step(1); break
         case "font-decrease": studyFonts.step(-1); break
@@ -269,7 +279,9 @@ ApplicationWindow {
         else studySession.createWorkspace(newName.text, newFolder.text)
     }
     function restoreAfterPopup() {
-        if (pendingFontSettings) {
+        if (pendingShortcutSettings) {
+            pendingShortcutSettings = false; Qt.callLater(function() { studyShortcuts.begin(); shortcutSettings.open() })
+        } else if (pendingFontSettings) {
             pendingFontSettings = false; Qt.callLater(function() { studyFonts.begin(); fontSettings.open() })
         } else if (pendingCommands) {
             pendingCommands = false; Qt.callLater(showCommands)
@@ -277,7 +289,7 @@ ApplicationWindow {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !fontSettings.visible && !commands.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -364,7 +376,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -692,6 +704,7 @@ ApplicationWindow {
         MenuRule {}
         MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
         MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; onTriggered: window.openFontSettings() }
+        MenuAction { objectName: "shortcutSettingsMenuItem"; text: "Shortcut settings…"; onTriggered: window.openShortcutSettings() }
         MenuAction { keyHint: studyShortcuts.labels["help"] || ""; text: "Keyboard shortcuts"; onTriggered: help.open() }
         MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
         MenuRule {}
@@ -855,6 +868,11 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
+    ShortcutSettings {
+        id: shortcutSettings; anchors.centerIn: parent
+        tones: window.chrome; preferences: studyShortcuts; actions: commandRegistry.entries
+        onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+    }
     Dialog {
         id: help; implicitWidth: 560; implicitHeight: 460; width: Math.min(implicitWidth, window.width - 64); height: Math.min(implicitHeight, window.height - 64); title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
         padding: 16
@@ -862,6 +880,7 @@ ApplicationWindow {
         header: Label { text: help.title; padding: 20; bottomPadding: 8; color: window.chrome.foreground; font.pixelSize: 22 }
         footer: Item {
             implicitHeight: 56
+            QuietButton { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "Edit shortcuts…"; onClicked: window.openShortcutSettings() }
             QuietButton { anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: "Close"; onClicked: help.close() }
         }
         contentItem: ListView {
@@ -877,7 +896,7 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: dragSlot < 0 && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: dragSlot < 0 && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     function activateShortcut(id) {
         // Boundary navigation still reveals/focuses the selected pane after scrolling.
         if (id === "previous-terminal") navigate(-1)
@@ -900,7 +919,7 @@ ApplicationWindow {
             }
         }
     }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0]; Qt.callLater(function() { if (selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

@@ -445,3 +445,14 @@ icon beside the theme filters. Theme cards show sample terminal text on the
 actual background, plus larger normal and bright ANSI swatches. Appearance keeps
 input modal without dimming the workspace, so live preview colors match Apply.
 Help closes independently with Escape; Apply and Cancel retain their behavior.
+
+## Shortcut recording and saved UI bindings
+
+Shortcut settings is available from the menu, Commands and shortcut help. It
+records real chords with shell control/clipboard reservation and duplicate
+checks. Drafts stay local until Apply; Cancel discards them. Clear and Use dotfile
+provide unbinding and inherited-default restoration. Apply updates bindings/hints
+and writes a sparse platform `ui/shortcuts.conf` layer in the existing format,
+without modifying managed settings. UI overrides survive study-window closure;
+workspace organization and font edits remain disposable. Changed external files
+block saving until the app reopens. See [editor details](shortcuts.md#qt-shortcut-editor).
