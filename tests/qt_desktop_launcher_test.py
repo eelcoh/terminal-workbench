@@ -59,6 +59,10 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
     else:bootstrap=ROOT/'.local/build/qt-input/workbench-preview-bootstrap'
     source_app=root/'source.app/Contents/MacOS/workbench-ui-study'
     source_app.parent.mkdir(parents=True);shutil.copy2(fake,source_app)
+    # CMake's real Mac Info.plist can be read-only; copytree preserves its mode.
+    source_info=source_app.parent.parent/'Info.plist'
+    original_info=plistlib.dumps(dict(CFBundleExecutable='workbench-ui-study',WorkbenchFixture='preserved'))
+    source_info.write_bytes(original_info);source_info.chmod(0o444)
     original=staging.sys
     try:
         staging.sys=SimpleNamespace(platform='darwin',executable=sys.executable)
@@ -69,6 +73,9 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
     payload=bundle/'Contents/Resources/workbench'
     info=plistlib.loads((bundle/'Contents/Info.plist').read_bytes())
     assert info['CFBundleName']=='Terminal Workbench Preview' and info['CFBundlePackageType']=='APPL'
+    assert info['WorkbenchFixture']=='preserved'
+    assert source_info.read_bytes()==original_info and source_info.stat().st_mode&0o777==0o444,'staging modified the source bundle metadata'
+    assert not list((bundle/'Contents').glob('.workbench-info-*')),'staging left temporary bundle metadata'
     entry=bundle/'Contents/MacOS'/info['CFBundleExecutable']
     state=root/'mac-state';binary=payload/'libexec/workbench-session';evidence=root/'mac.json'
     context=dict(env,PATH='/usr/bin:/bin',WORKBENCH_STATE_DIR=str(state),WB_DESKTOP_EVIDENCE=str(evidence))

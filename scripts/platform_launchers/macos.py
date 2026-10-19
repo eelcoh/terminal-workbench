@@ -1,8 +1,10 @@
 """Create a Finder bundle around the staged Qt viewer and its Python helpers."""
 from pathlib import Path
+import os
 import plistlib
 import shutil
 import subprocess
+import tempfile
 
 NAME='Terminal Workbench Preview.app'
 
@@ -28,7 +30,16 @@ def finalize(directory,payload,bootstrap,python,*,sign=True):
                   CFBundleName='Terminal Workbench Preview',CFBundleDisplayName='Terminal Workbench Preview',
                   CFBundlePackageType='APPL',CFBundleVersion='0.1.0',CFBundleShortVersionString='0.1.0',
                   NSHighResolutionCapable=True)
-    info.write_bytes(plistlib.dumps(values))
+    # CMake may generate a read-only plist, and copytree retains that mode.
+    # Publish a new file in the staged bundle rather than modifying the copied
+    # inode (or following a copied symlink back into the build output).
+    descriptor,temporary=tempfile.mkstemp(prefix='.workbench-info-',dir=info.parent)
+    try:
+        with os.fdopen(descriptor,'wb') as file:plistlib.dump(values,file)
+        os.chmod(temporary,0o644)
+        os.replace(temporary,info)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
     if '\n' in str(python) or '\r' in str(python):raise ValueError('Python path contains a newline')
     (payload/'python.path').write_text(str(python)+'\n')
     if sign:
