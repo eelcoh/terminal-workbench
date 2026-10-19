@@ -33,6 +33,7 @@ public:
     Q_INVOKABLE void reconnect(TerminalItem *item,const QString &identity,bool takeover=false);
     Q_INVOKABLE void recover(const QString &identity);
     Q_INVOKABLE void closeTerminal(const QString &identity);
+    Q_INVOKABLE void closeWorkspace(const QString &identity);
     QString error() const {return error_;}
     Q_INVOKABLE QObject *observe(const QString &identity);
     Q_INVOKABLE void attach(TerminalItem *item,const QString &identity);

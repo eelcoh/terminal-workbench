@@ -546,3 +546,35 @@ filter is active. Dedicated agent navigation remains in the left panel.
 Native Linux checks cover dense/empty workspaces, filtered drag, narrow two-column
 layout, visible keyboard selection/captions, reset from no matches, unchanged PTY
 grids and retained readers. Native Mac visual/trackpad acceptance remains pending.
+
+## Workspace removal and the separate create action
+
+The workspace list contains existing workspaces only. **New workspace…** lives
+in a fixed footer below a divider, with a plus icon and the configured shortcut
+hint. It stays available when the list scrolls. Up/Down/Home/End move focus among
+existing workspace entries; Enter selects that workspace. Tab can reach separate
+actions explicitly. The creation form opens only when its action is activated.
+
+Each workspace row has its own quiet × button. It opens **Remove workspace?**
+without selecting the row. The confirmation names the workspace and shows its
+terminal count, explaining that running processes there will stop. Cancel receives
+initial focus; Enter initially cancels. Escape also cancels. Nothing stops or
+moves until **Remove workspace** is activated. The application menu and Commands
+provide the same confirmed action for the selected workspace.
+
+The target is a stable workspace ID. Peer renames/count changes update the
+confirmation context; deletion elsewhere dismisses it. Existing service guards
+and close journaling still apply. Failed requests keep the confirmation and show
+the error; mutations are never automatically resent after a lost reply. Earlier
+runtimes that cannot be stopped retain the service’s explicit failure behavior.
+
+Removing another row preserves the current workspace/terminal, including a
+selected empty workspace. Surviving pane objects and readers are retained. The
+last workspace may also be removed: the window stays empty, existing-workspace
+actions disable, and New workspace remains available. It does not seed new shells
+merely because the catalog became empty.
+
+Linux UI checks cover scoped list keys, creation separation, Cancel/initial Enter,
+nonselected removal, peer rename/deletion, unchanged siblings and input, removal
+through the final workspace, disabled empty-state actions and creation afterward.
+Native Mac interaction review remains pending.

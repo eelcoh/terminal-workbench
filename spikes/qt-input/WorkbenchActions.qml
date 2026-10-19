@@ -8,6 +8,7 @@ QtObject {
         return {id: id, title: title, detail: detail, key: studyShortcuts.labels[id] || "", available: available, reason: available ? "" : reason}
     }
     readonly property bool hasPane: host.selected >= 0 && host.terminalItems.length > host.selected && host.panel(host.selected) !== null
+    readonly property bool hasWorkspace: host.spaces.length > 0
     readonly property bool workingPane: hasPane && !host.overview
     readonly property var neighbours: host.overview ? host.overviewIndices(host.workspace) : host.indices(host.workspace)
     readonly property int position: neighbours.indexOf(host.selected)
@@ -26,15 +27,16 @@ QtObject {
         row("next-terminal", "Next terminal", "Focus the terminal to the right", position >= 0 && position + 1 < neighbours.length, "No next terminal in this view"),
         row("previous-workspace", "Previous workspace", "Switch to the workspace above", host.workspace > 0, "Already at the first workspace"),
         row("next-workspace", "Next workspace", "Switch to the workspace below", host.workspace + 1 < host.spaces.length, "Already at the last workspace"),
-        row("rename-workspace", "Rename workspace…", "Edit the current workspace name", !host.overview && !session.busy, host.overview ? "Leave Overview first" : "Another change is in progress"),
-        row("workspace-folder", "Workspace folder…", "Choose the folder used by new shells", !host.overview && !session.busy, host.overview ? "Leave Overview first" : "Another change is in progress"),
-        row("appearance", "Workspace appearance…", "Choose a Ghostty / TerminalColors theme", !host.overview, "Leave Overview first"),
+        row("rename-workspace", "Rename workspace…", "Edit the current workspace name", !host.overview && hasWorkspace && !session.busy, !hasWorkspace ? "No workspace selected" : host.overview ? "Leave Overview first" : "Another change is in progress"),
+        row("workspace-folder", "Workspace folder…", "Choose the folder used by new shells", !host.overview && hasWorkspace && !session.busy, !hasWorkspace ? "No workspace selected" : host.overview ? "Leave Overview first" : "Another change is in progress"),
+        row("appearance", "Workspace appearance…", "Choose a Ghostty / TerminalColors theme", !host.overview && hasWorkspace, !hasWorkspace ? "No workspace selected" : "Leave Overview first"),
         row("cycle-width", "Cycle terminal width", "Half → two thirds → one third", workingPane, host.overview ? "Leave Overview first" : "No terminal selected"),
         row("full-width", "Toggle full width", "Fill the terminal area or restore its width", workingPane, host.overview ? "Leave Overview first" : "No terminal selected"),
         row("move-left", "Move terminal left", "Reorder within this workspace", host.canReorder(-1), session.busy ? "Another change is in progress" : "No previous position"),
         row("move-right", "Move terminal right", "Reorder within this workspace", host.canReorder(1), session.busy ? "Another change is in progress" : "No next position"),
         row("move-up", "Move to workspace above", "Keep the same running process", host.canMoveWorkspace(-1), "No available workspace above"),
         row("move-down", "Move to workspace below", "Keep the same running process", host.canMoveWorkspace(1), "No available workspace below"),
+        row("close-workspace", "Remove workspace…", "Confirm before stopping its terminals and removing this workspace", hasWorkspace && !session.busy, !hasWorkspace ? "No workspace selected" : "Another change is in progress"),
         row("close-terminal", "Close terminal…", "Confirm before stopping and removing this terminal", hasPane && !session.busy, session.busy ? "Another change is in progress" : "No terminal selected"),
         row("forward", "Send next key to terminal", "Bypass application shortcuts once; Escape cancels", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.ready, "No connected terminal selected in the working view"),
         row("copy", "Copy selection", "Copy selected terminal text to the clipboard", workingPane, "No terminal selected in the working view"),

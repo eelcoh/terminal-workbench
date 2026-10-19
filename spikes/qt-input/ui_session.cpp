@@ -99,6 +99,7 @@ void UiSession::reconnect(TerminalItem *item,const QString &identity,bool takeov
     item->reconnectSession(QDir(config_["state"].toString()).filePath(identity+".ctl"),takeover);
 }
 void UiSession::recover(const QString &identity) {request("terminal.recover",identity);}
+void UiSession::closeWorkspace(const QString &identity) {request("workspace.close",identity);}
 void UiSession::closeTerminal(const QString &identity) {request("terminal.close",identity);}
 void UiSession::inspect(const QString &identity) {lifecycle_.inspect(identity);}
 

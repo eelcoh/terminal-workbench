@@ -218,6 +218,19 @@ while True:
         click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open']);key('Escape')
         wait_until(lambda:not data()['drawer_open'] and data()['panes'][0]['focus'] and sizes()==nav_sizes)
         assert [p['instance'] for p in data()['panes']]==nav_instances and received(0)==b'first'
+        # Workspace arrows stay inside real entries; creation is a separate action.
+        before_navigation=workspace_catalog.load(root);before_input=[received(i) for i in range(6)]
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        key('End');key('Down');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['workspace']==0 and data()['panes'][0]['focus'])
+        assert not data()['creation_open'] and workspace_catalog.load(root)==before_navigation
+        assert [received(i) for i in range(6)]==before_input
+        # Closing another row does not select it; Enter initially activates Cancel.
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['remove_workspace_1']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+        assert data()['terminal_action_kind']=='workspace-close' and data()['terminal_action_target']=='workspace-1'
+        assert data()['workspace_removal_context']=='Side project · 3 terminals' and data()['workspace']==0
+        wait_until(lambda:data()['confirmation_cancel_focus']);capture('workspace-remove-confirm.png');key('Return');wait_until(lambda:not data()['terminal_action_open'] and data()['panes'][0]['focus'])
+        assert workspace_catalog.load(root)==before_navigation and [received(i) for i in range(6)]==before_input
         # Focus/style changes must paint real cursor pixels without replacing readers.
         wait_until(lambda:data()['panes'][0]['cursor']=='block' and data()['panes'][1]['cursor']=='outline')
         capture('cursor-active.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
@@ -386,7 +399,7 @@ while True:
             except (FileNotFoundError,ValueError):return {}
         wait_until(lambda:len(peer_data().get('panes',[]))==6 and all(p['attachment']=='elsewhere' for p in peer_data()['panes']),timeout=30)
         if wayland:run('niri','msg','action','focus-window','--id',window)
-        else:cmd('windowfocus',window)
+        else:cmd('windowraise',window);cmd('windowfocus',window)
         raw_key('F8');wait_until(lambda:data()['creation_open'] and data()['name_focus']);key('ctrl+a');typed('Peer renamed');key('Return')
         wait_until(lambda:not data()['creation_open'] and peer_data().get('workspace_names',[None])[0]=='Peer renamed')
         request(root,Path(runtime),root,'workspace.rename','workspace-0','Workbench')
@@ -402,6 +415,25 @@ while True:
         request(root,Path(runtime),root,'terminal.move','terminal-1',destination='workspace-0',position=1)
         request(root,Path(runtime),root,'terminal.close',extra)
         wait_until(lambda:len(data()['panes'])==6 and len(peer_data()['panes'])==6 and data()['panes'][1]['workspace']==0)
+        # Confirm removal by stable ID while its label changes in another client.
+        removing=request(root,Path(runtime),root,'workspace.create_at',title='Remove target',project_directory=str(root))['data']['workspaces'][-1]
+        removal_id=removing['id'];removal_terminal=removing['terminals'][0]['id']
+        wait_until(lambda:data()['workspace_count']==4 and peer_data()['workspace_count']==4)
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['remove_workspace_3']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+        request(root,Path(runtime),root,'workspace.rename',removal_id,'Renamed removal target')
+        wait_until(lambda:data()['workspace_removal_context']=='Renamed removal target · 1 terminal')
+        key('super+alt+Down');key('super+alt+t');time.sleep(.1)
+        assert data()['workspace']==0 and data()['terminal_action_target']==removal_id and len(data()['panes'])==7
+        click(*data()['confirm_terminal_action']);wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==3 and peer_data()['workspace_count']==3)
+        assert data()['workspace']==0 and not (root/(removal_terminal+'.sock')).exists()
+        # External deletion dismisses the confirmation without targeting its successor.
+        removed=request(root,Path(runtime),root,'workspace.create_at',title='Deleted elsewhere',project_directory=str(root))['data']['workspaces'][-1]['id']
+        wait_until(lambda:data()['workspace_count']==4)
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['remove_workspace_3']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+        request(root,Path(runtime),root,'workspace.close',removed)
+        wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==3 and peer_data()['workspace_count']==3)
         # A foreign deletion closes an editor for that ID, without retargeting it.
         result=request(root,Path(runtime),root,'workspace.create_at',title='Temporary peer',project_directory=str(root))['data']
         removed=result['workspaces'][-1]['id'];wait_until(lambda:data()['workspace_count']==4 and peer_data()['workspace_count']==4)
@@ -875,6 +907,28 @@ while True:
         font_menu();capture('font-narrow.png');key('Escape');wait_until(lambda:not data()['font_settings_open'])
         command_search('workspace');capture('commands-narrow.png')
         key('Escape');wait_until(lambda:not data()['commands_open'])
+        # Retain a selected empty workspace when earlier rows are removed.
+        survivor=request(root,Path(runtime),root,'workspace.create_at',title='Retained empty workspace',project_directory=str(root))['data']['workspaces'][-1]
+        request(root,Path(runtime),root,'terminal.close',survivor['terminals'][0]['id'])
+        wait_until(lambda:data()['workspace_count']==5 and len(data()['panes'])==13)
+        assert not workspace_catalog.load(root)['workspaces'][-1]['terminals']
+        while data()['workspace'] < data()['workspace_count']-1:
+            previous_workspace=data()['workspace'];key('super+alt+Down');wait_until(lambda:data()['workspace']==previous_workspace+1)
+        assert data()['selected']==-1
+        # Removing the last workspace leaves a usable empty window, not seeded shells.
+        while data()['workspace_count']:
+            remaining=data()['workspace_count']
+            click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+            click(*data()['remove_workspace_0']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+            click(*data()['confirm_terminal_action']);wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==remaining-1)
+            if remaining>1:assert data()['workspace_names'][data()['workspace']]==survivor['name'] and data()['selected']==-1
+        assert not data()['panes'] and not data()['error'] and workspace_catalog.load(root)['workspaces']==[]
+        capture('workspace-none.png')
+        command_search('workspace appearance');assert not data()['command_matches'][0]['available'];key('Escape');wait_until(lambda:not data()['commands_open'])
+        command_search('new workspace');key('Return');wait_until(lambda:data()['creation_open'])
+        typed('Back again');key('Tab');key('Return');wait_until(lambda:data()['workspace_count']==1 and not data()['creation_open'] and len(data()['panes'])==1 and data()['panes'][0]['ready'])
+        assert data()['workspace_names']==['Back again'] and not data()['error']
+        capture('workspace-recreated.png')
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0

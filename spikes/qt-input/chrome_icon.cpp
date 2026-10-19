@@ -8,6 +8,7 @@ void ChromeIcon::paint(QPainter *p) {
     if(name_=="menu") {for(int y:{5,12,19})p->drawLine(QPointF(4,y),QPointF(20,y));}
     else if(name_=="workspaces") {for(int y:{4,14})p->drawRoundedRect(QRectF(4,y,16,6),1,1);}
     else if(name_=="agents") {QPainterPath path;path.moveTo(2,12);path.lineTo(6,12);path.lineTo(9,5);path.lineTo(14,19);path.lineTo(18,12);path.lineTo(22,12);p->drawPath(path);}
+    else if(name_=="close") {p->drawLine(QPointF(7,7),QPointF(17,17));p->drawLine(QPointF(17,7),QPointF(7,17));}
     else if(name_=="plus") {p->drawLine(QPointF(5,12),QPointF(19,12));p->drawLine(QPointF(12,5),QPointF(12,19));}
     else if(name_=="more") {p->setPen(Qt::NoPen);p->setBrush(color_);for(int x:{5,12,19})p->drawEllipse(QPointF(x,12),1,1);}
     else if(name_=="chevron") {p->drawLine(QPointF(7,10),QPointF(12,15));p->drawLine(QPointF(12,15),QPointF(17,10));}

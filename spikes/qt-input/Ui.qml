@@ -84,14 +84,28 @@ ApplicationWindow {
     onAgentsOnlyChanged: scheduleViewSave()
     onNeedsOnlyChanged: scheduleViewSave()
     onReducedMotionChanged: scheduleViewSave()
+    property bool pendingTerminalAction: false
+    function actionExists() { return actionKind === "workspace-close" ? spaceIds.indexOf(actionTarget) >= 0 : identityIndex(actionTarget) >= 0 }
+    readonly property string workspaceRemovalContext: {
+        const index = spaceIds.indexOf(actionTarget)
+        return index < 0 ? "" : spaces[index] + " · " + counts[index] + (counts[index] === 1 ? " terminal" : " terminals")
+    }
+    function requestWorkspaceClose(identity) {
+        if (studySession.busy || terminalAction.visible || spaceIds.indexOf(identity) < 0 || createDialog.visible || appearance.visible || dragSlot >= 0) return
+        actionTarget = identity; actionKind = "workspace-close"; pendingTerminalAction = true
+        if (drawer.visible) drawer.close()
+        else if (appMenu.visible) appMenu.close()
+        else { pendingTerminalAction = false; Qt.callLater(function() { if (actionExists()) terminalAction.open() }) }
+    }
     function requestTerminalAction(identity, kind) {
         if (studySession.busy || terminalAction.visible) return
         actionTarget = identity; actionKind = kind; const i = identityIndex(identity); actionContext = i < 0 ? "" : panel(i).facts.title + " · " + spaces[terminalModel.get(i).spaceIndex]; paneMenu.close()
         Qt.callLater(function() { if (identityIndex(actionTarget) >= 0) terminalAction.open() })
     }
     function performTerminalAction() {
-        if (identityIndex(actionTarget) < 0 || studySession.busy) return
-        if (actionKind === "close") studySession.closeTerminal(actionTarget)
+        if (!actionExists() || studySession.busy) return
+        if (actionKind === "workspace-close") studySession.closeWorkspace(actionTarget)
+        else if (actionKind === "close") studySession.closeTerminal(actionTarget)
         else { const pane = panel(identityIndex(actionTarget)); studySession.reconnect(pane.terminal, actionTarget, true); terminalAction.close() }
     }
     property bool agentsOnly: false
@@ -115,6 +129,7 @@ ApplicationWindow {
     function openNavigation(section) {
         navigationSection = section
         if (!navigationDocked) drawer.open()
+        else if (section === "workspaces") Qt.callLater(function() { navigation.focusWorkspace(workspace) })
     }
     function toggleNavigationPin() {
         navigationPinned = !navigationPinned
@@ -183,7 +198,7 @@ ApplicationWindow {
     }
     function showCommands() {
         commandTerminal = selected >= 0 ? terminalModel.get(selected).terminalId : ""
-        commandWorkspace = spaceIds[workspace]
+        commandWorkspace = spaceIds[workspace] || ""
         commands.open()
     }
     function dispatchCommand(id) {
@@ -213,6 +228,7 @@ ApplicationWindow {
         case "move-right": reorderSelected(1); break
         case "move-up": moveSelectedWorkspace(-1); break
         case "move-down": moveSelectedWorkspace(1); break
+        case "close-workspace": requestWorkspaceClose(spaceIds[workspace]); break
         case "close-terminal": requestTerminalAction(terminalModel.get(selected).terminalId, "close"); break
         case "forward": panel(selected).terminal.forceActiveFocus(); panel(selected).terminal.forwardNextKey(); break;
         case "copy": panel(selected).terminal.copy(); break
@@ -243,11 +259,12 @@ ApplicationWindow {
     readonly property var chrome: studyThemes.theme(themeIndexFor(workspace))
     function themeIndexFor(space) { return appearance.visible && spaceIds[space] === appearanceWorkspace ? previewTheme : (workspaceThemes[space] || 0) }
     function openAppearance() {
-        if (terminalAction.visible || overview || createDialog.visible || appearance.visible) return
+        if (spaces.length === 0 || terminalAction.visible || overview || createDialog.visible || appearance.visible) return
         if (appMenu.visible) { pendingAppearance = true; appMenu.close() }
         else showAppearance()
     }
     function showAppearance() {
+        if (spaces.length === 0) return
         studyThemes.reloadDirectory()
         appearanceWorkspace = spaceIds[workspace]; previewTheme = workspaceThemes[workspace] || 0; appearance.open()
     }
@@ -273,7 +290,7 @@ ApplicationWindow {
     function applyCatalog(catalog, method) {
         if (method === "catalog.update") { cancelDrag(); paneMenu.close() }
         const selectedId = selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : ""
-        const oldWorkspace = workspace
+        const oldWorkspace = workspace, oldWorkspaceId = spaceIds[workspace]
         let previous = {}
         for (let w = 0; w < spaceIds.length; ++w) {
             const i = remembered[w]
@@ -319,14 +336,14 @@ ApplicationWindow {
         }
         remembered = focus; positions = scroll
         selected = identityIndex(selectedId)
-        if (selected < 0) { workspace = Math.min(oldWorkspace, names.length - 1); selected = focus[workspace] ?? -1 }
+        if (selected < 0) { workspace = ids.indexOf(oldWorkspaceId) >= 0 ? ids.indexOf(oldWorkspaceId) : Math.max(0, Math.min(oldWorkspace, names.length - 1)); selected = focus[workspace] ?? -1 }
         Qt.callLater(syncItems)
         if (selected >= 0) {
             workspace = terminalModel.get(selected).spaceIndex
             let values = remembered.slice(); values[workspace] = selected; remembered = values
             if (!overview) Qt.callLater(reveal)
         }
-        if (terminalAction.visible && identityIndex(actionTarget) < 0) terminalAction.close()
+        if (terminalAction.visible && !actionExists()) terminalAction.close()
         if (createDialog.visible && workspaceFormMode !== "create" && spaceIds.indexOf(editingWorkspace) < 0) createDialog.close()
         if (appearance.visible && spaceIds.indexOf(appearanceWorkspace) < 0) appearance.close()
         if (method === "workspace.create_at") { createDialog.close(); chooseWorkspace(spaces.length - 1); if (overview) toggleOverview() }
@@ -334,7 +351,7 @@ ApplicationWindow {
             followMove = false
             Qt.callLater(function() { if (overview) revealOverview(selected); else focusPane(selected) })
         }
-        if (method === "terminal.close") {
+        if (method === "terminal.close" || method === "workspace.close") {
             terminalAction.close(); Qt.callLater(restoreAfterPopup)
         }
         if (method === "workspace.rename" || method === "workspace.directory") createDialog.close()
@@ -381,6 +398,7 @@ ApplicationWindow {
     property bool pendingForward: false
     readonly property bool forwardingArmed: selected >= 0 && panel(selected) !== null && panel(selected).terminal.forwardingArmed
     function restoreAfterPopup() {
+        if (pendingTerminalAction) { pendingTerminalAction = false; Qt.callLater(function() { if (actionExists()) terminalAction.open() }); return }
         if (pendingForward) { pendingForward = false; Qt.callLater(function() { window.dispatchCommand("forward") }); return }
         if (pendingShortcutSettings) {
             pendingShortcutSettings = false; Qt.callLater(function() { studyShortcuts.begin(); shortcutSettings.open() })
@@ -549,7 +567,7 @@ ApplicationWindow {
     QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; onClicked: help.open() }
     Item {
         id: topbar; x: window.navigationEdge; y: 4; width: parent.width - x - 12; height: 32
-        QuietButton { id: workspaceButton; objectName: "workspaceButton"; leftAligned: true; width: Math.min(200, Math.max(80, topbar.width / 4)); text: window.overview ? "Overview" : (window.spaces[window.workspace] || ""); hint: "Choose workspace"; onClicked: window.openNavigation("workspaces") }
+        QuietButton { id: workspaceButton; objectName: "workspaceButton"; leftAligned: true; width: Math.min(200, Math.max(80, topbar.width / 4)); text: window.overview ? "Overview" : (window.spaces[window.workspace] || "No workspaces"); hint: "Choose workspace"; onClicked: window.openNavigation("workspaces") }
         Rectangle {
             anchors.centerIn: parent; width: indicatorRow.width + 8; height: 28; radius: 14; color: window.chrome.background
             visible: !window.overview && window.counts[window.workspace] > 0
@@ -783,8 +801,8 @@ ApplicationWindow {
                 }
             }
         }
-        Label { anchors.centerIn: parent; visible: window.overview && window.overviewFiltered && window.overviewMatches === 0; text: window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: 14 }
-        Label { anchors.centerIn: parent; visible: !window.overview && (window.counts[window.workspace] || 0) === 0; text: "An empty workspace"; color: window.chrome.muted; font.pixelSize: 14 }
+        Label { anchors.centerIn: parent; visible: window.overview && window.spaces.length > 0 && window.overviewFiltered && window.overviewMatches === 0; text: window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: 14 }
+        Label { anchors.centerIn: parent; visible: window.spaces.length === 0 || (!window.overview && (window.counts[window.workspace] || 0) === 0); text: window.spaces.length ? "An empty workspace" : "No workspaces yet"; color: window.chrome.muted; font.pixelSize: 14 }
     }
     Item {
         x: deck.x; y: deck.y; width: deck.width; height: deck.height; clip: true
@@ -835,6 +853,7 @@ ApplicationWindow {
         id: drawer; y: 40; width: 288; height: window.height - 40; edge: Qt.LeftEdge; leftPadding: 44
         background: Rectangle { color: window.chrome.surface; border.color: window.chrome.border }
         contentItem: Item {}
+        onOpened: if (window.navigationSection === "workspaces") navigation.focusWorkspace(window.workspace)
         onClosed: window.restoreAfterPopup()
     }
     ChromeMenu {
@@ -846,10 +865,11 @@ ApplicationWindow {
         MenuAction { keyHint: studyShortcuts.labels["new-terminal"] || ""; text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.dispatchCommand("new-terminal") }
         MenuAction { keyHint: studyShortcuts.labels["new-workspace"] || ""; text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.dispatchCommand("new-workspace") }
         MenuRule {}
-        MenuAction { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
-        MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
+        MenuAction { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: window.spaces.length > 0 && !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
+        MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: window.spaces.length > 0 && !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
+        MenuAction { objectName: "removeWorkspaceMenuItem"; text: "Remove workspace…"; enabled: window.spaces.length > 0 && !studySession.busy; onTriggered: window.requestWorkspaceClose(window.spaceIds[window.workspace]) }
         MenuRule {}
-        MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: !window.overview; onTriggered: window.openAppearance() }
+        MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: window.spaces.length > 0 && !window.overview; onTriggered: window.openAppearance() }
         MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; onTriggered: window.openFontSettings() }
         MenuAction { objectName: "shortcutSettingsMenuItem"; text: "Shortcut settings…"; onTriggered: window.openShortcutSettings() }
         MenuAction { keyHint: studyShortcuts.labels["help"] || ""; text: "Keyboard shortcuts"; onTriggered: help.open() }
@@ -928,38 +948,38 @@ ApplicationWindow {
     CommandPalette {
         id: commands; objectName: "commandPalette"; anchors.centerIn: parent
         tones: window.chrome; actions: commandRegistry.entries
-        contextLabel: window.spaces[window.workspace] + (window.selected >= 0 && window.panel(window.selected) ? " · " + window.panel(window.selected).facts.title : " · Empty workspace")
+        contextLabel: (window.spaces[window.workspace] || "No workspace") + (window.selected >= 0 && window.panel(window.selected) ? " · " + window.panel(window.selected).facts.title : " · Empty workspace")
         onChosen: id => { window.pendingCommand = id; close() }
         onClosed: {
             const action = window.pendingCommand; window.pendingCommand = ""
             // Reject stale context rather than applying an action to a different pane.
             const targetWorkspace = window.commandWorkspace, targetTerminal = window.commandTerminal
             Qt.callLater(function() {
-                const sameContext = targetWorkspace === window.spaceIds[window.workspace] && targetTerminal === (window.selected >= 0 ? terminalModel.get(window.selected).terminalId : "")
+                const sameContext = targetWorkspace === (window.spaceIds[window.workspace] || "") && targetTerminal === (window.selected >= 0 ? terminalModel.get(window.selected).terminalId : "")
                 if (action && sameContext) window.dispatchCommand(action)
                 window.restoreAfterPopup()
             })
         }
     }
     Dialog {
-        id: terminalAction; objectName: "terminalActionDialog"; anchors.centerIn: parent; modal: true
+        id: terminalAction; objectName: "terminalActionDialog"; anchors.centerIn: parent; modal: true; focus: true
         width: Math.min(440, window.width - 64); padding: 20
         closePolicy: studySession.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
-        title: window.actionKind === "close" ? "Close terminal?" : "Move terminal here?"
+        title: window.actionKind === "workspace-close" ? "Remove workspace?" : window.actionKind === "close" ? "Close terminal?" : "Move terminal here?"
         background: Rectangle { color: window.chrome.raised; radius: 12; border.color: window.chrome.border }
         header: Label { text: terminalAction.title; padding: 20; bottomPadding: 8; color: window.chrome.foreground; font.pixelSize: 22 }
         contentItem: Column {
             spacing: 16
-            Label { width: parent.width; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12; text: window.actionContext }
-            Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.foreground; text: window.actionKind === "close" ? "Stop this terminal’s process and remove it from the workspace. Other terminals keep running." : "Continue the same process in this window. The other window will release control." }
+            Label { width: parent.width; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12; text: window.actionKind === "workspace-close" ? window.workspaceRemovalContext : window.actionContext }
+            Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.foreground; text: window.actionKind === "workspace-close" ? "Remove this workspace and all of its terminals. Running processes in this workspace will be stopped. Other workspaces keep running." : window.actionKind === "close" ? "Stop this terminal’s process and remove it from the workspace. Other terminals keep running." : "Continue the same process in this window. The other window will release control." }
             Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; text: studySession.error; visible: text.length > 0 }
             Row {
                 spacing: 8
-                QuietButton { id: cancelTerminalAction; objectName: "cancelTerminalAction"; text: "Cancel"; enabled: !studySession.busy; onClicked: terminalAction.close() }
-                QuietButton { objectName: "confirmTerminalAction"; text: studySession.busy ? "Working…" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy; onClicked: window.performTerminalAction() }
+                QuietButton { id: cancelTerminalAction; objectName: "cancelTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { terminalAction.close(); event.accepted = true } else event.accepted = false }; text: "Cancel"; enabled: !studySession.busy; onClicked: terminalAction.close() }
+                QuietButton { id: confirmTerminalAction; objectName: "confirmTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { window.performTerminalAction(); event.accepted = true } else event.accepted = false }; text: studySession.busy ? "Working…" : window.actionKind === "workspace-close" ? "Remove workspace" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy; onClicked: window.performTerminalAction() }
             }
         }
-        onOpened: { studySession.clearError(); cancelTerminalAction.forceActiveFocus() }
+        onOpened: { studySession.clearError(); cancelTerminalAction.forceActiveFocus(Qt.TabFocusReason) }
         onClosed: Qt.callLater(window.restoreAfterPopup)
     }
     component ProjectField: TextField {

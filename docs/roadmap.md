@@ -9,7 +9,7 @@ reference for simplicity. Both qualities are part of the target.
 
 ## Current position
 
-As of 2026-10-18, `just spike` remains the daily-use viewer. `just toolkit-ui`
+As of 2026-10-19, `just spike` remains the daily-use viewer. `just toolkit-ui`
 is a separate, disposable Qt candidate with the approved minimal chrome, live
 Overview, creation/folder editing, workspace Appearance, keyboard and pointer
 pane moves, a drop-in Ghostty/TerminalColors theme directory,
@@ -37,14 +37,14 @@ exit reasons, non-stealing reconnect, guarded recovery, explicit ownership
 transfer and confirmed terminal close, now owner-confirmed. The command palette
 adds searchable, context-aware actions with shared creation/layout dispatch and
 safe dialog handoff. Native Mac palette review remains open. Next are the
-remaining portable settings, saved-session integration and packaging. Supported Qt application chords now
+remaining workspace workflow parity and packaging. Supported Qt application chords now
 load from managed dotfiles and sparse platform UI overrides, with active
 Commands/menu/help hints. The recorder/editor now supports Apply/Cancel, clear
 and managed-default restoration; one-shot key forwarding is implemented; native Mac recorder/forwarding review
 remains open.
 The Qt terminal-text slice now loads managed shared/platform font defaults and
 provides bundled face/size preview, Apply/Cancel and size shortcuts. Apply now saves font defaults in a sparse platform UI file; size shortcuts
-remain temporary until explicitly applied. Per-session restoration is later work. The owner confirmed Mac font
+remain temporary until explicitly applied. Saved window layouts and workspace themes now use leased view profiles. The owner confirmed Mac font
 selection and sizing; the unrelated theme-file fallback warning fix is pushed
 and awaits a Mac recheck. Retain the external-display/accessibility/native-input
 acceptance gates before adoption. The sections below record evidence and remaining scope.
@@ -209,7 +209,7 @@ terminal ownership. Existing read-only observers supply the facts.
 Saved Qt view profiles retain the pin preference, with older profiles defaulting
 to compact navigation. Native Linux checks cover pinning, workspace navigation,
 narrow fallback, restart restoration and cross-workspace agent focus. Native Mac
-review remains required. Overview visual polish remains the next separate slice.
+review remains required. Overview refinement is tracked separately below.
 
 ## Qt Overview visual refinement
 
@@ -419,6 +419,14 @@ are implemented in the native prototype, with confirmation tied to the chosen
 workspace's stable identity and no navigation on Cancel. Menu separators are
 non-interactive; narrow-window scrolling and keyboard traversal retain actions.
 Native Mac review remains pending.
+
+Qt now also provides a separate × on each row, with a stable-ID confirmation and
+Cancel initially focused. Menu/Commands removal uses the same existing service
+operation. Peer changes cannot retarget the confirmation, and removing the final
+workspace leaves a usable empty window. Creation is a distinct fixed-footer action
+below a divider with a plus icon; workspace arrow navigation stays among existing
+rows. Native Mac acceptance remains pending. See
+[Qt workspace removal](toolkit-ui-study.md#workspace-removal-and-the-separate-create-action).
 
 Workspace name and project-folder fields now support caret placement, pointer/
 keyboard selection, insertion/deletion and copy/cut/paste. Existing values open
