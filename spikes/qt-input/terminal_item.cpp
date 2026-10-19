@@ -130,6 +130,7 @@ void TerminalItem::reconnectSession(const QString &path,bool takeover) {
     if(!render_ || !encoder_ || !event_ || attachment_=="connecting" || ready_)return;
     failed_=true;socket_.abort();handshakeTimer_.stop();refreshTimer_.stop();
     receive_.clear();snapshot_.clear();snapshotSize_=0;snapshotStarted_=restored_=queued_=false;
+    wheel_.reset();wheelTime_.invalidate();
     wantedColumns_=wantedLines_=0;takeover_=takeover;controlPath_=path;legacy_=false;attachmentSeen_=false;replayBytes_=0;
     QGuiApplication::inputMethod()->reset();composition_.set(QInputMethodEvent(),font_);
     failed_=false;attachment_="connecting";status_="Connecting";Q_EMIT statusChanged();
@@ -194,6 +195,7 @@ void TerminalItem::setTextFont(const QVariantMap &style)
     // Clear old composition before changing its metrics; never commit preedit.
     if(composition_.active() && hasActiveFocus())QGuiApplication::inputMethod()->reset();
     composition_.set(QInputMethodEvent(),font_);
+    wheel_.reset();wheelTime_.invalidate();
     font_=QFont(loaded.value(family));fontPoints_=size.toInt();font_.setPointSizeF(fontPoints_);
     QFontMetricsF metrics(font_);cellWidth_=std::ceil(metrics.horizontalAdvance('M'));cellHeight_=std::ceil(metrics.height());ascent_=metrics.ascent();
     dragging_=false;selectionStarted_=false;cursorGlyph_=QImage();cursorRowKey_=0;
@@ -459,6 +461,7 @@ QVariant TerminalItem::inputMethodQuery(Qt::InputMethodQuery query) const
 }
 void TerminalItem::live()
 {
+    wheel_.reset();wheelTime_.invalidate();
     GhosttyTerminalScrollViewport scroll{};scroll.tag=GHOSTTY_SCROLL_VIEWPORT_BOTTOM;
     ghostty_terminal_scroll_viewport(terminal_,scroll);
     ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_SELECTION,nullptr);
@@ -638,8 +641,18 @@ void TerminalItem::mouseReleaseEvent(QMouseEvent *event)
 }
 void TerminalItem::wheelEvent(QWheelEvent *event)
 {
-    if(!ready_)return;
-    GhosttyTerminalScrollViewport scroll{};scroll.tag=GHOSTTY_SCROLL_VIEWPORT_DELTA;
-    scroll.value.delta=event->pixelDelta().isNull() ? -event->angleDelta().y()/40 : -event->pixelDelta().y()/int(cellHeight_);
-    dragging_=false;ghostty_terminal_scroll_viewport(terminal_,scroll);refresh();event->accept();
+    if(!ready_){event->ignore();return;}
+    if(!wheelTime_.isValid() || wheelTime_.elapsed()>300)wheel_.reset();
+    wheelTime_.start();
+    // X11 pixel deltas are driver-specific; Qt recommends angle deltas there.
+    const auto result=wheel_.consume(event->pixelDelta(),event->angleDelta(),cellHeight_,
+        QGuiApplication::styleHints()->wheelScrollLines(),QGuiApplication::platformName()!=QStringLiteral("xcb"),event->phase());
+    if(qEnvironmentVariableIsSet("WORKBENCH_SCROLL_DEBUG"))
+        qInfo("Qt scroll platform=%s pixel=(%d,%d) angle=(%d,%d) inverted=%d phase=%d rows=%d handled=%d",
+            qPrintable(QGuiApplication::platformName()),event->pixelDelta().x(),event->pixelDelta().y(),event->angleDelta().x(),event->angleDelta().y(),event->inverted(),int(event->phase()),result.rows,result.handled);
+    if(!result.handled){event->ignore();return;}
+    event->accept();
+    if(!result.rows)return;
+    GhosttyTerminalScrollViewport scroll{};scroll.tag=GHOSTTY_SCROLL_VIEWPORT_DELTA;scroll.value.delta=result.rows;
+    dragging_=false;ghostty_terminal_scroll_viewport(terminal_,scroll);refresh();
 }

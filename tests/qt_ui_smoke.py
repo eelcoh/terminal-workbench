@@ -196,6 +196,27 @@ while True:
         raw_key('F8');wait_until(lambda:data()['creation_open'] and data()['workspace_form_mode']=='rename')
         key('Escape');wait_until(lambda:not data()['creation_open'] and data()['panes'][0]['focus'])
         typed('first');wait_until(lambda:received(0)==b'first')
+        # Deliver real window wheel events, including fractional motion and sideways jitter.
+        wheel_instances=[p['instance'] for p in data()['panes']];wheel_sizes=sizes()
+        def wheel(pixel,angle,count=1,inverted=False):
+            path=Path(str(report)+'.wheel')
+            temporary=path.with_suffix('.wheel.tmp');temporary.write_text(json.dumps({'pane':0,'pixel':pixel,'angle':angle,'count':count,'inverted':inverted}));temporary.replace(path)
+            wait_until(lambda:not path.exists());time.sleep(.15)
+        (root/'0'/'cursor').write_bytes(b''.join(('SCROLL-HISTORY-%03d\r\n'%i).encode() for i in range(100))+b'\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
+        wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
+        strip_x=data()['content_x']
+        wheel([1,2],[1,2],100)
+        wait_until(lambda:'SCROLL-HISTORY-' in data()['panes'][0]['text'])
+        assert abs(data()['content_x']-strip_x)<1,'vertical jitter moved horizontal strip'
+        wheel([-1,-2],[-1,-2],100)
+        wait_until(lambda:'UI-READY' in data()['panes'][0]['text'] and 'SCROLL-HISTORY-' not in data()['panes'][0]['text'])
+        wheel([0,0],[0,120],inverted=True)
+        wait_until(lambda:'SCROLL-HISTORY-' in data()['panes'][0]['text'])
+        wheel([0,0],[0,-120],inverted=True)
+        wait_until(lambda:'UI-READY' in data()['panes'][0]['text'] and 'SCROLL-HISTORY-' not in data()['panes'][0]['text'])
+        assert received(0)==b'first' and sizes()==wheel_sizes and [p['instance'] for p in data()['panes']]==wheel_instances,'scrolling changed PTY input, grids or readers'
+        (root/'0'/'cursor').write_bytes(b'\x1b[3J\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
+        wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
         # Pinning reserves layout space; navigation stays usable without modal focus.
         nav_sizes=sizes();nav_instances=[p['instance'] for p in data()['panes']]
         click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)

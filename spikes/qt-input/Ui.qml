@@ -707,11 +707,14 @@ ApplicationWindow {
                     opacity: presentationEnabled ? 1 : 0
                     WheelHandler {
                         orientation: Qt.Horizontal
+                        blocking: false
                         acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
                         target: null
                         onWheel: event => {
-                            const dx = event.pixelDelta.x || event.angleDelta.x
-                            if (!window.overview && dx !== 0) {
+                            const precise = event.pixelDelta.x !== 0 || event.pixelDelta.y !== 0
+                            const dx = precise ? event.pixelDelta.x : event.angleDelta.x
+                            const dy = precise ? event.pixelDelta.y : event.angleDelta.y
+                            if (!window.overview && dx !== 0 && Math.abs(dx) > Math.abs(dy)) {
                                 deck.scrollTarget = Math.max(0, Math.min(deck.contentWidth - deck.width, deck.contentX - dx)); deck.contentX = deck.scrollTarget; event.accepted = true
                             } else event.accepted = false
                         }

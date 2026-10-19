@@ -20,6 +20,23 @@ while positions animate independently. Horizontal wheel/trackpad deltas pan the
 strip; vertical terminal input retains terminal scrollback. Overview can scroll
 vertically. The owner confirmed the initial interaction slice works on Mac and Linux.
 Further physical trackpad and visual quality review remain part of the UX gate.
+
+Vertical terminal scrolling retains fractional pixel and wheel-angle movement
+instead of discarding movements smaller than a text row. Sideways jitter during
+a vertical gesture does not pan the strip or block terminal scrolling. X11 uses
+angle deltas because Qt documents its pixel deltas as unreliable; Mac/Wayland
+use pixel deltas when supplied. Delivered signs follow the system scroll policy
+without applying `inverted` a second time.
+
+`just toolkit-scroll-test` checks accumulation, direction, phases and bounds.
+`just toolkit-ui-test` also sends wheel events through the actual window/QML
+path, checking history/live movement, diagonal isolation and unchanged PTY
+input/readers/grids on X11 and Wayland. Physical Mac trackpad and Linux device
+direction review are still required. To capture deltas without terminal text,
+start with `WORKBENCH_SCROLL_DEBUG=1 just toolkit-workbench` and retain the
+launcher output/log. Qt's [wheel event documentation](https://doc.qt.io/qt-6/qwheelevent.html)
+describes the platform delta conventions.
+
 The application menu offers Reduced motion and separated command groups.
 
 ## Keyboard review

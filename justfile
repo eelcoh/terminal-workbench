@@ -340,6 +340,10 @@ toolkit-ui: runtime-build
 toolkit-workbench: runtime-build
     python3 scripts/toolkit-probe.py workbench
 
+# Mac/Linux: fractional vertical scrolling and system-direction policy.
+toolkit-scroll-test: runtime-build
+    python3 scripts/toolkit-probe.py scroll-test
+
 # Mac/Linux: read-only Qt catalog watcher and failure isolation.
 toolkit-catalog-test: runtime-build
     python3 scripts/toolkit-probe.py catalog-test

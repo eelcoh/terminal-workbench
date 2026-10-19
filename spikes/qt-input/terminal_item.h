@@ -5,6 +5,8 @@
 #include <QFont>
 #include "terminal_composition.h"
 #include "terminal_text.h"
+#include "terminal_scroll.h"
+#include <QElapsedTimer>
 #include <ghostty/vt.h>
 
 // A disposable rendering/input experiment. The runtime owns the PTY and VT;
@@ -112,6 +114,7 @@ private:
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
     QString controlPath_;bool legacy_=false,attachmentSeen_=false;quint64 replayBytes_=0;
     QString status_="Connecting",attachment_="connecting";bool takeover_=false;
+    TerminalScroll wheel_;QElapsedTimer wheelTime_;
     TerminalComposition composition_;
     GhosttyTerminal terminal_=nullptr;
     GhosttyRenderState render_=nullptr;

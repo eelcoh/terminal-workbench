@@ -21,6 +21,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QTimer>
+#include <QWheelEvent>
 #include <QQmlError>
 #include <cstdio>
 
@@ -197,6 +198,24 @@ int main(int argc,char **argv) {
                 {"new_workspace_button",QJsonArray{createPoint.x(),createPoint.y()}},
                 {"panes",panes},{"platform",QGuiApplication::platformName()}};
             QSaveFile report(path);if(report.open(QIODevice::WriteOnly)){report.write(QJsonDocument(data).toJson());report.commit();}
+            // Inject only through the window so tests exercise QML gesture arbitration too.
+            QFile wheelRequest(path+".wheel");
+            if(wheelRequest.open(QIODevice::ReadOnly)) {
+                const auto request=QJsonDocument::fromJson(wheelRequest.read(4096)).object();
+                const int index=request["pane"].toInt();
+                if(index>=0 && index<items.size()) {
+                    auto *item=qobject_cast<TerminalItem *>(items[index].value<QObject *>());
+                    if(item) {
+                        const auto local=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+                        const auto delta=[&request](const char *key){const auto values=request[key].toArray();return QPoint(qBound(-120,values[0].toInt(),120),qBound(-120,values[1].toInt(),120));};
+                        for(int count=qBound(1,request["count"].toInt(1),200);count>0;--count) {
+                            QWheelEvent event(local,window->mapToGlobal(local),delta("pixel"),delta("angle"),Qt::NoButton,Qt::NoModifier,Qt::ScrollUpdate,request["inverted"].toBool());
+                            QCoreApplication::sendEvent(window,&event);
+                        }
+                    }
+                }
+                wheelRequest.close();QFile::remove(path+".wheel");
+            }
             if(QFile::exists(path+".capture")) {
                 const auto image=window->grabWindow();
                 if(image.save(path+".png")) {
