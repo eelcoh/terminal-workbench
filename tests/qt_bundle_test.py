@@ -7,6 +7,7 @@ from pathlib import Path
 import plistlib
 import re
 import sys
+import subprocess
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -55,6 +56,7 @@ plugin.parent.mkdir(parents=True,exist_ok=True);plugin.write_bytes(bytes.fromhex
 ''')
         self.otool=executable(self.root/'otool',r'''
 import sys
+import subprocess
 from pathlib import Path
 mode,path=sys.argv[1:];binary=Path(path)
 if mode=='-l':
@@ -85,7 +87,7 @@ else:
 
     def test_deployment_before_signing_and_source_unchanged(self):
         signed=[]
-        def sign(args,**kwargs):
+        def sign(args,*unused,**kwargs):
             bundle=Path(args[-1]);payload=bundle/'Contents/Resources/workbench'
             report=json.loads((payload/'qt-dependencies.json').read_text())
             self.assertGreater(report['qt_links_resolved'],0)
@@ -95,13 +97,14 @@ else:
             self.assertEqual((payload/'notices/qt/1/LGPL.txt').read_text(),'fixture notice')
             self.assertTrue((payload/'qt-deploy.log').is_file());signed.append(args)
         original=self.plist.read_bytes()
-        with patch.object(macos,'subprocess',SimpleNamespace(run=sign)):
+        with patch.object(macos,'run_tool',sign):
             directory=self.build(bundle_qt=True)
         self.assertEqual(len(signed),1)
         bundle=directory/macos.NAME
         args=json.loads((bundle/'deploy-args.json').read_text())
         self.assertIn('-qmldir='+str(ROOT/'native/macos/qt-deployment'),args)
         self.assertNotIn('-no-codesign',args)
+        self.assertIn('-verbose=3',args)
         self.assertEqual(self.plist.read_bytes(),original)
         self.assertEqual(self.plist.stat().st_mode&0o777,0o444)
         self.assertFalse((self.source/'Contents/Frameworks').exists())
@@ -109,17 +112,28 @@ else:
 
     def test_failure_removes_partial_bundle_keeps_log_and_never_signs(self):
         executable(self.macdeploy,"print('deployment failure')\nraise SystemExit(7)\n")
-        with patch.object(macos,'subprocess',SimpleNamespace(run=lambda *a,**kw:self.fail('signed a failed deployment'))):
+        with patch.object(macos,'run_tool',lambda *a,**kw:self.fail('signed a failed deployment')):
             with self.assertRaisesRegex(ValueError,'Deployment log:') as failure:self.build(bundle_qt=True)
         log=Path(str(failure.exception).split('Deployment log: ',1)[1])
         self.assertIn('deployment failure',log.read_text())
         self.assertEqual(list(self.parent.glob('qt-preview-*')),[])
         self.assertTrue(self.viewer.is_file())
 
+    def test_signing_timeout_removes_stage_and_preserves_signing_log(self):
+        logs=[]
+        def stalled(arguments,output,label,log_path,**kwargs):
+            self.assertEqual(kwargs['timeout'],120)
+            output.write('signing started\n');output.flush();logs.append(Path(log_path))
+            raise subprocess.TimeoutExpired(arguments,kwargs['timeout'])
+        with patch.object(macos,'run_tool',stalled):
+            with self.assertRaisesRegex(ValueError,'Signing log:'):self.build(bundle_qt=True)
+        self.assertEqual(list(self.parent.glob('qt-preview-*')),[])
+        self.assertIn('signing started',logs[0].read_text())
+
     def test_failed_linkage_audit_never_signs(self):
         with self.macdeploy.open('a') as file:
             file.write("\n(bundle/'Contents/MacOS/external-qt').touch()\n")
-        with patch.object(macos,'subprocess',SimpleNamespace(run=lambda *a,**kw:self.fail('signed before audit success'))):
+        with patch.object(macos,'run_tool',lambda *a,**kw:self.fail('signed before audit success')):
             with self.assertRaisesRegex(ValueError,'external or unresolved'):self.build(bundle_qt=True)
         self.assertEqual(list(self.parent.glob('qt-preview-*')),[])
         self.assertTrue(list(self.parent.glob('qt-deploy-*.log')))

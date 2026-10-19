@@ -23,17 +23,20 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         if sys.platform!='darwin':raise ValueError('Qt bundling currently requires a native Mac build; Linux uses toolkit-stage')
         from platform_launchers.macos_deploy import toolchain,deploy
         if qt_tools is None:raise ValueError('Qt deployment tool information is missing; run just toolkit-bundle')
+        print('Checking Qt deployment tools…',flush=True)
         info=toolchain(qt_tools)
         deployment=lambda bundle,payload:deploy(bundle,payload,info,ROOT/'native/macos/qt-deployment',notice_directory=qt_notices)
     parent.mkdir(parents=True,exist_ok=True)
     # Every stage is new: never replace files used by an existing session service.
     directory=Path(tempfile.mkdtemp(prefix='qt-preview-',dir=parent))
     try:
+        print(f'Staging preview: {directory}',flush=True)
         payload=directory
         relative_viewer='libexec/workbench-ui-study'
         if sys.platform=='darwin':
             from platform_launchers.macos import prepare
             payload,relative_viewer=prepare(directory,viewer)
+        print('Copying runtime, launch helpers and notices…',flush=True)
         scripts=payload/'scripts';scripts.mkdir()
         for name in MODULES:shutil.copy2(ROOT/'scripts'/name,scripts/name)
         shutil.copytree(ROOT/'scripts/platform_launchers',scripts/'platform_launchers',ignore=shutil.ignore_patterns('__pycache__'))

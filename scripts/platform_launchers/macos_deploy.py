@@ -6,6 +6,8 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
+from .macos_tools import progress,run_tool
 
 MACHO={bytes.fromhex(value) for value in ('feedface','feedfacf','cefaedfe','cffaedfe','cafebabe','cafebabf','bebafeca','bfbafeca')}
 QT_DEPENDENCY=re.compile(r'(^|/)(Qt[^/]+\.framework/|libQt[56][^/]*\.dylib)')
@@ -60,12 +62,17 @@ def audit(bundle,viewer,*,otool=Path('/usr/bin/otool')):
     bundle=bundle.resolve();viewer=viewer.resolve()
     def inspect(path,mode):
         return subprocess.run([str(otool),mode,str(path)],check=True,capture_output=True,text=True,timeout=15).stdout
+    started=time.monotonic();last=started
+    progress('Checking deployed library links…')
     main_search=[root for value in rpaths(inspect(viewer,'-l')) if (root:=_expand(value,viewer,viewer)) is not None]
     binaries=[];external=set();failures=[];qt_links=0
     for binary in sorted(bundle.rglob('*')):
         if binary.is_symlink() or not binary.is_file():continue
         with binary.open('rb') as file:magic=file.read(4)
         if magic not in MACHO:continue
+        now=time.monotonic()
+        if not binaries or now-last>=5:
+            progress(f'Checking library {len(binaries)+1}: {binary.relative_to(bundle)} ({now-started:.0f}s elapsed)');last=now
         search=[root for value in rpaths(inspect(binary,'-l')) if (root:=_expand(value,binary,viewer)) is not None]+main_search
         links=dependencies(inspect(binary,'-L'));relative=str(binary.relative_to(bundle))
         for dependency in links:
@@ -80,6 +87,7 @@ def audit(bundle,viewer,*,otool=Path('/usr/bin/otool')):
     if not any(row['path']==str(viewer.relative_to(bundle)) for row in binaries):raise ValueError('Viewer is not a recognized Mach-O executable')
     if not qt_links:raise ValueError('No Qt linkage was found in the deployed bundle')
     if failures:raise ValueError('Qt dependencies remain external or unresolved:\n'+'\n'.join(failures[:20]))
+    progress(f'Library checks complete: {len(binaries)} Mach-O files, {qt_links} Qt links')
     return dict(schema=1,qt_links_resolved=qt_links,binaries=binaries,external_non_qt=sorted(external),runtime_load_test='pending native Mac review')
 
 
@@ -94,6 +102,7 @@ def notices(info,payload,extra=None):
     for source in sources:
         if not source.is_dir() or source.resolve() in seen:continue
         seen.add(source.resolve())
+        progress(f'Preserving Qt notices: {source}')
         destination=payload/'notices/qt'/str(len(copied)+1)
         files=0
         for file in sorted(source.rglob('*')):
@@ -109,8 +118,8 @@ def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
     descriptor,log=tempfile.mkstemp(prefix='qt-deploy-',suffix='.log',dir=bundle.parent.parent)
     try:
         with os.fdopen(descriptor,'w') as output:
-            subprocess.run([info['tool'],str(bundle),'-executable='+str(viewer),'-qmldir='+str(qml_directory),
-                '-always-overwrite','-no-strip'],stdout=output,stderr=subprocess.STDOUT,check=True,timeout=300)
+            run_tool([info['tool'],str(bundle),'-executable='+str(viewer),'-qmldir='+str(qml_directory),
+                '-always-overwrite','-no-strip','-verbose=3'],output,'Deploying Qt frameworks and QML modules',log)
         for path in ('Contents/Frameworks/QtCore.framework','Contents/Frameworks/QtGui.framework','Contents/Frameworks/QtQuick.framework',
                      'Contents/PlugIns/platforms/libqcocoa.dylib','Contents/Resources/qml/QtQuick/Controls/Basic/qmldir',
                      'Contents/Resources/qml/QtQuick/Dialogs/qmldir','Contents/Resources/qt.conf'):

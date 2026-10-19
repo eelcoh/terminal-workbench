@@ -1504,4 +1504,11 @@ non-Qt libraries remain external. Ordinary Linux/Mac staging is unchanged.
 Portable fixture tests and the Linux staged-preview regression pass; actual
 Mac deployment, loader paths, QML instantiation and signatures remain unverified.
 See [bundle review instructions](qt-staged-preview.md#mac-optional-qt-deployment).
+The owner reported a native `macdeployqt` timeout after 300 seconds on `61aad09`,
+before the independent linkage audit and final signing. The underlying native
+helper is not identified by that traceback. Packaging now announces phases,
+prints heartbeat/log paths, records scoped child-process snapshots and enables
+Qt debug logging. Timeout/cancellation terminates the tool's process group;
+final signing has a separate two-minute deadline and surviving log. Portable
+process/deployment tests cover those behaviors, but the Mac retry is pending.
 This does not select the production frontend or establish release readiness.

@@ -55,8 +55,18 @@ present. Inside the resulting app, `Contents/Resources/workbench/` contains:
   preserved notice locations and native review status.
 - `qt-deploy.log`: output from `macdeployqt`.
 
-A failed deployment removes the partial preview and prints a log path outside
-that preview. This is an internal same-machine preview, not a standalone release:
+The compiler's 100% marker is followed by staging, deployment, library checks
+and signing. These phases announce themselves immediately. Deployment/signing
+print elapsed-time updates every five seconds and the live log path; deployment
+uses debug tool output in that log. Waiting tools also record their own process
+and descendants (PID, parent, state, elapsed time and executable name) in the log;
+unrelated processes and command-line arguments are excluded. The log starts with
+the tool PID even when Qt itself writes nothing. Deployment is limited to five minutes and
+signing to two minutes. Timeout or Ctrl-C stops the packaging tool's process
+group, including scanners/signing children, before removing the partial preview.
+A failed deployment prints a log path outside that preview; signing has its own
+`qt-sign-…log` alongside it. These logs survive removal of a failed stage.
+This is an internal same-machine preview, not a standalone release:
 recorded Python and any reported external non-Qt libraries remain required.
 A static audit does not prove which libraries dyld actually loaded or that every
 QML module can instantiate. Native acceptance is still pending.

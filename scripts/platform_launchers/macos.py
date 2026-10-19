@@ -5,6 +5,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+from .macos_tools import progress,run_tool
 
 NAME='Terminal Workbench Preview.app'
 
@@ -14,6 +15,7 @@ def prepare(directory,viewer):
     if app.suffix!='.app' or viewer.name!='workbench-ui-study':
         raise ValueError('Expected the workbench-ui-study macOS application bundle')
     bundle=directory/NAME
+    progress(f'Copying Mac application into {bundle}')
     shutil.copytree(app,bundle,symlinks=True)
     payload=bundle/'Contents/Resources/workbench'
     payload.mkdir(parents=True)
@@ -44,7 +46,13 @@ def finalize(directory,payload,bootstrap,python,*,sign=True,qt_deployment=None):
     (payload/'python.path').write_text(str(python)+'\n')
     if qt_deployment is not None:qt_deployment(bundle,payload)
     if sign:
-        subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(bundle)],check=True)
+        descriptor,log=tempfile.mkstemp(prefix='qt-sign-',suffix='.log',dir=directory.parent)
+        try:
+            with os.fdopen(descriptor,'w') as output:
+                run_tool(['/usr/bin/codesign','--force','--deep','--sign','-',str(bundle)],
+                    output,'Signing Mac preview',log,timeout=120)
+        except (OSError,ValueError,subprocess.SubprocessError) as error:
+            raise ValueError(f'Mac signing failed: {error}. Signing log: {log}') from error
     launcher=directory/'terminal-workbench'
     launcher.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "$root/'+NAME+'/Contents/Resources/workbench/terminal-workbench" "$@"\n')
     launcher.chmod(0o755)
