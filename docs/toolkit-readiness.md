@@ -1537,3 +1537,22 @@ The existing service health cache carries the optional origin through handoff.
 Linux `just check` and `just toolkit-activation-test` pass, including retained
 versus new build references with unchanged shell PIDs and saved state. Native Mac
 origin reporting remains pending. See [preview status and activation](qt-staged-preview.md).
+
+
+## Mac bundle profiling and deployment overhead
+
+The next packaging slice discovers supported `macdeployqt` options and disables
+its intermediate signing pass when `-no-codesign` is advertised. Workbench's
+final ad hoc signature remains after configuration, notices and reporting.
+The `qmltooling` debugging plugin type is excluded when the tool supports it;
+older versions retain their defaults. Broader Qt Quick/Controls style trimming
+requires further dependency analysis and is not implemented in this slice.
+
+Printed phase timings and sibling `bundle-metrics.json` record packaging time,
+selected switches and regular-file bytes/counts by area. Metrics publication
+occurs outside the already signed app. Portable fixtures cover old/new tool
+options, signature-order immutability, accounting and symlink exclusion. Native
+Mac improvement versus the observed 75–78-second deployment remains unmeasured.
+The owner also confirmed Mac runtime/helper origin reporting: the new terminal
+appears in both build-reference lists while four older runtimes stay unknown.
+See [packaging measurement](qt-staged-preview.md#packaging-size-and-timing).

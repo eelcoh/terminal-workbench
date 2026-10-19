@@ -198,7 +198,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    Mac default shells now use login startup/account-shell fallback so Finder
    launches load profile-provided tools. Optional `just toolkit-bundle` now
    deploys Qt on native Mac builds with static linkage reporting and preserved
-   notices. The owner confirmed Mac bundling at `164264b`. Native shell startup,
+   notices. The owner confirmed Mac bundling at `164264b`. Bundling now measures
+   phases/size and uses supported Qt switches to avoid duplicate signing and
+   debugging plugins; native performance comparison and broader QML trimming
+   remain open. Native shell startup,
    activation and moved-bundle loader/launch review, Python/non-Qt dependencies
    and the remaining installed lifecycle still
    precede an installable release. Decide the product name and update approach first.

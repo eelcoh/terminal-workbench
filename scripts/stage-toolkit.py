@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 ROOT=Path(__file__).resolve().parent.parent
 MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py',
@@ -18,6 +19,7 @@ MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py
 
 
 def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None):
+    stage_started=time.monotonic()
     deployment=None
     if bundle_qt:
         if sys.platform!='darwin':raise ValueError('Qt bundling currently requires a native Mac build; Linux uses toolkit-stage')
@@ -84,7 +86,7 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         if sys.platform=='darwin':
             from platform_launchers.macos import finalize
             if bootstrap is None:raise ValueError('Mac preview bootstrap is missing; rebuild with just toolkit-stage')
-            finalize(directory,payload,bootstrap,Path(sys.executable),sign=sign,qt_deployment=deployment)
+            finalize(directory,payload,bootstrap,Path(sys.executable),sign=sign,qt_deployment=deployment,stage_started=stage_started)
         return directory
     except BaseException:
         shutil.rmtree(directory)

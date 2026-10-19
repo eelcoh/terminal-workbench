@@ -24,7 +24,14 @@ def toolchain(path):
         if not values.get(key) or not Path(values[key]).is_absolute():raise ValueError(f'Qt did not report a valid {key}')
     deploy=Path(values['QT_INSTALL_BINS'])/'macdeployqt'
     if not deploy.is_file() or not os.access(deploy,os.X_OK):raise ValueError(f'macdeployqt is missing: {deploy}')
-    return dict(version=values['QT_VERSION'],prefix=values['QT_INSTALL_PREFIX'],docs=values.get('QT_INSTALL_DOCS',''),tool=str(deploy))
+    # Supported switches vary across Qt versions; older tools keep their defaults.
+    help_reply=subprocess.run([str(deploy)],capture_output=True,text=True,timeout=15)
+    if help_reply.returncode not in (0,1):raise ValueError(f'Cannot inspect macdeployqt options: {deploy}')
+    help_text=help_reply.stdout+'\n'+help_reply.stderr
+    options=[]
+    if re.search(r'(?m)^\s*-no-codesign(?:\s|$)',help_text):options.append('-no-codesign')
+    if re.search(r'(?m)^\s*-exclude-plugin-types=',help_text):options.append('-exclude-plugin-types=qmltooling')
+    return dict(version=values['QT_VERSION'],prefix=values['QT_INSTALL_PREFIX'],docs=values.get('QT_INSTALL_DOCS',''),tool=str(deploy),deployment_options=options)
 
 
 def load_commands(text):
@@ -144,6 +151,7 @@ def configure_paths(bundle):
 
 def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
     viewer=bundle/'Contents/MacOS/workbench-ui-study'
+    phases={};phase_started=time.monotonic()
     descriptor,log=tempfile.mkstemp(prefix='qt-deploy-',suffix='.log',dir=bundle.parent.parent)
     try:
         with os.fdopen(descriptor,'w') as output:
@@ -151,15 +159,20 @@ def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
             # libraries while Qt deploys successive QML plugins (notably Homebrew
             # ICU/OpenSSL dependencies), repeating copy/link work.
             run_tool([info['tool'],str(bundle),'-executable='+str(viewer),'-qmldir='+str(qml_directory),
-                '-no-strip','-verbose=3'],output,'Deploying Qt frameworks and QML modules',log,timeout=900)
+                '-no-strip','-verbose=3',*info.get('deployment_options',[])],output,'Deploying Qt frameworks and QML modules',log,timeout=900)
+        phases['qt_deployment']=time.monotonic()-phase_started;phase_started=time.monotonic()
         configure_paths(bundle)
         for path in ('Contents/Frameworks/QtCore.framework','Contents/Frameworks/QtGui.framework','Contents/Frameworks/QtQuick.framework',
                      'Contents/PlugIns/platforms/libqcocoa.dylib','Contents/Resources/qml/QtQuick/Controls/Basic/qmldir',
                      'Contents/Resources/qml/QtQuick/Dialogs/qmldir','Contents/Resources/qt.conf'):
             if not (bundle/path).exists():raise ValueError(f'Qt deployment is incomplete: missing {path}')
+        phases['configuration']=time.monotonic()-phase_started;phase_started=time.monotonic()
         report=audit(bundle,viewer)
+        phases['linkage_audit']=time.monotonic()-phase_started;phase_started=time.monotonic()
         report.update(qt_version=info['version'],deployment_tool=info['tool'],python_bundled=False,
-                      qt_notices=notices(info,payload,notice_directory))
+                      qt_notices=notices(info,payload,notice_directory),deployment_options=info.get('deployment_options',[]))
+        phases['notices']=time.monotonic()-phase_started
+        report['phases_seconds']=phases
         report['notices_review_required']=True
         (payload/'qt-dependencies.json').write_text(json.dumps(report,indent=2)+'\n')
         shutil.copy2(log,payload/'qt-deploy.log')

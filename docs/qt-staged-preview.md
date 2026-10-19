@@ -111,6 +111,39 @@ to create a fresh stage preserving them too. Notice completeness and the chosen
 Qt distribution's license obligations still require review before distribution;
 `notices_review_required` remains true in the dependency report.
 
+## Packaging size and timing
+
+The native Mac bundle checks the selected `macdeployqt` tool's advertised
+options. When supported, it passes `-no-codesign` to avoid that tool signing
+binaries before Workbench adds its configuration, notices and dependency report.
+The final Workbench ad hoc signing pass still runs after those files are ready.
+It also excludes the `qmltooling` debugging plugin type when the Qt tool supports
+that switch. Older tools keep their defaults; selected options are recorded.
+Qt's [tool help and option handling](https://raw.githubusercontent.com/qt/qtbase/dev/src/tools/macdeployqt/macdeployqt/main.cpp)
+define these switches. No Qt installation files are changed.
+
+After a successful `just toolkit-bundle`, the output prints phase timings and a
+size summary. A `bundle-metrics.json` file is placed beside the app in the
+printed preview directory. It records copy/setup, Qt deployment, configuration,
+linkage audit, notices and final signing times, plus logical regular-file bytes
+and counts grouped into frameworks, plugins, QML and other files. Symlinks are
+counted separately without following their targets. Compilation, archive size
+and disk allocation are outside this report's scope. The total packaging time
+can include small gaps between the named phases.
+
+The metrics file is outside the app so writing it after signing preserves the
+signature. Keep or copy that sibling file before moving the app alone. Internal
+`qt-dependencies.json` also retains deployment/audit timings and selected flags.
+For a Mac comparison, save the printed timings and metrics, then review Finder
+launch, the folder picker, Appearance, Overview and another window on the moved
+app. Report native speed/size changes from those results; portable fixture times
+are not evidence of Mac packaging performance.
+
+This slice removes the duplicate signing pass and debugging plugins. Other
+Controls styles and nested Qt Quick modules still need a selective-deployment
+investigation; they are not pruned by this change. The required Basic style and
+dialog modules remain covered by the existing linkage/deployment checks.
+
 ## Linux: add to the app menu
 
 On this workstation, build and run in `build-machine`. Move the **whole preview

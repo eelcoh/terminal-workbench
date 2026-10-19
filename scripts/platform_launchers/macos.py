@@ -5,6 +5,7 @@ import plistlib
 import shutil
 import subprocess
 import tempfile
+import time
 from .macos_tools import progress,run_tool
 
 NAME='Terminal Workbench Preview.app'
@@ -22,7 +23,8 @@ def prepare(directory,viewer):
     return payload,'../../MacOS/workbench-ui-study'
 
 
-def finalize(directory,payload,bootstrap,python,*,sign=True,qt_deployment=None):
+def finalize(directory,payload,bootstrap,python,*,sign=True,qt_deployment=None,stage_started=None):
+    started=stage_started if stage_started is not None else time.monotonic()
     bundle=directory/NAME
     executable=bundle/'Contents/MacOS/workbench-preview'
     shutil.copy2(bootstrap,executable)
@@ -44,8 +46,11 @@ def finalize(directory,payload,bootstrap,python,*,sign=True,qt_deployment=None):
         Path(temporary).unlink(missing_ok=True)
     if '\n' in str(python) or '\r' in str(python):raise ValueError('Python path contains a newline')
     (payload/'python.path').write_text(str(python)+'\n')
-    if qt_deployment is not None:qt_deployment(bundle,payload)
+    phases={'copy_and_setup':time.monotonic()-started}
+    report=qt_deployment(bundle,payload) if qt_deployment is not None else {}
+    if isinstance(report,dict):phases.update(report.get('phases_seconds',{}))
     if sign:
+        sign_started=time.monotonic()
         descriptor,log=tempfile.mkstemp(prefix='qt-sign-',suffix='.log',dir=directory.parent)
         try:
             with os.fdopen(descriptor,'w') as output:
@@ -53,9 +58,13 @@ def finalize(directory,payload,bootstrap,python,*,sign=True,qt_deployment=None):
                     output,'Signing Mac preview',log,timeout=120)
         except (OSError,ValueError,subprocess.SubprocessError) as error:
             raise ValueError(f'Mac signing failed: {error}. Signing log: {log}') from error
+        phases['signing']=time.monotonic()-sign_started
     launcher=directory/'terminal-workbench'
     launcher.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec "$root/'+NAME+'/Contents/Resources/workbench/terminal-workbench" "$@"\n')
     launcher.chmod(0o755)
+    if qt_deployment is not None:
+        from .bundle_metrics import publish
+        publish(directory,bundle,started,phases,report or {},signed=sign)
 
 
 def show_error(message):

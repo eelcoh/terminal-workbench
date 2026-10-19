@@ -43,6 +43,9 @@ class BundleTest(unittest.TestCase):
         self.macdeploy=executable(self.bins/'macdeployqt',r'''
 import json,sys
 from pathlib import Path
+if len(sys.argv)==1:
+    print('  -no-codesign : Disable code signing\n  -exclude-plugin-types=<list> : Exclude plugin types')
+    raise SystemExit(1)
 bundle=Path(sys.argv[1])
 (bundle/'deploy-args.json').write_text(json.dumps(sys.argv[2:]))
 for name in ('QtCore','QtGui','QtQuick'):
@@ -54,6 +57,9 @@ for name in ('QtQuick/Controls/Basic','QtQuick/Dialogs'):
     path.parent.mkdir(parents=True,exist_ok=True);path.write_text('module fixture')
 plugin=bundle/'Contents/PlugIns/platforms/libqcocoa.dylib'
 plugin.parent.mkdir(parents=True,exist_ok=True);plugin.write_bytes(bytes.fromhex('cffaedfe'))
+if '-exclude-plugin-types=qmltooling' not in sys.argv:
+    tooling=bundle/'Contents/PlugIns/qmltooling/libqmldbgfixture.dylib'
+    tooling.parent.mkdir(parents=True);tooling.write_bytes(bytes.fromhex('cffaedfe'))
 ''')
         self.otool=executable(self.root/'otool',r'''
 import sys
@@ -139,7 +145,9 @@ if (binary.parent/'external-other').exists():
         args=json.loads((bundle/'deploy-args.json').read_text())
         self.assertIn('-qmldir='+str(ROOT/'native/macos/qt-deployment'),args)
         self.assertNotIn('-always-overwrite',args)
-        self.assertNotIn('-no-codesign',args)
+        self.assertIn('-no-codesign',args)
+        self.assertIn('-exclude-plugin-types=qmltooling',args)
+        self.assertFalse((bundle/'Contents/PlugIns/qmltooling').exists())
         self.assertIn('-verbose=3',args)
         self.assertEqual(self.plist.read_bytes(),original)
         self.assertEqual(self.plist.stat().st_mode&0o777,0o444)
@@ -147,7 +155,7 @@ if (binary.parent/'external-other').exists():
         self.assertTrue(json.loads((bundle/'Contents/Resources/workbench/preview.json').read_text())['qt_bundled'])
 
     def test_failure_removes_partial_bundle_keeps_log_and_never_signs(self):
-        executable(self.macdeploy,"print('deployment failure')\nraise SystemExit(7)\n")
+        executable(self.macdeploy,"import sys\nif len(sys.argv)==1: raise SystemExit(1)\nprint('deployment failure')\nraise SystemExit(7)\n")
         with patch.object(macos,'run_tool',lambda *a,**kw:self.fail('signed a failed deployment')):
             with self.assertRaisesRegex(ValueError,'Deployment log:') as failure:self.build(bundle_qt=True)
         log=Path(str(failure.exception).split('Deployment log: ',1)[1])
@@ -211,6 +219,49 @@ if (binary.parent/'external-other').exists():
             self.assertEqual(result['dependencies'],['/opt/Qt.framework/Qt'])
         for text in ('','cmd LC_LOAD_DYLIB','cmd LC_ID_DYLIB\ncmd LC_LOAD_DYLIB\nname /foo (offset 24)','cmd LC_RPATH\npath /invalid'):
             with self.assertRaises(ValueError):deploy.load_commands(text)
+
+    def test_older_tool_options_remain_compatible(self):
+        source=self.macdeploy.read_text().replace('-no-codesign','-unsupported-signing').replace('-exclude-plugin-types','-unsupported-exclusion')
+        self.macdeploy.write_text(source)
+        directory=self.build(bundle_qt=True,sign=False)
+        args=json.loads((directory/macos.NAME/'deploy-args.json').read_text())
+        self.assertNotIn('-no-codesign',args)
+        self.assertFalse(any(arg.startswith('-exclude-plugin-types') for arg in args))
+        self.assertTrue((directory/macos.NAME/'Contents/PlugIns/qmltooling/libqmldbgfixture.dylib').exists())
+
+    def test_inventory_counts_logical_bytes_without_following_symlinks(self):
+        from platform_launchers.bundle_metrics import inventory
+        bundle=self.root/'inventory.app';framework=bundle/'Contents/Frameworks/libexample.dylib'
+        framework.parent.mkdir(parents=True);framework.write_bytes(b'1234567')
+        plugin=bundle/'Contents/PlugIns/fixture/plugin';plugin.parent.mkdir(parents=True);plugin.write_bytes(b'abc')
+        qml=bundle/'Contents/Resources/qml/Example.qml';qml.parent.mkdir(parents=True);qml.write_bytes(b'abcd')
+        outside=self.root/'outside';outside.mkdir();(outside/'large').write_bytes(b'x'*1000)
+        (bundle/'outside').symlink_to(outside,target_is_directory=True)
+        (bundle/'framework-link').symlink_to(framework)
+        result=inventory(bundle)
+        self.assertEqual(result['regular_file_bytes'],14)
+        self.assertEqual(result['regular_files'],3)
+        self.assertEqual(result['symlinks'],2)
+        self.assertEqual(result['groups']['frameworks']['bytes'],7)
+        self.assertEqual(result['groups']['plugins']['bytes'],3)
+        self.assertEqual(result['groups']['qml']['bytes'],4)
+
+    def test_metrics_live_outside_signature_and_describe_real_files(self):
+        from platform_launchers.bundle_metrics import inventory
+        signed=[]
+        def sign(args,*unused,**kwargs):
+            bundle=Path(args[-1])
+            self.assertFalse((bundle.parent/'bundle-metrics.json').exists())
+            signed.append({str(p.relative_to(bundle)):p.read_bytes() for p in bundle.rglob('*') if p.is_file() and not p.is_symlink()})
+        with patch.object(macos,'run_tool',sign):directory=self.build(bundle_qt=True)
+        bundle=directory/macos.NAME
+        self.assertEqual(signed[0],{str(p.relative_to(bundle)):p.read_bytes() for p in bundle.rglob('*') if p.is_file() and not p.is_symlink()})
+        metrics=json.loads((directory/'bundle-metrics.json').read_text())
+        self.assertTrue(metrics['signed'])
+        self.assertEqual(metrics['size'],inventory(bundle))
+        self.assertEqual(set(metrics['phases_seconds']),{'copy_and_setup','qt_deployment','configuration','linkage_audit','notices','signing'})
+        self.assertTrue(all(value>=0 for value in metrics['phases_seconds'].values()))
+        self.assertEqual(metrics['size']['groups']['frameworks']['files'],3)
 
     def test_tool_version_and_missing_deployer(self):
         self.tools.write_text(str(self.bins/'qtpaths')+'\n6.9.0\n')
