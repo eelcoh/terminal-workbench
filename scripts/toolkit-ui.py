@@ -23,16 +23,18 @@ def configuration(state,runtime,cwd,data,preferences,saved=False):
                 saved_session=saved,catalog_updates=saved)
 
 
-def saved_window(runtime,viewer,preferences):
-    state=Path(os.environ.get('WORKBENCH_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
+def saved_window(runtime,viewer,preferences,*,installed=False):
+    from installed_paths import session_directory
+    state=session_directory(os.environ) if installed else Path(os.environ.get('WORKBENCH_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
+    cwd=Path.home().resolve() if installed else ROOT
     # Match the working viewer's service configuration; initialization never
     # starts stopped saved terminals or takes ownership from another window.
-    data=request(state,runtime,ROOT)['data']
+    data=request(state,runtime,cwd)['data']
     views=state/'qt';views.mkdir(mode=0o700,exist_ok=True)
     lease,view=acquire_window_slot(views)
     try:
         with tempfile.TemporaryDirectory(prefix='wb-qt-window-',dir='/tmp') as directory:
-            config=Path(directory)/'ui.json';settings=configuration(state,runtime,ROOT,data,preferences,True)
+            config=Path(directory)/'ui.json';settings=configuration(state,runtime,cwd,data,preferences,True)
             settings['view_state']=str(view.with_suffix('.json'))
             config.write_text(json.dumps(settings))
             print(f'Qt saved sessions: {state}. Closing detaches; shells and workspaces remain.',flush=True)
@@ -45,10 +47,19 @@ def saved_window(runtime,viewer,preferences):
 
 parser=argparse.ArgumentParser(description='Launch Qt with disposable or saved Workbench sessions.')
 parser.add_argument('runtime',type=Path);parser.add_argument('viewer',type=Path);parser.add_argument('--saved',action='store_true')
+parser.add_argument('--installed',action='store_true',help='Use user state and home directory for the staged preview')
+parser.add_argument('--paths',action='store_true',help='Print launch paths without opening a window or starting sessions')
 args=parser.parse_args();runtime=args.runtime.resolve();viewer=args.viewer.resolve()
+if args.installed and not args.saved:parser.error('--installed requires --saved')
+if args.paths:
+    from config_paths import config_directory
+    from installed_paths import session_directory
+    state=session_directory(os.environ) if args.installed else Path(os.environ.get('WORKBENCH_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
+    print(json.dumps(dict(runtime=str(runtime),viewer=str(viewer),state=str(state),configuration=str(config_directory(os.environ,sys.platform)),cwd=str(Path.home().resolve() if args.installed else ROOT)),indent=2))
+    sys.exit(0)
 preferences=prepare_config_directory(os.environ,sys.platform)
 if args.saved:
-    sys.exit(saved_window(runtime,viewer,preferences))
+    sys.exit(saved_window(runtime,viewer,preferences,installed=args.installed))
 with tempfile.TemporaryDirectory(prefix='wb-ui-',dir='/tmp') as directory:
     state=Path(directory);cwd=Path.home().resolve()
     def call(method='initialize',identity='',title=''):

@@ -186,8 +186,12 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    edge cases, plus the remaining Mac Copilot exit/cancellation/permission and
    background/handoff acceptance after confirmed Working/Ready and waiting transitions.
    Unsupported signals retain honest fallback.
-5. Extend portable dotfiles as needed, then package/install outside the checkout. Decide the
-   product name, installed-app lifecycle and update approach before release.
+5. The Qt candidate now has a same-machine staged preview outside the checkout:
+   `just toolkit-stage` creates a movable launcher/payload with separate user state.
+   System Qt/Python remain required. Finish native Mac startup review, dependency
+   bundling, desktop/Finder integration and installed-session handoff before calling
+   this an installable release. Decide the product name and update approach first.
+   See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither
    direction is a first-release gate. Finish native font-controls review and the

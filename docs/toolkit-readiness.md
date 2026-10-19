@@ -1375,3 +1375,34 @@ suite and native X11/Wayland UI suites retain modern snapshot/transfer coverage.
 The lifecycle overlay now shows the actual attachment error when service status
 reports a running shell, rather than obscuring it with “Shell is running.” Owner
 acceptance of the Linux saved-session fix remains pending.
+
+
+## Staged preview outside the checkout
+
+`just toolkit-stage` builds and copies the current Qt candidate, runtime and
+Python service/helpers into a fresh directory. Its launcher resolves the payload
+relative to itself; agent wrappers and the invocation-local Copilot plugin also
+survive relocation before first use. User preferences retain their existing
+`~/.config` location on both platforms. Sessions and window views use a separate
+`~/.local/state/terminal-workbench/qt-preview` namespace (with explicit overrides),
+and new workspaces default to the user's home rather than the checkout.
+
+`just toolkit-stage-test` exercises relocation, paths containing spaces, all
+three agent wrapper argument paths, saved-shell survival across successful and
+failed viewer exits, stopped-shell preservation and absence of writes into the
+payload. Linux additionally starts the copied real viewer with offscreen/software
+Qt and checks that terminal renderers become ready. Existing saved/disposable
+launcher tests remain applicable. Native Mac startup and packaging are unverified.
+
+This is a same-machine proof using installed Qt and Python, not a standalone
+redistributable or a toolkit adoption decision. Finder launch, desktop integration,
+dependency deployment, signing and installed-version session/service handoff remain
+open. Do not overwrite or relocate a live payload. See
+[staged preview operation and retirement](qt-staged-preview.md).
+
+
+## Native Mac vertical scrolling acceptance
+
+The owner confirmed on 2026-10-19 that vertical scrolling now works on Mac.
+This closes the reported trackpad responsiveness regression; mixed-display
+sharpness and unplug behavior remain separate native acceptance checks.

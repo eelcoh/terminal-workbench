@@ -395,3 +395,11 @@ toolkit-fonts-test: runtime-build
 # Managed Qt application chords, platform mapping and conflict contracts.
 toolkit-shortcuts-test: runtime-build
     python3 scripts/toolkit-probe.py shortcuts-test
+
+# Same-machine preview outside the checkout; still uses installed Python/Qt.
+toolkit-stage: runtime-build
+    python3 scripts/toolkit-probe.py stage
+
+# Relocation, saved-session survival and real staged Qt startup.
+toolkit-stage-test: toolkit-stage
+    python3 tests/qt_staged_preview_test.py target/debug/workbench-session
