@@ -48,11 +48,11 @@ def _snapshot(output,pid,elapsed):
     output.flush()
 
 
-def run_tool(arguments,output,label,log_path,*,timeout=300,heartbeat=5,report=progress):
+def run_tool(arguments,output,label,log_path,*,timeout=300,heartbeat=5,report=progress,cwd=None,env=None):
     report(f'{label} (limit {timeout:g}s). Log: {log_path}')
     started=time.monotonic()
     process=subprocess.Popen(arguments,stdin=subprocess.DEVNULL,stdout=output,
-        stderr=subprocess.STDOUT,start_new_session=True)
+        stderr=subprocess.STDOUT,start_new_session=True,cwd=cwd,env=env)
     try:
         output.write(f'{label}: PID {process.pid}, timeout {timeout:g}s\n');output.flush()
         while True:

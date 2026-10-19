@@ -18,16 +18,18 @@ MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py
          'terminal_lifecycle.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
 
 
-def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None):
+def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None,selective_qml=False,qml_deploy_script=None):
     stage_started=time.monotonic()
     deployment=None
+    if selective_qml and not bundle_qt:raise ValueError('Selective QML deployment requires a Mac Qt bundle')
+    if selective_qml and (qml_deploy_script is None or not qml_deploy_script.is_file()):raise ValueError('QML deployment script is missing; rebuild with just toolkit-bundle-selective')
     if bundle_qt:
         if sys.platform!='darwin':raise ValueError('Qt bundling currently requires a native Mac build; Linux uses toolkit-stage')
         from platform_launchers.macos_deploy import toolchain,deploy
         if qt_tools is None:raise ValueError('Qt deployment tool information is missing; run just toolkit-bundle')
         print('Checking Qt deployment tools…',flush=True)
         info=toolchain(qt_tools)
-        deployment=lambda bundle,payload:deploy(bundle,payload,info,ROOT/'native/macos/qt-deployment',notice_directory=qt_notices)
+        deployment=lambda bundle,payload:deploy(bundle,payload,info,ROOT/'native/macos/qt-deployment',notice_directory=qt_notices,qml_deploy_script=qml_deploy_script if selective_qml else None)
     parent.mkdir(parents=True,exist_ok=True)
     # Every stage is new: never replace files used by an existing session service.
     directory=Path(tempfile.mkdtemp(prefix='qt-preview-',dir=parent))
@@ -80,7 +82,7 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         shutil.copy2(ROOT/'crates/runtime/native/LICENSE.libghostty-vt',notices/'LICENSE.libghostty-vt')
         revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True,check=True).stdout.strip()
         dirty=bool(subprocess.run(['git','status','--porcelain'],cwd=ROOT,capture_output=True,text=True,check=True).stdout)
-        (payload/'preview.json').write_text(json.dumps(dict(format=1,source=revision,source_dirty=dirty,container=os.environ.get('CONTAINER_ID','') if os.environ.get('DISTROBOX_ENTER_PATH') else '',platform=sys.platform,architecture=platform.machine(),qt_bundled=bundle_qt,dependencies='Qt deployed; recorded Python and reported non-Qt dependencies remain external' if bundle_qt else 'System Python 3 and the Qt installation used to build the viewer; not bundled'),indent=2)+'\n')
+        (payload/'preview.json').write_text(json.dumps(dict(format=1,source=revision,source_dirty=dirty,container=os.environ.get('CONTAINER_ID','') if os.environ.get('DISTROBOX_ENTER_PATH') else '',platform=sys.platform,architecture=platform.machine(),qt_bundled=bundle_qt,selective_qml=selective_qml,dependencies='Qt deployed; recorded Python and reported non-Qt dependencies remain external' if bundle_qt else 'System Python 3 and the Qt installation used to build the viewer; not bundled'),indent=2)+'\n')
         shutil.copy2(ROOT/'docs/qt-staged-preview.md',directory/'README.md')
         if payload!=directory:shutil.copy2(ROOT/'docs/qt-staged-preview.md',payload/'README.md')
         if sys.platform=='darwin':
@@ -102,12 +104,18 @@ def main():
     parser.add_argument('--viewer',type=Path,default=default)
     parser.add_argument('--bootstrap',type=Path,default=ROOT/'.local/build/qt-input/workbench-preview-bootstrap')
     parser.add_argument('--bundle-qt',action='store_true',help='Mac: deploy Qt into the app and audit static Qt linkage')
+    parser.add_argument('--selective-qml',action='store_true',help='Trial: use Qt CMake import deployment before library bundling')
+    parser.add_argument('--qml-deploy-script',type=Path,help='Qt-generated deployment script (normally read from the build)')
     parser.add_argument('--qt-tools',type=Path,default=ROOT/'.local/build/qt-input/workbench-qt-tools.txt')
     parser.add_argument('--qt-notices',type=Path,help='Additional installed Qt notices directory to preserve')
     args=parser.parse_args()
     if args.bundle_qt and sys.platform!='darwin':parser.error('Qt bundling currently requires a native Mac build')
     if args.qt_notices and not args.bundle_qt:parser.error('--qt-notices requires --bundle-qt')
-    directory=stage(args.parent.expanduser().resolve(),args.runtime.resolve(strict=True),args.viewer.resolve(strict=True),args.bootstrap.resolve(),bundle_qt=args.bundle_qt,qt_tools=args.qt_tools.resolve(),qt_notices=args.qt_notices.expanduser().resolve() if args.qt_notices else None)
+    if args.selective_qml and not args.bundle_qt:parser.error('--selective-qml requires --bundle-qt')
+    qml_script=args.qml_deploy_script
+    if args.selective_qml and qml_script is None:
+        qml_script=Path((ROOT/'.local/build/qt-input/workbench-qml-deploy.txt').read_text().strip())
+    directory=stage(args.parent.expanduser().resolve(),args.runtime.resolve(strict=True),args.viewer.resolve(strict=True),args.bootstrap.resolve(),bundle_qt=args.bundle_qt,qt_tools=args.qt_tools.resolve(),qt_notices=args.qt_notices.expanduser().resolve() if args.qt_notices else None,selective_qml=args.selective_qml,qml_deploy_script=qml_script.resolve() if qml_script else None)
     launch=shlex.quote(str(directory/'terminal-workbench'))
     if sys.platform=='darwin':launch='open '+shlex.quote(str(directory/'Terminal Workbench Preview.app'))
     requirements='Uses recorded Python and deployed Qt.' if args.bundle_qt else 'Uses installed Python and Qt.'

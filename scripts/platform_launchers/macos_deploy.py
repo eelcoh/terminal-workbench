@@ -149,17 +149,27 @@ def configure_paths(bundle):
     progress('Configured bundled Qt plugin and QML paths')
 
 
-def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
+def deploy(bundle,payload,info,qml_directory,*,notice_directory=None,qml_deploy_script=None):
     viewer=bundle/'Contents/MacOS/workbench-ui-study'
-    phases={};phase_started=time.monotonic()
+    phases={};qml_report=dict(mode='macdeployqt-recursive');phase_started=time.monotonic()
     descriptor,log=tempfile.mkstemp(prefix='qt-deploy-',suffix='.log',dir=bundle.parent.parent)
     try:
         with os.fdopen(descriptor,'w') as output:
             # Every stage is fresh. Forced overwrite repeatedly replaces shared
             # libraries while Qt deploys successive QML plugins (notably Homebrew
             # ICU/OpenSSL dependencies), repeating copy/link work.
-            run_tool([info['tool'],str(bundle),'-executable='+str(viewer),'-qmldir='+str(qml_directory),
-                '-no-strip','-verbose=3',*info.get('deployment_options',[])],output,'Deploying Qt frameworks and QML modules',log,timeout=900)
+            qml_options=['-qmldir='+str(qml_directory)]
+            if qml_deploy_script is not None:
+                from .macos_qml import deploy as deploy_imports
+                qml_report=deploy_imports(bundle,qml_deploy_script,output,log)
+                phases['qml_imports']=time.monotonic()-phase_started;phase_started=time.monotonic()
+                qml_options=[]
+            # With no -qmldir, macdeployqt otherwise auto-scans the working directory.
+            # Use an empty private directory for the selective trial.
+            with tempfile.TemporaryDirectory(prefix='.qt-tools-',dir=bundle.parent) as cwd:
+                run_tool([info['tool'],str(bundle),'-executable='+str(viewer),*qml_options,
+                    '-no-strip','-verbose=3',*info.get('deployment_options',[])],output,
+                    'Deploying Qt frameworks and QML modules',log,timeout=900,cwd=cwd)
         phases['qt_deployment']=time.monotonic()-phase_started;phase_started=time.monotonic()
         configure_paths(bundle)
         for path in ('Contents/Frameworks/QtCore.framework','Contents/Frameworks/QtGui.framework','Contents/Frameworks/QtQuick.framework',
@@ -173,6 +183,7 @@ def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
                       qt_notices=notices(info,payload,notice_directory),deployment_options=info.get('deployment_options',[]))
         phases['notices']=time.monotonic()-phase_started
         report['phases_seconds']=phases
+        report['qml_deployment']=qml_report
         report['notices_review_required']=True
         (payload/'qt-dependencies.json').write_text(json.dumps(report,indent=2)+'\n')
         shutil.copy2(log,payload/'qt-deploy.log')

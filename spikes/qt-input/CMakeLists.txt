@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.22)
 project(WorkbenchInputProbe LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
+# The QML export script feeds the Mac bundler. Linux exercises module copying,
+# without making a standalone Linux distribution or relocating ELF libraries.
+if(UNIX AND NOT APPLE)
+    set(QT_DEPLOY_FORCE_ADJUST_RPATHS OFF)
+endif()
 find_package(Qt6 6.8 REQUIRED COMPONENTS Quick QuickControls2)
 qt_standard_project_setup()
 qt_add_executable(workbench-input-probe main.cpp)
@@ -74,9 +79,22 @@ if(WORKBENCH_TERMINAL_PROBE)
     qt_add_resources(workbench-ui-study "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
         FILES "../../fonts/jetbrains-mono/JetBrainsMono-Regular.ttf" "../../fonts/jetbrains-mono/OFL.txt" "../../fonts/adwaita-sans/AdwaitaSans-Regular.ttf" "../../fonts/adwaita-sans/OFL.txt" "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")
+    # Include runtime-selected imports in Qt's deployment scan as well.
+    qt_add_resources(workbench-ui-study "deployment_imports" PREFIX "/deployment"
+        BASE "${CMAKE_CURRENT_SOURCE_DIR}/../../native/macos/qt-deployment"
+        FILES "../../native/macos/qt-deployment/Imports.qml")
+    qt_generate_deploy_script(TARGET workbench-ui-study
+        OUTPUT_SCRIPT workbench_qml_deploy_script
+        CONTENT "qt_deploy_qml_imports(TARGET workbench-ui-study PLUGINS_FOUND workbench_qml_plugins)\n")
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/workbench-qml-deploy.txt"
+        CONTENT "${workbench_qml_deploy_script}\n")
     set_target_properties(workbench-ui-study PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.ui-study"
         MACOSX_BUNDLE_BUNDLE_NAME "Terminal Workbench UI Study")
+    qt_add_executable(workbench-qml-deployment-probe qml_deployment_probe.cpp)
+    target_link_libraries(workbench-qml-deployment-probe PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2)
+    target_compile_options(workbench-qml-deployment-probe PRIVATE -Wall -Wextra)
+    set_target_properties(workbench-qml-deployment-probe PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)
     qt_add_executable(workbench-catalog-test ui_catalog_feed_test.cpp ui_catalog_feed.cpp ui_catalog_feed.h)
     target_compile_definitions(workbench-catalog-test PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-catalog-test PRIVATE -Wall -Wextra)

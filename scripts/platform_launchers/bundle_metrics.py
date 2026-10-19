@@ -22,7 +22,7 @@ def inventory(bundle):
 def publish(directory,bundle,started,phases,report,*,signed):
     value=dict(schema=1,phases_seconds=phases,packaging_seconds=time.monotonic()-started,
         signed=signed,size=inventory(bundle),qt_version=report.get('qt_version'),
-        deployment_options=report.get('deployment_options',[]),
+        deployment_options=report.get('deployment_options',[]),qml_deployment=report.get('qml_deployment',{}),
         scope='Packaging only; excludes compilation. Size is regular-file bytes, not disk allocation or archive size.')
     # Writing into the app after signing would invalidate its resource signature.
     path=directory/'bundle-metrics.json'

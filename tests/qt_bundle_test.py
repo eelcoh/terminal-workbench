@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT/'scripts'))
-from platform_launchers import macos,macos_deploy as deploy
+from platform_launchers import macos,macos_deploy as deploy,macos_qml
 spec=importlib.util.spec_from_file_location('stage_toolkit',ROOT/'scripts/stage-toolkit.py')
 stage=importlib.util.module_from_spec(spec);spec.loader.exec_module(stage)
 REAL_AUDIT=deploy.audit
@@ -52,7 +52,7 @@ for name in ('QtCore','QtGui','QtQuick'):
     binary=bundle/f'Contents/Frameworks/{name}.framework/Versions/A/{name}'
     binary.parent.mkdir(parents=True,exist_ok=True)
     binary.write_bytes(bytes.fromhex('cffaedfe')+b'fixture')
-for name in ('QtQuick/Controls/Basic','QtQuick/Dialogs'):
+for name in (('QtQuick/Controls/Basic','QtQuick/Dialogs') if any(arg.startswith('-qmldir=') for arg in sys.argv) else ()):
     path=bundle/'Contents/Resources/qml'/name/'qmldir'
     path.parent.mkdir(parents=True,exist_ok=True);path.write_text('module fixture')
 plugin=bundle/'Contents/PlugIns/platforms/libqcocoa.dylib'
@@ -219,6 +219,56 @@ if (binary.parent/'external-other').exists():
             self.assertEqual(result['dependencies'],['/opt/Qt.framework/Qt'])
         for text in ('','cmd LC_LOAD_DYLIB','cmd LC_ID_DYLIB\ncmd LC_LOAD_DYLIB\nname /foo (offset 24)','cmd LC_RPATH\npath /invalid'):
             with self.assertRaises(ValueError):deploy.load_commands(text)
+
+    def qml_fixture(self,script,prefix,output,log):
+        contents=prefix/'workbench-ui-study.app/Contents'
+        plugin=contents/'PlugIns/libselectedqml.dylib';plugin.parent.mkdir(parents=True)
+        plugin.write_bytes(bytes.fromhex('cffaedfe'))
+        for name in ('QtQuick','QtQuick/Controls/Basic','QtQuick/Dialogs'):
+            path=contents/'Resources/qml'/name;path.mkdir(parents=True,exist_ok=True)
+            (path/'qmldir').write_text('module '+name.replace('/','.')+'\nplugin selectedqml\n')
+            (path/plugin.name).symlink_to(os.path.relpath(plugin,path))
+
+    def test_selective_deployment_uses_qt_closure_without_rescanning_whole_tree(self):
+        script=self.root/'qml deployment.cmake';script.write_text('fixture')
+        with patch.object(macos_qml,'run_import_deployment',self.qml_fixture):
+            directory=self.build(bundle_qt=True,sign=False,selective_qml=True,qml_deploy_script=script)
+        bundle=directory/macos.NAME
+        args=json.loads((bundle/'deploy-args.json').read_text())
+        self.assertFalse(any(arg.startswith('-qmldir') for arg in args))
+        qml=bundle/'Contents/Resources/qml'
+        self.assertTrue((qml/'QtQuick/Controls/Basic/libselectedqml.dylib').resolve().is_relative_to(bundle))
+        self.assertTrue((qml/'QtQuick/Controls/Basic/libselectedqml.dylib').is_file())
+        self.assertFalse((qml/'QtQuick/Particles').exists())
+        report=json.loads((bundle/'Contents/Resources/workbench/qt-dependencies.json').read_text())
+        self.assertEqual(report['qml_deployment']['mode'],'qt-cmake-import-closure')
+        self.assertEqual(report['qml_deployment']['modules'],['QtQuick','QtQuick/Controls/Basic','QtQuick/Dialogs'])
+        self.assertIn('qml_imports',report['phases_seconds'])
+        metrics=json.loads((directory/'bundle-metrics.json').read_text())
+        self.assertEqual(metrics['qml_deployment'],report['qml_deployment'])
+        self.assertFalse(list(directory.glob('.qt-qml-*')))
+
+    def test_selective_deployment_rejects_external_links_without_changing_source(self):
+        script=self.root/'qml.cmake';script.write_text('fixture')
+        external=self.root/'installed-plugin.dylib';external.write_bytes(b'original')
+        def unsafe(*args):
+            self.qml_fixture(*args)
+            (args[1]/'workbench-ui-study.app/Contents/PlugIns/external.dylib').symlink_to(external)
+        with patch.object(macos_qml,'run_import_deployment',unsafe):
+            with self.assertRaisesRegex(ValueError,'external symlink'):
+                self.build(bundle_qt=True,sign=False,selective_qml=True,qml_deploy_script=script)
+        self.assertEqual(external.read_bytes(),b'original')
+        self.assertFalse(list(self.parent.glob('qt-preview-*')))
+        self.assertTrue(list(self.parent.glob('qt-deploy-*.log')))
+
+    def test_cmake_deployment_clears_inherited_install_destination(self):
+        observed=[]
+        with patch.dict(os.environ,{'DESTDIR':'/wrong/install/root'}),patch.object(macos_qml,'run_tool',lambda *args,**kwargs:observed.append((args,kwargs))):
+            macos_qml.run_import_deployment(self.root/'script.cmake',self.root/'private prefix',None,self.root/'log')
+        arguments,options=observed[0]
+        self.assertNotIn('DESTDIR',options['env'])
+        self.assertIn('-DCMAKE_INSTALL_PREFIX='+str(self.root/'private prefix'),arguments[0])
+        self.assertIn('-DQT_DEPLOY_PREFIX='+str(self.root/'private prefix'),arguments[0])
 
     def test_older_tool_options_remain_compatible(self):
         source=self.macdeploy.read_text().replace('-no-codesign','-unsupported-signing').replace('-exclude-plugin-types','-unsupported-exclusion')

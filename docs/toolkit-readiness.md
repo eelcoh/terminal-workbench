@@ -1552,7 +1552,31 @@ Printed phase timings and sibling `bundle-metrics.json` record packaging time,
 selected switches and regular-file bytes/counts by area. Metrics publication
 occurs outside the already signed app. Portable fixtures cover old/new tool
 options, signature-order immutability, accounting and symlink exclusion. Native
-Mac improvement versus the observed 75–78-second deployment remains unmeasured.
+The owner measured about 50 seconds for Qt deployment after this change,
+compared with a preceding 65-second run; these are single-run observations.
 The owner also confirmed Mac runtime/helper origin reporting: the new terminal
 appears in both build-reference lists while four older runtimes stay unknown.
 See [packaging measurement](qt-staged-preview.md#packaging-size-and-timing).
+
+
+## Selective QML deployment trial
+
+`just toolkit-bundle-selective` now offers an opt-in Mac packaging comparison.
+Qt's CMake-generated import deployment copies scanner-selected module metadata
+and plugins into a private prefix before library deployment. The dynamic Basic
+style is included in the target scan. Declared Controls style dependencies are
+retained; unrelated nested modules are not copied recursively. The default
+bundle recipe remains available. Existing configuration, linkage auditing,
+notice preservation and final signing still apply.
+
+Portable fixtures cover plugin relocation, relative links, external-link
+rejection, private-prefix cleanup and inherited DESTDIR isolation. On Linux,
+Qt's actual deployment API copied 26 modules, including Basic and dialogs while
+omitting Particles, LocalStorage and XmlListModel. A real Qt engine instantiated
+controls, layouts and dialog components with only the copied filesystem QML
+imports and resource imports. It still used installed Qt libraries; this does
+not prove native Mac loader behavior or native dialog opening.
+
+Native Mac size/time comparison and moved-app launch review remain pending.
+Metrics distinguish QML import copying from subsequent library deployment.
+See [the trial instructions](qt-staged-preview.md#mac-selective-qml-deployment-trial).

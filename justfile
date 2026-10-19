@@ -427,3 +427,13 @@ toolkit-bundle: runtime-build
 toolkit-bundle-test:
     python3 tests/macos_packaging_tools_test.py
     python3 tests/qt_bundle_test.py
+
+
+# Native Mac trial: deploy only scanner-selected QML modules before bundling Qt.
+toolkit-bundle-selective: runtime-build
+    python3 scripts/toolkit-probe.py bundle-selective
+
+# Exercise Qt's real import-deployment API; no native Mac result is implied.
+toolkit-qml-deployment-test: toolkit-stage
+    cmake --build .local/build/qt-input --target workbench-qml-deployment-probe --parallel
+    python3 tests/qt_qml_deployment_test.py

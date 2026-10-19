@@ -139,10 +139,46 @@ launch, the folder picker, Appearance, Overview and another window on the moved
 app. Report native speed/size changes from those results; portable fixture times
 are not evidence of Mac packaging performance.
 
-This slice removes the duplicate signing pass and debugging plugins. Other
-Controls styles and nested Qt Quick modules still need a selective-deployment
-investigation; they are not pruned by this change. The required Basic style and
-dialog modules remain covered by the existing linkage/deployment checks.
+The owner measured Qt deployment at about 50 seconds after disabling redundant
+signing, compared with a preceding 65-second run. These are individual native
+observations, not repeated benchmark samples.
+
+## Mac: selective QML deployment trial
+
+The working default remains `just toolkit-bundle`. To compare a candidate that
+copies scanner-selected QML modules instead of entire nested module trees, run:
+
+```sh
+just toolkit-bundle-selective
+```
+
+This builds a fresh preview without opening it. It uses Qt's generated
+[QML import deployment script](https://doc.qt.io/qt-6.8/qt-deploy-qml-imports.html)
+in a private temporary prefix, then moves the module metadata and plugins into
+the staged app. The Basic style is explicitly included in the target's resource
+scan because the app selects it dynamically. All scanner-declared dependencies,
+including other Controls styles, are retained. No Qt installation files change.
+`macdeployqt` then deploys and rewrites the libraries, followed by the same
+configuration, linkage checks and final signing as the default bundle.
+
+Save the sibling `bundle-metrics.json` before moving the app. Its
+`qml_deployment.mode` should be `qt-cmake-import-closure`, with the selected
+module list. Compare QML/framework/plugin sizes and the combined `qml_imports`
+and `qt_deployment` timings with the default bundle's `qt_deployment` time.
+An improvement on Mac has not yet been established.
+
+Move the new app to its own location and launch it from Finder. Check a working
+terminal, Appearance, Overview, the folder picker and another window. These
+exercise both QML controls and native dialog integration; static dependency
+checks alone do not establish loader or native UI behavior.
+
+`just toolkit-qml-deployment-test` also exercises the actual Qt CMake API on
+Mac or Linux. It creates Basic controls, layouts and dialog components using
+only the copied filesystem QML import directory and Qt resource imports. It
+checks that unrelated modules are omitted. On Linux it uses installed Qt
+libraries with ELF RPATH adjustment disabled: this is a QML-copy proof, not a
+standalone Linux package. Native Mac library deployment and opening dialogs
+still require the bundle review above.
 
 ## Linux: add to the app menu
 

@@ -200,8 +200,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    deploys Qt on native Mac builds with static linkage reporting and preserved
    notices. The owner confirmed Mac bundling at `164264b`. Bundling now measures
    phases/size and uses supported Qt switches to avoid duplicate signing and
-   debugging plugins; native performance comparison and broader QML trimming
-   remain open. Native shell startup,
+   debugging plugins. The owner measured Qt deployment at about 50 seconds versus
+   a preceding 65-second run. Opt-in `just toolkit-bundle-selective` now uses
+   Qt's CMake import closure; a real Linux copied-QML load check passes. Native
+   Mac size/time comparison and moved-app review remain open. Native shell startup,
    activation and moved-bundle loader/launch review, Python/non-Qt dependencies
    and the remaining installed lifecycle still
    precede an installable release. Decide the product name and update approach first.
