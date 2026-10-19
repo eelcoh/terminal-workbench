@@ -202,8 +202,9 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    phases/size and uses supported Qt switches to avoid duplicate signing and
    debugging plugins. The owner measured Qt deployment at about 50 seconds versus
    a preceding 65-second run. Opt-in `just toolkit-bundle-selective` now uses
-   Qt's CMake import closure; a real Linux copied-QML load check passes. Native
-   Mac size/time comparison and moved-app review remain open. Native shell startup,
+   Qt's CMake import closure; a real Linux copied-QML load check passes. The owner
+   confirmed the trial works on Mac at `5a6c9f4`; native size/time comparison
+   remains open. Native shell startup,
    activation and moved-bundle loader/launch review, Python/non-Qt dependencies
    and the remaining installed lifecycle still
    precede an installable release. Decide the product name and update approach first.

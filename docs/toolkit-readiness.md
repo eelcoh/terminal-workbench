@@ -1580,3 +1580,16 @@ not prove native Mac loader behavior or native dialog opening.
 Native Mac size/time comparison and moved-app launch review remain pending.
 Metrics distinguish QML import copying from subsequent library deployment.
 See [the trial instructions](qt-staged-preview.md#mac-selective-qml-deployment-trial).
+
+
+## Pane chrome focus
+
+Clicks on pane titles, unused header space and the outer frame now select the
+pane and focus its terminal reader. Terminal selection and the layout button
+retain their own pointer handlers; Overview retains its existing click/drag
+behavior. The UI regression checks chrome focus and subsequent typing without
+changing PTY input during clicks or resizing terminal grids.
+
+The owner also confirmed the selective QML bundle trial works on Mac at
+`5a6c9f4`, apart from this pane-chrome focus issue. A native selective-deployment
+timing/size comparison has not yet been reported.

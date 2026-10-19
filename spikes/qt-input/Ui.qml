@@ -729,6 +729,12 @@ ApplicationWindow {
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
+                // Background chrome focuses the reader; terminal and menu controls
+                // above it keep handling their own pointer events.
+                MouseArea {
+                    anchors.fill: parent; enabled: !window.overview
+                    onClicked: window.focusPane(pane.index)
+                }
                 Text { x: 14; y: 10; width: parent.width - 65 - headerState.width - (headerState.width > 0 ? 12 : 0); elide: Text.ElideMiddle; text: pane.facts.title; textFormat: Text.PlainText; font.pixelSize: 12; color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground }
                 Text {
                     id: headerState; x: parent.width - 48 - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)

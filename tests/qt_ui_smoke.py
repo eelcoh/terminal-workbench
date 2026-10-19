@@ -207,6 +207,14 @@ while True:
         (root/'0'/'input').write_bytes(b'')
         raw_key('F8');wait_until(lambda:data()['creation_open'] and data()['workspace_form_mode']=='rename')
         key('Escape');wait_until(lambda:not data()['creation_open'] and data()['panes'][0]['focus'])
+        # Titles, blank header space and the outer frame select the actual reader.
+        chrome_input=[received(i) for i in range(6)];chrome_sizes=sizes()
+        for target,frame in ((1,False),(0,True),(1,False),(0,False)):
+            pane=data()['panes'][target]
+            click(pane['left']+(2 if frame else 24),pane['y'] if frame else pane['top']+18)
+            wait_until(lambda:data()['selected']==target and data()['panes'][target]['focus'])
+            time.sleep(.3)
+        assert [received(i) for i in range(6)]==chrome_input and sizes()==chrome_sizes,'chrome click changed PTY input or grids'
         typed('first');wait_until(lambda:received(0)==b'first')
         # Deliver real window wheel events, including fractional motion and sideways jitter.
         wheel_instances=[p['instance'] for p in data()['panes']];wheel_sizes=sizes()
