@@ -51,7 +51,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-text-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.text-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Text Proof")
-    qt_add_executable(workbench-terminal-probe terminal_main.cpp terminal_item.cpp terminal_item.h theme_bridge.c terminal_accessibility.cpp terminal_accessibility.h terminal_accessibility_test.cpp terminal_composition.cpp terminal_composition_test.cpp terminal_composition.h terminal_text.cpp terminal_text.h)
+    qt_add_executable(workbench-terminal-probe terminal_main.cpp terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c terminal_accessibility.cpp terminal_accessibility.h terminal_accessibility_test.cpp terminal_composition.cpp terminal_composition_test.cpp terminal_composition.h terminal_text.cpp terminal_text.h)
     qt_add_resources(workbench-terminal-probe "terminal" PREFIX "/" FILES Terminal.qml Pair.qml)
     # Ghostty formatter structs have an emit field; avoid Qt keyword macros.
     target_compile_definitions(workbench-terminal-probe PRIVATE QT_NO_KEYWORDS)
@@ -64,13 +64,13 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-terminal-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.terminal-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
-    qt_add_executable(workbench-ui-study ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h theme_bridge.c
+    qt_add_executable(workbench-ui-study ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
     target_include_directories(workbench-ui-study PRIVATE "${VT_ROOT}/include")
     target_link_libraries(workbench-ui-study PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
-    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml)
+    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml TerminalSearch.qml)
     qt_add_resources(workbench-ui-study "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
         FILES "../../fonts/jetbrains-mono/JetBrainsMono-Regular.ttf" "../../fonts/jetbrains-mono/OFL.txt" "../../fonts/adwaita-sans/AdwaitaSans-Regular.ttf" "../../fonts/adwaita-sans/OFL.txt" "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")
@@ -87,6 +87,12 @@ if(WORKBENCH_TERMINAL_PROBE)
     target_compile_options(workbench-view-state-test PRIVATE -Wall -Wextra)
     target_link_libraries(workbench-view-state-test PRIVATE Qt6::Core)
     set_target_properties(workbench-view-state-test PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)
+    qt_add_executable(workbench-search-test terminal_search_test.cpp terminal_search.cpp terminal_search.h search_bridge.c)
+    target_compile_definitions(workbench-search-test PRIVATE QT_NO_KEYWORDS)
+    target_compile_options(workbench-search-test PRIVATE -Wall -Wextra)
+    target_include_directories(workbench-search-test PRIVATE "${VT_ROOT}/include")
+    target_link_libraries(workbench-search-test PRIVATE Qt6::Core "${VT_ROOT}/lib/libghostty-vt.a")
+    set_target_properties(workbench-search-test PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)
     qt_add_executable(workbench-scroll-test terminal_scroll_test.cpp)
     target_compile_options(workbench-scroll-test PRIVATE -Wall -Wextra)
     target_link_libraries(workbench-scroll-test PRIVATE Qt6::Core)
@@ -116,7 +122,7 @@ if(WORKBENCH_TERMINAL_PROBE)
     target_compile_options(workbench-theme-import-test PRIVATE -Wall -Wextra)
     target_link_libraries(workbench-theme-import-test PRIVATE Qt6::Gui Qt6::Network)
     set_target_properties(workbench-theme-import-test PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)
-    qt_add_executable(workbench-live-bench live_bench.cpp terminal_item.cpp terminal_item.h theme_bridge.c
+    qt_add_executable(workbench-live-bench live_bench.cpp terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
         terminal_accessibility.cpp terminal_accessibility.h terminal_composition.cpp terminal_composition.h
         terminal_text.cpp terminal_text.h)
     target_compile_definitions(workbench-live-bench PRIVATE QT_NO_KEYWORDS)

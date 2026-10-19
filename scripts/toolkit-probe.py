@@ -13,8 +13,10 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "scroll-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "search-test", "scroll-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
+    parser.add_argument("--search-only",action="store_true",help="Run the focused search UI regression on both Linux backends")
     args = parser.parse_args()
+    if args.search_only and args.mode!="ui-test":parser.error("--search-only requires ui-test")
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "ui-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
     if args.mode=="scene-perf-test" and not sys.platform.startswith("linux"):
@@ -23,12 +25,13 @@ def main():
         parser.error("live-perf-test uses private Linux Xvfb; use live-perf for native Mac measurements")
     performance=args.mode in ("perf","scene-perf","scene-perf-test","live-perf","live-perf-test")
     build=ROOT/".local/build/qt-performance" if performance else BUILD
-    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("scroll-test","workbench","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
+    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("search-test","scroll-test","workbench","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
     if performance:configure.append("-DCMAKE_BUILD_TYPE=Release")
     subprocess.run(configure,check=True)
     command=["cmake","--build",str(build),"--parallel"]
     if performance:command.extend(["--target","workbench-live-bench" if args.mode in ("live-perf","live-perf-test") else "workbench-text-bench" if args.mode=="perf" else "workbench-scene-bench"])
     if args.mode in ("workbench","ui","ui-test"):command.extend(["--target","workbench-ui-study"])
+    if args.mode=="search-test":command.extend(["--target","workbench-search-test"])
     if args.mode=="scroll-test":command.extend(["--target","workbench-scroll-test"])
     if args.mode=="catalog-test":command.extend(["--target","workbench-catalog-test"])
     if args.mode=="view-state-test":command.extend(["--target","workbench-view-state-test"])
@@ -38,6 +41,9 @@ def main():
     if args.mode=="runtime-facts-test":command.extend(["--target","workbench-runtime-facts-test"])
     if args.mode=="theme-import-test":command.extend(["--target","workbench-theme-import-test"])
     subprocess.run(command,check=True)
+    if args.mode=="search-test":
+        subprocess.run([str(build/"workbench-search-test")],check=True,timeout=30)
+        return
     if args.mode=="scroll-test":
         subprocess.run([str(build/"workbench-scroll-test")],check=True,timeout=30)
         return
@@ -66,6 +72,7 @@ def main():
         name="workbench-ui-study"
         binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name
         command=[sys.executable,str(ROOT/"tests/qt_ui_smoke.py"),str(ROOT/"target/debug/workbench-session"),str(binary)] if args.mode=="ui-test" else [sys.executable,str(ROOT/"scripts/toolkit-ui.py"),str(ROOT/"target/debug/workbench-session"),str(binary)]
+        if args.search_only:command.append("--search-only")
         if args.mode=="workbench":command.append("--saved")
         subprocess.run(command,check=True)
         if args.mode=="ui-test":

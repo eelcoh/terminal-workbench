@@ -649,6 +649,18 @@ pass at ordinary and simulated doubled density; native Mac review remains open.
 See [terminal search](terminal-search.md). Cross-terminal search, regex and case
 folding are separate follow-ups, not part of this slice.
 
+## Qt parity: find in terminal
+
+The Qt candidate now reuses the prototype's bounded literal UTF-8 scanner, with a
+lazy GUI-thread controller for debounce/batches, tracked viewport restoration and
+cached highlight spans. A compact native editable bar supports match navigation,
+Commands/menu handoff and the existing configurable search chord. Only the selected
+terminal scans; output/reflow invalidates results, closed panes do no search work,
+and queries do not enter PTY input or saved views. Retained stopped text can be
+searched without reconnect/recovery. Controller/shortcut and native Linux UI
+checks cover the slice; native Mac visual/input acceptance remains open. See
+[Qt terminal search](terminal-search.md#qt-workbench).
+
 ## Current runtime slice: stopped-shell reasons
 
 Runtime-owned lifecycle evidence now distinguishes confirmed shell exit codes,

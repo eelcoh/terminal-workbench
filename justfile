@@ -344,6 +344,14 @@ toolkit-workbench: runtime-build
 toolkit-display-report: runtime-build
     WORKBENCH_DISPLAY_REPORT="{{justfile_directory()}}/.local/artifacts/qt-display/report.json" python3 scripts/toolkit-probe.py workbench
 
+# Linux: focused native terminal search on X11 and Wayland.
+toolkit-search-gui-test: runtime-build
+    python3 scripts/toolkit-probe.py ui-test --search-only
+
+# Mac/Linux: retained terminal search and viewport lifecycle without a display.
+toolkit-search-test: runtime-build
+    python3 scripts/toolkit-probe.py search-test
+
 # Mac/Linux: fractional vertical scrolling and system-direction policy.
 toolkit-scroll-test: runtime-build
     python3 scripts/toolkit-probe.py scroll-test

@@ -63,3 +63,41 @@ PID/socket/grid. It also passes at simulated doubled backing density. Captures
 are under `.local/artifacts/search/`. F12 screenshot echo is excluded from the
 reading-area comparison and cleared before subsequent fixture shell commands.
 Native Mac keyboard/visual acceptance remains pending; Xvfb does not prove it.
+
+## Qt workbench
+
+The Qt candidate now provides the same literal search through **Find in terminal**
+in Commands, the application menu and the inherited Cmd–Option–S / Super–Alt–S
+binding. Existing `terminal.search` dotfile and UI shortcut overrides apply; the
+shortcut editor and help show the active binding. Search is disabled in Overview
+and while a terminal is still attaching.
+
+The compact bar appears over the selected terminal and reveals it if it was
+scrolled offscreen. It uses the existing themed controls and a native editable
+field without dimming the terminal. Enter/Down advances, Shift+Enter/Up reverses,
+and Tab reaches the previous/next/close buttons. Buttons accept Enter and Space.
+Matches are highlighted in the terminal; the initial selection is the last match.
+Escape, the close button or an outside click restores the starting viewport and
+returns focus. Query text is temporary and is excluded from saved window views
+and ordinary display reports.
+
+The existing bounded C scanner is shared with the prototype through a small
+adapter. A lazy Qt controller owns debounce/batch timers, the tracked viewport
+bookmark and precomputed highlight spans. Only an open search scans; VT writes
+and reflow immediately invalidate results before the next batch. Painting reads
+cached spans and never queries terminal history. Closing releases highlight-mask
+memory. Retained text in a stopped/disconnected local replica remains searchable;
+this cannot reconnect, take ownership or start a replacement shell. Its lifecycle
+controls return when search closes. Terminal replacement dismisses search safely.
+
+`just toolkit-search-test` checks the Qt controller against real Ghostty state,
+including tracked/live viewport restoration, wrapping, Unicode cell mappings,
+soft/hard line boundaries, reflow, alternate screens, mutation invalidation,
+UTF-8 query/result bounds and cancellation. `just toolkit-shortcuts-test` checks
+Mac/Linux default modifiers and managed search overrides. `just toolkit-search-gui-test` runs the focused
+search workflow on both native Linux backends; `just toolkit-ui-test`
+checks native X11/Wayland query focus, result navigation, history reveal, Commands
+handoff, live-output refresh, stopped-terminal search without recovery, viewport
+restoration, and unchanged PTY bytes/readers/grids. Captures are under
+`.local/artifacts/qt-ui/{xcb,wayland}/terminal-search*.png`. Native Mac visual,
+keyboard and clipboard acceptance remains pending.

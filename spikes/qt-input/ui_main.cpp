@@ -111,6 +111,8 @@ int main(int argc,char **argv) {
                     {"left",bounds.left()},{"top",bounds.top()},{"right",bounds.right()},{"bottom",bounds.bottom()},
                     {"x",position.x()},{"y",position.y()},{"rasterized_rows",double(item->rasterizedRows())}});
             }
+            const auto *searchPopup=window->findChild<QObject *>("terminalSearchPopup");
+            const auto *searchController=searchPopup ? searchPopup->property("controller").value<QObject *>() : nullptr;
             const auto *createButton=window->findChild<QQuickItem *>("newWorkspaceButton");
             const auto createPoint=createButton->mapToScene(QPointF(createButton->width()/2,createButton->height()/2));
             const auto center=[window](const char *name){const QQuickItem *item=window->findChild<QQuickItem *>(name);
@@ -203,6 +205,9 @@ int main(int argc,char **argv) {
                 {"navigation_first_agent",center("navigationAgent0")},{"navigation_workspace_1",center("navigationWorkspace1")},
                 {"drawer_open",window->property("drawerOpen").toBool()},{"name_focus",window->property("nameFocused").toBool()},
                 {"new_workspace_button",QJsonArray{createPoint.x(),createPoint.y()}},
+                {"terminal_search_open",window->property("terminalSearchOpen").toBool()},{"terminal_search_focus",window->property("terminalSearchFocused").toBool()},
+                {"terminal_search_state",searchController ? QJsonObject::fromVariantMap(searchController->property("state").toMap()) : QJsonObject()},
+                {"terminal_search_next",center("terminalSearchNext")},{"terminal_search_close",center("terminalSearchClose")},
                 {"panes",panes},{"platform",QGuiApplication::platformName()}};
             QSaveFile report(path);if(report.open(QIODevice::WriteOnly)){report.write(QJsonDocument(data).toJson());report.commit();}
             // Inject only through the window so tests exercise QML gesture arbitration too.

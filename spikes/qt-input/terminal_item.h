@@ -9,10 +9,14 @@
 #include <QElapsedTimer>
 #include <ghostty/vt.h>
 
+class QtTerminalSearch;
+
 // A disposable rendering/input experiment. The runtime owns the PTY and VT;
 // this client restores a snapshot and maintains only its presentation replica.
 class TerminalItem : public QQuickPaintedItem {
     Q_OBJECT
+    Q_PROPERTY(QObject *search READ searchController CONSTANT)
+    Q_PROPERTY(bool searchable READ searchable NOTIFY statusChanged)
     Q_PROPERTY(QVariantMap textFont READ textFont WRITE setTextFont NOTIFY textFontChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(bool ready READ ready NOTIFY statusChanged)
@@ -29,6 +33,8 @@ public:
     QString status() const { return status_; }
     bool ready() const { return ready_; }
     QVariantMap renderDiagnostics() const;
+    QObject *searchController();
+    bool searchable()const{return terminal_ && render_ && (ready_ || ((restored_ || legacy_) && !grid_.isEmpty() && attachment_!=QStringLiteral("connecting")));}
     QVariantMap textFont() const {return {{"family",font_.family()},{"size",fontPoints_}};}
     void setTextFont(const QVariantMap &style);
     int themeIndex() const {return themeIndex_;}
@@ -95,7 +101,7 @@ private:
     bool frame(quint8, const QByteArray &);
     void send(quint8, const QByteArray &);
     void resizeTerminal();
-    void refresh();
+    void refresh(bool retained=false);
     void applyTheme();
     void updateCursor();
     void encodeKey(QKeyEvent *, bool, bool raw=false);
@@ -115,6 +121,7 @@ private:
     bool snapshotStarted_=false, restored_=false, ready_=false, failed_=false, queued_=false;
     QString controlPath_;bool legacy_=false,attachmentSeen_=false;quint64 replayBytes_=0;
     QString status_="Connecting",attachment_="connecting";bool takeover_=false;
+    QtTerminalSearch *search_=nullptr;
     TerminalScroll wheel_;QElapsedTimer wheelTime_;
     TerminalComposition composition_;
     GhosttyTerminal terminal_=nullptr;

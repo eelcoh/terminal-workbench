@@ -74,7 +74,7 @@ ApplicationWindow {
     onWidthChanged: scheduleViewSave()
     onHeightChanged: scheduleViewSave()
     onWorkspaceChanged: scheduleViewSave()
-    onSelectedChanged: scheduleViewSave()
+    onSelectedChanged: { scheduleViewSave(); if (terminalSearch.visible) terminalSearch.close() }
     onWidthsChanged: scheduleViewSave()
     onFullWidthsChanged: scheduleViewSave()
     onRememberedChanged: scheduleViewSave()
@@ -205,6 +205,7 @@ ApplicationWindow {
         const entry = commandRegistry.find(id)
         if (!entry || !entry.available) return
         switch (id) {
+        case "terminal-search": openTerminalSearch(); break
         case "commands": openCommands(); break
         case "shortcut-settings": openShortcutSettings(); break
         case "font-settings": openFontSettings(); break
@@ -395,9 +396,38 @@ ApplicationWindow {
         else if (workspaceFormMode === "folder") studySession.setWorkspaceDirectory(editingWorkspace, newFolder.text)
         else studySession.createWorkspace(newName.text, newFolder.text)
     }
+    property bool pendingSearch: false
+    readonly property bool terminalSearchOpen: terminalSearch.visible
+    readonly property bool terminalSearchFocused: terminalSearch.queryFocused
+    function showTerminalSearch() {
+        if (overview || selected < 0 || !panel(selected) || !panel(selected).terminal.searchable) return
+        reveal()
+        const target = panel(selected).terminal
+        target.cancelForwarding()
+        terminalSearch.controller = target.search
+        if (terminalSearch.controller.begin()) terminalSearch.open()
+        else terminalSearch.controller = null
+    }
+    function openTerminalSearch() {
+        if (terminalSearch.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible || help.visible || shortcutSettings.visible || fontSettings.visible || dragSlot >= 0) return
+        if (appMenu.visible) { pendingSearch = true; appMenu.close() }
+        else showTerminalSearch()
+    }
+    TerminalSearch {
+        id: terminalSearch; objectName: "terminalSearchPopup"; parent: Overlay.overlay
+        tones: window.chrome; width: Math.min(560, window.width - window.navigationEdge - 24)
+        x: {
+            const pane = window.selected >= 0 ? window.panel(window.selected) : null
+            const right = pane ? deck.x + pane.x - deck.contentX + pane.width - 8 : window.width - 12
+            return Math.max(window.navigationEdge + 12, Math.min(window.width - width - 12, right - width))
+        }
+        y: 48
+        onFinished: Qt.callLater(window.restoreAfterPopup)
+    }
     property bool pendingForward: false
     readonly property bool forwardingArmed: selected >= 0 && panel(selected) !== null && panel(selected).terminal.forwardingArmed
     function restoreAfterPopup() {
+        if (pendingSearch) { pendingSearch = false; Qt.callLater(showTerminalSearch); return }
         if (pendingTerminalAction) { pendingTerminalAction = false; Qt.callLater(function() { if (actionExists()) terminalAction.open() }); return }
         if (pendingForward) { pendingForward = false; Qt.callLater(function() { window.dispatchCommand("forward") }); return }
         if (pendingShortcutSettings) {
@@ -410,7 +440,7 @@ ApplicationWindow {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -733,7 +763,7 @@ ApplicationWindow {
                 readonly property var lifecycle: studySession.lifecycle[terminalId] || ({state: "unavailable", message: "Checking terminal status…", busy: false})
                 Rectangle {
                     anchors.centerIn: terminal; width: Math.min(parent.width - 40, 420); height: lifecycleBody.implicitHeight + 32; radius: 10
-                    visible: !terminal.ready; color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).raised; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
+                    visible: !terminal.ready && !(terminalSearch.visible && window.selected === pane.index && terminal.searchable); color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).raised; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
                     Column {
                         id: lifecycleBody; x: 16; y: 16; width: parent.width - 32; spacing: 10
                         Label {
@@ -873,6 +903,7 @@ ApplicationWindow {
         MenuAction { objectName: "removeWorkspaceMenuItem"; text: "Remove workspace…"; enabled: window.spaces.length > 0 && !studySession.busy; onTriggered: window.requestWorkspaceClose(window.spaceIds[window.workspace]) }
         MenuRule {}
         MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: window.spaces.length > 0 && !window.overview; onTriggered: window.openAppearance() }
+        MenuAction { objectName: "terminalSearchMenuItem"; text: "Find in terminal"; keyHint: studyShortcuts.labels["terminal-search"] || ""; enabled: commandRegistry.find("terminal-search").available; onTriggered: window.openTerminalSearch() }
         MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; onTriggered: window.openFontSettings() }
         MenuAction { objectName: "shortcutSettingsMenuItem"; text: "Shortcut settings…"; onTriggered: window.openShortcutSettings() }
         MenuAction { keyHint: studyShortcuts.labels["help"] || ""; text: "Keyboard shortcuts"; onTriggered: help.open() }
@@ -1076,7 +1107,7 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: dragSlot < 0 && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     function activateShortcut(id) {
         // Boundary navigation still reveals/focuses the selected pane after scrolling.
         if (id === "previous-terminal") navigate(-1)

@@ -596,6 +596,16 @@ nonselected removal, peer rename/deletion, unchanged siblings and input, removal
 through the final workspace, disabled empty-state actions and creation afterward.
 Native Mac interaction review remains pending.
 
+## Find in terminal
+
+Use Cmd–Option–S on Mac / Super–Alt–S on Linux, or **Find in terminal** in
+Commands/the application menu. A compact, undimmed bar searches the selected
+terminal and retained scrollback, with highlighted literal matches and a counter.
+Enter/Down and Shift+Enter/Up wrap through matches; Escape/× restores the starting
+view. The query stays out of PTY input and saved views. Stopped retained terminals
+can be searched without reconnecting or recovering their shells. See
+[Qt terminal search](terminal-search.md#qt-workbench) for limits and validation.
+
 ## External-display font comparison
 
 `just toolkit-display-report` opens the saved Qt workbench and writes

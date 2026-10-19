@@ -12,6 +12,7 @@ int main(int argc,char **argv){
     QCoreApplication app(argc,argv);QTemporaryDir dir;require(dir.isValid(),"private fixture");const auto path=dir.filePath("config.conf");
     UiShortcuts linuxDefaults(path,false),macDefaults(path,true);
     require(chord(linuxDefaults,"commands","Meta+Alt+P") && chord(macDefaults,"commands","Ctrl+Alt+P"),"matching application modifiers");
+    require(chord(linuxDefaults,"terminal-search","Meta+Alt+S") && chord(macDefaults,"terminal-search","Ctrl+Alt+S") && linuxDefaults.editable("terminal-search"),"search default modifiers and editable mapping");
     require(macDefaults.labels()["commands"].toString()==QStringLiteral("⌘⌥P"),"Mac command option label");
     const QByteArray managed="workbench-config-v1\n# preserve me\n[macos.shortcuts]\ncommands = F9\n[shortcuts]\ncommands = F8\n[linux.shortcuts]\nshortcuts.help = F11\n[appearance]\nterminal-theme = unavailable-theme\n";
     write(path,managed);UiShortcuts linuxKeys(path,false),macKeys(path,true);
@@ -20,7 +21,8 @@ int main(int argc,char **argv){
     write(path,"workbench-config-v1\n[macos.shortcuts]\ncommands = Ctrl+Alt+P\n");UiShortcuts physicalControl(path,true);
     require(chord(physicalControl,"commands","Meta+Alt+P") && physicalControl.labels()["commands"].toString()==QStringLiteral("⌃⌥P"),"Mac physical Control differs from Command");
     write(path,"workbench-config-v1\n[shortcuts]\ncommands = none\nterminal.search = F8\nterminal.next = Super+Alt+Shift+Right\n");UiShortcuts unbound(path,false);
-    require(unbound.error().isEmpty() && unbound.sequences()["commands"].toString().isEmpty() && !unbound.sequences().contains("terminal.search"),"unbound and unsupported actions stay unintercepted");
+    require(unbound.error().isEmpty() && unbound.sequences()["commands"].toString().isEmpty() && !unbound.sequences().contains("terminal.search"),"unbound actions and source IDs stay unintercepted");
+    require(chord(unbound,"terminal-search","F8"),"managed terminal.search override reaches Qt search");
     require(chord(unbound,"next-terminal","Meta+Alt+Shift+Right") && unbound.sequences()["move-right"].toString().isEmpty() && !unbound.labels()["move-left"].toString().isEmpty(),"inherited move binding yields to configured action");
     write(path,"workbench-config-v1\n[shortcuts]\ncommands = F8\noverview = F8\n");UiShortcuts conflict(path,false);require(!conflict.error().isEmpty() && conflict.sequences()==linuxDefaults.sequences(),"duplicate fallback transaction");
     write(path,"workbench-config-v1\n[shortcuts]\ncommands = Ctrl+C\n");UiShortcuts reserved(path,false);require(!reserved.error().isEmpty() && reserved.sequences()==linuxDefaults.sequences(),"reserved shell controls remain reserved");

@@ -39,6 +39,7 @@ QtObject {
         row("close-workspace", "Remove workspace…", "Confirm before stopping its terminals and removing this workspace", hasWorkspace && !session.busy, !hasWorkspace ? "No workspace selected" : "Another change is in progress"),
         row("close-terminal", "Close terminal…", "Confirm before stopping and removing this terminal", hasPane && !session.busy, session.busy ? "Another change is in progress" : "No terminal selected"),
         row("forward", "Send next key to terminal", "Bypass application shortcuts once; Escape cancels", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.ready, "No connected terminal selected in the working view"),
+        row("terminal-search", "Find in terminal", "Search literal text in this terminal and its scrollback", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.searchable, "No retained terminal selected in the working view"),
         row("copy", "Copy selection", "Copy selected terminal text to the clipboard", workingPane, "No terminal selected in the working view"),
         row("paste", "Paste", "Paste clipboard text into the focused terminal", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.ready, host.overview ? "Leave Overview first" : "No connected terminal selected"),
         row("motion", host.reducedMotion ? "Enable animations" : "Reduce motion", "Change interface transitions for this window", true, ""),

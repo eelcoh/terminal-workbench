@@ -229,6 +229,42 @@ while True:
         assert received(0)==b'first' and sizes()==wheel_sizes and [p['instance'] for p in data()['panes']]==wheel_instances,'scrolling changed PTY input, grids or readers'
         (root/'0'/'cursor').write_bytes(b'\x1b[3J\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
         wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
+        # Find scans retained output, owns typing, wraps results and restores the viewport.
+        search_input=[received(i) for i in range(6)];search_sizes=sizes();search_instances=[p['instance'] for p in data()['panes']]
+        (root/'0'/'cursor').write_bytes(b''.join((('QT-FIND-NEEDLE' if i in (20,40,60) else 'find-history-%03d'%i)+'\r\n').encode() for i in range(120))+b'\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
+        wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
+        search_start=data()['panes'][0]['text']
+        wheel([-120,0],[-120,0],8);wait_until(lambda:data()['content_x']>0)
+        raw_key('super+alt+s');wait_until(lambda:data()['terminal_search_open'] and data()['terminal_search_focus'])
+        typed('QT-FIND-NEEDLE');wait_until(lambda:data()['terminal_search_state'].get('count')==3 and not data()['terminal_search_state']['busy'])
+        wait_until(lambda:abs(data()['content_x'])<1)
+        assert data()['terminal_search_state']['selected']==3 and data()['terminal_search_state']['highlight_spans']>0
+        capture('terminal-search.png')
+        key('Return');wait_until(lambda:data()['terminal_search_state']['selected']==1)
+        key('shift+Return');wait_until(lambda:data()['terminal_search_state']['selected']==3)
+        key('Tab');key('Return');wait_until(lambda:data()['terminal_search_state']['selected']==2)
+        key('Tab');key('Return');wait_until(lambda:data()['terminal_search_state']['selected']==3)
+        key('shift+Tab');key('space');wait_until(lambda:data()['terminal_search_state']['selected']==2)
+        click(*data()['terminal_search_next']);wait_until(lambda:data()['terminal_search_state']['selected']==3)
+        key('Escape');wait_until(lambda:not data()['terminal_search_open'] and data()['panes'][0]['focus'] and data()['panes'][0]['text']==search_start)
+        raw_key('super+alt+s');wait_until(lambda:data()['terminal_search_focus'])
+        typed('not-present-here');wait_until(lambda:not data()['terminal_search_state']['busy'] and data()['terminal_search_state']['count']==0)
+        raw_key('super+alt+t');raw_key('super+alt+Right');time.sleep(.1)
+        assert len(data()['panes'])==6 and data()['selected']==0 and not data()['overview']
+        key('ctrl+a');typed('QT-FIND-NEEDLE');wait_until(lambda:data()['terminal_search_state']['count']==3)
+        (root/'0'/'cursor').write_bytes(b'\r\nQT-FIND-NEEDLE')
+        wait_until(lambda:data()['terminal_search_state']['count']==4 and not data()['terminal_search_state']['busy'])
+        click(*data()['terminal_search_close']);wait_until(lambda:not data()['terminal_search_open'] and data()['panes'][0]['focus'])
+        assert [received(i) for i in range(6)]==search_input and sizes()==search_sizes and [p['instance'] for p in data()['panes']]==search_instances,'search changed shell input, grids or reader identity'
+        (root/'0'/'cursor').write_bytes(b'\x1b[3J\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
+        wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
+        if '--search-only' in sys.argv[3:]:
+            if wayland:run('niri','msg','action','close-window','--id',window)
+            else:close_window(window,env)
+            client.wait(timeout=5);assert client.returncode==0
+            assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in search regression'
+            print(('wayland' if wayland else 'xcb')+' PASS: native search, offscreen reveal, input isolation, wrap, keyboard/mouse match controls, output refresh and viewport restoration')
+            sys.exit(0)
         # Pinning reserves layout space; navigation stays usable without modal focus.
         nav_sizes=sizes();nav_instances=[p['instance'] for p in data()['panes']]
         click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
@@ -374,6 +410,8 @@ while True:
         command_search('previous terminal');assert not data()['command_matches'][0]['available'] and data()['command_matches'][0]['reason']
         key('Return');time.sleep(.1);assert data()['commands_open'] and data()['selected']==0
         key('Escape');wait_until(lambda:not data()['commands_open'])
+        command_search('find in terminal');key('Return');wait_until(lambda:data()['terminal_search_open'] and data()['terminal_search_focus'] and not data()['commands_open'])
+        key('Escape');wait_until(lambda:not data()['terminal_search_open'] and data()['panes'][0]['focus'])
         command_search('new workspace');key('Return');wait_until(lambda:data()['creation_open'] and not data()['commands_open'] and data()['name_focus'])
         assert data()['workspace_count']==3 and data()['name_input']=='','palette Enter submitted the next dialog'
         key('Escape');wait_until(lambda:not data()['creation_open'])
@@ -852,6 +890,12 @@ while True:
         click(*data()['panes'][8]['check_action'])
         wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='stopped' and '42' in data()['panes'][8]['lifecycle'].get('message',''))
         capture('lifecycle-exit-42.png')
+        stopped_attempts=data()['panes'][8]['attachment_attempts']
+        raw_key('super+alt+s');wait_until(lambda:data()['terminal_search_focus'])
+        typed('exit 42');wait_until(lambda:data()['terminal_search_state'].get('count',0)>0 and not data()['terminal_search_state']['busy'])
+        capture('terminal-search-stopped.png');key('Escape');wait_until(lambda:not data()['terminal_search_open'])
+        assert not data()['panes'][8]['ready'] and data()['panes'][8]['attachment_attempts']==stopped_attempts and request(root,Path(runtime),root,'terminal.lifecycle',target_identity)['state']=='stopped','search recovered or reattached a stopped shell'
+
         evidence=target_socket.with_suffix('.lifecycle');record=evidence.read_bytes();evidence.unlink()
         click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('reason')=='unknown')
         assert 'no exit reason' in data()['panes'][8]['lifecycle']['message']
@@ -969,6 +1013,8 @@ while True:
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
         print(('wayland' if wayland else 'xcb')+' PASS: native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+    except SystemExit:
+        raise
     except BaseException:
         if report.exists():(artifacts/'failure.json').write_bytes(report.read_bytes())
         for evidence in root.glob('*.log'):(artifacts/('failure-'+evidence.name)).write_bytes(evidence.read_bytes())

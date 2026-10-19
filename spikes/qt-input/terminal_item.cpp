@@ -1,5 +1,6 @@
 #include <QFontInfo>
 #include "terminal_item.h"
+#include "terminal_search.h"
 #include "local_socket.h"
 #include "theme_bridge.h"
 #include "platform_keys.h"
@@ -89,7 +90,7 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
         fail("Ghostty initialization failed"); return;
     }
     refreshTimer_.setSingleShot(true); refreshTimer_.setInterval(16);
-    connect(&refreshTimer_,&QTimer::timeout,this,&TerminalItem::refresh);
+    connect(&refreshTimer_,&QTimer::timeout,this,[this]{refresh();});
     handshakeTimer_.setSingleShot(true); handshakeTimer_.setInterval(10000);
     connect(&handshakeTimer_,&QTimer::timeout,this,[this]{fail("Attachment timed out");});
     connect(this,&TerminalItem::statusChanged,this,[this]{
@@ -116,6 +117,7 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
 }
 TerminalItem::~TerminalItem()
 {
+    delete search_;search_=nullptr;
     socket_.disconnect(this); socket_.abort();
     ghostty_key_event_free(event_); ghostty_key_encoder_free(encoder_);
     ghostty_render_state_row_cells_free(cells_); ghostty_render_state_row_iterator_free(rows_);
@@ -130,6 +132,7 @@ void TerminalItem::connectSession(const QString &path)
 void TerminalItem::reconnectSession(const QString &path,bool takeover) {
     if(!render_ || !encoder_ || !event_ || attachment_=="connecting" || ready_)return;
     failed_=true;socket_.abort();handshakeTimer_.stop();refreshTimer_.stop();
+    if(search_)search_->close(false);
     receive_.clear();snapshot_.clear();snapshotSize_=0;snapshotStarted_=restored_=queued_=false;
     wheel_.reset();wheelTime_.invalidate();
     wantedColumns_=wantedLines_=0;takeover_=takeover;controlPath_=path;legacy_=false;attachmentSeen_=false;replayBytes_=0;
@@ -268,7 +271,9 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
         ghostty_render_state_row_cells_free(cells_);cells_=nullptr;
         ghostty_render_state_row_iterator_free(rows_);rows_=nullptr;
         ghostty_render_state_free(render_);render_=nullptr;
+        if(search_)search_->close(false);
         ghostty_terminal_free(terminal_);terminal_=next;
+        if(search_)search_->setTerminal(terminal_);
         if(ghostty_render_state_new(nullptr,&render_)!=GHOSTTY_SUCCESS
             || ghostty_render_state_row_iterator_new(nullptr,&rows_)!=GHOSTTY_SUCCESS
             || ghostty_render_state_row_cells_new(nullptr,&cells_)!=GHOSTTY_SUCCESS)return false;
@@ -281,12 +286,14 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
     if(kind==2 && (restored_ || legacy_) && data.size()==4) {
         columns_=qFromBigEndian<quint16>(data.constData());lines_=qFromBigEndian<quint16>(data.constData()+2);
         if(!columns_ || !lines_ || columns_>1000 || lines_>1000)return false;
+        if(search_)search_->invalidate();
         if(ghostty_terminal_resize(terminal_,columns_,lines_,0,0)!=GHOSTTY_SUCCESS)return false;
     } else if(kind==3 && (restored_ || legacy_) && !ready_ && data.isEmpty()) {
         ready_=true;attachment_="attached";status_=legacy_ ? "Attached · legacy replay" : "Attached · experimental Qt painter";handshakeTimer_.stop();
         Q_EMIT statusChanged(); resizeTerminal();
     } else if(kind==1 && (ready_ || legacy_)) {
         if(!ready_){replayBytes_+=quint64(data.size());if(replayBytes_>16*1024*1024){fail("Legacy replay exceeds its 16 MiB limit.");return false;}}
+        if(search_)search_->invalidate();
         ghostty_terminal_vt_write(terminal_,reinterpret_cast<const uint8_t *>(data.constData()),data.size());
         receivedBytes_+=quint64(data.size());
     } else return false;
@@ -313,9 +320,9 @@ void TerminalItem::resizeTerminal()
     wantedColumns_=cols;wantedLines_=rows;dragging_=false;
     QByteArray data(4,0);qToBigEndian(cols,data.data());qToBigEndian(rows,data.data()+2);send(17,data);
 }
-void TerminalItem::refresh()
+void TerminalItem::refresh(bool retained)
 {
-    if(!terminal_ || failed_)return;
+    if(!terminal_ || !render_ || (failed_ && !retained))return;
     const auto oldCursorStyle=cursorStyle_;const auto oldCursorColor=cursorColor_;const auto oldCaret=caret_;const bool oldCursorVisible=cursorVisible_;const auto oldBackground=background_;
     const bool notify=QAccessible::isActive() && isVisible();
     const auto previous=notify ? accessibleSnapshot() : AccessibleSnapshot();
@@ -355,6 +362,7 @@ void TerminalItem::refresh()
         }
         grid_.push_back(std::move(row));
     }
+    if(search_)search_->viewportChanged();
     // Shape/rasterize only changed rows on the GUI thread. Paint receives images;
     // QRawFont glyph runs must not be moved to Qt Quick's render thread.
     const bool presentable=presentationEnabled_ && isVisible() && window() && window()->visibility()!=QWindow::Hidden && window()->visibility()!=QWindow::Minimized;
@@ -433,6 +441,12 @@ void TerminalItem::paint(QPainter *painter)
     painter->fillRect(boundingRect(),background_);
     painter->setRenderHint(QPainter::TextAntialiasing,true);
     paintTerminalGrid(*painter,grid_,textRows_,cellWidth_,cellHeight_,QPointF(8,8));
+    if(search_ && search_->active())for(const auto &span:search_->spans()) {
+        const auto &cells=span.cells;
+        const QRectF rect(8+cells.x()*cellWidth_,8+cells.y()*cellHeight_,cells.width()*cellWidth_,cellHeight_);
+        QColor ink=cursorColor_;ink.setAlpha(span.selected?85:38);painter->fillRect(rect,ink);
+        if(span.selected){const qreal stroke=1/(window()?window()->devicePixelRatio():1);QPen pen(cursorColor_);pen.setWidthF(stroke);painter->setPen(pen);painter->setBrush(Qt::NoBrush);painter->drawRect(rect.adjusted(stroke/2,stroke/2,-stroke/2,-stroke/2));}
+    }
     if(cursorVisible_) {
         if(!cursorFocused_ || cursorStyle_==GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK_HOLLOW) {
             const qreal stroke=1/(window()?window()->devicePixelRatio():1);
@@ -639,6 +653,15 @@ void TerminalItem::mouseReleaseEvent(QMouseEvent *event)
 {
     if(dragging_ && selectionStarted_)select(event->position(),false);
     dragging_=false;selectionStarted_=false;event->accept();
+}
+QObject *TerminalItem::searchController()
+{
+    if(!search_) {
+        search_=new QtTerminalSearch(terminal_,this);
+        connect(search_,&QtTerminalSearch::viewportRequested,this,[this]{refresh(true);update(boundingRect().toAlignedRect());});
+        connect(search_,&QtTerminalSearch::changed,this,[this]{update(boundingRect().toAlignedRect());});
+    }
+    return search_;
 }
 // Explicit display diagnostics only; never called by parsing or painting.
 QVariantMap TerminalItem::renderDiagnostics() const
