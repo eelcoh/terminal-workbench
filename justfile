@@ -340,6 +340,10 @@ toolkit-ui: runtime-build
 toolkit-workbench: runtime-build
     python3 scripts/toolkit-probe.py workbench
 
+# Opt-in font/display metadata for a controlled native screen comparison.
+toolkit-display-report: runtime-build
+    WORKBENCH_DISPLAY_REPORT="{{justfile_directory()}}/.local/artifacts/qt-display/report.json" python3 scripts/toolkit-probe.py workbench
+
 # Mac/Linux: fractional vertical scrolling and system-direction policy.
 toolkit-scroll-test: runtime-build
     python3 scripts/toolkit-probe.py scroll-test

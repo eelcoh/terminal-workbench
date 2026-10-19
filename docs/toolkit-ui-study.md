@@ -595,3 +595,44 @@ Linux UI checks cover scoped list keys, creation separation, Cancel/initial Ente
 nonselected removal, peer rename/deletion, unchanged siblings and input, removal
 through the final workspace, disabled empty-state actions and creation afterward.
 Native Mac interaction review remains pending.
+
+## External-display font comparison
+
+`just toolkit-display-report` opens the saved Qt workbench and writes
+`.local/artifacts/qt-display/report.json`. It uses the normal saved-session
+launcher: closing the window detaches and keeps shells running. Use one diagnostic
+window at a time; the report is replaced atomically as its state changes.
+
+The report contains the Qt version/platform/graphics backend, logical window and
+screen geometry, display/window scale, expected backing size, requested and
+resolved base font face/size/weight, cell metrics, retained row-image scale and
+text origins in device pixels. It contains no terminal text, working directories,
+workspace titles or process details. It does not identify every fallback font used
+for individual Unicode glyphs. `exact_font_match: false` alone is not an error;
+font size rounding or substitution can make that flag false. Compare the resolved
+family, pixel size and metrics too. Backing dimensions are calculated from logical
+window size and DPR, not measured GPU texture dimensions.
+
+For the LG/Mac comparison:
+
+1. Open the working view, outside Overview. Choose the same font face, size and
+   theme in Workbench and native Ghostty, with the same plain-text content. Avoid
+   comparing a large bold prompt in one window with small regular text in another.
+2. On the LG screen, wait a second after moving/resizing the window. Take an
+   original-resolution screenshot and copy `report.json` to a separate LG-named
+   file, before moving the window again.
+3. Move the window onto the MacBook display, wait a second, and save a second
+   screenshot/report pair. Repeat after unplugging the LG to review window-size
+   recovery. Keep macOS display scaling at the settings used for the screenshot.
+
+The new LG screenshot shows intact pane borders, but its different font sizes
+prevent a controlled sharpness comparison. Do not infer that another rasterizer
+change is needed from that image alone. These reports make scale/font mismatches
+visible; they do not measure perceived sharpness or establish a rendering fix.
+
+For a different output path, set `WORKBENCH_DISPLAY_REPORT=/absolute/file.json`
+when running `just toolkit-workbench`. Ordinary launches create no report and
+install no diagnostic observers. Enabled reporting is debounced after display,
+geometry, attachment and font changes, outside paint/parse paths. Native Linux UI
+checks exercise populated reports, font updates, resize updates and absence of
+terminal content/runtime paths. Physical Mac mixed-display acceptance remains open.

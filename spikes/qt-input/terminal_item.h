@@ -28,6 +28,7 @@ public:
     QString attachment() const{return attachment_;}
     QString status() const { return status_; }
     bool ready() const { return ready_; }
+    QVariantMap renderDiagnostics() const;
     QVariantMap textFont() const {return {{"family",font_.family()},{"size",fontPoints_}};}
     void setTextFont(const QVariantMap &style);
     int themeIndex() const {return themeIndex_;}

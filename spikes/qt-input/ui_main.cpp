@@ -3,6 +3,7 @@
 #include "chrome_icon.h"
 #include <QFontDatabase>
 #include "ui_session.h"
+#include "ui_display_report.h"
 #include "ui_themes.h"
 #include "ui_fonts.h"
 #include "ui_view_state.h"
@@ -16,6 +17,7 @@
 #include <QQuickStyle>
 #include <QQuickWindow>
 #include <QFile>
+#include <QFileInfo>
 #include <QSaveFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -67,6 +69,11 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
     engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
     auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
+    const auto displayReport=qEnvironmentVariable("WORKBENCH_DISPLAY_REPORT");
+    if(!displayReport.isEmpty()) {
+        new UiDisplayReport(window,displayReport);
+        std::fprintf(stderr,"Qt display report: %s\n",qPrintable(QFileInfo(displayReport).absoluteFilePath()));
+    }
     QObject::connect(&app,&QCoreApplication::aboutToQuit,window,[window]{QMetaObject::invokeMethod(window,"persistView");});
     // Explicit test-only snapshots; no user terminal content is recorded by default.
     const int reportIndex=args.indexOf("--test-report");QTimer reporter;

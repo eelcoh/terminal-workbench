@@ -536,6 +536,19 @@ before adopting further renderer changes. The earlier
 external screen and unplug recovery remain pending; see
 [display details](interface-typography.md#display-changes-and-pane-outlines).
 
+## Qt external-display comparison diagnostics
+
+The LG screenshot supplied on 2026-10-19 shows intact Qt pane borders, but different
+font sizes prevent a controlled sharpness comparison with native Ghostty.
+`just toolkit-display-report` now launches saved Qt sessions with opt-in metadata
+for the resolved base font, cell metrics, window/display DPR, retained row-image
+DPR, device-pixel origins and graphics backend. Reports update after relevant
+client changes, outside render/parse, without terminal text or project paths.
+Native Linux checks cover startup, font/resize updates and content-free output.
+This adds evidence for the Mac display acceptance gate; it does not change the
+rasterizer or claim that sharpness or unplug recovery is fixed. See
+[the matched comparison procedure](toolkit-ui-study.md#external-display-font-comparison).
+
 ## UX spike: a product-quality gate
 
 The UX spike is a dedicated milestone, not a final cosmetic pass. Build a runnable

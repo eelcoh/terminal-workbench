@@ -1,3 +1,4 @@
+#include <QFontInfo>
 #include "terminal_item.h"
 #include "local_socket.h"
 #include "theme_bridge.h"
@@ -638,6 +639,22 @@ void TerminalItem::mouseReleaseEvent(QMouseEvent *event)
 {
     if(dragging_ && selectionStarted_)select(event->position(),false);
     dragging_=false;selectionStarted_=false;event->accept();
+}
+// Explicit display diagnostics only; never called by parsing or painting.
+QVariantMap TerminalItem::renderDiagnostics() const
+{
+    const QFontInfo actual(font_);
+    const qreal dpr=window()?window()->devicePixelRatio():1;
+    const auto origin=mapToScene(QPointF(8,8));
+    return {{"requested_family",font_.family()},{"requested_points",font_.pointSizeF()},
+        {"resolved_family",actual.family()},{"resolved_style",actual.styleName()},
+        {"resolved_points",actual.pointSizeF()},{"resolved_pixels",actual.pixelSize()},
+        {"resolved_weight",actual.weight()},{"exact_font_match",actual.exactMatch()},
+        {"cell_width",cellWidth_},{"cell_height",cellHeight_},{"ascent",ascent_},
+        {"row_image_dpr",textRasterScale()},{"columns",columns_},{"rows",lines_},
+        {"origin_device_x",origin.x()*dpr},{"origin_device_y",origin.y()*dpr},
+        {"presented",presentationEnabled_ && isVisible()},{"ready",ready_},
+        {"background",background_.name()},{"paint_target",int(renderTarget())}};
 }
 void TerminalItem::wheelEvent(QWheelEvent *event)
 {

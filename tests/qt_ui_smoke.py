@@ -81,6 +81,8 @@ while True:
             run('wayland-scanner','client-header',protocol,root/'virtual-keyboard.h');run('wayland-scanner','private-code',protocol,root/'virtual-keyboard.c')
             flags=run('pkg-config','--cflags','--libs','wayland-client','xkbcommon').split()
             run('cc','-std=c11','-Wall','-Wextra','-Werror','-I'+str(root),ROOT/'tests/wayland_keyboard.c',root/'virtual-keyboard.c','-o',root/'keyboard',*flags)
+        display_report=artifacts/'display-report.json';display_report.unlink(missing_ok=True)
+        env['WORKBENCH_DISPLAY_REPORT']=str(display_report)
         client=subprocess.Popen([viewer,str(config),'--test-report',str(report)],env=env,stdout=log,stderr=log);processes.append(client)
         def data():
             try:return json.loads(report.read_text())
@@ -97,6 +99,16 @@ while True:
             run('niri','msg','action','move-floating-window','--x','70','--y','50');time.sleep(.35)
         else:
             window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
+        def display_data():
+            try:return json.loads(display_report.read_text())
+            except (FileNotFoundError,ValueError):return {}
+        wait_until(lambda:len(display_data().get('panes',[]))==6 and all(p['ready'] for p in display_data()['panes']))
+        display=display_data()
+        assert display['schema']==1 and display['platform']==data()['platform'] and display['window_dpr']>0
+        assert display['graphics_api']!='other' and display['screen']['logical_dpi']>0
+        assert all(p['resolved_family'] and p['cell_width']>0 and p['cell_height']>0 for p in display['panes'])
+        assert any(p['presented'] and abs(p['row_image_dpr']-display['window_dpr'])<.01 for p in display['panes'])
+        assert 'UI-READY' not in display_report.read_text() and str(root) not in display_report.read_text(),'display diagnostics exposed terminal content or runtime paths'
         # Xdotool incorrectly synthesizes Alt for bare function keys in this XKB map.
         # Use XTest's physical keycode path for those keys, as a real keyboard does.
         xdisplay=None
@@ -395,6 +407,7 @@ while True:
         command_search('bundled font');key('Return');wait_until(lambda:data()['font_settings_open'] and not data()['commands_open'])
         click(*data()['font_jetbrains']);click(*data()['font_plus']);wait_until(lambda:settled_font('JetBrains Mono',17))
         click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
+        wait_until(lambda:all(p['requested_family']=='JetBrains Mono' and p['requested_points']==17 for p in display_data().get('panes',[])) and len(display_data().get('panes',[]))==6)
         font_layer=root/'ui/linux/terminal-font.json';font_saved=font_layer.read_bytes()
         assert json.loads(font_saved)=={'version':1,'family':'JetBrains Mono','size':17}
         font_menu();click(*data()['font_defaults_button']);wait_until(lambda:settled_font('Fira Code',16))
@@ -910,6 +923,7 @@ while True:
         boxes=data()['chrome_boxes']
         assert boxes['workspace'][2] < boxes['indicators'][0] and boxes['indicators'][2] < boxes['count'][0]
         assert boxes['count'][2] <= boxes['add'][0] and boxes['add'][2] < boxes['overview'][0],'top-bar controls overlap'
+        wait_until(lambda:display_data().get('window_logical_size',[0])[0]==data()['window_width'])
         capture('chrome-narrow.png')
         # Narrow Overview keeps readable two-column previews and stable PTY grids.
         overview_sizes=sizes();overview_ids=[p['instance'] for p in data()['panes']]
