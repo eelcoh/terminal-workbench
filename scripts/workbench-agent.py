@@ -15,7 +15,7 @@ def arguments(agent, tail):
         if not (plugin / 'hooks.json').is_file():
             raise ValueError('Copilot observers are missing; rebuild with just spike.')
         return ['copilot', '--plugin-dir', str(plugin), *tail]
-    command = shlex.join(['python3', str(Path(__file__).with_name('agent-hook.py')), agent])
+    command = shlex.join([sys.executable, str(Path(__file__).with_name('agent-hook.py')), agent])
     events = COMMON + (('Interrupt',) if agent == 'codex' else ('PostToolUseFailure', 'Notification', 'Elicitation', 'ElicitationResult'))
     hooks = {event: [{'hooks': [{'type': 'command', 'command': command, 'timeout': 2}]}] for event in events}
     if agent == 'claude':

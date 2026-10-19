@@ -1406,3 +1406,33 @@ open. Do not overwrite or relocate a live payload. See
 The owner confirmed on 2026-10-19 that vertical scrolling now works on Mac.
 This closes the reported trackpad responsiveness regression; mixed-display
 sharpness and unplug behavior remain separate native acceptance checks.
+
+
+## Preview desktop entry points
+
+The Mac stage now contains a movable `Terminal Workbench Preview.app` with its
+Python/runtime/agent payload inside Resources. A small native bootstrap resolves
+its own bundle and the Python path recorded at build time, without requiring a
+terminal's PATH. The final bundle is signed locally ad hoc. Linux offers explicit
+`--install-desktop-entry` after relocation, preserving unrecognized existing
+entries. A Distrobox-built preview records the container and routes its host
+app-menu entry through `distrobox enter`. Desktop application identity is separate
+from the uninstalled UI study.
+
+Desktop launch redirects output to a private append-only `launch.log` in user
+state, then execs the viewer with an inherited window-slot lease. Qt removes the
+private launch configuration immediately after reading it. Launcher/exec failures
+release their lease and temporary config without stopping shells. No service
+handoff, session migration or automatic restart is introduced. Terminal launches
+retain their existing subprocess/cleanup behavior.
+
+The stage smoke starts the real copied Qt viewer in console and desktop modes on
+Linux offscreen/software, checking renderer readiness, actual exec replacement,
+lease retention and config cleanup. The desktop launcher check compiles the Mac
+bootstrap on Linux with only `_NSGetExecutablePath` substituted, exercises a moved
+app with a minimal PATH, and checks logs, exec failures, lease release, live shell
+preservation and symlink-log refusal. Linux GLib launches cover reserved path
+characters and Distrobox argv routing; desktop-file validation and unmanaged-file
+protection pass. This does not prove native Finder, codesigning or physical app
+menu behavior. Those reviews, bundled dependencies and installed-version lifecycle
+remain open. See [preview launch and review steps](qt-staged-preview.md).

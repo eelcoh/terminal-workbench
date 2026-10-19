@@ -47,6 +47,14 @@ int main(int argc,char **argv) {
     QFile config(QString::fromLocal8Bit(argv[1]));if(!config.open(QIODevice::ReadOnly))return 2;
     const auto configuration=QJsonDocument::fromJson(config.readAll()).object();
     if(!configuration["catalog"].isObject() || configuration["state"].toString().isEmpty())return 2;
+    if(configuration["installed_preview"].toBool()) {
+        app.setApplicationName("Terminal Workbench Preview");
+        app.setDesktopFileName("terminal-workbench-qt-preview");
+    }
+    if(args.contains("--remove-launch-config")) {
+        config.close();
+        if(!QFile::remove(config.fileName()))std::fputs("Qt preview: could not remove launch configuration\n",stderr);
+    }
     UiSession session(configuration);
     UiViewState view(configuration["view_state"].toString());
 #if defined(Q_OS_MACOS)

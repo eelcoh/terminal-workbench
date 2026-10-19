@@ -188,8 +188,9 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    Unsupported signals retain honest fallback.
 5. The Qt candidate now has a same-machine staged preview outside the checkout:
    `just toolkit-stage` creates a movable launcher/payload with separate user state.
-   System Qt/Python remain required. Finish native Mac startup review, dependency
-   bundling, desktop/Finder integration and installed-session handoff before calling
+   Finder bundles and explicit Linux app-menu registration are implemented, with
+   private desktop launch logs. System Qt/Python remain required. Finish native
+   Finder/signing and app-menu review, dependency bundling and installed-session handoff before calling
    this an installable release. Decide the product name and update approach first.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins

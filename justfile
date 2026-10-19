@@ -403,3 +403,7 @@ toolkit-stage: runtime-build
 # Relocation, saved-session survival and real staged Qt startup.
 toolkit-stage-test: toolkit-stage
     python3 tests/qt_staged_preview_test.py target/debug/workbench-session
+
+# Desktop entry decoding, Finder bootstrap handoff and private launch logs.
+toolkit-desktop-launcher-test: toolkit-stage
+    python3 tests/qt_desktop_launcher_test.py target/debug/workbench-session

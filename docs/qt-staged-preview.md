@@ -1,23 +1,68 @@
 # Staged Qt preview
 
 `just toolkit-stage` builds the Qt candidate and copies a new, independent
-preview into `.local/staged/qt-preview-…`. It prints the launch command.
-Move that whole directory to a convenient location **before its first launch**,
-then run its `terminal-workbench` executable from a terminal. No checkout,
-Cargo, CMake or `just` is needed to run it.
+preview into `.local/staged/qt-preview-…`. **It builds the preview without
+opening a window.** The successful output gives its location and an executable
+command under **Open a window**. Copy and run that command to start it.
+No checkout, Cargo, CMake or `just` is needed to run the resulting preview.
 
-This is a same-machine preview: Python 3 and the Qt installation used to build
-it must remain available. Build and run inside `build-machine` on this Linux
-workstation. On Mac, build and run natively with the existing Qt/Python setup.
-The copied Mac viewer bundle is an internal component; launch through
-`terminal-workbench`, rather than opening that bundle directly. Finder launch,
-bundled Qt/Python, signing, desktop integration and distributable packages are
-still pending. The production toolkit has not been selected.
+This is a same-machine preview. The Python installation recorded at build time
+and the Qt installation used to build it must remain available. Dependencies
+are not bundled yet. The production toolkit has not been selected.
+
+## Mac: open the app
+
+The printed directory contains **Terminal Workbench Preview.app**. Move that
+app to a convenient location, such as `~/Applications`, **before its first
+launch**, then open it in Finder. The app contains the runtime, service, agent
+wrappers and client. The sibling `terminal-workbench` command works while the app remains beside it.
+Moving the app alone keeps its payload intact; use the launcher inside the app
+for terminal commands after that move.
+
+The native bootstrap uses the recorded Python path, rather than searching
+Finder's PATH. Python then replaces itself with the Qt viewer, retaining the
+window lease. Locally built bundles are signed ad hoc; this is not a signed,
+notarized distribution. Native Finder launch/signature acceptance is pending.
+Bundle metadata follows [Apple's application bundle layout](https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html).
+
+To review: build, move the app, open it in Finder, type in a terminal, close the
+window and reopen the app. The same shell should remain. `open -n "/path/to/Terminal Workbench Preview.app"`
+opens another instance for the existing multiwindow flow.
+
+## Linux: add to the app menu
+
+On this workstation, build and run in `build-machine`. Move the **whole preview
+directory** to its final location before first launch. From that location run:
+
+```sh
+./terminal-workbench --install-desktop-entry
+```
+
+This explicitly installs a user entry under `$XDG_DATA_HOME/applications`
+(default `~/.local/share/applications`). Builds made in Distrobox record the
+container name; the entry launches through `distrobox enter … --` on the host.
+A native Linux build launches directly. App-menu registration does not happen
+automatically while building. The entry uses the relocated absolute path, so
+install it after moving the directory. Remove the entry
+`terminal-workbench-qt-preview.desktop` to remove it from the app menu.
+Existing entries without the Workbench preview marker are preserved.
+The command uses [desktop entry Exec quoting](https://xdg.pages.freedesktop.org/xdg-specs/desktop-entry/latest/exec-variables.html), without shell command evaluation.
+
+## Launch logs
+
+Desktop/Finder starts write a private `launch.log` in the preview state directory,
+by default `~/.local/state/terminal-workbench/qt-preview/launch.log`. Both launcher
+and Qt output go there. A new start appends a timestamp; normal terminal launches
+continue to show output in the terminal. If Python itself is missing, the Mac
+bootstrap shows an error asking you to rebuild. Failures after Python starts
+are logged; launcher errors also show an alert/notification when available.
+A Qt loader failure can still exit with only details in the log.
 
 ## User files and sessions
 
-Run `./terminal-workbench --paths` to inspect paths without opening a window,
-creating files or starting sessions.
+Run the terminal launcher with `--paths` to inspect paths without opening a
+window, creating files or starting sessions. On Mac the launcher inside the
+moved app is `Contents/Resources/workbench/terminal-workbench`.
 
 - Preferences and themes use `~/.config/terminal-workbench` on both platforms.
   `XDG_CONFIG_HOME` and `WORKBENCH_CONFIG_DIR` keep their existing behavior.
@@ -29,14 +74,16 @@ creating files or starting sessions.
 - Checkout sessions are not automatically imported. Existing stopped terminals
   stay stopped; closing a window detaches and leaves shells running.
 
-Keep the preview directory in place while its sessions or service are running.
-Do not replace its files to update it. Every staging command creates a fresh
-preview directory. Live service handoff between staged versions, updates and
-session migration are not implemented yet; opening another staged version
-against the same running service reports a configuration mismatch.
+Keep the preview in place while its sessions or service are running. Do not
+replace its files to update it. Every staging command creates a fresh preview.
+Live service handoff between staged versions, updates and session migration are
+not implemented yet; opening another staged version against the same running
+service reports a configuration mismatch.
 
 To retire a preview: close its windows, first use **Stop all terminals…** if you
-want to stop its shells, then stop the session service explicitly:
+want to stop its shells, then stop the session service explicitly. Run from the
+payload directory (the preview root on Linux, or
+`Terminal Workbench Preview.app/Contents/Resources/workbench` on Mac):
 
 ```sh
 python3 ./scripts/session_service.py stop \
@@ -51,7 +98,15 @@ shells running. Removing the preview does not delete user preferences or state.
 
 `just toolkit-stage-test` checks launch after moving the payload, helper paths
 with spaces, agent wrapper/plugin arguments, saved shell survival on viewer
-exit, and stopped-terminal preservation. On Linux it also launches the copied
-Qt viewer with the offscreen platform and verifies that the window and terminal
-renderers become ready. That is a startup check, not native display/GPU or Mac
-packaging acceptance.
+exit, and stopped-terminal preservation. On Linux it starts the copied Qt viewer
+with the offscreen platform in terminal and desktop modes, checking ready
+renderers, exec handoff, configuration cleanup and retained window leases.
+
+`just toolkit-desktop-launcher-test` checks a moved Mac app with its payload,
+recorded-Python bootstrap arguments with a minimal PATH, private logs, exec
+failure cleanup, released leases and retained shells. On Linux only the native
+executable-location API is substituted; this is not a LaunchServices test.
+Linux checks also validate the desktop entry and launch it through GLib with
+spaces, Unicode and reserved characters, checking Distrobox routing and
+preservation of unmanaged user entries. Native Mac Finder/signing and physical
+Linux app-menu activation remain manual acceptance checks.

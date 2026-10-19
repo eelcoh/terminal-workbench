@@ -33,6 +33,7 @@ def main():
     command=["cmake","--build",str(build),"--parallel"]
     if performance:command.extend(["--target","workbench-live-bench" if args.mode in ("live-perf","live-perf-test") else "workbench-text-bench" if args.mode=="perf" else "workbench-scene-bench"])
     if args.mode in ("workbench","stage","ui","ui-test"):command.extend(["--target","workbench-ui-study"])
+    if args.mode=="stage" and sys.platform=="darwin":command.append("workbench-preview-bootstrap")
     if args.mode=="search-test":command.extend(["--target","workbench-search-test"])
     if args.mode=="scroll-test":command.extend(["--target","workbench-scroll-test"])
     if args.mode=="catalog-test":command.extend(["--target","workbench-catalog-test"])

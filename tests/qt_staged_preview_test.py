@@ -38,19 +38,20 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
     mac_viewer.parent.mkdir(parents=True);shutil.copy2(fake,mac_viewer)
     native_sys=staging.sys
     try:
-        staging.sys=SimpleNamespace(platform='darwin')
-        mac_stage=staging.stage(root/'mac-layout',runtime,mac_viewer)
+        staging.sys=SimpleNamespace(platform='darwin',executable=sys.executable)
+        mac_stage=staging.stage(root/'mac-layout',runtime,mac_viewer,fake,sign=False)
     finally:staging.sys=native_sys
-    assert (mac_stage/'libexec/workbench-ui-study.app/Contents/MacOS/workbench-ui-study').is_file()
-    assert '"$root/libexec/workbench-ui-study.app/Contents/MacOS/workbench-ui-study"' in (mac_stage/'terminal-workbench').read_text()
+    assert (mac_stage/'Terminal Workbench Preview.app/Contents/MacOS/workbench-ui-study').is_file()
+    assert (mac_stage/'Terminal Workbench Preview.app/Contents/Resources/workbench/scripts/toolkit-ui.py').is_file()
     # Use the real Mac .app copy path when running on Mac; replace only its main
     # executable with the capture viewer for lifecycle assertions.
     built=ROOT/'.local/build/qt-input/workbench-ui-study'
     if sys.platform=='darwin':built=built.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
-    initial=staging.stage(root/'build location',runtime,built)
+    initial=staging.stage(root/'build location',runtime,built,ROOT/'.local/build/qt-input/workbench-preview-bootstrap')
     moved=root/'relocated preview';initial.rename(moved)
     viewer=moved/'libexec/workbench-ui-study'
-    if sys.platform=='darwin':viewer=viewer.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
+    if sys.platform=='darwin':viewer=moved/'Terminal Workbench Preview.app/Contents/MacOS/workbench-ui-study'
+    payload=moved/'Terminal Workbench Preview.app/Contents/Resources/workbench' if sys.platform=='darwin' else moved
     real=viewer.with_name('real-viewer');viewer.rename(real);shutil.copy2(fake,viewer)
     launcher=moved/'terminal-workbench';evidence=root/'config.json'
     env={k:v for k,v in os.environ.items() if not k.startswith(('WORKBENCH_','XDG_','WB_STAGE_'))}
@@ -66,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
     assert paths['configuration']==str(home/'.config/terminal-workbench')
     assert Path(paths['runtime']).is_relative_to(moved) and Path(paths['viewer']).is_relative_to(moved)
     assert str(ROOT) not in json.dumps(paths) and not initial.exists()
-    assert all(not p.is_symlink() for p in (moved/'scripts').iterdir())
+    assert all(not p.is_symlink() for p in (payload/'scripts').iterdir())
     payload_files={str(p.relative_to(moved)) for p in moved.rglob('*')}
     try:
         launch();config=json.loads(evidence.read_text())
@@ -78,7 +79,7 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
         try:
             proof=root/'shell-proof';send(connection,16,('printf "%s\\n%s" "$$" "$WORKBENCH_AGENT_BIN" > '+shlex.quote(str(proof))+'\n').encode())
             wait_until(lambda:proof.exists() and len(proof.read_text().splitlines())==2)
-            pid,agent_bin=proof.read_text().splitlines();assert Path(agent_bin)==moved/'.local/bin'
+            pid,agent_bin=proof.read_text().splitlines();assert Path(agent_bin)==payload/'.local/bin'
         finally:connection.close()
         service=request(state,staged_runtime,home,'health')['service_pid']
         launch(exit_code=42);assert json.loads(evidence.read_text())['catalog']==config['catalog']
@@ -109,21 +110,32 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
         if sys.platform.startswith('linux'):
             shutil.copy2(real,viewer)
             display=root/'display.json'
-            with (root/'qt.log').open('w+') as log:
-                client=subprocess.Popen([str(launcher)],cwd=outside,
-                    env=dict(env,QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',WORKBENCH_DISPLAY_REPORT=str(display)),stdout=log,stderr=log,start_new_session=True)
-                try:
-                    def ready():
-                        if client.poll() is not None:
-                            log.seek(0);raise AssertionError(log.read())
-                        try:
-                            report=json.loads(display.read_text())
-                            return report.get('window_logical_size',[0,0])[0]>0 and any(t.get('ready') for t in report.get('panes',[]))
-                        except (OSError,ValueError):return False
-                    wait_until(ready,timeout=25)
-                finally:
-                    os.killpg(client.pid,signal.SIGTERM);client.wait(timeout=10)
-                log.seek(0);output=log.read();assert 'Qt UI: qrc:' not in output,output
+            for desktop in (False,True):
+                display.unlink(missing_ok=True)
+                with (root/'qt.log').open('w+') as log:
+                    client=subprocess.Popen([str(launcher),*(['--desktop'] if desktop else [])],cwd=outside,
+                        env=dict(env,QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',WORKBENCH_DISPLAY_REPORT=str(display)),stdout=log,stderr=log,start_new_session=True)
+                    try:
+                        def ready():
+                            if client.poll() is not None:
+                                log.seek(0);raise AssertionError(log.read())
+                            try:
+                                report=json.loads(display.read_text())
+                                return report.get('window_logical_size',[0,0])[0]>0 and any(t.get('ready') for t in report.get('panes',[]))
+                            except (OSError,ValueError):return False
+                        wait_until(ready,timeout=25)
+                        if desktop:
+                            assert Path(f'/proc/{client.pid}/exe').resolve()==viewer,'desktop did not replace its launcher with Qt'
+                            assert not list((state/'qt').glob('launch-*.json')),'Qt did not retire its temporary configuration'
+                            from window_slots import acquire_window_slot
+                            lease,view=acquire_window_slot(state/'qt');os.close(lease)
+                            assert view.name=='2.view','desktop Qt lost its inherited window lease'
+                    finally:
+                        if client.poll() is None:os.killpg(client.pid,signal.SIGTERM)
+                        client.wait(timeout=10)
+                    log.seek(0);output=log.read()
+                    if desktop:output+=(state/'launch.log').read_text()
+                    assert 'Qt UI: qrc:' not in output,output
             assert any(t['state']=='running' for t in request(state,staged_runtime,home,'health')['terminals']),'viewer exit stopped all shells'
     finally:
         if state.exists():

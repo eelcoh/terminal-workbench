@@ -136,3 +136,11 @@ if(WORKBENCH_TERMINAL_PROBE)
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.live-benchmark"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Live Terminal Benchmark")
 endif()
+
+
+# Finder bootstrap has no Qt dependency; it can report a missing Python install.
+if(APPLE AND WORKBENCH_TERMINAL_PROBE)
+    add_executable(workbench-preview-bootstrap EXCLUDE_FROM_ALL ../../native/macos/preview_launcher.c)
+    target_compile_options(workbench-preview-bootstrap PRIVATE -Wall -Wextra -Werror)
+    set_target_properties(workbench-preview-bootstrap PROPERTIES MACOSX_BUNDLE FALSE)
+endif()
