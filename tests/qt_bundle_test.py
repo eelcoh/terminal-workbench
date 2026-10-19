@@ -103,6 +103,7 @@ else:
         bundle=directory/macos.NAME
         args=json.loads((bundle/'deploy-args.json').read_text())
         self.assertIn('-qmldir='+str(ROOT/'native/macos/qt-deployment'),args)
+        self.assertNotIn('-always-overwrite',args)
         self.assertNotIn('-no-codesign',args)
         self.assertIn('-verbose=3',args)
         self.assertEqual(self.plist.read_bytes(),original)

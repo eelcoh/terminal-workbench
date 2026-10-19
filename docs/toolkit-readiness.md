@@ -1511,4 +1511,13 @@ prints heartbeat/log paths, records scoped child-process snapshots and enables
 Qt debug logging. Timeout/cancellation terminates the tool's process group;
 final signing has a separate two-minute deadline and surviving log. Portable
 process/deployment tests cover those behaviors, but the Mac retry is pending.
+The subsequent `ec82b5a` log shows active `install_name_tool`/`otool` children
+and further ICU library copies at the 300-second deadline, rather than proof of
+a blocked helper. Deployment now omits `-always-overwrite` in each fresh stage,
+reusing copied dependencies between plugin passes, and
+allows fifteen minutes with the existing heartbeat and process-group cleanup.
+Qt's [copy/reuse implementation](https://raw.githubusercontent.com/qt/qtbase/6.10/src/tools/macdeployqt/shared/shared.cpp)
+confirms that forced overwrite bypasses its existing-file reuse. Portable
+fixtures check the fresh-stage invocation and linkage audit; actual Homebrew
+completion time and native acceptance remain pending.
 This does not select the production frontend or establish release readiness.

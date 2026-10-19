@@ -61,8 +61,11 @@ print elapsed-time updates every five seconds and the live log path; deployment
 uses debug tool output in that log. Waiting tools also record their own process
 and descendants (PID, parent, state, elapsed time and executable name) in the log;
 unrelated processes and command-line arguments are excluded. The log starts with
-the tool PID even when Qt itself writes nothing. Deployment is limited to five minutes and
-signing to two minutes. Timeout or Ctrl-C stops the packaging tool's process
+the tool PID even when Qt itself writes nothing. Deployment is limited to fifteen
+minutes and signing to two minutes. Each stage is fresh; deployment reuses
+libraries already copied into that stage rather than forcing them to be
+overwritten for each plugin. This avoids repeating library copies and link
+rewrites. Timeout or Ctrl-C stops the packaging tool's process
 group, including scanners/signing children, before removing the partial preview.
 A failed deployment prints a log path outside that preview; signing has its own
 `qt-sign-…log` alongside it. These logs survive removal of a failed stage.

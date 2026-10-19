@@ -118,8 +118,11 @@ def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
     descriptor,log=tempfile.mkstemp(prefix='qt-deploy-',suffix='.log',dir=bundle.parent.parent)
     try:
         with os.fdopen(descriptor,'w') as output:
+            # Every stage is fresh. Forced overwrite repeatedly replaces shared
+            # libraries while Qt deploys successive QML plugins (notably Homebrew
+            # ICU/OpenSSL dependencies), repeating copy/link work.
             run_tool([info['tool'],str(bundle),'-executable='+str(viewer),'-qmldir='+str(qml_directory),
-                '-always-overwrite','-no-strip','-verbose=3'],output,'Deploying Qt frameworks and QML modules',log)
+                '-no-strip','-verbose=3'],output,'Deploying Qt frameworks and QML modules',log,timeout=900)
         for path in ('Contents/Frameworks/QtCore.framework','Contents/Frameworks/QtGui.framework','Contents/Frameworks/QtQuick.framework',
                      'Contents/PlugIns/platforms/libqcocoa.dylib','Contents/Resources/qml/QtQuick/Controls/Basic/qmldir',
                      'Contents/Resources/qml/QtQuick/Dialogs/qmldir','Contents/Resources/qt.conf'):
