@@ -13,10 +13,11 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "search-test", "scroll-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "stage", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "search-test", "scroll-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "stage", "bundle", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
     parser.add_argument("--search-only",action="store_true",help="Run the focused search UI regression on both Linux backends")
     parser.add_argument("--shutdown-only",action="store_true",help="Run the focused stop-all UI regression on both Linux backends")
     args = parser.parse_args()
+    if args.mode=="bundle" and sys.platform!="darwin":parser.error("Qt bundling currently requires a native Mac build; use toolkit-stage on Linux")
     if (args.search_only or args.shutdown_only) and args.mode!="ui-test":parser.error("Focused UI flags require ui-test")
     if args.search_only and args.shutdown_only:parser.error("Select one focused UI check")
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "ui-test") and not sys.platform.startswith("linux"):
@@ -27,13 +28,13 @@ def main():
         parser.error("live-perf-test uses private Linux Xvfb; use live-perf for native Mac measurements")
     performance=args.mode in ("perf","scene-perf","scene-perf-test","live-perf","live-perf-test")
     build=ROOT/".local/build/qt-performance" if performance else BUILD
-    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("search-test","scroll-test","workbench","stage","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
+    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("search-test","scroll-test","workbench","stage","bundle","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
     if performance:configure.append("-DCMAKE_BUILD_TYPE=Release")
     subprocess.run(configure,check=True)
     command=["cmake","--build",str(build),"--parallel"]
     if performance:command.extend(["--target","workbench-live-bench" if args.mode in ("live-perf","live-perf-test") else "workbench-text-bench" if args.mode=="perf" else "workbench-scene-bench"])
-    if args.mode in ("workbench","stage","ui","ui-test"):command.extend(["--target","workbench-ui-study"])
-    if args.mode=="stage" and sys.platform=="darwin":command.append("workbench-preview-bootstrap")
+    if args.mode in ("workbench","stage","bundle","ui","ui-test"):command.extend(["--target","workbench-ui-study"])
+    if args.mode in ("stage","bundle") and sys.platform=="darwin":command.append("workbench-preview-bootstrap")
     if args.mode=="search-test":command.extend(["--target","workbench-search-test"])
     if args.mode=="scroll-test":command.extend(["--target","workbench-scroll-test"])
     if args.mode=="catalog-test":command.extend(["--target","workbench-catalog-test"])
@@ -71,8 +72,8 @@ def main():
     if args.mode=="theme-import-test":
         subprocess.run([str(build/"workbench-theme-import-test")],check=True,timeout=30)
         return
-    if args.mode=="stage":
-        subprocess.run([sys.executable,str(ROOT/"scripts/stage-toolkit.py")],check=True)
+    if args.mode in ("stage","bundle"):
+        subprocess.run([sys.executable,str(ROOT/"scripts/stage-toolkit.py"),*(["--bundle-qt"] if args.mode=="bundle" else [])],check=True)
         return
     if args.mode in ("workbench","ui","ui-test"):
         name="workbench-ui-study"

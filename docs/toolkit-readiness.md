@@ -1493,3 +1493,15 @@ The default branch is platform-sensitive; Linux explicitly tests login through
 `--login-shell`, while a native Mac run tests the automatic default. Native Finder
 review remains pending. Retained shells need no restart during activation, but
 this environment correction applies to newly created shells.
+
+
+## Optional Mac Qt deployment preview
+
+`just toolkit-bundle` adds native-Mac `macdeployqt` staging with matching Qt
+tools, an explicit QML import manifest, static Mach-O Qt linkage checks and
+notice collection before the final ad hoc signature. Python and reported
+non-Qt libraries remain external. Ordinary Linux/Mac staging is unchanged.
+Portable fixture tests and the Linux staged-preview regression pass; actual
+Mac deployment, loader paths, QML instantiation and signatures remain unverified.
+See [bundle review instructions](qt-staged-preview.md#mac-optional-qt-deployment).
+This does not select the production frontend or establish release readiness.

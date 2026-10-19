@@ -144,3 +144,10 @@ if(APPLE AND WORKBENCH_TERMINAL_PROBE)
     target_compile_options(workbench-preview-bootstrap PRIVATE -Wall -Wextra -Werror)
     set_target_properties(workbench-preview-bootstrap PROPERTIES MACOSX_BUNDLE FALSE)
 endif()
+
+
+# Select deployment tools from the same Qt installation as the viewer.
+if(TARGET Qt6::qtpaths)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/workbench-qt-tools.txt"
+        CONTENT "$<TARGET_FILE:Qt6::qtpaths>\n${Qt6_VERSION}\n")
+endif()

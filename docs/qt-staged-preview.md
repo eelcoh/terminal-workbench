@@ -7,8 +7,9 @@ command under **Open a window**. Copy and run that command to start it.
 No checkout, Cargo, CMake or `just` is needed to run the resulting preview.
 
 This is a same-machine preview. The Python installation recorded at build time
-and the Qt installation used to build it must remain available. Dependencies
-are not bundled yet. The production toolkit has not been selected.
+and the Qt installation used to build it must remain available. The optional Mac Qt deployment below removes the installed Qt requirement for
+Qt libraries/plugins once native loader review passes. Python remains external.
+The production toolkit has not been selected.
 
 ## Mac: open the app
 
@@ -28,6 +29,59 @@ Bundle metadata follows [Apple's application bundle layout](https://developer.ap
 To review: build, move the app, open it in Finder, type in a terminal, close the
 window and reopen the app. The same shell should remain. `open -n "/path/to/Terminal Workbench Preview.app"`
 opens another instance for the existing multiwindow flow.
+
+## Mac: optional Qt deployment
+
+On a native Mac, run:
+
+```sh
+just toolkit-bundle
+```
+
+This builds a separate preview with Qt frameworks, the Cocoa platform plugin
+and QML modules deployed into the app. It uses `macdeployqt` from the Qt
+installation selected by CMake, checks its version against the viewer build,
+and scans a deployment manifest that includes the dynamically chosen Basic
+Controls style. Deployment follows [Qt's Mac deployment tooling](https://doc.qt.io/qt-6/macos-deployment.html).
+`just toolkit-stage` keeps its existing installed-Qt behavior on both platforms.
+Linux bundling is not implemented.
+
+The script runs a static Mach-O linkage audit before the final ad hoc signature.
+Unresolved or absolute external Qt links fail the build. It also checks the
+frameworks, platform plugin, required QML module metadata and `qt.conf` are
+present. Inside the resulting app, `Contents/Resources/workbench/` contains:
+
+- `qt-dependencies.json`: Qt version, per-binary links, external non-Qt links,
+  preserved notice locations and native review status.
+- `qt-deploy.log`: output from `macdeployqt`.
+
+A failed deployment removes the partial preview and prints a log path outside
+that preview. This is an internal same-machine preview, not a standalone release:
+recorded Python and any reported external non-Qt libraries remain required.
+A static audit does not prove which libraries dyld actually loaded or that every
+QML module can instantiate. Native acceptance is still pending.
+
+Move the app before first use, close existing preview windows, and use the
+activation steps below when replacing the service. Open the app in Finder;
+check a terminal, Appearance, the folder picker, Overview and a second window.
+Close and reopen it to check retained shells. To capture actual Qt loading,
+run the moved app's bootstrap from a terminal:
+
+```sh
+DYLD_PRINT_LIBRARIES=1 QT_DEBUG_PLUGINS=1 \
+  "/path/to/Terminal Workbench Preview.app/Contents/MacOS/workbench-preview"
+```
+
+Inspect the preview's `launch.log`: Qt frameworks and Qt plugins should load
+from inside that app. Keep your installed Qt in place during this review.
+Save that log with `qt-dependencies.json` when reporting the result.
+
+The stage preserves Qt notice files found in the selected installation's known
+license directories. If additional notices are supplied separately, after the
+build run `python3 scripts/stage-toolkit.py --bundle-qt --qt-notices /path/to/notices`
+to create a fresh stage preserving them too. Notice completeness and the chosen
+Qt distribution's license obligations still require review before distribution;
+`notices_review_required` remains true in the dependency report.
 
 ## Linux: add to the app menu
 
@@ -137,8 +191,8 @@ build. Do not use that legacy stop command while another update is in progress.
 
 The activation command does not change the installed Linux desktop entry. Run
 `--install-desktop-entry` from the newly activated payload to update the app-menu
-link. Dependency deployment, automatic updates and old-payload cleanup are still
-pending.
+link. Python/non-Qt dependency deployment, automatic updates and old-payload
+cleanup are still pending.
 
 To retire a preview: close its windows, first use **Stop all terminals…** if you
 want to stop its shells, then stop the session service explicitly. Run from the
@@ -186,3 +240,10 @@ profile, explicit/default platform modes and same-PID reattachment without
 repeating startup. `just check` includes this check. The Mac default is exercised
 natively when running the recipe on Mac; Linux tests explicitly opt into login
 mode while retaining their normal non-login default.
+
+
+`just toolkit-bundle-test` uses portable fake deployment tools and Mach-O
+fixtures to check version matching, QML import coverage, notice preservation,
+link resolution/refusal, failure cleanup/log retention and audit-before-sign
+ordering. It also checks ordinary staging and Linux refusal. These fixtures do
+not execute Apple's loader, `macdeployqt` or native code signing.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage a same-machine Qt preview. System Qt and Python are still required."""
+"""Stage a same-machine Qt preview, optionally deploying Qt on Mac. Python remains external."""
 import argparse
 import json
 import os
@@ -17,7 +17,14 @@ MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py
          'terminal_lifecycle.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
 
 
-def stage(parent,runtime,viewer,bootstrap=None,*,sign=True):
+def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None):
+    deployment=None
+    if bundle_qt:
+        if sys.platform!='darwin':raise ValueError('Qt bundling currently requires a native Mac build; Linux uses toolkit-stage')
+        from platform_launchers.macos_deploy import toolchain,deploy
+        if qt_tools is None:raise ValueError('Qt deployment tool information is missing; run just toolkit-bundle')
+        info=toolchain(qt_tools)
+        deployment=lambda bundle,payload:deploy(bundle,payload,info,ROOT/'native/macos/qt-deployment',notice_directory=qt_notices)
     parent.mkdir(parents=True,exist_ok=True)
     # Every stage is new: never replace files used by an existing session service.
     directory=Path(tempfile.mkdtemp(prefix='qt-preview-',dir=parent))
@@ -68,13 +75,13 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True):
         shutil.copy2(ROOT/'crates/runtime/native/LICENSE.libghostty-vt',notices/'LICENSE.libghostty-vt')
         revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True,check=True).stdout.strip()
         dirty=bool(subprocess.run(['git','status','--porcelain'],cwd=ROOT,capture_output=True,text=True,check=True).stdout)
-        (payload/'preview.json').write_text(json.dumps(dict(format=1,source=revision,source_dirty=dirty,container=os.environ.get('CONTAINER_ID','') if os.environ.get('DISTROBOX_ENTER_PATH') else '',platform=sys.platform,architecture=platform.machine(),dependencies='System Python 3 and the Qt installation used to build the viewer; not bundled'),indent=2)+'\n')
+        (payload/'preview.json').write_text(json.dumps(dict(format=1,source=revision,source_dirty=dirty,container=os.environ.get('CONTAINER_ID','') if os.environ.get('DISTROBOX_ENTER_PATH') else '',platform=sys.platform,architecture=platform.machine(),qt_bundled=bundle_qt,dependencies='Qt deployed; recorded Python and reported non-Qt dependencies remain external' if bundle_qt else 'System Python 3 and the Qt installation used to build the viewer; not bundled'),indent=2)+'\n')
         shutil.copy2(ROOT/'docs/qt-staged-preview.md',directory/'README.md')
         if payload!=directory:shutil.copy2(ROOT/'docs/qt-staged-preview.md',payload/'README.md')
         if sys.platform=='darwin':
             from platform_launchers.macos import finalize
             if bootstrap is None:raise ValueError('Mac preview bootstrap is missing; rebuild with just toolkit-stage')
-            finalize(directory,payload,bootstrap,Path(sys.executable),sign=sign)
+            finalize(directory,payload,bootstrap,Path(sys.executable),sign=sign,qt_deployment=deployment)
         return directory
     except BaseException:
         shutil.rmtree(directory)
@@ -89,11 +96,18 @@ def main():
     if sys.platform=='darwin':default=default.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
     parser.add_argument('--viewer',type=Path,default=default)
     parser.add_argument('--bootstrap',type=Path,default=ROOT/'.local/build/qt-input/workbench-preview-bootstrap')
+    parser.add_argument('--bundle-qt',action='store_true',help='Mac: deploy Qt into the app and audit static Qt linkage')
+    parser.add_argument('--qt-tools',type=Path,default=ROOT/'.local/build/qt-input/workbench-qt-tools.txt')
+    parser.add_argument('--qt-notices',type=Path,help='Additional installed Qt notices directory to preserve')
     args=parser.parse_args()
-    directory=stage(args.parent.expanduser().resolve(),args.runtime.resolve(strict=True),args.viewer.resolve(strict=True),args.bootstrap.resolve())
+    if args.bundle_qt and sys.platform!='darwin':parser.error('Qt bundling currently requires a native Mac build')
+    if args.qt_notices and not args.bundle_qt:parser.error('--qt-notices requires --bundle-qt')
+    directory=stage(args.parent.expanduser().resolve(),args.runtime.resolve(strict=True),args.viewer.resolve(strict=True),args.bootstrap.resolve(),bundle_qt=args.bundle_qt,qt_tools=args.qt_tools.resolve(),qt_notices=args.qt_notices.expanduser().resolve() if args.qt_notices else None)
     launch=shlex.quote(str(directory/'terminal-workbench'))
     if sys.platform=='darwin':launch='open '+shlex.quote(str(directory/'Terminal Workbench Preview.app'))
-    print(f'Build complete. Preview created at:\n  {directory}\n\nOpen a window:\n  {launch}\n\nThis command builds the preview; it does not open a window. Uses installed Python and Qt.')
+    requirements='Uses recorded Python and deployed Qt.' if args.bundle_qt else 'Uses installed Python and Qt.'
+    print(f'Build complete. Preview created at:\n  {directory}\n\nOpen a window:\n  {launch}\n\nThis command builds the preview; it does not open a window. {requirements}')
+    if args.bundle_qt:print('Qt frameworks/QML deployed. See Contents/Resources/workbench/qt-dependencies.json for remaining dependencies and native review status.')
     if sys.platform=='darwin':print('You can move Terminal Workbench Preview.app before first use, then open it in Finder.')
     else:print('Move the preview directory before its first launch. To add it to your app menu, run its launcher with --install-desktop-entry.')
 

@@ -193,9 +193,11 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    Finder/signing and app-menu review. Explicit `--status`/`--activate` now support
    service handoff after closing windows, retaining existing shells and saved state;
    Mac default shells now use login startup/account-shell fallback so Finder
-   launches load profile-provided tools. Native shell-startup/activation review,
-   dependency bundling and the remaining installed
-   lifecycle still precede an installable release. Decide the product name and update approach first.
+   launches load profile-provided tools. Optional `just toolkit-bundle` now
+   deploys Qt on native Mac builds with static linkage reporting and preserved
+   notices. Native shell-startup/activation and bundle loader/signing review,
+   Python/non-Qt dependencies and the remaining installed lifecycle still
+   precede an installable release. Decide the product name and update approach first.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

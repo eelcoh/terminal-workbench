@@ -416,3 +416,12 @@ toolkit-activation-test: toolkit-stage
 # Mac/Linux: real zsh login startup under a minimal desktop environment.
 login-shell-test: runtime-build
     python3 tests/login_shell_test.py target/debug/workbench-session
+
+
+# Native Mac: optional Qt-deployed preview; Python remains external.
+toolkit-bundle: runtime-build
+    python3 scripts/toolkit-probe.py bundle
+
+# Portable deployment/audit fixtures; no native Mac deployment is implied.
+toolkit-bundle-test:
+    python3 tests/qt_bundle_test.py

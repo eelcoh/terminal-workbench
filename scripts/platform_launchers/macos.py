@@ -20,7 +20,7 @@ def prepare(directory,viewer):
     return payload,'../../MacOS/workbench-ui-study'
 
 
-def finalize(directory,payload,bootstrap,python,*,sign=True):
+def finalize(directory,payload,bootstrap,python,*,sign=True,qt_deployment=None):
     bundle=directory/NAME
     executable=bundle/'Contents/MacOS/workbench-preview'
     shutil.copy2(bootstrap,executable)
@@ -42,6 +42,7 @@ def finalize(directory,payload,bootstrap,python,*,sign=True):
         Path(temporary).unlink(missing_ok=True)
     if '\n' in str(python) or '\r' in str(python):raise ValueError('Python path contains a newline')
     (payload/'python.path').write_text(str(python)+'\n')
+    if qt_deployment is not None:qt_deployment(bundle,payload)
     if sign:
         subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(bundle)],check=True)
     launcher=directory/'terminal-workbench'
