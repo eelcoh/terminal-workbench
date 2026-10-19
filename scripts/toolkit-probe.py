@@ -15,8 +15,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "search-test", "scroll-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
     parser.add_argument("--search-only",action="store_true",help="Run the focused search UI regression on both Linux backends")
+    parser.add_argument("--shutdown-only",action="store_true",help="Run the focused stop-all UI regression on both Linux backends")
     args = parser.parse_args()
-    if args.search_only and args.mode!="ui-test":parser.error("--search-only requires ui-test")
+    if (args.search_only or args.shutdown_only) and args.mode!="ui-test":parser.error("Focused UI flags require ui-test")
+    if args.search_only and args.shutdown_only:parser.error("Select one focused UI check")
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "ui-test") and not sys.platform.startswith("linux"):
         parser.error("Qt terminal GUI tests require Linux; use toolkit-terminal for native Mac testing")
     if args.mode=="scene-perf-test" and not sys.platform.startswith("linux"):
@@ -72,6 +74,7 @@ def main():
         name="workbench-ui-study"
         binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name
         command=[sys.executable,str(ROOT/"tests/qt_ui_smoke.py"),str(ROOT/"target/debug/workbench-session"),str(binary)] if args.mode=="ui-test" else [sys.executable,str(ROOT/"scripts/toolkit-ui.py"),str(ROOT/"target/debug/workbench-session"),str(binary)]
+        if args.shutdown_only:command.append("--shutdown-only")
         if args.search_only:command.append("--search-only")
         if args.mode=="workbench":command.append("--saved")
         subprocess.run(command,check=True)

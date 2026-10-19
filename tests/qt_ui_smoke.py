@@ -392,6 +392,101 @@ while True:
                 key('super+alt+p');wait_until(lambda:data()['commands_open'] and data()['command_search_focus'])
             key('ctrl+a');typed(query)
             wait_until(lambda:bool(data()['command_matches']) and all(all(word in (entry['title']+' '+entry['detail']).lower() for word in query.lower().split()) for entry in data()['command_matches']))
+        def stop_all_flow():
+            global window
+            original_window=window;stop_peer=None;excluded_owner=None
+            def focus(target):
+                if wayland:run('niri','msg','action','focus-window','--id',target)
+                else:cmd('windowraise',target);cmd('windowfocus',target)
+            def pane(snapshot,identity):return next(p for p in snapshot['panes'] if p['identity']==identity)
+            def open_stop(menu=False):
+                if menu:
+                    click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+                    click(*data()['session_stop_item'])
+                else:command_search('stop all terminals');key('Return')
+                wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='session-stop' and data()['confirmation_cancel_focus'])
+            base=workspace_catalog.load(root);count=len(data()['panes'])
+            target=next(p['identity'] for p in data()['panes'] if p['ready'])
+            destination=next(w['id'] for w in base['workspaces'] if len(w['terminals'])<8)
+            original_objects={p['identity']:p['instance'] for p in data()['panes']}
+            # Cancel/initial Enter preserves every runtime and its reader.
+            open_stop(menu=True);frozen=list(data()['session_stop_ids']);assert len(frozen)==count
+            key('Return');wait_until(lambda:not data()['terminal_action_open'])
+            assert workspace_catalog.load(root)==base and all(p['instance']==original_objects[p['identity']] for p in data()['panes'])
+            # A removed identity disables confirmation; no successor can be targeted.
+            transient=request(root,Path(runtime),root,'terminal.create',destination,'Shell')['data']['workspaces']
+            transient=next(t['id'] for w in transient for t in w['terminals'] if t['id'] not in original_objects)
+            wait_until(lambda:len(data()['panes'])==count+1)
+            open_stop();request(root,Path(runtime),root,'terminal.close',transient)
+            wait_until(lambda:not data()['session_stop_valid'] and not data()['confirm_terminal_action_enabled'])
+            click(*data()['confirm_terminal_action']);time.sleep(.1);assert data()['terminal_action_open']
+            capture('session-stop-stale.png');key('Escape');wait_until(lambda:not data()['terminal_action_open'] and len(data()['panes'])==count)
+            # A second window owns one confirmed terminal; stop applies across owners.
+            peer_report=artifacts/'stop-peer.json';peer_report.unlink(missing_ok=True)
+            peer_config=root/'stop-peer.json';settings=json.loads(config.read_text());settings['catalog']=workspace_catalog.load(root);settings['view_state']=str(root/'stop-peer-view.json');peer_config.write_text(json.dumps(settings))
+            stop_peer=subprocess.Popen([viewer,str(peer_config),'--test-report',str(peer_report)],env=env,stdout=log,stderr=log);processes.append(stop_peer)
+            def peer_data():
+                try:return json.loads(peer_report.read_text())
+                except (FileNotFoundError,ValueError):return {}
+            try:
+                wait_until(lambda:len(peer_data().get('panes',[]))==count and pane(peer_data(),target)['attachment']=='elsewhere',timeout=20)
+                if wayland:
+                    peer_window=next(w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study' and w['id']!=original_window)
+                    run('niri','msg','action','focus-window','--id',peer_window);run('niri','msg','action','move-window-to-floating')
+                else:peer_window=next(w for w in cmd('search','--name','^Terminal Workbench · Qt UI study$').splitlines() if w!=original_window)
+                # Show the first workspace/terminal containing the target in the peer.
+                window=peer_window;focus(window)
+                for _ in range(8):key('super+alt+Up')
+                for _ in range(8):key('super+alt+Left')
+                wait_until(lambda:pane(peer_data(),target)['lifecycle'].get('state')=='running' and not pane(peer_data(),target)['lifecycle'].get('busy'))
+                click(*pane(peer_data(),target)['primary_action']);wait_until(lambda:peer_data()['terminal_action_open'])
+                click(*peer_data()['confirm_terminal_action']);wait_until(lambda:pane(peer_data(),target)['ready'] and not peer_data()['terminal_action_open'])
+                window=original_window;focus(window);wait_until(lambda:pane(data(),target)['attachment']=='elsewhere')
+                open_stop();frozen=list(data()['session_stop_ids']);assert len(frozen)==count
+                added=request(root,Path(runtime),root,'terminal.create',destination,'Shell')['data']
+                excluded=next(t['id'] for w in added['workspaces'] for t in w['terminals'] if t['id'] not in frozen)
+                wait_until(lambda:len(data()['panes'])==count+1 and len(peer_data()['panes'])==count+1)
+                assert data()['session_stop_ids']==frozen and excluded not in frozen
+                excluded_owner=snapshot_attach(root/(excluded+'.sock'),takeover=True);collect(excluded_owner)
+                marker=root/'excluded-before';after=root/'excluded-after'
+                send(excluded_owner,16,('WB_EXCLUDED=survives; printf "%s:%s" "$$" "$WB_EXCLUDED" > '+shlex.quote(str(marker))+'\n').encode());wait_until(lambda:marker.exists() and marker.read_text())
+                inode=(root/(excluded+'.sock')).stat().st_ino
+                before_stop=workspace_catalog.load(root);capture('session-stop-confirm.png')
+                click(*data()['confirm_terminal_action']);wait_until(lambda:not data()['terminal_action_open'],timeout=30)
+                wait_until(lambda:all(not pane(data(),identity)['ready'] and pane(data(),identity)['lifecycle'].get('state')=='stopped' for identity in frozen),timeout=20)
+                wait_until(lambda:all(not pane(peer_data(),identity)['ready'] and pane(peer_data(),identity)['lifecycle'].get('state')=='stopped' for identity in frozen),timeout=20)
+                assert workspace_catalog.load(root)==before_stop and not data()['error']
+                assert all(pane(data(),identity)['instance']==original_objects[identity] for identity in frozen)
+                send(excluded_owner,16,('printf "%s:%s" "$$" "$WB_EXCLUDED" > '+shlex.quote(str(after))+'\n').encode());wait_until(lambda:after.exists() and after.read_text())
+                assert after.read_text()==marker.read_text() and (root/(excluded+'.sock')).stat().st_ino==inode,'excluded shell state/PID changed'
+                capture('session-stop-complete.png')
+                # Explicit recovery starts only the chosen entry; peers observe its state.
+                for _ in range(8):key('super+alt+Up')
+                for _ in range(8):key('super+alt+Left')
+                click(*pane(data(),target)['primary_action']);wait_until(lambda:pane(data(),target)['ready'],timeout=15)
+                wait_until(lambda:pane(peer_data(),target)['lifecycle'].get('state')=='running',timeout=15)
+                assert all(not pane(data(),identity)['ready'] for identity in frozen if identity!=target)
+                window=peer_window;focus(window)
+                if wayland:run('niri','msg','action','close-window','--id',window)
+                else:close_window(window,env)
+                stop_peer.wait(timeout=5);assert stop_peer.returncode==0
+                window=original_window;focus(window)
+                assert request(root,Path(runtime),root,'terminal.status',target)['state']=='running' and request(root,Path(runtime),root,'terminal.status',excluded)['state']=='running','closing peer stopped a surviving shell'
+                excluded_owner.close();excluded_owner=None
+                request(root,Path(runtime),root,'terminal.close',excluded);wait_until(lambda:len(data()['panes'])==count)
+                assert workspace_catalog.load(root)==base
+            finally:
+                window=original_window
+                if excluded_owner:excluded_owner.close()
+                if stop_peer and stop_peer.poll() is None:stop_peer.terminate();stop_peer.wait(timeout=5)
+            print(('wayland' if wayland else 'xcb')+' PASS: confirmed session stop, Cancel/initial Enter, stale identities, cross-window ownership/status, frozen-ID exclusion with same PID/state, preserved catalog/readers, explicit recovery and close-detach')
+        if '--shutdown-only' in sys.argv[3:]:
+            stop_all_flow()
+            if wayland:run('niri','msg','action','close-window','--id',window)
+            else:close_window(window,env)
+            client.wait(timeout=5);assert client.returncode==0
+            assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in shutdown regression'
+            sys.exit(0)
         click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
         click(*data()['commands_menu_item']);wait_until(lambda:data()['commands_open'] and data()['command_search_focus'] and not data()['application_menu_open'])
         typed('definitely-no-such-command');wait_until(lambda:not data()['command_matches'])
@@ -986,6 +1081,7 @@ while True:
         font_menu();capture('font-narrow.png');key('Escape');wait_until(lambda:not data()['font_settings_open'])
         command_search('workspace');capture('commands-narrow.png')
         key('Escape');wait_until(lambda:not data()['commands_open'])
+        stop_all_flow()
         # Retain a selected empty workspace when earlier rows are removed.
         survivor=request(root,Path(runtime),root,'workspace.create_at',title='Retained empty workspace',project_directory=str(root))['data']['workspaces'][-1]
         request(root,Path(runtime),root,'terminal.close',survivor['terminals'][0]['id'])
@@ -1003,6 +1099,7 @@ while True:
             if remaining>1:assert data()['workspace_names'][data()['workspace']]==survivor['name'] and data()['selected']==-1
         assert not data()['panes'] and not data()['error'] and workspace_catalog.load(root)['workspaces']==[]
         capture('workspace-none.png')
+        command_search('stop all terminals');assert not data()['command_matches'][0]['available'];key('Return');assert data()['commands_open'];key('Escape');wait_until(lambda:not data()['commands_open'])
         command_search('workspace appearance');assert not data()['command_matches'][0]['available'];key('Escape');wait_until(lambda:not data()['commands_open'])
         command_search('new workspace');key('Return');wait_until(lambda:data()['creation_open'])
         typed('Back again');key('Tab');key('Return');wait_until(lambda:data()['workspace_count']==1 and not data()['creation_open'] and len(data()['panes'])==1 and data()['panes'][0]['ready'])

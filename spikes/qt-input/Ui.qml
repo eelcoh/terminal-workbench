@@ -85,10 +85,21 @@ ApplicationWindow {
     onNeedsOnlyChanged: scheduleViewSave()
     onReducedMotionChanged: scheduleViewSave()
     property bool pendingTerminalAction: false
-    function actionExists() { return actionKind === "workspace-close" ? spaceIds.indexOf(actionTarget) >= 0 : identityIndex(actionTarget) >= 0 }
+    property var stopTargets: []
+    readonly property bool stopTargetsValid: stopTargets.length > 0 && stopTargets.every(identity => identityIndex(identity) >= 0)
+    function actionExists() { return actionKind === "session-stop" ? stopTargets.length > 0 : actionKind === "workspace-close" ? spaceIds.indexOf(actionTarget) >= 0 : identityIndex(actionTarget) >= 0 }
     readonly property string workspaceRemovalContext: {
         const index = spaceIds.indexOf(actionTarget)
         return index < 0 ? "" : spaces[index] + " · " + counts[index] + (counts[index] === 1 ? " terminal" : " terminals")
+    }
+    function requestSessionStop() {
+        if (studySession.busy || terminalAction.visible || terminalModel.count === 0 || createDialog.visible || appearance.visible || terminalSearch.visible || dragSlot >= 0) return
+        let targets = []
+        for (let i = 0; i < terminalModel.count; ++i) targets.push(terminalModel.get(i).terminalId)
+        stopTargets = targets; actionTarget = ""; actionKind = "session-stop"; pendingTerminalAction = true
+        if (drawer.visible) drawer.close()
+        else if (appMenu.visible) appMenu.close()
+        else { pendingTerminalAction = false; Qt.callLater(function() { if (actionExists()) terminalAction.open() }) }
     }
     function requestWorkspaceClose(identity) {
         if (studySession.busy || terminalAction.visible || spaceIds.indexOf(identity) < 0 || createDialog.visible || appearance.visible || dragSlot >= 0) return
@@ -104,7 +115,8 @@ ApplicationWindow {
     }
     function performTerminalAction() {
         if (!actionExists() || studySession.busy) return
-        if (actionKind === "workspace-close") studySession.closeWorkspace(actionTarget)
+        if (actionKind === "session-stop") { if (stopTargetsValid) studySession.stopTerminals(stopTargets) }
+        else if (actionKind === "workspace-close") studySession.closeWorkspace(actionTarget)
         else if (actionKind === "close") studySession.closeTerminal(actionTarget)
         else { const pane = panel(identityIndex(actionTarget)); studySession.reconnect(pane.terminal, actionTarget, true); terminalAction.close() }
     }
@@ -229,6 +241,7 @@ ApplicationWindow {
         case "move-right": reorderSelected(1); break
         case "move-up": moveSelectedWorkspace(-1); break
         case "move-down": moveSelectedWorkspace(1); break
+        case "session-stop": requestSessionStop(); break
         case "close-workspace": requestWorkspaceClose(spaceIds[workspace]); break
         case "close-terminal": requestTerminalAction(terminalModel.get(selected).terminalId, "close"); break
         case "forward": panel(selected).terminal.forceActiveFocus(); panel(selected).terminal.forwardNextKey(); break;
@@ -352,7 +365,7 @@ ApplicationWindow {
             followMove = false
             Qt.callLater(function() { if (overview) revealOverview(selected); else focusPane(selected) })
         }
-        if (method === "terminal.close" || method === "workspace.close") {
+        if (method === "session.stop" || method === "terminal.close" || method === "workspace.close") {
             terminalAction.close(); Qt.callLater(restoreAfterPopup)
         }
         if (method === "workspace.rename" || method === "workspace.directory") createDialog.close()
@@ -769,7 +782,7 @@ ApplicationWindow {
                         Label {
                             width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 14
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).foreground
-                            text: terminal.attachment === "connecting" ? "Connecting…" : terminal.attachment === "elsewhere" ? "Open in another window" : pane.lifecycle.state === "running" ? "Could not attach: " + terminal.status : (pane.lifecycle.message || "Checking terminal status…")
+                            text: terminal.attachment === "connecting" ? "Connecting…" : pane.lifecycle.state === "stopped" ? pane.lifecycle.message : terminal.attachment === "elsewhere" ? "Open in another window" : pane.lifecycle.state === "running" ? "Could not attach: " + terminal.status : (pane.lifecycle.message || "Checking terminal status…")
                         }
                         Label {
                             width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 12
@@ -914,6 +927,8 @@ ApplicationWindow {
         MenuAction { text: "Paste"; enabled: window.selected >= 0 && !window.overview; onTriggered: { window.panel(window.selected).terminal.paste(); window.panel(window.selected).terminal.forceActiveFocus() } }
         MenuRule {}
         MenuAction { text: studySession.savedSession ? "Refresh workspaces" : "Refresh study workspaces"; enabled: !studySession.busy; onTriggered: studySession.refresh() }
+        MenuRule {}
+        MenuAction { objectName: "sessionStopMenuItem"; text: "Stop all terminals…"; enabled: terminalModel.count > 0 && !studySession.busy; onTriggered: window.requestSessionStop() }
         MenuAction { text: studySession.savedSession ? "Close window" : "Close UI study"; onTriggered: window.close() }
     }
     ChromeMenu {
@@ -999,22 +1014,23 @@ ApplicationWindow {
         id: terminalAction; objectName: "terminalActionDialog"; anchors.centerIn: parent; modal: true; focus: true
         width: Math.min(440, window.width - 64); padding: 20
         closePolicy: studySession.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
-        title: window.actionKind === "workspace-close" ? "Remove workspace?" : window.actionKind === "close" ? "Close terminal?" : "Move terminal here?"
+        title: window.actionKind === "session-stop" ? "Stop all terminals?" : window.actionKind === "workspace-close" ? "Remove workspace?" : window.actionKind === "close" ? "Close terminal?" : "Move terminal here?"
         background: Rectangle { color: window.chrome.raised; radius: 12; border.color: window.chrome.border }
         header: Label { text: terminalAction.title; padding: 20; bottomPadding: 8; color: window.chrome.foreground; font.pixelSize: 22 }
         contentItem: Column {
             spacing: 16
-            Label { width: parent.width; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12; text: window.actionKind === "workspace-close" ? window.workspaceRemovalContext : window.actionContext }
-            Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.foreground; text: window.actionKind === "workspace-close" ? "Remove this workspace and all of its terminals. Running processes in this workspace will be stopped. Other workspaces keep running." : window.actionKind === "close" ? "Stop this terminal’s process and remove it from the workspace. Other terminals keep running." : "Continue the same process in this window. The other window will release control." }
+            Label { width: parent.width; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12; text: window.actionKind === "session-stop" ? window.stopTargets.length + (window.stopTargets.length === 1 ? " saved terminal" : " saved terminals") + " · All workspaces and windows in this session" : window.actionKind === "workspace-close" ? window.workspaceRemovalContext : window.actionContext }
+            Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.foreground; text: window.actionKind === "session-stop" ? "Stop these terminals’ shells and foreground jobs. Keep workspaces, folders, names and saved appearance. Terminals created after this confirmation opened are excluded. Windows stay open; starting fresh shells later requires an explicit action." : window.actionKind === "workspace-close" ? "Remove this workspace and all of its terminals. Running processes in this workspace will be stopped. Other workspaces keep running." : window.actionKind === "close" ? "Stop this terminal’s process and remove it from the workspace. Other terminals keep running." : "Continue the same process in this window. The other window will release control." }
+            Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; visible: window.actionKind === "session-stop" && !window.stopTargetsValid; text: "A confirmed terminal was removed. Cancel and reopen this confirmation to review the current session." }
             Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; text: studySession.error; visible: text.length > 0 }
             Row {
                 spacing: 8
                 QuietButton { id: cancelTerminalAction; objectName: "cancelTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { terminalAction.close(); event.accepted = true } else event.accepted = false }; text: "Cancel"; enabled: !studySession.busy; onClicked: terminalAction.close() }
-                QuietButton { id: confirmTerminalAction; objectName: "confirmTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { window.performTerminalAction(); event.accepted = true } else event.accepted = false }; text: studySession.busy ? "Working…" : window.actionKind === "workspace-close" ? "Remove workspace" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy; onClicked: window.performTerminalAction() }
+                QuietButton { id: confirmTerminalAction; objectName: "confirmTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { window.performTerminalAction(); event.accepted = true } else event.accepted = false }; text: studySession.busy ? "Working…" : window.actionKind === "session-stop" ? "Stop terminals" : window.actionKind === "workspace-close" ? "Remove workspace" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy && (window.actionKind !== "session-stop" || window.stopTargetsValid); onClicked: window.performTerminalAction() }
             }
         }
         onOpened: { studySession.clearError(); cancelTerminalAction.forceActiveFocus(Qt.TabFocusReason) }
-        onClosed: Qt.callLater(window.restoreAfterPopup)
+        onClosed: { window.stopTargets = []; Qt.callLater(window.restoreAfterPopup) }
     }
     component ProjectField: TextField {
         selectByMouse: true; color: "#e0e6ef"; selectionColor: window.accent; selectedTextColor: "#101318"

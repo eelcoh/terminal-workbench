@@ -50,6 +50,7 @@ UiCatalogFeed::UiCatalogFeed(const QString &directory,const QVariantMap &initial
         // snapshot before projecting a potentially obsolete intermediate one.
         if(dirty_){schedule();return;}
         const auto data=catalog.toVariantMap();if(data!=known_){known_=data;Q_EMIT updated(data);}
+        Q_EMIT validated();
     });
     connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(reading_)fail("Workspace update connection closed. Existing terminals remain connected.");});
     connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){if(reading_)fail("Workspace updates unavailable. Existing terminals remain connected.");});

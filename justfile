@@ -344,6 +344,10 @@ toolkit-workbench: runtime-build
 toolkit-display-report: runtime-build
     WORKBENCH_DISPLAY_REPORT="{{justfile_directory()}}/.local/artifacts/qt-display/report.json" python3 scripts/toolkit-probe.py workbench
 
+# Linux: confirmed stop-all and peer status with real disposable terminals.
+toolkit-shutdown-gui-test: runtime-build
+    python3 scripts/toolkit-probe.py ui-test --shutdown-only
+
 # Linux: focused native terminal search on X11 and Wayland.
 toolkit-search-gui-test: runtime-build
     python3 scripts/toolkit-probe.py ui-test --search-only

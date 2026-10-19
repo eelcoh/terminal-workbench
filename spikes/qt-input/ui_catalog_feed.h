@@ -18,6 +18,7 @@ public:
     static bool valid(const QJsonObject &catalog);
 Q_SIGNALS:
     void updated(QVariantMap catalog);
+    void validated();
     void changed();
 private:
     void watch();

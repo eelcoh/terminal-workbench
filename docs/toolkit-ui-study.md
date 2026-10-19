@@ -646,3 +646,15 @@ install no diagnostic observers. Enabled reporting is debounced after display,
 geometry, attachment and font changes, outside paint/parse paths. Native Linux UI
 checks exercise populated reports, font updates, resize updates and absence of
 terminal content/runtime paths. Physical Mac mixed-display acceptance remains open.
+
+## Stop all terminals
+
+Commands and the application menu now include **Stop all terminals…**, separately
+from **Close window**. Closing detaches and leaves shells/builds running. Stop all
+confirms the current saved identities across workspaces/windows and keeps the
+saved organization. Cancel is initially focused; terminals created after opening
+are excluded, and removing a confirmed identity disables submission. Peer windows
+receive stopped feedback without implicit reattachment/recovery. See
+[Qt session shutdown](session-shutdown.md#qt-workbench) for limits and a disposable
+Mac review procedure. Linux model and two-window UI checks cover the slice;
+native Mac review remains open.

@@ -28,6 +28,9 @@ int main(int argc,char **argv){
     require(client.values()["one"].toMap()["busy"].toBool(),"fragment remains pending");
     peers.last()->write(good.mid(8));peers.last()->flush();require(wait([&]{return !client.values()["one"].toMap()["busy"].toBool();}),"fragment complete");
     require(client.values()["one"].toMap()["message"]=="Shell exited with code 42.","recorded exit reason");
+    request();const int oldCount=requests.size();client.refresh("one");client.refresh("one");
+    peers.last()->write(good);peers.last()->flush();require(wait([&]{return requests.size()==oldCount+1;}),"invalidations during a request schedule one fresh read");
+    peers.last()->write(good);peers.last()->flush();require(wait([&]{return !client.values()["one"].toMap()["busy"].toBool();}),"fresh read completes");
     QList<QByteArray> invalid={QByteArray(good).replace("\"id\":\"one\"","\"id\":\"other\""),"not-json\n",QByteArray(8193,'x'),"{\"protocol\":1,\"ok\":true}\n"};
     for(const auto &bytes:invalid){request();peers.last()->write(bytes);peers.last()->flush();require(wait([&]{return !client.values()["one"].toMap()["busy"].toBool();}),"invalid reply bounded");require(client.values()["one"].toMap()["state"]=="unavailable","invalid reply cannot become stopped/running");}
     request();peers.last()->disconnectFromServer();require(wait([&]{return !client.values()["one"].toMap()["busy"].toBool();}),"EOF handled");

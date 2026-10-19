@@ -36,6 +36,7 @@ QtObject {
         row("move-right", "Move terminal right", "Reorder within this workspace", host.canReorder(1), session.busy ? "Another change is in progress" : "No next position"),
         row("move-up", "Move to workspace above", "Keep the same running process", host.canMoveWorkspace(-1), "No available workspace above"),
         row("move-down", "Move to workspace below", "Keep the same running process", host.canMoveWorkspace(1), "No available workspace below"),
+        row("session-stop", "Stop all terminals…", "Confirm before stopping shells across this session’s workspaces and windows; keep saved organization", host.terminalItems.length > 0 && !session.busy, session.busy ? "Another change is in progress" : "No saved terminals"),
         row("close-workspace", "Remove workspace…", "Confirm before stopping its terminals and removing this workspace", hasWorkspace && !session.busy, !hasWorkspace ? "No workspace selected" : "Another change is in progress"),
         row("close-terminal", "Close terminal…", "Confirm before stopping and removing this terminal", hasPane && !session.busy, session.busy ? "Another change is in progress" : "No terminal selected"),
         row("forward", "Send next key to terminal", "Bypass application shortcuts once; Escape cancels", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.ready, "No connected terminal selected in the working view"),

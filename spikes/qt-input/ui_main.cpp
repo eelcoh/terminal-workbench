@@ -159,6 +159,7 @@ int main(int argc,char **argv) {
                 {"confirmation_cancel_focus",window->findChild<QQuickItem *>("cancelTerminalAction")->hasActiveFocus()},{"terminal_action_open",window->property("terminalActionOpen").toBool()},
                 {"terminal_action_kind",window->property("actionKind").toString()},{"terminal_action_target",window->property("actionTarget").toString()},{"workspace_removal_context",window->property("workspaceRemovalContext").toString()},
                 {"remove_workspace_0",center("removeWorkspace0")},{"remove_workspace_1",center("removeWorkspace1")},{"remove_workspace_3",center("removeWorkspace3")},
+                {"confirm_terminal_action_enabled",window->findChild<QQuickItem *>("confirmTerminalAction")->isEnabled()},{"session_stop_item",center("sessionStopMenuItem")},{"session_stop_ids",QJsonArray::fromVariantList(listProperty(window,"stopTargets"))},{"session_stop_valid",window->property("stopTargetsValid").toBool()},
                 {"terminal_close_item",center("terminalCloseMenuItem")},{"confirm_terminal_action",center("confirmTerminalAction")},{"cancel_terminal_action",center("cancelTerminalAction")},
                 {"view_enabled",view.enabled()},{"view_error",view.error()},{"window_width",window->width()},{"interface_font",app.font().family()},
                 {"chrome_boxes",QJsonObject{{"workspace",box("workspaceButton")},{"indicators",box("indicatorRow")},{"count",box("focusedCount")},{"add",box("newTerminalButton")},{"overview",box("overviewButton")}}},

@@ -10,6 +10,8 @@
 #include "ui_lifecycle.h"
 #include "ui_catalog_feed.h"
 #include <QHash>
+#include <QPointer>
+#include <QStringList>
 
 // Client adapter for the existing organization service. Never owns PTYs/catalog data.
 class UiSession final : public QObject {
@@ -33,6 +35,7 @@ public:
     Q_INVOKABLE void reconnect(TerminalItem *item,const QString &identity,bool takeover=false);
     Q_INVOKABLE void recover(const QString &identity);
     Q_INVOKABLE void closeTerminal(const QString &identity);
+    Q_INVOKABLE void stopTerminals(const QStringList &identities);
     Q_INVOKABLE void closeWorkspace(const QString &identity);
     QString error() const {return error_;}
     Q_INVOKABLE QObject *observe(const QString &identity);
@@ -53,11 +56,13 @@ Q_SIGNALS:
     void actionCompleted(QString identity,QString method);
     void completed(QVariantMap catalog,QString method);
 private:
-    void request(const QString &method,const QString &identity={},const QString &name={},const QString &directory={},const QString &destination={},int position=-1);
+    void request(const QString &method,const QString &identity={},const QString &name={},const QString &directory={},const QString &destination={},int position=-1,const QStringList &terminalIds={});
     void fail(const QString &message);
     void prune(const QJsonObject &catalog);
+    void refreshInactive();
     UiCatalogFeed *catalog_=nullptr;
     UiLifecycle lifecycle_;
     QHash<QString,RuntimeFacts *> facts_;
+    QHash<QString,QPointer<TerminalItem>> readers_;
     QJsonObject config_;QLocalSocket socket_;QTimer deadline_;QByteArray receive_;QString method_,identity_,error_;bool busy_=false,sent_=false;
 };

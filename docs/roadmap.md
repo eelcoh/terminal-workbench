@@ -700,6 +700,17 @@ and old/unsafe endpoints fail before any initial stop. Linux backend and two-win
 GUI validation pass; the owner also confirmed native Mac shutdown/restart.
 See [session shutdown](session-shutdown.md).
 
+## Qt parity: explicit session shutdown
+
+Qt now exposes the existing `session.stop` through a distinct Stop all terminals
+confirmation in Commands/the menu. Frozen saved IDs cover workspaces/windows;
+Cancel/initial Enter preserve shells, new terminals are excluded, removed targets
+disable submission, and organization/appearance remain. Closing still detaches.
+Filesystem-driven, read-only lifecycle invalidation updates disconnected peers
+without polling, reconnect or recovery, including invalidations racing an old
+status reply. Native Linux model/two-window checks exercise the slice; Mac Qt
+acceptance remains open. See [Qt session shutdown](session-shutdown.md#qt-workbench).
+
 ## Current runtime slice: sustained-session validation
 
 A disposable session soak now exercises continuous styled output, primary/alternate

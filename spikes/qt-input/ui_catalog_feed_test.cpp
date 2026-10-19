@@ -25,9 +25,10 @@ int main(int argc,char **argv){
     }});
     const auto first=catalog("First"),second=catalog("Second"),third=catalog("Third");
     UiCatalogFeed feed(root.path(),first.toVariantMap(),nullptr,200,10);QList<QVariantMap> updates;QObject::connect(&feed,&UiCatalogFeed::updated,&app,[&](const QVariantMap &value){updates.append(value);});
+    int validated=0;QObject::connect(&feed,&UiCatalogFeed::validated,&app,[&]{++validated;});
     auto awaitRequest=[&](int count){check(wait([&]{return requests.size()==count;}),"catalog request");check(requests.last()==QJsonObject{{"protocol",1},{"method","catalog.read"}},"read-only method has no startup or mutation fields");};
     auto answer=[&](const QJsonObject &data){peers.last()->write(reply(data));peers.last()->flush();settle();};
-    awaitRequest(1);const auto encoded=reply(first);peers.last()->write(encoded.left(7));peers.last()->flush();settle();check(updates.isEmpty(),"fragment is not a snapshot");peers.last()->write(encoded.mid(7));peers.last()->flush();settle();check(updates.isEmpty() && feed.error().isEmpty(),"unchanged snapshot deduped");
+    awaitRequest(1);const auto encoded=reply(first);peers.last()->write(encoded.left(7));peers.last()->flush();settle();check(updates.isEmpty(),"fragment is not a snapshot");peers.last()->write(encoded.mid(7));peers.last()->flush();settle();check(updates.isEmpty() && feed.error().isEmpty(),"unchanged snapshot deduped");check(validated==1,"unchanged validated snapshots still invalidate runtime status");
     put(path,"renamed atomically");awaitRequest(2);answer(second);check(updates.size()==1 && updates.last()==second.toVariantMap(),"filesystem update published");
     put(path,"replaced again");awaitRequest(3);answer(third);check(updates.size()==2,"file watch rearmed after replacement");
     feed.refresh();awaitRequest(4);peers.last()->write(reply(first));peers.last()->flush();feed.pause();settle();check(updates.size()==2,"late pre-mutation snapshot discarded");

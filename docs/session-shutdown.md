@@ -75,3 +75,49 @@ TMPDIR=/tmp python3 tests/session_shutdown_test.py target/debug/workbench-sessio
 ```
 
 Installable app/daemon lifecycle, session selection and update policy remain open.
+
+## Qt workbench
+
+The Qt candidate now exposes **Stop all terminals…** through Commands and the
+application menu. It reuses `session.stop`, with no new runtime or transport
+operation. **Close window** continues to detach: builds and shells can keep
+running after the window disappears. Stop all is a separate explicit action.
+
+The dialog captures the current saved terminal IDs, including terminals in other
+workspaces or owned by another window. It states that shells/foreground jobs stop
+and organization/appearance remain. Cancel receives initial focus; Enter initially
+cancels. New terminals are excluded. Removing a confirmed ID disables Stop with a
+request to cancel and reopen, rather than targeting another terminal. Busy state
+blocks repeated submission and dismissal. Errors remain in the confirmation and
+mutations are never automatically resent after a lost reply. An older service
+that lacks `session.stop` rejects this action without changing other features.
+
+Disconnected peer windows now refresh their read-only lifecycle cache after a
+validated filesystem-triggered catalog read, even when saved organization is
+unchanged. Already live readers keep their normal EOF path. An invalidation during
+an in-flight status request coalesces one fresh read afterward, so an old reply
+cannot permanently hide the new stopped state. There is no periodic polling,
+implicit reconnect, service startup or shell recovery in this path. Stopped
+feedback takes precedence over an obsolete “Open in another window” notice.
+
+`just toolkit-catalog-test` and `just toolkit-lifecycle-test` cover unchanged
+snapshot invalidation and in-flight read ordering. `just toolkit-shutdown-gui-test`
+uses real disposable terminals and two Qt windows on X11/Wayland: menu/Commands
+handoff, Cancel/initial Enter, stale IDs, cross-window ownership and stopped
+feedback, newly-created-terminal exclusion with unchanged shell PID/variable,
+retained catalog/readers, explicit recovery and unchanged close-detach behavior.
+The full `just toolkit-ui-test` includes the same flow and empty-session action
+availability. Captures are under `.local/artifacts/qt-ui/{xcb,wayland}/session-stop*.png`.
+Native Mac review remains required.
+
+For Mac review without affecting daily-use terminals:
+
+```sh
+WORKBENCH_STATE_DIR=/tmp/wb-qt-shutdown-review just toolkit-workbench
+```
+
+Create some terminals and a second window with the same command. Test Cancel,
+then confirm Stop all. Both windows should show stopped entries while keeping
+workspaces. **Start new shell** is explicit; closing either window keeps surviving
+shells running. This validates the Qt client independently of the previously
+confirmed prototype shutdown flow.

@@ -3,6 +3,11 @@
 #include <QRegularExpression>
 #include <QJsonDocument>
 #include <QJsonObject>
+void UiLifecycle::refresh(const QString &identity) {
+    // A filesystem invalidation may arrive before an old status reply finishes.
+    if(inspections_.contains(identity))dirty_.insert(identity);
+    else inspect(identity);
+}
 void UiLifecycle::inspect(const QString &identity) {
     static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
     if(!id.match(identity).hasMatch() || inspections_.contains(identity))return;
@@ -16,6 +21,7 @@ void UiLifecycle::inspect(const QString &identity) {
         if(inspections_.value(identity)!=socket)return;
         inspections_.remove(identity);socket->abort();socket->deleteLater();
         value.insert("busy",false);lifecycle_.insert(identity,value);Q_EMIT changed();
+        if(dirty_.remove(identity))QTimer::singleShot(0,this,[this,identity]{if(lifecycle_.contains(identity))inspect(identity);});
     };
     const auto unavailable=[finish]{finish({{"state","unavailable"},{"message","Status unavailable. Check again."}});};
     connect(socket,&QLocalSocket::connected,this,[socket,identity]{socket->write(QJsonDocument(QJsonObject{{"protocol",1},{"method","terminal.lifecycle"},{"identity",identity}}).toJson(QJsonDocument::Compact)+'\n');});
@@ -36,6 +42,7 @@ void UiLifecycle::inspect(const QString &identity) {
 }
 
 void UiLifecycle::retain(const QSet<QString> &active) {
+    dirty_.intersect(active);
     for(const auto &id:inspections_.keys())if(!active.contains(id)) {auto *socket=inspections_.take(id);socket->abort();socket->deleteLater();}
     bool changedValue=false;
     for(const auto &id:lifecycle_.keys())if(!active.contains(id)) {lifecycle_.remove(id);changedValue=true;}

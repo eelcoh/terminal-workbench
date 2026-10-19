@@ -29,12 +29,13 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
         if(!reply["ok"].toBool()) {fail(reply["error"].toString("Session request failed. Refresh before trying again."));return;}
         if(!reply["data"].isObject() || !UiCatalogFeed::valid(reply["data"].toObject())) {fail("Missing session catalog. Refresh before trying again.");return;}
         const auto catalog=reply["data"].toObject().toVariantMap();const auto method=method_,identity=identity_;
-        deadline_.stop();busy_=false;socket_.abort();receive_.clear();if(catalog_)catalog_->resume(catalog);Q_EMIT changed();Q_EMIT completed(catalog,method);prune(reply["data"].toObject());Q_EMIT actionCompleted(identity,method);
+        deadline_.stop();busy_=false;socket_.abort();receive_.clear();if(catalog_)catalog_->resume(catalog);Q_EMIT changed();Q_EMIT completed(catalog,method);prune(reply["data"].toObject());if(method=="session.stop")refreshInactive();Q_EMIT actionCompleted(identity,method);
     });
     connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(busy_)fail("Session service closed before replying. Refresh before trying again.");});
     connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){if(busy_)fail(sent_?"Request outcome is unknown. Refresh before trying again.":socket_.errorString());});
     if(config["catalog_updates"].toBool(config["saved_session"].toBool())){
         catalog_=new UiCatalogFeed(config["state"].toString(),initialCatalog(),this);
+        connect(catalog_,&UiCatalogFeed::validated,this,&UiSession::refreshInactive);
         connect(catalog_,&UiCatalogFeed::changed,this,&UiSession::catalogNoticeChanged);
         connect(catalog_,&UiCatalogFeed::updated,this,[this](const QVariantMap &data){Q_EMIT completed(data,"catalog.update");prune(QJsonObject::fromVariantMap(data));});
     }
@@ -51,14 +52,15 @@ QObject *UiSession::observe(const QString &identity) {
 }
 void UiSession::attach(TerminalItem *item,const QString &identity) {
     static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
-    if(item && id.match(identity).hasMatch())item->connectSession(QDir(config_["state"].toString()).filePath(identity+".ctl"));
+    if(item && id.match(identity).hasMatch()){readers_.insert(identity,item);item->connectSession(QDir(config_["state"].toString()).filePath(identity+".ctl"));}
 }
-void UiSession::request(const QString &method,const QString &identity,const QString &name,const QString &directory,const QString &destination,int position) {
+void UiSession::request(const QString &method,const QString &identity,const QString &name,const QString &directory,const QString &destination,int position,const QStringList &terminalIds) {
     if(busy_)return;
     if(catalog_)catalog_->pause();
     socket_.abort();sent_=false;busy_=true;error_.clear();method_=method;identity_=identity;
     QJsonObject message{{"protocol",1},{"method",method},{"identity",identity},{"title",name},
         {"runtime",config_["runtime"]},{"cwd",config_["cwd"]}};
+    if(method=="session.stop")message.insert("terminal_ids",QJsonArray::fromStringList(terminalIds));
     if(method=="terminal.move") {message.insert("destination",destination);message.insert("position",position);}
     if(method=="workspace.create_at" || method=="workspace.directory")message.insert("project_directory",directory);
     receive_=QJsonDocument(message).toJson(QJsonDocument::Compact)+'\n';
@@ -100,6 +102,20 @@ void UiSession::reconnect(TerminalItem *item,const QString &identity,bool takeov
 }
 void UiSession::recover(const QString &identity) {request("terminal.recover",identity);}
 void UiSession::closeWorkspace(const QString &identity) {request("workspace.close",identity);}
+void UiSession::stopTerminals(const QStringList &identities) {
+    if(busy_)return;
+    static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");QSet<QString> unique;
+    if(identities.isEmpty() || identities.size()>64){fail("Select between one and 64 saved terminals.");return;}
+    for(const auto &identity:identities) {
+        if(!id.match(identity).hasMatch() || unique.contains(identity)){fail("Invalid or duplicate terminal in stop confirmation.");return;}
+        unique.insert(identity);
+    }
+    request("session.stop",{},{},{},{},-1,identities);
+}
+void UiSession::refreshInactive() {
+    // Only on explicit/catalog invalidations, never from render or PTY parsing.
+    for(auto it=readers_.cbegin();it!=readers_.cend();++it)if(it.value() && !it.value()->ready() && it.value()->attachment()!=QStringLiteral("connecting"))lifecycle_.refresh(it.key());
+}
 void UiSession::closeTerminal(const QString &identity) {request("terminal.close",identity);}
 void UiSession::inspect(const QString &identity) {lifecycle_.inspect(identity);}
 
@@ -107,5 +123,6 @@ void UiSession::prune(const QJsonObject &catalog) {
     QSet<QString> active;
     for(const auto &workspace:catalog["workspaces"].toArray())for(const auto &terminal:workspace.toObject()["terminals"].toArray())active.insert(terminal.toObject()["id"].toString());
     for(const auto &id:facts_.keys())if(!active.contains(id))facts_.take(id)->deleteLater();
+    for(const auto &id:readers_.keys())if(!active.contains(id))readers_.remove(id);
     lifecycle_.retain(active);
 }
