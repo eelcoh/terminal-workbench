@@ -172,3 +172,19 @@ Service health optionally advertises `methods`. `workspace.create_at` and
 existing `workspace.create` and avoid success when an older service ignores a
 load-bearing folder parameter. Folder state belongs to shared organization;
 window geometry/focus and terminal process cwd retain their existing owners.
+
+
+### Optional runtime launch origin
+
+`CAPS\n` replies may advertise `runtime-origin` and include
+`origin: {"version": 1, "runtime_binary": "/absolute/path", "agent_bin": "/absolute/path"}`.
+Paths are captured by the runtime at startup and remain stable when a different
+session service adopts its socket. Values can be null when unavailable, non-UTF-8,
+relative or longer than 4096 bytes; identities are never truncated. Older
+runtimes omit these fields and remain usable. Capability/JSON additions do not
+change the existing binary framing or permit shell attachment/transfer.
+
+Origin describes the launched runtime and initial helper environment, not later
+shell dotfile/PATH edits or arbitrary program dependencies. The session service
+passes it through its existing cached capability metadata; installed-preview
+status uses it only as an observed build-reference inventory.

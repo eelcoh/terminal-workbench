@@ -20,7 +20,7 @@ built=ROOT/'.local/build/qt-input/workbench-ui-study'
 if sys.platform=='darwin':built=built.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
 
 with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
-    root=Path(directory);home=root/'home';home.mkdir();state=root/'sessions';config=root/'preferences'
+    root=Path(directory).resolve();home=root/'home';home.mkdir();state=root/'sessions';config=root/'preferences'
     env={k:v for k,v in os.environ.items() if not k.startswith(('WORKBENCH_','XDG_'))}
     env.update(HOME=str(home),SHELL='/bin/sh',WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(config),PYTHONDONTWRITEBYTECODE='1')
     stages=[staging.stage(root/f'build-{i}',runtime,built,ROOT/'.local/build/qt-input/workbench-preview-bootstrap',sign=False) for i in range(3)]
@@ -58,6 +58,11 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         snapshots={path:(path.read_bytes(),path.stat().st_mtime_ns) for path in saved}
         inodes={path:path.stat().st_ino for path in state.glob('*.sock')}
         first=health()
+        usage=json.loads(cli(0,'--status').stdout)['payload_usage']
+        assert usage['service_available'] and not usage['unknown_terminals']
+        assert len(usage['builds'])==1
+        assert terminal in usage['builds'][0]['runtime_terminals'] and stopped not in usage['builds'][0]['runtime_terminals']
+        assert usage['builds'][0]['helper_terminals']==usage['builds'][0]['runtime_terminals']
         # A currently open preview blocks activation before the service is touched.
         lease,_=acquire_window_slot(state/'qt')
         try:
@@ -73,7 +78,14 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         cli(1,'--activate');second=health()
         assert second['service_instance']!=first['service_instance'] and second['service_pid']!=first['service_pid']
         assert second['runtime_binary']==str(binaries[1])
-        assert not json.loads(cli(1,'--status').stdout)['activation_required']
+        selected_status=json.loads(cli(1,'--status').stdout)
+        assert not selected_status['activation_required']
+        usage=selected_status['payload_usage'];assert not usage['unknown_terminals']
+        old=next(build for build in usage['builds'] if build['directory']==str(payload(0)))
+        chosen=next(build for build in usage['builds'] if build['directory']==str(payload(1)))
+        assert terminal in old['runtime_terminals'] and terminal in old['helper_terminals']
+        assert not old['selected'] and not old['service']
+        assert chosen['selected'] and chosen['service'] and not chosen['runtime_terminals']
         assert next(t['state'] for t in second['terminals'] if t['id']==stopped)=='stopped'
         for path,(contents,stamp) in snapshots.items():assert path.read_bytes()==contents and path.stat().st_mtime_ns==stamp,path
         assert all(path.stat().st_ino==inode for path,inode in inodes.items())
@@ -94,6 +106,10 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
             new=home/'new';send(reader,16,('printf "%s" "$WORKBENCH_AGENT_BIN" > '+shlex.quote(str(new))+'\n').encode())
             wait_until(lambda:new.exists() and new.read_text()==str(payload(1)/'.local/bin'))
         finally:reader.close()
+        usage=json.loads(cli(1,'--status').stdout)['payload_usage']
+        chosen=next(build for build in usage['builds'] if build['directory']==str(payload(1)))
+        assert fresh in chosen['runtime_terminals'] and fresh in chosen['helper_terminals']
+        assert not usage['unknown_terminals']
         # A failed new daemon leaves old shell processes and endpoint identities
         # intact. Retry with the known working build without recovering any shell.
         service=payload(2)/'scripts/session_service.py'
@@ -121,6 +137,9 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         data=exchange(state,dict(protocol=PROTOCOL,method='catalog.read'))['data']
         ids=[t['id'] for w in data['workspaces'] for t in w['terminals']]
         if ids:request(state,binaries[1],home,'session.stop',terminal_ids=ids)
+        usage=json.loads(cli(1,'--status').stdout)['payload_usage']
+        assert all(not row['runtime_terminals'] and not row['helper_terminals'] for row in usage['builds'])
+        assert not usage['unknown_terminals']
         request(state,binaries[1],home,'service.shutdown')
     # Legacy services are observed but never sent an unsafe unconditional stop.
     legacy=root/'legacy';legacy.mkdir();observed=root/'legacy-request'
@@ -139,4 +158,4 @@ c.sendall((json.dumps(dict(protocol=1,ok=True,runtime_binary=sys.argv[3],directo
         process.wait(timeout=5);assert json.loads(observed.read_text())['method']=='health'
     finally:
         if process.poll() is None:process.kill();process.wait()
-print('PASS: explicit preview handoff, stale-instance refusal, active-window exclusion, unchanged catalog/preferences/views and shell PIDs/variables/sockets; new helper paths, stopped-shell retention, startup-failure retry, legacy and unrelated-service isolation')
+print('PASS: explicit preview handoff, stale-instance refusal, active-window exclusion, unchanged catalog/preferences/views and shell PIDs/variables/sockets; retained/new preview-origin reporting, stopped-shell retention, startup-failure retry, legacy and unrelated-service isolation')

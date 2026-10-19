@@ -189,14 +189,18 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
 5. The Qt candidate now has a same-machine staged preview outside the checkout:
    `just toolkit-stage` creates a movable launcher/payload with separate user state.
    Finder bundles and explicit Linux app-menu registration are implemented, with
-   private desktop launch logs. System Qt/Python remain required. Finish native
-   Finder/signing and app-menu review. Explicit `--status`/`--activate` now support
-   service handoff after closing windows, retaining existing shells and saved state;
+   private desktop launch logs. Ordinary staging uses installed Qt/Python.
+   Finish native Finder/signature and app-menu review. Explicit `--status`/`--activate` now support
+   service handoff after closing windows, retaining existing shells and saved state.
+   Status now reports runtime/helper build references for retained and new
+   terminals; legacy or unavailable origins remain explicit. This is an observed
+   inventory, not automatic cleanup or a deletion-safety assessment.
    Mac default shells now use login startup/account-shell fallback so Finder
    launches load profile-provided tools. Optional `just toolkit-bundle` now
    deploys Qt on native Mac builds with static linkage reporting and preserved
-   notices. Native shell-startup/activation and bundle loader/signing review,
-   Python/non-Qt dependencies and the remaining installed lifecycle still
+   notices. The owner confirmed Mac bundling at `164264b`. Native shell startup,
+   activation and moved-bundle loader/launch review, Python/non-Qt dependencies
+   and the remaining installed lifecycle still
    precede an installable release. Decide the product name and update approach first.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins

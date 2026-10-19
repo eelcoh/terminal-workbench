@@ -1501,38 +1501,39 @@ this environment correction applies to newly created shells.
 tools, an explicit QML import manifest, static Mach-O Qt linkage checks and
 notice collection before the final ad hoc signature. Python and reported
 non-Qt libraries remain external. Ordinary Linux/Mac staging is unchanged.
-Portable fixture tests and the Linux staged-preview regression pass; actual
-Mac deployment, loader paths, QML instantiation and signatures remain unverified.
-See [bundle review instructions](qt-staged-preview.md#mac-optional-qt-deployment).
-The owner reported a native `macdeployqt` timeout after 300 seconds on `61aad09`,
-before the independent linkage audit and final signing. The underlying native
-helper is not identified by that traceback. Packaging now announces phases,
-prints heartbeat/log paths, records scoped child-process snapshots and enables
-Qt debug logging. Timeout/cancellation terminates the tool's process group;
-final signing has a separate two-minute deadline and surviving log. Portable
-process/deployment tests cover those behaviors, but the Mac retry is pending.
-The subsequent `ec82b5a` log shows active `install_name_tool`/`otool` children
-and further ICU library copies at the 300-second deadline, rather than proof of
-a blocked helper. Deployment now omits `-always-overwrite` in each fresh stage,
-reusing copied dependencies between plugin passes, and
-allows fifteen minutes with the existing heartbeat and process-group cleanup.
-Qt's [copy/reuse implementation](https://raw.githubusercontent.com/qt/qtbase/6.10/src/tools/macdeployqt/shared/shared.cpp)
-confirms that forced overwrite bypasses its existing-file reuse. Portable
-fixtures check the fresh-stage invocation and linkage audit; actual Homebrew
-completion time and native acceptance remain pending.
-The owner's next run completed `macdeployqt` in 77.7 seconds but failed our
-post-deployment check because `Contents/Resources/qt.conf` was absent. Workbench
-now generates explicit relative plugin/QML/library paths itself before the final
-signature, aligning a supplied `qt6.conf` too. Portable fixtures now model a tool
-that does not create configuration; checks cover relocation, sign ordering and
-replacement of read-only/symlink configs without changing their source files.
-The next native bundle launch and library audit still require Mac review.
-The `06e417e` Mac run completed deployment in 74.4 seconds and wrote Qt's
-configuration, then failed the static audit. The reported entries look like the
-libraries' Homebrew install IDs. The audit previously treated `otool -L`'s mix of
-IDs and imports as imports. It now reads typed `otool -l` commands, records
-`LC_ID_DYLIB` separately, and checks only real load commands as dependencies.
-Portable tests cover absolute Homebrew IDs, real imports matching those IDs,
-all dylib import variants, universal command listings and incomplete inspection.
-The real native imports and final launch still require Mac verification.
-This does not select the production frontend or establish release readiness.
+
+On 2026-10-19 the owner confirmed the bundle command works on Mac at `164264b`.
+That confirms native deployment, configuration generation, the linkage audit
+and final signing complete. Finder launch of the Qt-deployed app after moving
+it, actual loaded-library paths and QML workflow acceptance remain separate
+checks. See [bundle review instructions](qt-staged-preview.md#mac-optional-qt-deployment).
+
+The preceding native retries identified three packaging defects now addressed:
+forced overwrite caused repeated library deployment, the tool did not generate
+`qt.conf`, and the audit mixed dylib identity names with actual imports.
+Deployment now reuses copied libraries, has a fifteen-minute deadline with
+progress/process evidence, writes relative Qt configuration before signing,
+and audits typed load commands. Native deployment completed in about 75–78
+seconds before the final audit corrections; deployment size/time optimization
+remains open. Portable tests cover missing/copied configuration, relocation,
+actual external imports versus install IDs, and timeout/cancellation cleanup.
+No release readiness or production frontend decision is implied by this preview.
+
+
+## Preview payload references across activation
+
+Runtime capability replies now optionally include versioned launch origin:
+the executable path and initial agent-helper directory, captured once at startup.
+The installed launcher's readonly `--status` groups those facts by staged
+payload, alongside selected-preview and active-service references. Stopped
+terminals add no running references; legacy, unavailable or incomplete origins
+remain explicit unknowns. No directory discovery, removal or deletion-safety
+claim is made: other namespaces and child-program dependencies remain outside
+this inventory. Existing clients can ignore the additive capability/JSON fields.
+
+Origin capture runs once per runtime and capability replies reuse the encoded
+value. There is no new PTY parsing, rendering or process-tree polling work.
+The existing service health cache carries the optional origin through handoff.
+Linux `just check` and `just toolkit-activation-test` pass, including retained
+versus new build references with unchanged shell PIDs and saved state. Native Mac
+origin reporting remains pending. See [preview status and activation](qt-staged-preview.md).

@@ -48,6 +48,7 @@ check: runtime-build
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
     python3 tests/terminal_status_cli_test.py
+    python3 tests/preview_usage_test.py
     python3 tests/lifecycle_record_test.py
     python3 tests/lifecycle_smoke.py target/debug/workbench-session
     python3 tests/workspace_directories_test.py target/debug/workbench-session

@@ -19,7 +19,8 @@ def inspect(state):
 def status(state,runtime,cwd):
     health=inspect(state)
     return dict(state_directory=str(state),selected_runtime=str(runtime),service=health,
-        activation_required=bool(health and (health.get('runtime_binary')!=str(runtime) or health.get('directory')!=str(cwd))))
+        activation_required=bool(health and (health.get('runtime_binary')!=str(runtime) or health.get('directory')!=str(cwd))),
+        payload_usage=payload_usage(runtime,health))
 
 
 def _preview(runtime):
@@ -64,3 +65,37 @@ def activate(state,runtime,viewer,cwd):
         if selected.get('runtime_binary')!=str(runtime) or selected.get('directory')!=str(cwd):
             raise ValueError('Another service configuration is active; existing shells were left running')
         return dict(result='activated' if health else 'started',service=selected)
+
+
+def payload_usage(selected_runtime,health):
+    """Observed references only; never authorize removal or enumerate old installs."""
+    builds={};unknown=[]
+    def payload(path,suffix):
+        if not isinstance(path,str) or not path or len(path)>4096:return None
+        path=Path(path)
+        if not path.is_absolute() or tuple(path.parts[-len(suffix):])!=suffix:return None
+        return path.parents[len(suffix)-1]
+    def reference(directory,kind,identity=None):
+        if directory is None:return False
+        row=builds.setdefault(str(directory),dict(directory=str(directory),selected=False,service=False,runtime_terminals=[],helper_terminals=[]))
+        if identity is None:row[kind]=True
+        else:row[kind].append(identity)
+        return True
+    reference(payload(str(selected_runtime),('libexec','workbench-session')),'selected')
+    if health:
+        reference(payload(health.get('runtime_binary'),('libexec','workbench-session')),'service')
+        for terminal in health.get('terminals',[]):
+            if terminal.get('state')=='stopped':continue
+            identity=terminal.get('id')
+            runtime_info=terminal.get('runtime')
+            origin=runtime_info.get('origin') if isinstance(runtime_info,dict) else None
+            if terminal.get('state')!='running' or not isinstance(origin,dict) or type(origin.get('version')) is not int or origin['version']!=1:
+                unknown.append(dict(id=identity,reason='Runtime origin unavailable'));continue
+            runtime=payload(origin.get('runtime_binary'),('libexec','workbench-session'))
+            helpers=payload(origin.get('agent_bin'),('.local','bin'))
+            reference(runtime,'runtime_terminals',identity)
+            reference(helpers,'helper_terminals',identity)
+            if runtime is None or helpers is None:unknown.append(dict(id=identity,reason='Runtime or helper path is unavailable or outside a staged preview'))
+    return dict(builds=[builds[key] for key in sorted(builds)],unknown_terminals=unknown,
+        service_available=health is not None,scope='Selected preview and current service catalog only; other state directories, unlisted runtimes and child-program dependencies are not inspected',
+        removal_assessment='Not performed; no files are removed')

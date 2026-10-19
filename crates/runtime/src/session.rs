@@ -313,6 +313,8 @@ pub fn serve_with_shell_launch(
     let context_pid = Arc::new(AtomicI32::new(shell_pid));
     let _context_worker = start_context_worker(context_pid.clone(), events_tx.clone());
     let control_events = events_tx.clone();
+    // Capture once: later service activation cannot change a retained shell's helpers.
+    let runtime_origin = crate::runtime_origin::capture();
     thread::spawn(move || {
         for (id, connection) in control.incoming().enumerate() {
             let Ok(mut stream) = connection else {
@@ -328,8 +330,8 @@ pub fn serve_with_shell_launch(
                 b"CAPS\n" => {
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let report = format!(
-                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\"]}}\n",
-                        std::process::id()
+                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\",\"runtime-origin\"],\"origin\":{}}}\n",
+                        std::process::id(), runtime_origin
                     );
                     let _ = stream.write_all(report.as_bytes());
                     continue;

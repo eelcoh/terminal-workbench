@@ -44,7 +44,9 @@ installation selected by CMake, checks its version against the viewer build,
 and scans a deployment manifest that includes the dynamically chosen Basic
 Controls style. Deployment follows [Qt's Mac deployment tooling](https://doc.qt.io/qt-6/macos-deployment.html).
 `just toolkit-stage` keeps its existing installed-Qt behavior on both platforms.
-Linux bundling is not implemented.
+Linux bundling is not implemented. The owner confirmed the native Mac bundle
+command completes at `164264b`; moved-app launch and loaded-library review
+remain separate acceptance checks.
 
 The script runs a static Mach-O linkage audit before the final ad hoc signature.
 Unresolved or absolute external Qt imports fail the build. The audit reads
@@ -210,6 +212,35 @@ shells running; inspect `service.log` and retry a working build.
 
 `--status` never starts a missing service or creates user directories. It reports
 selected/runtime service paths, service health and whether activation is needed.
+The JSON status includes `payload_usage`. Each observed build lists whether it
+is selected, backs the current service, or supplies a running terminal's runtime
+or helpers. After activating a newer build, retained terminals should still refer
+to the older directory; newly created terminals should refer to the newer one.
+Runtime origin is captured at startup, so a service switch does not relabel old
+shells. Stopped terminals no longer add running references.
+
+To inspect a moved Mac preview, run its installed launcher from a regular
+terminal (adjust the app path):
+
+```sh
+"$HOME/Applications/Terminal Workbench Preview.app/Contents/Resources/workbench/terminal-workbench" --status
+```
+
+On Linux use `./terminal-workbench --status` from the preview directory. This
+works with windows open. Under `payload_usage.builds`, `selected` identifies the
+launcher's build and `service` the active organization service. A terminal ID
+under `runtime_terminals` or `helper_terminals` still references that directory.
+Use the accompanying service terminal list to map IDs to workspace/name.
+New terminals from this build advertise origin; existing older terminals may
+remain unknown until they exit and are explicitly replaced.
+
+Older runtimes, unavailable endpoints and missing/non-staged paths are reported
+under `unknown_terminals`. This report covers only the selected preview and the
+current service's catalog. Other state directories, unlisted runtimes and
+programs launched by a shell can have additional dependencies. **An absent
+reference is not permission to delete a build.** The command never removes files,
+starts shells or changes their ownership.
+
 Older services without instance-checked retirement are refused. For a service
 started by an earlier preview, close its windows and use the manual service stop
 command below once, leaving shells running if desired; then activate the new
@@ -273,3 +304,9 @@ fixtures to check version matching, QML import coverage, notice preservation,
 link resolution/refusal, failure cleanup/log retention and audit-before-sign
 ordering. It also checks ordinary staging and Linux refusal. These fixtures do
 not execute Apple's loader, `macdeployqt` or native code signing.
+
+`just toolkit-activation-test` additionally checks old/new payload references
+across service handoff with retained and freshly created shells, and clears
+running references after explicit stop. `just check` includes origin encoding
+and legacy/unavailable/partial-reference reporting checks. Native Mac origin
+reporting remains pending.

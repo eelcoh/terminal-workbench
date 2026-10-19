@@ -22,7 +22,7 @@ fn bounded(text: &str, maximum: usize) -> String {
     }
     text[..end].to_owned()
 }
-fn json_string(text: &str) -> String {
+pub(crate) fn json_string(text: &str) -> String {
     let mut result = String::from("\"");
     for ch in text.chars() {
         match ch {
