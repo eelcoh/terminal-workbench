@@ -16,12 +16,13 @@ import stat
 import subprocess
 import sys
 import time
+import uuid
 
 PROTOCOL = 1
 LIMIT = 256 * 1024
 METHODS = {"catalog.read", "initialize", "workspace.create", "workspace.rename", "workspace.close",
            "terminal.create", "terminal.rename", "terminal.close", "terminal.move",
-           "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "terminal.lifecycle", "health", "service.shutdown", "session.stop"}
+           "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "terminal.lifecycle", "health", "service.shutdown", "service.retire", "session.stop"}
 
 class Unavailable(Exception):
     pass
@@ -89,16 +90,18 @@ def prepare_directory(directory):
         raise ValueError("Session directory must be owned by you and not writable by other users")
 
 
-def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None, terminal_ids=None):
+def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None, terminal_ids=None, expected_instance=None):
     directory, runtime, cwd = directory.resolve(), runtime.resolve(), cwd.resolve()
     message = dict(protocol=PROTOCOL, method=method, identity=identity, title=title,
                    destination=destination, position=position, runtime=str(runtime), cwd=str(cwd), project_directory=project_directory)
+    if method == "service.retire":
+        message["expected_instance"] = expected_instance
     if method == "session.stop":
         message["terminal_ids"] = terminal_ids
     try:
         return exchange(directory, message)
     except Unavailable:
-        if method == "catalog.read":
+        if method in {"catalog.read", "service.retire"}:
             raise
         if method == "service.shutdown":
             return dict(protocol=PROTOCOL, ok=True, stopped=True)
@@ -133,6 +136,7 @@ def request(directory, runtime, cwd, method="initialize", identity="", title="",
 class Authority:
     def __init__(self, directory, runtime, cwd):
         self.directory, self.runtime, self.cwd = directory, runtime, cwd
+        self.instance = uuid.uuid4().hex
         self.children = {}
         self.capabilities = {}
         self.running = True
@@ -168,7 +172,7 @@ class Authority:
         current_controls = {str(catalog.socket_path(self.directory, t).with_suffix(".ctl"))
                             for w in data["workspaces"] for t in w["terminals"]}
         self.capabilities = {key: value for key, value in self.capabilities.items() if key in current_controls}
-        return dict(service_pid=os.getpid(), terminals=terminals,
+        return dict(service_pid=os.getpid(), service_instance=self.instance, terminals=terminals,
                     runtime_binary=str(self.runtime), directory=str(self.cwd), methods=sorted(METHODS),
                     features=["catalog-journal-v1"])
 
@@ -210,6 +214,13 @@ class Authority:
             raise ValueError("Invalid workspace folder")
         if not all(isinstance(value, str) and len(value) <= 1024 for value in (identity, title, destination)) or type(position) is not int:
             raise ValueError("Invalid session service parameters")
+        if method == "service.retire":
+            # Runtime authority, independent of any client's window model. A
+            # stale observer must never retire a replacement service instance.
+            if message.get("expected_instance") != self.instance:
+                raise ValueError("Session service changed; inspect its status before retrying")
+            self.running = False
+            return dict(retired=True)
         if method == "service.shutdown":
             self.running = False
             return dict(stopped=True)

@@ -190,8 +190,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    `just toolkit-stage` creates a movable launcher/payload with separate user state.
    Finder bundles and explicit Linux app-menu registration are implemented, with
    private desktop launch logs. System Qt/Python remain required. Finish native
-   Finder/signing and app-menu review, dependency bundling and installed-session handoff before calling
-   this an installable release. Decide the product name and update approach first.
+   Finder/signing and app-menu review. Explicit `--status`/`--activate` now support
+   service handoff after closing windows, retaining existing shells and saved state;
+   native Mac activation review, dependency bundling and the remaining installed
+   lifecycle still precede an installable release. Decide the product name and update approach first.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

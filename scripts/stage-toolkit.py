@@ -14,7 +14,7 @@ import tempfile
 ROOT=Path(__file__).resolve().parent.parent
 MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py',
          'session_service.py','workspace_catalog.py','session_shutdown.py',
-         'terminal_lifecycle.py','workbench-agent.py','agent-hook.py','desktop_launch.py')
+         'terminal_lifecycle.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
 
 
 def stage(parent,runtime,viewer,bootstrap=None,*,sign=True):

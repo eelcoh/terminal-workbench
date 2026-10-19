@@ -1,0 +1,66 @@
+"""Explicit installed-preview service handoff; never stops or recovers a shell."""
+import json
+import os
+from pathlib import Path
+import stat
+from session_service import PROTOCOL,Unavailable,exchange,prepare_directory,request
+from window_slots import reserve_window_slots
+
+
+def inspect(state):
+    if not state.exists():return None
+    metadata=state.stat()
+    if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid!=os.getuid() or metadata.st_mode&0o022:
+        raise ValueError('Session directory must be owned by you and not writable by other users')
+    try:return exchange(state,dict(protocol=PROTOCOL,method='health'))
+    except Unavailable:return None
+
+
+def status(state,runtime,cwd):
+    health=inspect(state)
+    return dict(state_directory=str(state),selected_runtime=str(runtime),service=health,
+        activation_required=bool(health and (health.get('runtime_binary')!=str(runtime) or health.get('directory')!=str(cwd))))
+
+
+def _preview(runtime):
+    if not isinstance(runtime,(str,Path)):
+        raise ValueError('Session service did not identify its staged runtime')
+    runtime=Path(runtime)
+    if not runtime.is_file() or not os.access(runtime,os.X_OK):
+        raise ValueError(f'Preview runtime is missing or not executable: {runtime}')
+    path=runtime.parent.parent/'preview.json'
+    try:
+        metadata=path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid!=os.getuid():
+            raise ValueError('Preview metadata must be a regular file owned by you')
+        value=json.loads(path.read_text())
+        if not isinstance(value,dict) or value.get('format')!=1:raise ValueError('Unknown preview metadata format')
+    except (OSError,ValueError) as error:
+        raise ValueError(f'Cannot verify a staged preview at {runtime.parent.parent}: {error}') from error
+
+
+def activate(state,runtime,viewer,cwd):
+    _preview(runtime)
+    if not viewer.is_file() or not os.access(viewer,os.X_OK):
+        raise ValueError('Preview viewer is missing or not executable; rebuild before activating')
+    prepare_directory(state)
+    views=state/'qt';views.mkdir(mode=0o700,exist_ok=True)
+    with reserve_window_slots(views):
+        health=inspect(state)
+        if health and health.get('runtime_binary')==str(runtime) and health.get('directory')==str(cwd):
+            return dict(result='already-active',service=health)
+        if health:
+            if health.get('directory')!=str(cwd):
+                raise ValueError('This service uses a different initial directory; its sessions were left unchanged')
+            _preview(health.get('runtime_binary',''))
+            instance=health.get('service_instance')
+            methods=health.get('methods')
+            if not isinstance(methods,list) or 'service.retire' not in methods or not isinstance(instance,str) or len(instance)!=32:
+                raise ValueError('This older preview service cannot be switched safely. Stop it once using its documented service stop command, then retry; shells can remain running')
+            exchange(state,dict(protocol=PROTOCOL,method='service.retire',expected_instance=instance))
+        # Health starts only the service, without seeding a missing catalog,
+        # finishing journals, attaching PTYs or restarting stopped terminals.
+        selected=request(state,runtime,cwd,'health')
+        if selected.get('runtime_binary')!=str(runtime) or selected.get('directory')!=str(cwd):
+            raise ValueError('Another service configuration is active; existing shells were left running')
+        return dict(result='activated' if health else 'started',service=selected)

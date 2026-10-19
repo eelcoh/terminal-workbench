@@ -106,3 +106,26 @@ helper never starts a missing service for this method. Qt saved windows use this
 method after filesystem notifications, keeping background observation separate
 from explicit mutations and refresh/recovery. Older services can reject the method
 without affecting terminal runtimes or manual refresh.
+
+
+## Instance-checked service retirement
+
+Optional advertised method `service.retire` accepts `protocol`, `method` and
+`expected_instance`. The expected value is the `service_instance` string from
+`health`: a fresh 32-character UUID hex value for each authority process.
+Missing or mismatched values reject without retiring the current service. A
+successful reply includes `retired: true` after the listener is retired and its
+lock released, using the existing shutdown acknowledgement barrier. PTY runtime
+processes and shells are independent and remain running.
+
+The new health field is optional for older clients; the protocol number remains
+1. The existing `service.shutdown` method retains its behavior and parameter
+shape. An absent service is never started to handle a retirement request. Clients
+must advertise-check the new method; they must not replace it with unconditional
+shutdown when the service lacks support.
+
+The staged-preview launcher uses this runtime method for explicit `--activate`,
+with client-owned window lease exclusion. The service does not know about Qt,
+window slots or app bundles. Activation's slot checks/reservations, selected paths
+and update commands live entirely in the installed client layer. See
+[preview updates](qt-staged-preview.md#switch-preview-builds).

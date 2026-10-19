@@ -1422,8 +1422,8 @@ from the uninstalled UI study.
 Desktop launch redirects output to a private append-only `launch.log` in user
 state, then execs the viewer with an inherited window-slot lease. Qt removes the
 private launch configuration immediately after reading it. Launcher/exec failures
-release their lease and temporary config without stopping shells. No service
-handoff, session migration or automatic restart is introduced. Terminal launches
+release their lease and temporary config without stopping shells. Desktop launch
+itself does not perform the explicit service activation described below. Terminal launches
 retain their existing subprocess/cleanup behavior.
 
 The stage smoke starts the real copied Qt viewer in console and desktop modes on
@@ -1436,3 +1436,39 @@ characters and Distrobox argv routing; desktop-file validation and unmanaged-fil
 protection pass. This does not prove native Finder, codesigning or physical app
 menu behavior. Those reviews, bundled dependencies and installed-version lifecycle
 remain open. See [preview launch and review steps](qt-staged-preview.md).
+
+
+## Explicit staged-preview activation
+
+The installed launcher now supports readonly `--status` and explicit `--activate`.
+Activation verifies the selected payload, reserves all 64 client window slots,
+refuses any active window and verifies an existing staged service's initial folder.
+All saved Qt launches acquire their lease before service initialization, so blocked
+launches cannot initialize another service configuration during this handoff.
+Older launchers also see the reserved slots. The generic session API adds optional
+health `service_instance` and advertised `service.retire(expected_instance)`;
+a stale observer cannot retire a replacement authority. Unsupported services are
+refused without falling back to unconditional shutdown.
+
+Activation starts the selected service through health only: no catalog seed,
+journal completion, terminal recovery or ownership change. Existing terminals
+retain processes and helper paths; new terminals use the selected payload. Keep
+old payloads until their retained shells have exited. Replacement startup failure
+leaves shell/runtime processes untouched and releases window reservations for a
+retry. This is an explicit client operation, not automatic app-update policy.
+
+The real-PTY activation check verifies unchanged shell PIDs, variables, live
+attachment and socket identities, catalog bytes/mtime, view preferences and managed
+config; stopped entries stay stopped. It covers repeated activation, stale/missing
+instance requests, active-window exclusion, new-helper paths, failed replacement
+startup with retry, legacy-method refusal and unrelated-service isolation. Lease
+checks cover partial/full rollback and unsafe lock files. Service regressions also
+pass. Native Mac activation acceptance and old-payload lifecycle remain open.
+
+
+## Native Mac staged launch acceptance
+
+On 2026-10-19 the owner confirmed staging and launch work after the read-only
+Info.plist fix and retiring the older service configuration once. This confirms
+the tested native app launch path; native service activation, dependency deployment
+and mixed-display quality remain separate checks.

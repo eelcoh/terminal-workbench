@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from session_service import request
+from session_service import prepare_directory,request
 from workspace_catalog import load
 from window_slots import acquire_window_slot
 
@@ -29,10 +29,11 @@ def saved_window(runtime,viewer,preferences,*,installed=False,desktop=False):
     cwd=Path.home().resolve() if installed else ROOT
     # Match the working viewer's service configuration; initialization never
     # starts stopped saved terminals or takes ownership from another window.
-    data=request(state,runtime,cwd)['data']
+    prepare_directory(state)
     views=state/'qt';views.mkdir(mode=0o700,exist_ok=True)
     lease,view=acquire_window_slot(views)
     try:
+        data=request(state,runtime,cwd)['data']
         if desktop:
             # Replace the launcher with Qt so Finder owns the actual GUI process.
             # Its inherited lease lives until Qt exits, just as pass_fds does for
@@ -66,9 +67,24 @@ parser.add_argument('--installed',action='store_true',help='Use user state and h
 parser.add_argument('--paths',action='store_true',help='Print launch paths without opening a window or starting sessions')
 parser.add_argument('--desktop',action='store_true',help='Launch with a private log for Finder or the desktop app menu')
 parser.add_argument('--install-desktop-entry',action='store_true',help='Install this relocated preview in your Linux app menu')
+parser.add_argument('--status',action='store_true',help='Inspect preview service status without starting it')
+parser.add_argument('--activate',action='store_true',help='Select this preview service after closing all preview windows; retain shells')
 args=parser.parse_args();runtime=args.runtime.resolve();viewer=args.viewer.resolve()
 if args.installed and not args.saved:parser.error('--installed requires --saved')
-if (args.desktop or args.install_desktop_entry) and not args.installed:parser.error('Desktop actions require --installed')
+if (args.desktop or args.install_desktop_entry or args.status or args.activate) and not args.installed:parser.error('Preview actions require --installed')
+if sum((args.paths,args.install_desktop_entry,args.status,args.activate))>1:parser.error('Select one preview action')
+if args.status or args.activate:
+    from installed_paths import session_directory
+    from preview_activation import activate,status
+    try:
+        action=activate if args.activate else status
+        state=session_directory(os.environ);cwd=Path.home().resolve()
+        result=action(state,runtime,viewer,cwd) if args.activate else action(state,runtime,cwd)
+        print(json.dumps(result,indent=2))
+        if args.activate:print('Preview service selected. Retained shells keep their original helpers; keep older preview directories until those shells exit.')
+    except (OSError,ValueError,subprocess.SubprocessError) as error:
+        print(f'Preview: {error}',file=sys.stderr);sys.exit(1)
+    sys.exit(0)
 if args.install_desktop_entry:
     if not sys.platform.startswith('linux'):parser.error('Desktop entries are only used on Linux')
     from platform_launchers.linux import install

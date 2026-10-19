@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'scripts'))
-from window_slots import acquire_window_slot
+from window_slots import acquire_window_slot,reserve_window_slots
 
 with tempfile.TemporaryDirectory(prefix='wb-slots-') as temporary:
     state=Path(temporary)
@@ -34,3 +34,25 @@ with tempfile.TemporaryDirectory(prefix='wb-slots-') as temporary:
     finally:
         if child.poll() is None:child.kill();child.wait(timeout=5)
 print('PASS: detached lease ownership, concurrent isolation, crash release, stable slot reuse, unsafe lock refusal')
+
+
+with tempfile.TemporaryDirectory(prefix='wb-reservation-') as temporary:
+    state=Path(temporary)
+    first,_=acquire_window_slot(state);second,_=acquire_window_slot(state);os.close(first)
+    try:
+        try:
+            with reserve_window_slots(state):raise AssertionError('reserved a live window slot')
+        except ValueError as error:assert 'Close all preview windows' in str(error)
+        first,path=acquire_window_slot(state);os.close(first);assert path.name=='1.view','partial reservation was not released'
+    finally:os.close(second)
+    with reserve_window_slots(state):
+        try:acquire_window_slot(state)
+        except ValueError as error:assert 'All 64' in str(error)
+        else:raise AssertionError('a launcher entered during activation')
+    first,path=acquire_window_slot(state);os.close(first);assert path.name=='1.view'
+    (state/'windows/3.lock').unlink();(state/'windows/3.lock').symlink_to(state/'other')
+    try:
+        with reserve_window_slots(state):raise AssertionError('reserved a symlink')
+    except OSError:pass
+    first,path=acquire_window_slot(state);os.close(first);assert path.name=='1.view','unsafe-file refusal leaked reserved slots'
+print('PASS: activation reservation excludes all launchers, refuses live/unsafe slots and releases partial/full reservations')

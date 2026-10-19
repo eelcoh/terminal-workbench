@@ -407,3 +407,7 @@ toolkit-stage-test: toolkit-stage
 # Desktop entry decoding, Finder bootstrap handoff and private launch logs.
 toolkit-desktop-launcher-test: toolkit-stage
     python3 tests/qt_desktop_launcher_test.py target/debug/workbench-session
+
+# Explicit preview update with real retained shells and failure isolation.
+toolkit-activation-test: toolkit-stage
+    python3 tests/preview_activation_test.py target/debug/workbench-session

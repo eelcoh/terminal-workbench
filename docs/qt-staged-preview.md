@@ -76,9 +76,45 @@ moved app is `Contents/Resources/workbench/terminal-workbench`.
 
 Keep the preview in place while its sessions or service are running. Do not
 replace its files to update it. Every staging command creates a fresh preview.
-Live service handoff between staged versions, updates and session migration are
-not implemented yet; opening another staged version against the same running
-service reports a configuration mismatch.
+Opening another build against a running service still reports a configuration
+mismatch until you explicitly activate that build. No update is automatic.
+
+## Switch preview builds
+
+From the new preview's final payload location, use its launcher:
+
+```sh
+./terminal-workbench --status
+./terminal-workbench --activate
+```
+
+On Mac, that launcher is inside the new app at
+`Contents/Resources/workbench/terminal-workbench`. Close all preview windows
+before `--activate`; their shells may stay running. Activation reserves every
+supported window slot, verifies the old service is a staged preview using the
+same initial directory, and asks that exact service instance to retire. It
+starts the selected service without creating a catalog, starting terminals or
+replaying pending operations. Open the new app normally afterward. Repeating
+activation of the selected service leaves its process unchanged.
+
+Catalog identities, folders, window preferences, themes, running shells and
+stopped entries remain. New terminals use the new build's runtime and helpers.
+Retained shells keep their original helper paths, so **keep the old preview
+payload until those shells have exited**. Activation does not update their PATH
+or replace their runtime processes. A failed replacement startup leaves those
+shells running; inspect `service.log` and retry a working build.
+
+`--status` never starts a missing service or creates user directories. It reports
+selected/runtime service paths, service health and whether activation is needed.
+Older services without instance-checked retirement are refused. For a service
+started by an earlier preview, close its windows and use the manual service stop
+command below once, leaving shells running if desired; then activate the new
+build. Do not use that legacy stop command while another update is in progress.
+
+The activation command does not change the installed Linux desktop entry. Run
+`--install-desktop-entry` from the newly activated payload to update the app-menu
+link. Dependency deployment, automatic updates and old-payload cleanup are still
+pending.
 
 To retire a preview: close its windows, first use **Stop all terminals…** if you
 want to stop its shells, then stop the session service explicitly. Run from the
@@ -110,3 +146,11 @@ Linux checks also validate the desktop entry and launch it through GLib with
 spaces, Unicode and reserved characters, checking Distrobox routing and
 preservation of unmanaged user entries. Native Mac Finder/signing and physical
 Linux app-menu activation remain manual acceptance checks.
+
+
+`just toolkit-activation-test` uses disposable staged builds with real PTYs to
+check service handoff, stale-instance refusal, open-window exclusion and unchanged
+catalog/preferences/view files, shell PIDs/variables and socket identities. It
+also checks new-helper paths, retained stopped entries, startup failure/retry,
+legacy-service refusal and isolation from unrelated service configurations.
+Native Mac activation review remains pending.
