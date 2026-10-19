@@ -1520,4 +1520,11 @@ Qt's [copy/reuse implementation](https://raw.githubusercontent.com/qt/qtbase/6.1
 confirms that forced overwrite bypasses its existing-file reuse. Portable
 fixtures check the fresh-stage invocation and linkage audit; actual Homebrew
 completion time and native acceptance remain pending.
+The owner's next run completed `macdeployqt` in 77.7 seconds but failed our
+post-deployment check because `Contents/Resources/qt.conf` was absent. Workbench
+now generates explicit relative plugin/QML/library paths itself before the final
+signature, aligning a supplied `qt6.conf` too. Portable fixtures now model a tool
+that does not create configuration; checks cover relocation, sign ordering and
+replacement of read-only/symlink configs without changing their source files.
+The next native bundle launch and library audit still require Mac review.
 This does not select the production frontend or establish release readiness.

@@ -48,8 +48,15 @@ Linux bundling is not implemented.
 
 The script runs a static Mach-O linkage audit before the final ad hoc signature.
 Unresolved or absolute external Qt links fail the build. It also checks the
-frameworks, platform plugin, required QML module metadata and `qt.conf` are
-present. Inside the resulting app, `Contents/Resources/workbench/` contains:
+frameworks, platform plugin and required QML module metadata are present.
+Workbench writes `Contents/Resources/qt.conf` itself after deployment and before
+final signing, without relying on the Qt tool to create it. Plugin, QML and
+library paths are relative to the app's `Contents`, so moving the app preserves
+them. Any existing `qt6.conf` is aligned because Qt gives it priority. Copied
+read-only files/symlinks are replaced within the stage, leaving their sources
+untouched. See [Qt's configuration lookup and Mac path rules](https://doc.qt.io/qt-6/qt-conf.html).
+
+Inside the resulting app, `Contents/Resources/workbench/` contains:
 
 - `qt-dependencies.json`: Qt version, per-binary links, external non-Qt links,
   preserved notice locations and native review status.

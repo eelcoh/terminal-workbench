@@ -113,6 +113,26 @@ def notices(info,payload,extra=None):
     return copied
 
 
+def configure_paths(bundle):
+    """Own the loader paths instead of depending on macdeployqt's Qt version."""
+    resources=bundle/'Contents/Resources'
+    contents='[Paths]\nPrefix = .\nLibraries = Frameworks\nPlugins = PlugIns\nQmlImports = Resources/qml\nTranslations = Resources/translations\n'
+    # qt6.conf takes priority if a tool/build supplied it. Keep both consistent.
+    names=['qt.conf']
+    versioned=resources/'qt6.conf'
+    if versioned.exists() or versioned.is_symlink():names.append('qt6.conf')
+    for name in names:
+        descriptor,temporary=tempfile.mkstemp(prefix='.workbench-qt-',dir=resources)
+        try:
+            with os.fdopen(descriptor,'w') as output:output.write(contents)
+            os.chmod(temporary,0o644)
+            # A copied tool-generated config may be read-only or a symlink.
+            # Replace its staged inode without writing through to its source.
+            os.replace(temporary,resources/name)
+        finally:Path(temporary).unlink(missing_ok=True)
+    progress('Configured bundled Qt plugin and QML paths')
+
+
 def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
     viewer=bundle/'Contents/MacOS/workbench-ui-study'
     descriptor,log=tempfile.mkstemp(prefix='qt-deploy-',suffix='.log',dir=bundle.parent.parent)
@@ -123,6 +143,7 @@ def deploy(bundle,payload,info,qml_directory,*,notice_directory=None):
             # ICU/OpenSSL dependencies), repeating copy/link work.
             run_tool([info['tool'],str(bundle),'-executable='+str(viewer),'-qmldir='+str(qml_directory),
                 '-no-strip','-verbose=3'],output,'Deploying Qt frameworks and QML modules',log,timeout=900)
+        configure_paths(bundle)
         for path in ('Contents/Frameworks/QtCore.framework','Contents/Frameworks/QtGui.framework','Contents/Frameworks/QtQuick.framework',
                      'Contents/PlugIns/platforms/libqcocoa.dylib','Contents/Resources/qml/QtQuick/Controls/Basic/qmldir',
                      'Contents/Resources/qml/QtQuick/Dialogs/qmldir','Contents/Resources/qt.conf'):

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Portable deployment fixtures; never claim a native macdeployqt/loader test."""
 import importlib.util
+import configparser
+import shutil
 import json
 import os
 from pathlib import Path
@@ -52,7 +54,6 @@ for name in ('QtQuick/Controls/Basic','QtQuick/Dialogs'):
     path.parent.mkdir(parents=True,exist_ok=True);path.write_text('module fixture')
 plugin=bundle/'Contents/PlugIns/platforms/libqcocoa.dylib'
 plugin.parent.mkdir(parents=True,exist_ok=True);plugin.write_bytes(bytes.fromhex('cffaedfe'))
-(bundle/'Contents/Resources/qt.conf').write_text('[Paths]\nPlugins = PlugIns\n')
 ''')
         self.otool=executable(self.root/'otool',r'''
 import sys
@@ -85,6 +86,36 @@ else:
         with patch.object(stage,'sys',SimpleNamespace(platform='darwin',executable=sys.executable)),patch.object(deploy,'audit',audit):
             return stage.stage(self.parent,self.runtime,self.viewer,self.bootstrap,qt_tools=self.tools,**kwargs)
 
+    def check_paths(self,bundle):
+        config=configparser.ConfigParser();config.read(bundle/'Contents/Resources/qt.conf')
+        paths=config['Paths'];self.assertEqual(paths['Prefix'],'.')
+        self.assertEqual(paths['QmlImports'],'Resources/qml')
+        self.assertEqual(paths['Plugins'],'PlugIns')
+        self.assertEqual(paths['Libraries'],'Frameworks')
+        for key in ('Plugins','QmlImports','Libraries'):
+            target=(bundle/'Contents'/paths['Prefix']/paths[key]).resolve()
+            self.assertTrue(target.is_relative_to(bundle.resolve()))
+            self.assertTrue(target.is_dir())
+
+    def test_missing_tool_config_is_generated_and_paths_survive_relocation(self):
+        directory=self.build(bundle_qt=True,sign=False)
+        bundle=directory/macos.NAME;self.check_paths(bundle)
+        moved=self.root/'moved app'/macos.NAME;moved.parent.mkdir()
+        shutil.move(bundle,moved);self.check_paths(moved)
+
+    def test_tool_configs_are_replaced_without_following_copied_symlinks(self):
+        resources=self.source/'Contents/Resources';resources.mkdir(parents=True)
+        original=self.root/'original qt.conf';original.write_text('[Paths]\nPrefix=/installed/Qt\n')
+        (resources/'qt.conf').symlink_to(original)
+        versioned=resources/'qt6.conf';versioned.write_text('[Paths]\nPrefix=/old/Qt\n');versioned.chmod(0o444)
+        directory=self.build(bundle_qt=True,sign=False);bundle=directory/macos.NAME
+        self.check_paths(bundle)
+        self.assertFalse((bundle/'Contents/Resources/qt.conf').is_symlink())
+        self.assertEqual((bundle/'Contents/Resources/qt.conf').read_text(),(bundle/'Contents/Resources/qt6.conf').read_text())
+        self.assertIn('/installed/Qt',original.read_text())
+        self.assertIn('/old/Qt',versioned.read_text())
+        self.assertEqual(versioned.stat().st_mode&0o777,0o444)
+
     def test_deployment_before_signing_and_source_unchanged(self):
         signed=[]
         def sign(args,*unused,**kwargs):
@@ -95,7 +126,9 @@ else:
             self.assertEqual(report['external_non_qt'],[])
             self.assertEqual(report['runtime_load_test'],'pending native Mac review')
             self.assertEqual((payload/'notices/qt/1/LGPL.txt').read_text(),'fixture notice')
-            self.assertTrue((payload/'qt-deploy.log').is_file());signed.append(args)
+            self.assertTrue((payload/'qt-deploy.log').is_file())
+            self.check_paths(bundle)
+            signed.append(args)
         original=self.plist.read_bytes()
         with patch.object(macos,'run_tool',sign):
             directory=self.build(bundle_qt=True)
