@@ -47,7 +47,13 @@ Controls style. Deployment follows [Qt's Mac deployment tooling](https://doc.qt.
 Linux bundling is not implemented.
 
 The script runs a static Mach-O linkage audit before the final ad hoc signature.
-Unresolved or absolute external Qt links fail the build. It also checks the
+Unresolved or absolute external Qt imports fail the build. The audit reads
+Mach-O load commands to distinguish actual imports from a library's own
+`LC_ID_DYLIB` identification name. The latter is recorded separately as
+`install_ids`; a Homebrew path there alone does not load an external library.
+Actual imports remain checked, including weak/re-exported/upward/lazy imports.
+See [Apple's distinction between IDs and imports](https://developer.apple.com/forums/thread/736719).
+It also checks the
 frameworks, platform plugin and required QML module metadata are present.
 Workbench writes `Contents/Resources/qt.conf` itself after deployment and before
 final signing, without relying on the Qt tool to create it. Plugin, QML and

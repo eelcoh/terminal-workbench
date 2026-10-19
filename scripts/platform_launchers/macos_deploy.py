@@ -27,19 +27,26 @@ def toolchain(path):
     return dict(version=values['QT_VERSION'],prefix=values['QT_INSTALL_PREFIX'],docs=values.get('QT_INSTALL_DOCS',''),tool=str(deploy))
 
 
-def dependencies(text):
-    return sorted({line.strip().split(' (compatibility version',1)[0]
-        for line in text.splitlines() if line.startswith('\t') and ' (compatibility version' in line})
-
-
-def rpaths(text):
-    result=[];pending=False
-    for line in text.splitlines():
-        line=line.strip()
-        if line.startswith('cmd '):pending=line=='cmd LC_RPATH'
-        elif pending and line.startswith('path '):
-            result.append(line[5:].rsplit(' (offset ',1)[0]);pending=False
-    return result
+def load_commands(text):
+    """Separate dylib identity from imports; otool -L includes both."""
+    result=dict(rpaths=[],install_ids=[],dependencies=[])
+    imports={'LC_LOAD_DYLIB','LC_LOAD_WEAK_DYLIB','LC_REEXPORT_DYLIB','LC_LOAD_UPWARD_DYLIB','LC_LAZY_LOAD_DYLIB'}
+    command=None;pending=None;seen=False
+    for raw in text.splitlines():
+        line=raw.strip()
+        if line.startswith('cmd '):
+            if pending:raise ValueError(f'Incomplete Mach-O {command} command')
+            command=line[4:];seen=True
+            if command=='LC_RPATH':pending=('path ','rpaths')
+            elif command=='LC_ID_DYLIB':pending=('name ','install_ids')
+            elif command in imports:pending=('name ','dependencies')
+        elif pending and line.startswith(pending[0]):
+            value=line[len(pending[0]):].rsplit(' (offset ',1)
+            if len(value)!=2 or not value[0]:raise ValueError(f'Invalid Mach-O {command} path')
+            result[pending[1]].append(value[0]);pending=None
+    if pending:raise ValueError(f'Incomplete Mach-O {command} command')
+    if not seen:raise ValueError('No Mach-O load commands were reported')
+    return {key:list(dict.fromkeys(values)) for key,values in result.items()}
 
 
 def _expand(path,binary,viewer):
@@ -64,7 +71,8 @@ def audit(bundle,viewer,*,otool=Path('/usr/bin/otool')):
         return subprocess.run([str(otool),mode,str(path)],check=True,capture_output=True,text=True,timeout=15).stdout
     started=time.monotonic();last=started
     progress('Checking deployed library links…')
-    main_search=[root for value in rpaths(inspect(viewer,'-l')) if (root:=_expand(value,viewer,viewer)) is not None]
+    main=load_commands(inspect(viewer,'-l'))
+    main_search=[root for value in main['rpaths'] if (root:=_expand(value,viewer,viewer)) is not None]
     binaries=[];external=set();failures=[];qt_links=0
     for binary in sorted(bundle.rglob('*')):
         if binary.is_symlink() or not binary.is_file():continue
@@ -73,8 +81,9 @@ def audit(bundle,viewer,*,otool=Path('/usr/bin/otool')):
         now=time.monotonic()
         if not binaries or now-last>=5:
             progress(f'Checking library {len(binaries)+1}: {binary.relative_to(bundle)} ({now-started:.0f}s elapsed)');last=now
-        search=[root for value in rpaths(inspect(binary,'-l')) if (root:=_expand(value,binary,viewer)) is not None]+main_search
-        links=dependencies(inspect(binary,'-L'));relative=str(binary.relative_to(bundle))
+        commands=main if binary==viewer else load_commands(inspect(binary,'-l'))
+        search=[root for value in commands['rpaths'] if (root:=_expand(value,binary,viewer)) is not None]+main_search
+        links=commands['dependencies'];relative=str(binary.relative_to(bundle))
         for dependency in links:
             if dependency.startswith(('/System/Library/','/usr/lib/')):continue
             candidates=_resolve(dependency,binary,viewer,search)
@@ -83,7 +92,7 @@ def audit(bundle,viewer,*,otool=Path('/usr/bin/otool')):
                 qt_links+=1
                 if dependency.startswith('/') or not internal:failures.append(f'{relative}: {dependency}')
             elif not internal:external.add(dependency)
-        binaries.append(dict(path=relative,dependencies=links))
+        binaries.append(dict(path=relative,dependencies=links,install_ids=commands['install_ids']))
     if not any(row['path']==str(viewer.relative_to(bundle)) for row in binaries):raise ValueError('Viewer is not a recognized Mach-O executable')
     if not qt_links:raise ValueError('No Qt linkage was found in the deployed bundle')
     if failures:raise ValueError('Qt dependencies remain external or unresolved:\n'+'\n'.join(failures[:20]))

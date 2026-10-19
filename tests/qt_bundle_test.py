@@ -57,20 +57,22 @@ plugin.parent.mkdir(parents=True,exist_ok=True);plugin.write_bytes(bytes.fromhex
 ''')
         self.otool=executable(self.root/'otool',r'''
 import sys
-import subprocess
 from pathlib import Path
 mode,path=sys.argv[1:];binary=Path(path)
-if mode=='-l':
-    print('cmd LC_RPATH\npath @executable_path/../Frameworks (offset 12)')
-else:
-    print(path+':')
-    link='@rpath/QtCore.framework/Versions/A/QtCore'
-    if binary.name=='workbench-preview':link='/usr/lib/libSystem.B.dylib'
-    if (binary.parent/'external-qt').exists():link='/opt/qt/QtCore.framework/Versions/A/QtCore'
-    if (binary.parent/'missing-qt').exists():link='@rpath/QtMissing.framework/Versions/A/QtMissing'
-    print('\t'+link+' (compatibility version 6.0.0, current version 6.8.3)')
-    if (binary.parent/'external-other').exists():
-        print('\t/opt/local/lib/libfixture.dylib (compatibility version 1.0.0, current version 1.0.0)')
+assert mode=='-l', 'Audit must inspect typed load commands, not mixed otool -L output'
+print(path+':')
+print('Load command 0\ncmd LC_RPATH\ncmdsize 48\npath @executable_path/../Frameworks (offset 12)')
+if '.framework' in path or binary.suffix=='.dylib':
+    suffix=path.split('/Contents/Frameworks/',1)[-1] if '.framework' in path else binary.name
+    identity='/opt/homebrew/opt/qtbase/lib/'+suffix
+    print('Load command 1\ncmd LC_ID_DYLIB\ncmdsize 120\nname '+identity+' (offset 24)')
+link='@rpath/QtCore.framework/Versions/A/QtCore'
+if binary.name=='workbench-preview':link='/usr/lib/libSystem.B.dylib'
+if (binary.parent/'external-qt').exists():link='/opt/qt/QtCore.framework/Versions/A/QtCore'
+if (binary.parent/'missing-qt').exists():link='@rpath/QtMissing.framework/Versions/A/QtMissing'
+print('Load command 2\ncmd LC_LOAD_DYLIB\ncmdsize 120\nname '+link+' (offset 24)')
+if (binary.parent/'external-other').exists():
+    print('Load command 3\ncmd LC_LOAD_DYLIB\ncmdsize 120\nname /opt/local/lib/libfixture.dylib (offset 24)')
 ''')
         self.source=self.root/'source/workbench-ui-study.app'
         self.viewer=self.source/'Contents/MacOS/workbench-ui-study'
@@ -191,6 +193,25 @@ else:
         binary.unlink();binary.symlink_to(self.viewer)
         with self.assertRaisesRegex(ValueError,'external or unresolved'):REAL_AUDIT(bundle,viewer,otool=self.otool)
 
+    def test_install_id_is_metadata_but_matching_real_import_is_checked(self):
+        directory=self.build(bundle_qt=True,sign=False);bundle=directory/macos.NAME
+        viewer=bundle/'Contents/MacOS/workbench-ui-study'
+        report=REAL_AUDIT(bundle,viewer,otool=self.otool)
+        core=next(row for row in report['binaries'] if row['path'].endswith('/QtCore'))
+        self.assertTrue(core['install_ids'][0].startswith('/opt/homebrew/'))
+        self.assertNotIn(core['install_ids'][0],core['dependencies'])
+        # Even an import identical to the library's ID is still an actual load.
+        with self.otool.open('a') as output:
+            output.write("\nif '.framework' in path: print('cmd LC_LOAD_DYLIB\\nname '+identity+' (offset 24)')\n")
+        with self.assertRaisesRegex(ValueError,'external or unresolved'):REAL_AUDIT(bundle,viewer,otool=self.otool)
+
+    def test_all_dylib_import_types_and_incomplete_inspection(self):
+        for kind in ('LC_LOAD_DYLIB','LC_LOAD_WEAK_DYLIB','LC_REEXPORT_DYLIB','LC_LOAD_UPWARD_DYLIB','LC_LAZY_LOAD_DYLIB'):
+            result=deploy.load_commands('cmd '+kind+'\nname /opt/Qt.framework/Qt (offset 24)')
+            self.assertEqual(result['dependencies'],['/opt/Qt.framework/Qt'])
+        for text in ('','cmd LC_LOAD_DYLIB','cmd LC_ID_DYLIB\ncmd LC_LOAD_DYLIB\nname /foo (offset 24)','cmd LC_RPATH\npath /invalid'):
+            with self.assertRaises(ValueError):deploy.load_commands(text)
+
     def test_tool_version_and_missing_deployer(self):
         self.tools.write_text(str(self.bins/'qtpaths')+'\n6.9.0\n')
         with self.assertRaisesRegex(ValueError,'match'):deploy.toolchain(self.tools)
@@ -208,8 +229,11 @@ else:
         self.assertFalse(parent.exists())
 
     def test_parsers_and_path_tokens(self):
-        self.assertEqual(deploy.dependencies('file (architecture arm64):\n\t@rpath/QtCore.framework/QtCore (compatibility version 6.0.0)\nfile (architecture x86_64):\n\t@rpath/QtCore.framework/QtCore (compatibility version 6.0.0)'),['@rpath/QtCore.framework/QtCore'])
-        self.assertEqual(deploy.rpaths('cmd LC_RPATH\npath @loader_path/with spaces (offset 12)\ncmd LC_LOAD_DYLIB\npath ignored (offset 4)'),['@loader_path/with spaces'])
+        text='file (architecture arm64):\ncmd LC_RPATH\npath @loader_path/with spaces (offset 12)\ncmd LC_ID_DYLIB\nname /opt/Qt/QtCore.framework/QtCore (offset 24)\ncmd LC_LOAD_DYLIB\nname @rpath/QtGui.framework/QtGui (offset 24)\n'
+        parsed=deploy.load_commands(text+text.replace('arm64','x86_64'))
+        self.assertEqual(parsed['rpaths'],['@loader_path/with spaces'])
+        self.assertEqual(parsed['install_ids'],['/opt/Qt/QtCore.framework/QtCore'])
+        self.assertEqual(parsed['dependencies'],['@rpath/QtGui.framework/QtGui'])
         binary=Path('/app/Contents/PlugIns/plugin');viewer=Path('/app/Contents/MacOS/viewer')
         self.assertEqual(deploy._resolve('@loader_path/lib.dylib',binary,viewer,[]),[binary.parent/'lib.dylib'])
         self.assertEqual(deploy._resolve('@executable_path/lib.dylib',binary,viewer,[]),[viewer.parent/'lib.dylib'])

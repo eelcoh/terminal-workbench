@@ -1527,4 +1527,12 @@ signature, aligning a supplied `qt6.conf` too. Portable fixtures now model a too
 that does not create configuration; checks cover relocation, sign ordering and
 replacement of read-only/symlink configs without changing their source files.
 The next native bundle launch and library audit still require Mac review.
+The `06e417e` Mac run completed deployment in 74.4 seconds and wrote Qt's
+configuration, then failed the static audit. The reported entries look like the
+libraries' Homebrew install IDs. The audit previously treated `otool -L`'s mix of
+IDs and imports as imports. It now reads typed `otool -l` commands, records
+`LC_ID_DYLIB` separately, and checks only real load commands as dependencies.
+Portable tests cover absolute Homebrew IDs, real imports matching those IDs,
+all dylib import variants, universal command listings and incomplete inspection.
+The real native imports and final launch still require Mac verification.
 This does not select the production frontend or establish release readiness.
