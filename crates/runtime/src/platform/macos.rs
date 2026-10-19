@@ -71,3 +71,13 @@ pub fn working_directory(pid: i32) -> Option<PathBuf> {
     let info = unsafe { info.assume_init() };
     super::macos_path::decode(&info.pvi_cdir.vip_path)
 }
+
+/// Finder need not supply SHELL. Reuse the PTY library's account-shell lookup
+/// rather than launching a helper shell or importing a terminal's environment.
+pub fn account_shell() -> Option<std::ffi::OsString> {
+    Some(
+        portable_pty::CommandBuilder::new_default_prog()
+            .get_shell()
+            .into(),
+    )
+}

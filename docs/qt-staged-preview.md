@@ -58,6 +58,30 @@ bootstrap shows an error asking you to rebuild. Failures after Python starts
 are logged; launcher errors also show an alert/notification when available.
 A Qt loader failure can still exit with only details in the log.
 
+## Shell startup on Mac
+
+New default Mac shells start as login shells. A valid `SHELL` is honored; when
+Finder does not supply one, Workbench reads the account's configured shell before
+falling back to `/bin/sh`. Recognized shells use `-l` and the PTY supplies their
+interactive terminal. With zsh this loads `.zprofile` before `.zshrc`, so the
+package-manager/tool paths configured there are available to pyenv, atuin and
+zoxide initialization. Workbench does not read or rewrite those files itself.
+See [zsh's startup-file order](https://zsh.sourceforge.io/Doc/Release/Files.html).
+Linux keeps its existing non-login default; explicit runtime commands keep their
+existing behavior. The runtime additionally supports explicit login opt-in:
+`workbench-session SOCKET --login-shell /bin/zsh`.
+
+Rebuild and activate the new preview, then create a **new terminal** to review:
+
+```zsh
+[[ -o login ]] && echo 'login shell'
+command -v pyenv atuin zoxide
+```
+
+Existing retained shells keep their startup environment. If an older service
+cannot be activated, use the one-time service stop described below first. The
+same new-terminal requirement applies after that manual service switch.
+
 ## User files and sessions
 
 Run the terminal launcher with `--paths` to inspect paths without opening a
@@ -154,3 +178,11 @@ catalog/preferences/view files, shell PIDs/variables and socket identities. It
 also checks new-helper paths, retained stopped entries, startup failure/retry,
 legacy-service refusal and isolation from unrelated service configurations.
 Native Mac activation review remains pending.
+
+
+`just login-shell-test` uses real zsh with a minimal PATH and private HOME/ZDOTDIR
+fixtures. It checks profile-before-rc startup, lookup of tools added by the login
+profile, explicit/default platform modes and same-PID reattachment without
+repeating startup. `just check` includes this check. The Mac default is exercised
+natively when running the recipe on Mac; Linux tests explicitly opt into login
+mode while retaining their normal non-login default.

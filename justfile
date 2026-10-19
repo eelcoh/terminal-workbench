@@ -19,6 +19,7 @@ check: runtime-build
     cargo test --workspace
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
+    python3 tests/login_shell_test.py target/debug/workbench-session
     python3 tests/input_burst_test.py target/debug/workbench-session
     python3 tests/context_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
@@ -411,3 +412,7 @@ toolkit-desktop-launcher-test: toolkit-stage
 # Explicit preview update with real retained shells and failure isolation.
 toolkit-activation-test: toolkit-stage
     python3 tests/preview_activation_test.py target/debug/workbench-session
+
+# Mac/Linux: real zsh login startup under a minimal desktop environment.
+login-shell-test: runtime-build
+    python3 tests/login_shell_test.py target/debug/workbench-session

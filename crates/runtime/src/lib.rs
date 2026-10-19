@@ -18,4 +18,6 @@ mod platform;
 #[cfg(unix)]
 pub mod session;
 #[cfg(unix)]
+pub mod shell;
+#[cfg(unix)]
 mod terminal;

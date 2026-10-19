@@ -1472,3 +1472,24 @@ On 2026-10-19 the owner confirmed staging and launch work after the read-only
 Info.plist fix and retiring the older service configuration once. This confirms
 the tested native app launch path; native service activation, dependency deployment
 and mixed-display quality remain separate checks.
+
+
+## Mac desktop shell startup
+
+The owner reported pyenv/atuin/zoxide missing from Finder-launched staged shells.
+The runtime started a non-login shell and fell back directly to `/bin/sh` when
+`SHELL` was absent. Default Mac startup now honors a usable `SHELL`, otherwise
+uses the PTY library's existing account-shell lookup, then falls back to
+`/bin/sh`. Recognized default shells receive `-l`, and the resolved default is
+exported as `SHELL` for child programs. Explicit runtime commands and Linux default
+startup retain their existing modes. Startup files are interpreted only by the
+real shell; Workbench does not source them in a helper or modify user dotfiles.
+
+The real-zsh PTY check isolates HOME/ZDOTDIR, starts with `/usr/bin:/bin`, and
+shows profile-provided tools missing in non-login mode and available to the
+interactive rc in login mode. It verifies startup order, interactive/login options,
+TERM_PROGRAM and stable PID after detach/reconnect without rerunning startup.
+The default branch is platform-sensitive; Linux explicitly tests login through
+`--login-shell`, while a native Mac run tests the automatic default. Native Finder
+review remains pending. Retained shells need no restart during activation, but
+this environment correction applies to newly created shells.

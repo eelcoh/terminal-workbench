@@ -64,3 +64,18 @@ pub fn working_directory(pid: i32) -> Option<std::path::PathBuf> {
         None
     }
 }
+
+// macOS desktop terminals load login startup files before the interactive rc.
+// Linux retains its existing non-login policy. This is a pure platform policy.
+pub const DEFAULT_LOGIN_SHELL: bool = cfg!(target_os = "macos");
+
+pub fn account_shell() -> Option<std::ffi::OsString> {
+    #[cfg(target_os = "macos")]
+    {
+        macos::account_shell()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        None
+    }
+}

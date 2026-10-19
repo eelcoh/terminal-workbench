@@ -152,6 +152,8 @@ docs/integration-findings.md  Source investigation, results, and open decisions
 ## Development
 
 Use a stable Rust toolchain, `just`, Python, Git, a C compiler and Zig 0.16.0.
+The shell-startup checks also require zsh (provided by macOS; install it in the
+Linux build environment).
 `just runtime-build` builds the runtime without graphics dependencies; `just check`
 prepares its pinned VT library before validation. Renderer builds additionally
 need CMake, Ninja, a C++ compiler and platform graphics development dependencies.

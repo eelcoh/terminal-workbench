@@ -1,6 +1,6 @@
 //! One-session Unix transport used only by the rendering spike.
 
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{native_pty_system, PtySize};
 use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -251,6 +251,13 @@ fn context_target(
 /// The caller supplies an existing private directory for the socket. An existing
 /// socket is never removed automatically; binding it must fail visibly.
 pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
+    serve_with_shell_launch(socket, crate::shell::ShellLaunch::explicit(shell))
+}
+
+pub fn serve_with_shell_launch(
+    socket: PathBuf,
+    shell: crate::shell::ShellLaunch,
+) -> Result<(), Failure> {
     let socket = std::path::absolute(socket)?;
     let listener = UnixListener::bind(&socket)?;
     let _socket_file = SocketFile(socket.clone());
@@ -267,7 +274,7 @@ pub fn serve(socket: PathBuf, shell: OsString) -> Result<(), Failure> {
         pixel_width: 0,
         pixel_height: 0,
     })?;
-    let mut command = CommandBuilder::new(shell);
+    let mut command = shell.command();
     command.cwd(std::env::current_dir()?);
     command.env("TERM", "xterm-256color");
     // A session is independent of whichever terminal or Herdr invoked it.

@@ -2,7 +2,7 @@
 fn main() {
     let mut args = std::env::args_os().skip(1);
     let Some(socket) = args.next() else {
-        eprintln!("usage: workbench-session SOCKET [SHELL]");
+        eprintln!("usage: workbench-session SOCKET [--login-shell] [SHELL]");
         std::process::exit(2);
     };
     if socket == "read" || socket == "snapshot" {
@@ -79,16 +79,25 @@ fn main() {
         }
         return;
     }
-    let shell = args.next().unwrap_or_else(|| {
-        std::env::var_os("SHELL")
-            .filter(|path| std::path::Path::new(path).is_file())
-            .unwrap_or_else(|| "/bin/sh".into())
-    });
+    let first = args.next();
+    let login = first
+        .as_ref()
+        .is_some_and(|argument| argument == "--login-shell");
+    let explicit = if login { args.next() } else { first };
+    let mut shell = explicit.map_or_else(
+        terminal_workbench_runtime::shell::ShellLaunch::user_default,
+        terminal_workbench_runtime::shell::ShellLaunch::explicit,
+    );
+    if login {
+        shell = shell.with_login();
+    }
     if args.next().is_some() {
-        eprintln!("usage: workbench-session SOCKET [SHELL]");
+        eprintln!("usage: workbench-session SOCKET [--login-shell] [SHELL]");
         std::process::exit(2);
     }
-    if let Err(error) = terminal_workbench_runtime::session::serve(socket.into(), shell) {
+    if let Err(error) =
+        terminal_workbench_runtime::session::serve_with_shell_launch(socket.into(), shell)
+    {
         eprintln!("session: {error}");
         std::process::exit(1);
     }
