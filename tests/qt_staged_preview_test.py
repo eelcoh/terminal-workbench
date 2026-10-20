@@ -115,6 +115,8 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
             before_files={str(p.relative_to(state)):p.read_bytes() for p in state.rglob('*') if p.is_file() and p.name in ('workspaces.json','qt-view.json')}
             checked=json.loads(launch('--check',QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software').stdout)
             assert checked['ok'],checked
+            ui=next(item['report'] for item in checked['checks'] if item['name']=='qml_startup')
+            assert ui['client_ok'] and ui['client']==dict(workspace_count=0,terminal_count=0,visible_window_count=0,errors=[]),ui
             assert any('libQt6Core.so' in path for item in checked['checks'] if item['name']=='qml_startup' for path in item['report']['loaded_images'])
             after_health=request(state,staged_runtime,home,'health')
             assert before_health['service_pid']==after_health['service_pid'] and before_health['terminals']==after_health['terminals'],'check changed existing runtime state'

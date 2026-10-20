@@ -22,7 +22,7 @@ class PreviewCheckTest(unittest.TestCase):
         (self.payload/'preview.json').write_text(json.dumps(dict(format=1,qt_bundled=True,source='fixture')))
         self.qml=self.bundle/'Contents/Resources/qml';self.qml.mkdir()
         plugin=self.bundle/'Contents/PlugIns/platforms/libqcocoa.dylib';plugin.parent.mkdir(parents=True);plugin.touch()
-        self.report=dict(schema=1,qml_ok=True,import_paths=[str(self.qml),'qrc:/qt-project.org/imports'],
+        self.report=dict(schema=1,qml_ok=True,client_ok=True,import_paths=[str(self.qml),'qrc:/qt-project.org/imports'],
             loaded_images=[str(self.bundle/'Contents/Frameworks/QtCore.framework/Versions/A/QtCore'),str(plugin),'/usr/lib/libSystem.B.dylib'])
 
     def invoke(self,*,runtime_code=2,viewer_report=None,viewer_code=0,signature=True):
@@ -80,6 +80,21 @@ class PreviewCheckTest(unittest.TestCase):
         qml=next(row for row in result['checks'] if row['name']=='qml_startup')
         self.assertEqual(qml['report']['qml_errors'],self.report['qml_errors'])
         self.assertEqual(qml['exit_code'],1)
+
+    def test_generic_qml_success_does_not_hide_client_failure(self):
+        self.report.update(client_ok=False,client={'errors':['qrc:/About.qml: missing UI resource']})
+        result=self.invoke()
+        self.assertFalse(result['ok'])
+        startup=next(row for row in result['checks'] if row['name']=='qml_startup')
+        self.assertTrue(startup['report']['qml_ok'])
+        self.assertEqual(startup['report']['client']['errors'],self.report['client']['errors'])
+
+    def test_older_generic_only_report_cannot_pass_real_client_check(self):
+        del self.report['client_ok']
+        result=self.invoke()
+        self.assertFalse(result['ok'])
+        startup=next(row for row in result['checks'] if row['name']=='qml_startup')
+        self.assertIn('valid QML diagnostic',startup['error'])
 
     def test_invalid_metadata_is_a_failed_check(self):
         (self.payload/'preview.json').write_text('[]')

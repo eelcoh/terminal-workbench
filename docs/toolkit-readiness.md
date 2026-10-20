@@ -1818,3 +1818,24 @@ revision/local-change labels, actual Qt version and exact clipboard copying.
 Linux UI checks exercise menu/palette access, modal shortcut isolation, Escape
 and Close focus restoration, and unchanged PTY input/grids. Native Mac review
 and installed-preview identity acceptance remain pending.
+
+
+## Real client construction before activation
+
+The installed viewer's deployment diagnostic now passes through the same adapter
+and QML-context setup as ordinary startup, with private temporary paths, an
+empty catalog, disabled catalog updates and no saved-view path. Initial root
+properties keep the application window hidden. Bounded queued initialization
+must finish without QML warnings; the report requires zero workspace/terminal
+items and zero visible windows. Generic import checks remain in place, and
+loader evidence includes both the generic and actual client loads.
+
+Linux relocated-payload tests confirm the new client report while preserving
+existing service PID, terminal records and saved files; a fresh namespace stays
+uncreated. The actual client also loads from Qt's scanner-selected copied import
+closure. Removing its Controls module fails both generic and client checks
+without installation fallback, and temporary configuration is cleaned. Portable
+fixtures reject a generic-only report and preserve client-construction errors.
+Activation handoff/restoration regressions continue to cover retained shells.
+Native Mac construction/loading acceptance remains pending; terminal delegates,
+physical rendering and opening deferred native dialogs remain outside this check.

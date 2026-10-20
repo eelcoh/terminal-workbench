@@ -581,3 +581,26 @@ locations. Missing or invalid metadata is explicit in the details.
 This identifies the current client. Retained terminals can use older runtime
 helpers; use the preview inventory for those references. Diagnostics include local
 paths, but exclude workspace names, terminal contents and environment variables.
+
+
+## Hidden Workbench startup preflight
+
+`--check` now loads the actual embedded Workbench QML as well as the generic Qt
+control/dialog proof. It uses the ordinary client adapters and context setup
+with an empty private catalog and temporary configuration. No window is shown,
+window profile is leased, service is contacted or terminal is created. Managed
+configuration, saved views and user themes are not loaded. Temporary check data
+is removed on normal completion.
+
+The `qml_startup.report` includes `client_ok` plus `client` workspace, terminal
+and visible-window counts and QML errors. The overall check requires successful
+queued Workbench initialization without QML warnings, with all three counts zero.
+Mac bundled-Qt validation includes libraries observed during the real client
+load. A generic-only result cannot pass the updated preflight. Activation uses
+this check before service retirement.
+
+This verifies construction of the empty client interface, including its static
+dialog components. It does not exercise terminal delegates, open native dialogs,
+render text on a physical display or replace interactive acceptance. Linux
+checks cover relocated payloads, strict scanner-selected QML loading and rejection
+after removing a required deployed module; native Mac review remains pending.

@@ -1483,3 +1483,14 @@ terminal contents or workspace metadata. Retained-shell helper origins remain
 the separate preview inventory's responsibility. Focused model/clipboard and
 Linux modal/input checks cover the slice; native Mac installed-preview review
 remains open.
+
+
+## Installed-preview client startup preflight
+
+Installed `--check` and activation preflight now instantiate the actual hidden
+Workbench interface alongside generic Qt controls, using an empty private catalog
+and temporary configuration. Successful initialization, zero visible windows and
+zero workspace/terminal items are reported explicitly. Linux relocated-build,
+strict copied-QML loading, missing-module refusal and activation retention checks
+cover the slice. Native Mac review remains open; this does not close physical
+display, terminal-rendering or native-dialog acceptance gates.

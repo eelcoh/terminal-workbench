@@ -62,10 +62,10 @@ def check(payload,runtime,viewer,*,platform=None):
         try:report=json.loads(reply.stdout)
         except ValueError as error:
             raise ValueError(f'Viewer exited {reply.returncode} without a JSON diagnostic: {reply.stderr}') from error
-        if not isinstance(report,dict) or report.get('schema')!=1 or not isinstance(report.get('qml_ok'),bool):
+        if not isinstance(report,dict) or report.get('schema')!=1 or not isinstance(report.get('qml_ok'),bool) or not isinstance(report.get('client_ok'),bool):
             report=None
             raise ValueError('Viewer did not return a valid QML diagnostic')
-        record('qml_startup',reply.returncode==0 and report['qml_ok'],report=report,
+        record('qml_startup',reply.returncode==0 and report['qml_ok'] and report['client_ok'],report=report,
                exit_code=reply.returncode,stderr=reply.stderr)
     except (OSError,ValueError,subprocess.SubprocessError) as error:record('qml_startup',False,error=str(error))
     if platform=='darwin':
@@ -76,4 +76,4 @@ def check(payload,runtime,viewer,*,platform=None):
             record('bundled_qt_loading',not errors,errors=errors)
     return dict(schema=1,ok=all(item['ok'] for item in checks),checks=checks,
         python=sys.executable,payload=str(payload),
-        scope='One-shot runtime/QML startup and observed loader paths. No terminals or service changes. Does not open native dialogs or prove rendering, notarization, or standalone Python support.')
+        scope='One-shot runtime, generic QML and hidden Workbench startup with observed loader paths. No terminals or service changes. Does not open native dialogs or prove rendering, notarization, or standalone Python support.')

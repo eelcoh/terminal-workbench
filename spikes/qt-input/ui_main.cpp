@@ -2,6 +2,7 @@
 #include "terminal_item.h"
 #include "deployment_check.h"
 #include "ui_build_info.h"
+#include "ui_startup_check.h"
 #include "chrome_icon.h"
 #include <QFontDatabase>
 #include <QClipboard>
@@ -26,9 +27,11 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QTimer>
+#include <QTemporaryDir>
 #include <QWheelEvent>
 #include <QQmlError>
 #include <cstdio>
+#include <memory>
 
 static QVariantList listProperty(QObject *object,const char *name) {
     const auto value=object->property(name);
@@ -46,20 +49,26 @@ int main(int argc,char **argv) {
     QQuickWindow::setTextRenderType(QQuickWindow::NativeTextRendering);
     qmlRegisterType<ChromeIcon>("Workbench.Probe",1,0,"ChromeIcon");
     const auto args=app.arguments();
-    if (args.value(1) == "--check-deployment") {
-        const auto report = deploymentCheck(args.value(2));
-        std::fputs(QJsonDocument(report).toJson().constData(), stdout);
-        return report["qml_ok"].toBool() ? 0 : 1;
+    const bool checking=args.value(1)=="--check-deployment";
+    QJsonObject modules,configuration;
+    std::unique_ptr<QTemporaryDir> checkDirectory;
+    QFile config;
+    if(checking) {
+        modules=deploymentCheck(args.value(2));
+        checkDirectory=std::make_unique<QTemporaryDir>(QDir::tempPath()+"/wb-client-check-XXXXXX");
+        if(!checkDirectory->isValid()){std::fputs("Qt UI: cannot create private client check directory\n",stderr);return 1;}
+        configuration=clientCheckConfiguration(checkDirectory->path());
+    } else {
+        if(argc<2)return 2;
+        config.setFileName(QString::fromLocal8Bit(argv[1]));if(!config.open(QIODevice::ReadOnly))return 2;
+        configuration=QJsonDocument::fromJson(config.readAll()).object();
+        if(!configuration["catalog"].isObject() || configuration["state"].toString().isEmpty())return 2;
     }
-    if(argc<2)return 2;
-    QFile config(QString::fromLocal8Bit(argv[1]));if(!config.open(QIODevice::ReadOnly))return 2;
-    const auto configuration=QJsonDocument::fromJson(config.readAll()).object();
-    if(!configuration["catalog"].isObject() || configuration["state"].toString().isEmpty())return 2;
     if(configuration["installed_preview"].toBool()) {
         app.setApplicationName("Terminal Workbench Preview");
         app.setDesktopFileName("terminal-workbench-qt-preview");
     }
-    if(args.contains("--remove-launch-config")) {
+    if(!checking && args.contains("--remove-launch-config")) {
         config.close();
         if(!QFile::remove(config.fileName()))std::fputs("Qt preview: could not remove launch configuration\n",stderr);
     }
@@ -77,15 +86,26 @@ int main(int argc,char **argv) {
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
+    QStringList startupWarnings;
     QQmlApplicationEngine engine;
-    QObject::connect(&engine,&QQmlEngine::warnings,&app,[](const QList<QQmlError> &errors){for(const auto &error:errors)std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));});
+    QObject::connect(&engine,&QQmlEngine::warnings,&app,[&](const QList<QQmlError> &errors){for(const auto &error:errors){if(checking)startupWarnings.append(error.toString());std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));}});
+    if(checking) {
+        engine.setInitialProperties({{"visible",false}});
+        if(!args.value(2).isEmpty())engine.setImportPathList({args.value(2),"qrc:/qt-project.org/imports","qrc:/qt/qml"});
+    }
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studyBuild",&buildInfo);
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
     engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
-    engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
+    engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));
+    if(checking) {
+        const auto report=completeClientCheck(modules,engine,startupWarnings);
+        std::fputs(QJsonDocument(report).toJson().constData(),stdout);
+        return report["qml_ok"].toBool()?0:1;
+    }
+    if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
     auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
     const auto displayReport=qEnvironmentVariable("WORKBENCH_DISPLAY_REPORT");
     if(!displayReport.isEmpty()) {
