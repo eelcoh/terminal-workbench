@@ -1839,3 +1839,19 @@ fixtures reject a generic-only report and preserve client-construction errors.
 Activation handoff/restoration regressions continue to cover retained shells.
 Native Mac construction/loading acceptance remains pending; terminal delegates,
 physical rendering and opening deferred native dialogs remain outside this check.
+
+
+## Preview dependency evidence
+
+Installed checks now report current/build-time Python identity, startup viewer
+mapping locations and static external non-Qt links as separate evidence. Platform
+adapters define conventional system library locations. Invalid/missing audit or
+mapping evidence stays unknown; escaped symlinks are external. Reporting is
+one-shot, read-only and independent of session/runtime state, with no new process
+inspection, network access or success-policy change.
+
+Portable checks cover Mac path classification, escaping symlinks, prefix lookalikes,
+static/observed separation, missing/malformed evidence and allowlisted audit fields.
+The real relocated Linux preview reports its Python/mapping evidence while retaining
+service identity, terminals and saved files. Packaging fixtures pass. Native Mac
+external-dependency review remains pending; Python and non-Qt deployment are still open.

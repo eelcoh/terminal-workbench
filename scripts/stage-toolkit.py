@@ -13,10 +13,12 @@ import sys
 import tempfile
 import time
 
+from preview_dependencies import python_record
+
 ROOT=Path(__file__).resolve().parent.parent
 MODULES=('toolkit-ui.py','client_build_info.py','installed_paths.py','config_paths.py','window_slots.py',
          'session_service.py','workspace_catalog.py','session_shutdown.py',
-         'terminal_lifecycle.py','preview_check.py','preview_service_check.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
+         'terminal_lifecycle.py','preview_check.py','preview_dependencies.py','preview_service_check.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
 
 
 def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None,selective_qml=False,qml_deploy_script=None):
@@ -83,7 +85,7 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         shutil.copy2(ROOT/'crates/runtime/native/LICENSE.libghostty-vt',notices/'LICENSE.libghostty-vt')
         revision=subprocess.run(['git','rev-parse','HEAD'],cwd=ROOT,capture_output=True,text=True,check=True).stdout.strip()
         dirty=bool(subprocess.run(['git','status','--porcelain'],cwd=ROOT,capture_output=True,text=True,check=True).stdout)
-        (payload/'preview.json').write_text(json.dumps(dict(format=1,source=revision,source_dirty=dirty,container=os.environ.get('CONTAINER_ID','') if os.environ.get('DISTROBOX_ENTER_PATH') else '',platform=sys.platform,architecture=platform.machine(),qt_bundled=bundle_qt,selective_qml=selective_qml,dependencies='Qt deployed; recorded Python and reported non-Qt dependencies remain external' if bundle_qt else 'System Python 3 and the Qt installation used to build the viewer; not bundled'),indent=2)+'\n')
+        (payload/'preview.json').write_text(json.dumps(dict(format=1,source=revision,source_dirty=dirty,python=python_record(),container=os.environ.get('CONTAINER_ID','') if os.environ.get('DISTROBOX_ENTER_PATH') else '',platform=sys.platform,architecture=platform.machine(),qt_bundled=bundle_qt,selective_qml=selective_qml,dependencies='Qt deployed; recorded Python and reported non-Qt dependencies remain external' if bundle_qt else 'System Python 3 and the Qt installation used to build the viewer; not bundled'),indent=2)+'\n')
         shutil.copy2(ROOT/'docs/qt-staged-preview.md',directory/'README.md')
         if payload!=directory:shutil.copy2(ROOT/'docs/qt-staged-preview.md',payload/'README.md')
         if sys.platform=='darwin':

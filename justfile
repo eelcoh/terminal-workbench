@@ -429,6 +429,7 @@ toolkit-bundle: runtime-build
 
 # Portable deployment/audit fixtures; no native Mac deployment is implied.
 toolkit-bundle-test:
+    python3 tests/preview_dependencies_test.py
     python3 tests/preview_check_test.py
     python3 tests/macos_packaging_tools_test.py
     python3 tests/qt_bundle_test.py

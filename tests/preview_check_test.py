@@ -44,7 +44,8 @@ class PreviewCheckTest(unittest.TestCase):
 
     def test_loaded_external_qt_rejected_but_non_qt_dependencies_reported(self):
         self.report['loaded_images'].append('/opt/homebrew/lib/libicuuc.dylib')
-        self.assertTrue(self.invoke()['ok'])
+        evidence=self.invoke();self.assertTrue(evidence['ok'])
+        self.assertEqual(evidence['dependencies']['viewer_mappings']['outside_preview_paths'],['/opt/homebrew/lib/libicuuc.dylib'])
         self.report['loaded_images'].append('/opt/Qt/QtQuick.framework/Versions/A/QtQuick')
         result=self.invoke();self.assertFalse(result['ok'])
         self.assertIn('outside app',result['checks'][-1]['errors'][0])

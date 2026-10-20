@@ -604,3 +604,32 @@ dialog components. It does not exercise terminal delegates, open native dialogs,
 render text on a physical display or replace interactive acceptance. Linux
 checks cover relocated payloads, strict scanner-selected QML loading and rejection
 after removing a required deployed module; native Mac review remains pending.
+
+
+## Dependency evidence in the installed check
+
+`--check` now includes a `dependencies` object. `python` identifies the running
+external interpreter, resolved executable and version; `build_python` records
+the interpreter/version used to stage a new preview. Older builds without that
+record remain explicitly unknown. Python is still external.
+
+`viewer_mappings` classifies startup paths against the whole Mac app (the payload
+on Linux). Paths resolving inside the preview and conventional platform library
+locations are counted separately; `outside_preview_paths` lists remaining paths.
+An escaping symlink stays external. Unresolved/relative paths are unclassified;
+missing or malformed loader evidence is unavailable, not an empty dependency set.
+Mac evidence comes from dyld; Linux uses `/proc/self/maps`, which also includes
+fonts and other non-library files.
+
+`build_audit` separately exposes the static audit's external non-Qt link names
+from `qt-dependencies.json`. Those names can include `@rpath` imports and are not
+a list of libraries observed loading. Missing/invalid audits are explicit. This
+informational inventory does not change the check's success policy or package
+Python/libraries. It does not inspect Python's module dependency graph, deferred
+libraries or programs launched inside shells, and makes no portability claim.
+
+On Mac, run the printed installed-copy `--check` command after `just toolkit-install`
+and retain its JSON output. Expect `dependencies.python.bundled` to be false,
+`build_python.available` true for this build and `viewer_mappings.available` true
+when viewer startup succeeds. External paths can be an empty list; do not infer
+that the app is standalone. No service activation is needed for this report.

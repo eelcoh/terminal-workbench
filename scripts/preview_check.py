@@ -6,6 +6,8 @@ import re
 import subprocess
 import sys
 
+from preview_dependencies import summarize
+
 QT_IMAGE=re.compile(r'(^|/)(Qt[^/]+\.framework/|libQt[56][^/]*\.(?:dylib|so)(?:\.|$))')
 
 
@@ -75,5 +77,5 @@ def check(payload,runtime,viewer,*,platform=None):
             errors=bundled_qt_errors(payload.parents[2],report) if report else ['Viewer startup failed; loaded Qt could not be checked']
             record('bundled_qt_loading',not errors,errors=errors)
     return dict(schema=1,ok=all(item['ok'] for item in checks),checks=checks,
-        python=sys.executable,payload=str(payload),
+        python=sys.executable,payload=str(payload),dependencies=summarize(payload,metadata,report,platform=platform),
         scope='One-shot runtime, generic QML and hidden Workbench startup with observed loader paths. No terminals or service changes. Does not open native dialogs or prove rendering, notarization, or standalone Python support.')

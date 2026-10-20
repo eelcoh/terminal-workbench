@@ -239,6 +239,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    restore the previous preview service without recovering shells or changing
    saved state. Responding/unverifiable services are left alone; Linux late-failure
    restoration tests pass, with native Mac acceptance pending.
+   Installed checks now expose current/build-time Python, observed startup paths
+   outside the preview/system library locations and separately recorded static
+   non-Qt imports. Linux relocated-preview and portable path/unknown-evidence checks
+   pass. Native Mac dependency review and actual dependency deployment remain open.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

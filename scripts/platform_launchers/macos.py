@@ -81,3 +81,8 @@ def verify_signature(bundle):
         return dict(ok=reply.returncode==0,exit_code=reply.returncode,stderr=reply.stderr)
     except (OSError,subprocess.SubprocessError) as error:
         return dict(ok=False,error=str(error))
+
+
+def system_dependency_path(path):
+    """Conventional platform library locations, after resolving path aliases."""
+    return any(path.is_relative_to(root) for root in ('/System/Library','/usr/lib'))

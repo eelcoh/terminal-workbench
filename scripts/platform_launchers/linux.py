@@ -57,3 +57,8 @@ def show_error(message):
     if command:
         try:subprocess.run([command,'--app-name=Terminal Workbench Preview','Terminal Workbench could not start',message],check=False,timeout=5)
         except (OSError,subprocess.TimeoutExpired):pass
+
+
+def system_dependency_path(path):
+    """Conventional platform library locations, after resolving path aliases."""
+    return any(path.is_relative_to(root) for root in ('/usr/lib','/usr/lib64','/lib','/lib64'))

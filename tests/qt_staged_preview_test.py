@@ -115,6 +115,10 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
             before_files={str(p.relative_to(state)):p.read_bytes() for p in state.rglob('*') if p.is_file() and p.name in ('workspaces.json','qt-view.json')}
             checked=json.loads(launch('--check',QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software').stdout)
             assert checked['ok'],checked
+            dependencies=checked['dependencies']
+            assert dependencies['python']['executable']==sys.executable and not dependencies['python']['bundled'],dependencies
+            assert dependencies['build_python']['available'] and dependencies['build_python']['executable']==sys.executable,dependencies
+            assert dependencies['viewer_mappings']['available'],dependencies
             ui=next(item['report'] for item in checked['checks'] if item['name']=='qml_startup')
             assert ui['client_ok'] and ui['client']==dict(workspace_count=0,terminal_count=0,visible_window_count=0,errors=[]),ui
             assert any('libQt6Core.so' in path for item in checked['checks'] if item['name']=='qml_startup' for path in item['report']['loaded_images'])
