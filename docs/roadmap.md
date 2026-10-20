@@ -206,7 +206,9 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    confirmed the trial works on Mac at `5a6c9f4`; native size/time comparison
    remains open. Installed `--check` now verifies runtime/QML startup without
    sessions, with observed Qt containment and existing-signature verification
-   on Mac; native command acceptance is pending. Pane-chrome focus is confirmed
+   on Mac; native command acceptance is pending. Activation now runs those checks
+   before service retirement; Linux failure-isolation and retained-shell handoff
+   checks pass, with native Mac activation acceptance pending. Pane-chrome focus is confirmed
    on Mac at `f820f0f`. Native shell startup,
    activation and moved-bundle loader/launch review, Python/non-Qt dependencies
    and the remaining installed lifecycle still

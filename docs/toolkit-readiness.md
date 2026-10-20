@@ -1622,3 +1622,23 @@ separate acceptance items.
 
 The owner confirmed pane-chrome focus on Mac at `f820f0f`; the preceding
 selective-bundle workflow acceptance remains recorded above.
+
+
+## Candidate checks before explicit service activation
+
+`--activate` now runs the installed payload check before creating session state,
+reserving window slots or retiring an existing service. A failed runtime/QML
+check or Mac signature/Qt-containment check leaves the active service unchanged
+and names the failed checks; `--check` retains the full diagnostic report.
+Successful activation includes a concise verification summary. These are
+client-side candidate checks, without new runtime facts or protocol methods.
+
+Linux `just toolkit-activation-test` passes with a deliberately broken candidate
+viewer: rejection preserves the current service instance/PID, terminal sockets
+and saved catalog/preferences/views. Rejection in a fresh namespace creates no
+session/configuration directory. The same test then activates a working candidate
+while retaining shell PIDs, variables, helper origins, stopped entries and saved
+state, and still exercises window exclusion, stale retirement and legacy-service
+refusal. Later session-service startup failure remains a separate outcome;
+preflight does not claim automatic rollback. Native Mac activation review of
+these checks remains pending.

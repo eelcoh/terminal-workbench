@@ -22,8 +22,8 @@ if sys.platform=='darwin':built=built.with_suffix('.app')/'Contents/MacOS/workbe
 with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
     root=Path(directory).resolve();home=root/'home';home.mkdir();state=root/'sessions';config=root/'preferences'
     env={k:v for k,v in os.environ.items() if not k.startswith(('WORKBENCH_','XDG_'))}
-    env.update(HOME=str(home),SHELL='/bin/sh',WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(config),PYTHONDONTWRITEBYTECODE='1')
-    stages=[staging.stage(root/f'build-{i}',runtime,built,ROOT/'.local/build/qt-input/workbench-preview-bootstrap',sign=False) for i in range(3)]
+    env.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',HOME=str(home),SHELL='/bin/sh',WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(config),PYTHONDONTWRITEBYTECODE='1')
+    stages=[staging.stage(root/f'build-{i}',runtime,built,ROOT/'.local/build/qt-input/workbench-preview-bootstrap',sign=sys.platform=='darwin') for i in range(3)]
     def payload(index):
         return stages[index]/'Terminal Workbench Preview.app/Contents/Resources/workbench' if sys.platform=='darwin' else stages[index]
     binaries=[payload(i)/'libexec/workbench-session' for i in range(3)]
@@ -38,7 +38,16 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
     except Unavailable:pass
     else:raise AssertionError('retirement of absent service started an authority')
     assert not state.exists()
-    cli(0,'--activate')
+    candidate=payload(1)/'../../MacOS/workbench-ui-study' if sys.platform=='darwin' else payload(1)/'libexec/workbench-ui-study'
+    original_viewer=candidate.read_bytes()
+    try:
+        candidate.write_text('#!/bin/sh\nexit 42\n')
+        result=cli(1,'--activate',1)
+        assert 'activation checks failed' in result.stderr and '--check' in result.stderr
+        assert not state.exists() and not config.exists(),'failed candidate created user state'
+    finally:candidate.write_bytes(original_viewer)
+    initial=json.loads(cli(0,'--activate').stdout.split('\nPreview service selected.',1)[0])
+    assert initial['verification']['ok']
     assert not (state/'workspaces.json').exists(),'activation seeded terminals before a window opened'
     assert health()['terminals']==[]
     connection=None
@@ -63,6 +72,16 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         assert len(usage['builds'])==1
         assert terminal in usage['builds'][0]['runtime_terminals'] and stopped not in usage['builds'][0]['runtime_terminals']
         assert usage['builds'][0]['helper_terminals']==usage['builds'][0]['runtime_terminals']
+        # A broken candidate is rejected before retiring the healthy service.
+        try:
+            candidate.write_text('#!/bin/sh\nexit 42\n')
+            result=cli(1,'--activate',1)
+            assert 'qml_startup' in result.stderr and 'current service was left unchanged' in result.stderr
+            unchanged=health()
+            assert unchanged['service_instance']==first['service_instance'] and unchanged['service_pid']==first['service_pid']
+            for path,(contents,stamp) in snapshots.items():assert path.read_bytes()==contents and path.stat().st_mtime_ns==stamp,path
+            assert all(path.stat().st_ino==inode for path,inode in inodes.items())
+        finally:candidate.write_bytes(original_viewer)
         # A currently open preview blocks activation before the service is touched.
         lease,_=acquire_window_slot(state/'qt')
         try:
@@ -158,4 +177,4 @@ c.sendall((json.dumps(dict(protocol=1,ok=True,runtime_binary=sys.argv[3],directo
         process.wait(timeout=5);assert json.loads(observed.read_text())['method']=='health'
     finally:
         if process.poll() is None:process.kill();process.wait()
-print('PASS: explicit preview handoff, stale-instance refusal, active-window exclusion, unchanged catalog/preferences/views and shell PIDs/variables/sockets; retained/new preview-origin reporting, stopped-shell retention, startup-failure retry, legacy and unrelated-service isolation')
+print('PASS: candidate startup-check rejection before state creation/retirement, explicit preview handoff, stale-instance refusal, active-window exclusion, unchanged catalog/preferences/views and shell PIDs/variables/sockets; retained/new preview-origin reporting, stopped-shell retention, startup-failure retry, legacy and unrelated-service isolation')

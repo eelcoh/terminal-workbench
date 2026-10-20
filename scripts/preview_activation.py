@@ -44,12 +44,20 @@ def activate(state,runtime,viewer,cwd):
     _preview(runtime)
     if not viewer.is_file() or not os.access(viewer,os.X_OK):
         raise ValueError('Preview viewer is missing or not executable; rebuild before activating')
+    # Exercise only the candidate payload before creating state, taking window
+    # reservations, or asking the active service to retire.
+    from preview_check import check
+    verification=check(runtime.parent.parent,runtime,viewer)
+    if not verification['ok']:
+        failed=', '.join(item['name'] for item in verification['checks'] if not item['ok'])
+        raise ValueError(f'Preview activation checks failed ({failed}); run this preview with --check for details. The current service was left unchanged')
+    verification=dict(ok=True,checks=[dict(name=item['name'],ok=item['ok']) for item in verification['checks']])
     prepare_directory(state)
     views=state/'qt';views.mkdir(mode=0o700,exist_ok=True)
     with reserve_window_slots(views):
         health=inspect(state)
         if health and health.get('runtime_binary')==str(runtime) and health.get('directory')==str(cwd):
-            return dict(result='already-active',service=health)
+            return dict(result='already-active',service=health,verification=verification)
         if health:
             if health.get('directory')!=str(cwd):
                 raise ValueError('This service uses a different initial directory; its sessions were left unchanged')
@@ -64,7 +72,7 @@ def activate(state,runtime,viewer,cwd):
         selected=request(state,runtime,cwd,'health')
         if selected.get('runtime_binary')!=str(runtime) or selected.get('directory')!=str(cwd):
             raise ValueError('Another service configuration is active; existing shells were left running')
-        return dict(result='activated' if health else 'started',service=selected)
+        return dict(result='activated' if health else 'started',service=selected,verification=verification)
 
 
 def payload_usage(selected_runtime,health):

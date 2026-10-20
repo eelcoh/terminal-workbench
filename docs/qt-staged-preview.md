@@ -303,19 +303,29 @@ From the new preview's final payload location, use its launcher:
 
 On Mac, that launcher is inside the new app at
 `Contents/Resources/workbench/terminal-workbench`. Close all preview windows
-before `--activate`; their shells may stay running. Activation reserves every
+before `--activate`; their shells may stay running. Activation first runs the
+candidate's installed checks. Runtime/QML failures, and Mac signature or bundled
+Qt loading failures, reject activation before creating session state or asking
+the current service to retire. Run `--check` for full details of any failed
+checks. Activation includes a brief Qt startup check, so use the same graphics
+and container environment as the app.
+
+After those checks, activation reserves every
 supported window slot, verifies the old service is a staged preview using the
 same initial directory, and asks that exact service instance to retire. It
 starts the selected service without creating a catalog, starting terminals or
 replaying pending operations. Open the new app normally afterward. Repeating
-activation of the selected service leaves its process unchanged.
+activation of the selected service leaves its process unchanged. Successful
+activation reports a concise `verification` result alongside service status.
 
 Catalog identities, folders, window preferences, themes, running shells and
 stopped entries remain. New terminals use the new build's runtime and helpers.
 Retained shells keep their original helper paths, so **keep the old preview
 payload until those shells have exited**. Activation does not update their PATH
-or replace their runtime processes. A failed replacement startup leaves those
-shells running; inspect `service.log` and retry a working build.
+or replace their runtime processes. The startup checks do not guarantee that
+starting the replacement session service will succeed: if that later step
+fails after retirement, shells remain running but the service may be absent.
+Inspect `service.log` and retry a working build in that case.
 
 `--status` never starts a missing service or creates user directories. It reports
 selected/runtime service paths, service health and whether activation is needed.
