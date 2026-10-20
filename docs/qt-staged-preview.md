@@ -568,3 +568,16 @@ across service handoff with retained and freshly created shells, and clears
 running references after explicit stop. `just check` includes origin encoding
 and legacy/unavailable/partial-reference reporting checks. Native Mac origin
 reporting remains pending.
+
+
+## Identify the running preview
+
+Open the application menu and choose **About Terminal Workbench**, or find the
+action in Commands. The dialog shows the source revision and local-change marker
+from the installed payload's `preview.json`. Details and Copy diagnostics include
+the payload path, configured runtime, Python, actual Qt version and configuration
+locations. Missing or invalid metadata is explicit in the details.
+
+This identifies the current client. Retained terminals can use older runtime
+helpers; use the preview inventory for those references. Diagnostics include local
+paths, but exclude workspace names, terminal contents and environment variables.

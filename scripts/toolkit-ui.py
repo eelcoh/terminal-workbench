@@ -13,9 +13,11 @@ from window_slots import acquire_window_slot
 
 ROOT=Path(__file__).resolve().parent.parent
 
-def configuration(state,runtime,cwd,data,preferences,saved=False):
+def configuration(state,runtime,cwd,data,preferences,saved=False,installed=False):
+    from client_build_info import capture
     platform = 'macos' if sys.platform == 'darwin' else 'linux'
     return dict(state=str(state),runtime=str(runtime),cwd=str(cwd),catalog=data,
+                build_info=capture(ROOT,installed=installed),
                 preferences=str(preferences/'config.conf'),
                 font_overrides=str(preferences/'ui'/platform/'terminal-font.json'),
                 shortcut_overrides=str(preferences/'ui'/platform/'shortcuts.conf'),
@@ -40,8 +42,8 @@ def saved_window(runtime,viewer,preferences,*,installed=False,desktop=False):
             # the ordinary terminal launcher. Qt removes this private config after
             # reading it; exec failure cleans it here.
             with tempfile.NamedTemporaryFile(mode='w',prefix='launch-',suffix='.json',dir=views,delete=False) as file:
-                config=Path(file.name);settings=configuration(state,runtime,cwd,data,preferences,True)
-                settings.update(view_state=str(view.with_suffix('.json')),installed_preview=True)
+                config=Path(file.name);settings=configuration(state,runtime,cwd,data,preferences,True,installed)
+                settings.update(view_state=str(view.with_suffix('.json')),installed_preview=True,viewer=str(viewer))
                 json.dump(settings,file)
             try:
                 os.set_inheritable(lease,True)
@@ -49,9 +51,9 @@ def saved_window(runtime,viewer,preferences,*,installed=False,desktop=False):
                 os.execv(str(viewer),[str(viewer),str(config),'--remove-launch-config'])
             finally:config.unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(prefix='wb-qt-window-',dir='/tmp') as directory:
-            config=Path(directory)/'ui.json';settings=configuration(state,runtime,cwd,data,preferences,True)
+            config=Path(directory)/'ui.json';settings=configuration(state,runtime,cwd,data,preferences,True,installed)
             settings['view_state']=str(view.with_suffix('.json'))
-            settings['installed_preview']=installed
+            settings['installed_preview']=installed;settings['viewer']=str(viewer)
             config.write_text(json.dumps(settings))
             print(f'Qt saved sessions: {state}. Closing detaches; shells and workspaces remain.',flush=True)
             print(f'Qt window view: {settings["view_state"]}',flush=True)
@@ -135,7 +137,8 @@ with tempfile.TemporaryDirectory(prefix='wb-ui-',dir='/tmp') as directory:
             data=call('terminal.create',workspace['id'],'Shell')
         data=call('workspace.create',title='Empty workspace');empty=data['workspaces'][-1]
         data=call('terminal.close',empty['terminals'][0]['id'])
-        config=state/'ui.json';config.write_text(json.dumps(configuration(state,runtime,cwd,data,preferences)))
+        config=state/'ui.json';settings=configuration(state,runtime,cwd,data,preferences);settings['viewer']=str(viewer)
+        config.write_text(json.dumps(settings))
         print('UI study: private disposable sessions. Closing stops every shell created in this study.',flush=True)
         subprocess.run([str(viewer),str(config)],check=True)
     finally:

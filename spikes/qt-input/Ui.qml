@@ -248,6 +248,7 @@ ApplicationWindow {
         case "copy": panel(selected).terminal.copy(); break
         case "paste": panel(selected).terminal.paste(); break
         case "motion": reducedMotion = !reducedMotion; break
+        case "about": about.open(); break
         case "help": help.open(); break
         }
     }
@@ -453,7 +454,7 @@ ApplicationWindow {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !about.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -541,7 +542,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !about.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -936,6 +937,8 @@ ApplicationWindow {
         MenuRule {}
         MenuAction { objectName: "sessionStopMenuItem"; text: "Stop all terminals…"; enabled: terminalModel.count > 0 && !studySession.busy; onTriggered: window.requestSessionStop() }
         MenuAction { text: studySession.savedSession ? "Close window" : "Close UI study"; onTriggered: window.close() }
+        MenuRule {}
+        MenuAction { objectName: "aboutMenuItem"; text: "About Terminal Workbench"; onTriggered: about.open() }
     }
     ChromeMenu {
         tones: window.chrome
@@ -1106,6 +1109,13 @@ ApplicationWindow {
         tones: window.chrome; preferences: studyShortcuts; actions: commandRegistry.entries
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
+    readonly property bool aboutOpen: about.visible
+    readonly property bool aboutDetailsReady: about.detailsReady
+    About {
+        id: about; objectName: "aboutDialog"; anchors.centerIn: parent
+        tones: window.chrome; build: studyBuild
+        onClosed: Qt.callLater(window.restoreAfterPopup)
+    }
     Dialog {
         id: help; implicitWidth: 560; implicitHeight: 460; width: Math.min(implicitWidth, window.width - 64); height: Math.min(implicitHeight, window.height - 64); title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
         padding: 16
@@ -1129,7 +1139,7 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !about.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     function activateShortcut(id) {
         // Boundary navigation still reveals/focuses the selected pane after scrolling.
         if (id === "previous-terminal") navigate(-1)
@@ -1152,7 +1162,7 @@ ApplicationWindow {
             }
         }
     }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !about.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

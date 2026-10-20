@@ -1,8 +1,10 @@
 // Qt candidate: client presentation around disposable or explicitly saved sessions.
 #include "terminal_item.h"
 #include "deployment_check.h"
+#include "ui_build_info.h"
 #include "chrome_icon.h"
 #include <QFontDatabase>
+#include <QClipboard>
 #include "ui_session.h"
 #include "ui_display_report.h"
 #include "ui_themes.h"
@@ -61,6 +63,7 @@ int main(int argc,char **argv) {
         config.close();
         if(!QFile::remove(config.fileName()))std::fputs("Qt preview: could not remove launch configuration\n",stderr);
     }
+    UiBuildInfo buildInfo(configuration);
     UiSession session(configuration);
     UiViewState view(configuration["view_state"].toString());
 #if defined(Q_OS_MACOS)
@@ -77,6 +80,7 @@ int main(int argc,char **argv) {
     QQmlApplicationEngine engine;
     QObject::connect(&engine,&QQmlEngine::warnings,&app,[](const QList<QQmlError> &errors){for(const auto &error:errors)std::fprintf(stderr,"Qt UI: %s\n",qPrintable(error.toString()));});
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
+    engine.rootContext()->setContextProperty("studyBuild",&buildInfo);
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
@@ -150,7 +154,11 @@ int main(int argc,char **argv) {
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
-            const QJsonObject data{{"shortcut_sequences",QJsonObject::fromVariantMap(shortcuts.sequences())},
+            const QJsonObject data{{"about_open",window->property("aboutOpen").toBool()},
+                {"about_menu",center("aboutMenuItem")},{"about_copy",center("aboutCopy")},{"about_details",center("aboutDetails")},{"about_close",center("aboutClose")},
+                {"about_clipboard_matches",window->property("aboutOpen").toBool() && QGuiApplication::clipboard()->text()==buildInfo.diagnostics()},
+                {"about_summary",buildInfo.summary()},{"about_details_ready",window->property("aboutDetailsReady").toBool()},
+                {"shortcut_sequences",QJsonObject::fromVariantMap(shortcuts.sequences())},
                 {"shortcut_error",shortcuts.error()},{"shortcut_labels",QJsonObject::fromVariantMap(shortcuts.labels())},
                 {"font_settings_open",window->property("fontSettingsOpen").toBool()},
                 {"forwarding_armed",window->property("forwardingArmed").toBool()},{"forward_menu",center("forwardKeyMenuItem")},{"forward_cancel",center("cancelForwardKey")},

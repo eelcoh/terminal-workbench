@@ -658,3 +658,19 @@ receive stopped feedback without implicit reattachment/recovery. See
 [Qt session shutdown](session-shutdown.md#qt-workbench) for limits and a disposable
 Mac review procedure. Linux model and two-window UI checks cover the slice;
 native Mac review remains open.
+
+
+## About this client
+
+Choose **About Terminal Workbench** in the application menu, or search for it
+in Commands. Installed previews show their source revision and whether the build
+included local changes. A checkout without preview metadata identifies itself as
+a development checkout. **Details** shows the report; **Copy diagnostics** copies
+it explicitly. Escape or Close returns focus to the selected terminal.
+
+The report includes client build metadata, Qt/platform/architecture and local
+installation, Python, configuration and session paths. It excludes workspace
+names, terminal output and process environment. Review local paths before
+sharing it. `configured_runtime` names the runtime configured for this client;
+retained shells can still use helpers from an older preview. This report does
+not inventory those helpers or decide whether an old installation can be removed.

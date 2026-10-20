@@ -1803,3 +1803,18 @@ missing prior files/Python and cleanup of a failed restoration child. Existing
 startup cleanup/rehearsal and handoff tests also pass. Temporary modified Mac
 fault fixtures are re-signed so signature checking does not mask the intended
 service failure. Native Mac restoration acceptance remains pending.
+
+
+## Client build identity and diagnostics
+
+The Qt application menu and Commands now open an About dialog with preview source
+identity and explicit diagnostic copy. Python captures allowlisted build metadata
+once at launch; a separate client adapter produces the report without service
+requests or paint/parse work. No protocol or saved-state format changes. The
+configured runtime path is labelled separately from actual retained-shell origins.
+
+Focused Python/C++ checks cover missing/invalid metadata, allowlisted fields,
+revision/local-change labels, actual Qt version and exact clipboard copying.
+Linux UI checks exercise menu/palette access, modal shortcut isolation, Escape
+and Close focus restoration, and unchanged PTY input/grids. Native Mac review
+and installed-preview identity acceptance remain pending.

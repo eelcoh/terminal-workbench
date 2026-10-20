@@ -465,3 +465,9 @@ toolkit-install: runtime-build
 # Native command selection and real build/install under a private installation root.
 toolkit-install-test:
     python3 tests/preview_build_install_test.py
+
+# Client-only About identity, diagnostic allowlist and clipboard contract.
+toolkit-about-test: toolkit-stage
+    python3 tests/client_build_info_test.py
+    cmake --build .local/build/qt-input --target workbench-build-info-test --parallel
+    QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-build-info-test

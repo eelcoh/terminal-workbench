@@ -14,7 +14,7 @@ import tempfile
 import time
 
 ROOT=Path(__file__).resolve().parent.parent
-MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py',
+MODULES=('toolkit-ui.py','client_build_info.py','installed_paths.py','config_paths.py','window_slots.py',
          'session_service.py','workspace_catalog.py','session_shutdown.py',
          'terminal_lifecycle.py','preview_check.py','preview_service_check.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
 

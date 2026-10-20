@@ -1472,3 +1472,14 @@ background reads; failed updates keep existing workspaces and show a local notic
 Older services retain manual refresh until explicitly upgraded. Service/model and
 two-window X11/Wayland checks pass; native Mac review remains open. See
 [automatic workspace updates](qt-saved-sessions.md#automatic-workspace-updates).
+
+
+## Client identity and support diagnostics
+
+The Qt About dialog now exposes preview source identity through the application
+menu and Commands, with expandable details and explicit diagnostic copying. It
+reports client installation/configuration paths and Qt/platform details without
+terminal contents or workspace metadata. Retained-shell helper origins remain
+the separate preview inventory's responsibility. Focused model/clipboard and
+Linux modal/input checks cover the slice; native Mac installed-preview review
+remains open.

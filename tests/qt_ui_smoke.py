@@ -216,6 +216,22 @@ while True:
             time.sleep(.3)
         assert [received(i) for i in range(6)]==chrome_input and sizes()==chrome_sizes,'chrome click changed PTY input or grids'
         typed('first');wait_until(lambda:received(0)==b'first')
+        # About is modal and client-only: copying diagnostics never types into PTYs.
+        about_input=[received(i) for i in range(6)];about_sizes=sizes()
+        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+        click(*data()['about_menu']);wait_until(lambda:data()['about_open'] and not data()['application_menu_open'])
+        click(*data()['about_copy']);wait_until(lambda:data()['about_clipboard_matches'])
+        click(*data()['about_details']);wait_until(lambda:data()['about_details_ready']);time.sleep(.2);capture('about-details.png')
+        raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==0,'About leaked navigation shortcut'
+        key('Escape');wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
+        key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('About Terminal Workbench')
+        wait_until(lambda:len(data()['command_matches'])==1 and data()['command_matches'][0]['id']=='about');key('Return');wait_until(lambda:data()['about_open'])
+        click(*data()['about_close']);wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
+        assert [received(i) for i in range(6)]==about_input and sizes()==about_sizes,'About altered input or grids'
+        if '--about-only' in sys.argv[3:]:
+            assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in About regression'
+            print(('wayland' if wayland else 'xcb')+' PASS: About menu/palette, visible details, exact diagnostic copy, modal navigation isolation and restored terminal focus/input/grids')
+            sys.exit(0)
         # Deliver real window wheel events, including fractional motion and sideways jitter.
         wheel_instances=[p['instance'] for p in data()['panes']];wheel_sizes=sizes()
         def wheel(pixel,angle,count=1,inverted=False):
