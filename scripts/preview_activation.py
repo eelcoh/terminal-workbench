@@ -52,6 +52,8 @@ def activate(state,runtime,viewer,cwd):
         failed=', '.join(item['name'] for item in verification['checks'] if not item['ok'])
         raise ValueError(f'Preview activation checks failed ({failed}); run this preview with --check for details. The current service was left unchanged')
     verification=dict(ok=True,checks=[dict(name=item['name'],ok=item['ok']) for item in verification['checks']])
+    from preview_service_check import check as check_service
+    verification['checks'].append(check_service(runtime,cwd))
     prepare_directory(state)
     views=state/'qt';views.mkdir(mode=0o700,exist_ok=True)
     with reserve_window_slots(views):

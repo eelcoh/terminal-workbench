@@ -412,6 +412,7 @@ toolkit-desktop-launcher-test: toolkit-stage
 
 # Explicit preview update with real retained shells and failure isolation.
 toolkit-activation-test: toolkit-stage
+    python3 tests/preview_service_check_test.py
     python3 tests/preview_activation_test.py target/debug/workbench-session
 
 # Mac/Linux: real zsh login startup under a minimal desktop environment.

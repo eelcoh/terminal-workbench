@@ -15,7 +15,7 @@ import time
 ROOT=Path(__file__).resolve().parent.parent
 MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py',
          'session_service.py','workspace_catalog.py','session_shutdown.py',
-         'terminal_lifecycle.py','preview_check.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
+         'terminal_lifecycle.py','preview_check.py','preview_service_check.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
 
 
 def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None,selective_qml=False,qml_deploy_script=None):

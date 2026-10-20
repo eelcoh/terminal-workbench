@@ -40,9 +40,14 @@ def endpoint(directory):
     return path
 
 
-def receive(connection):
+def receive(connection, *, deadline=None):
     data = bytearray()
     while b"\n" not in data:
+        if deadline is not None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise socket.timeout('Session service reply deadline expired')
+            connection.settimeout(remaining)
         chunk = connection.recv(min(4096, LIMIT + 1 - len(data)))
         if not chunk:
             raise ReplyClosed("Session service closed before replying")
@@ -65,17 +70,18 @@ def transmit(connection, value):
     connection.sendall(payload)
 
 
-def exchange(directory, message):
+def exchange(directory, message, *, timeout=None):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.settimeout(60)
+        connection.settimeout(60 if timeout is None else timeout)
         try:
             connection.connect(str(endpoint(directory)))
         except OSError as error:
             if error.errno in (errno.ENOENT, errno.ECONNREFUSED):
                 raise Unavailable() from error
             raise
+        deadline = None if timeout is None else time.monotonic() + timeout
         transmit(connection, message)
-        reply = receive(connection)
+        reply = receive(connection, deadline=deadline)
     if reply.get("protocol") != PROTOCOL:
         raise ValueError("Incompatible session service; stop it explicitly before restarting")
     if not reply.get("ok"):

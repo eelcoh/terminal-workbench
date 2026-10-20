@@ -48,6 +48,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
     finally:candidate.write_bytes(original_viewer)
     initial=json.loads(cli(0,'--activate').stdout.split('\nPreview service selected.',1)[0])
     assert initial['verification']['ok']
+    assert initial['verification']['checks'][-1]==dict(name='service_startup',ok=True,terminal_count=0)
     assert not (state/'workspaces.json').exists(),'activation seeded terminals before a window opened'
     assert health()['terminals']==[]
     connection=None
@@ -129,13 +130,15 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         chosen=next(build for build in usage['builds'] if build['directory']==str(payload(1)))
         assert fresh in chosen['runtime_terminals'] and fresh in chosen['helper_terminals']
         assert not usage['unknown_terminals']
-        # A failed new daemon leaves old shell processes and endpoint identities
-        # intact. Retry with the known working build without recovering any shell.
+        # A failed daemon is rejected in the private startup rehearsal before
+        # the healthy service is retired. Retained shells need no recovery.
         service=payload(2)/'scripts/session_service.py'
         source=service.read_text();source=source.replace('if __name__ == "__main__":','if __name__ == "__main__":\n    raise SystemExit(42)')
         service.write_text(source)
-        result=cli(2,'--activate',1);assert 'did not start' in result.stderr
-        assert json.loads(cli(1,'--status').stdout)['service'] is None
+        before_failed_service=health()
+        result=cli(2,'--activate',1);assert 'Candidate session service check failed' in result.stderr
+        assert health()['service_instance']==before_failed_service['service_instance']
+        assert health()['service_pid']==before_failed_service['service_pid']
         assert all(path.stat().st_ino==inode for path,inode in inodes.items())
         cli(1,'--activate')
         assert next(t['state'] for t in health()['terminals'] if t['id']==stopped)=='stopped'

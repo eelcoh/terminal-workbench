@@ -208,7 +208,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    sessions, with observed Qt containment and existing-signature verification
    on Mac; native command acceptance is pending. Activation now runs those checks
    before service retirement; Linux failure-isolation and retained-shell handoff
-   checks pass, with native Mac activation acceptance pending. Pane-chrome focus is confirmed
+   checks pass, with native Mac activation acceptance pending. Activation also
+   rehearses candidate service startup in a private zero-terminal namespace,
+   catching daemon startup failures before retirement; Linux cleanup and
+   retained-service checks pass. Pane-chrome focus is confirmed
    on Mac at `f820f0f`. Native shell startup,
    activation and moved-bundle loader/launch review, Python/non-Qt dependencies
    and the remaining installed lifecycle still

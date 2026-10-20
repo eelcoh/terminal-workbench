@@ -1642,3 +1642,29 @@ state, and still exercises window exclusion, stale retirement and legacy-service
 refusal. Later session-service startup failure remains a separate outcome;
 preflight does not claim automatic rollback. Native Mac activation review of
 these checks remains pending.
+
+
+## Private service startup rehearsal before handoff
+
+Activation now rehearses the candidate Python session service after the
+runtime/QML checks and before creating user session state or retiring an active
+service. The rehearsal uses a fresh short mode-0700 directory under `/tmp`,
+validates a zero-terminal health reply with the expected process/runtime/cwd,
+checks that no catalog or terminal sockets were seeded, and retires the exact
+temporary service instance. It does not inspect or attach existing shells.
+
+Startup has a five-second deadline and uses explicit short socket timeouts;
+existing callers retain their 60-second default. Cleanup owns only the spawned
+process group and its temporary directory, including a lingering descendant
+when its parent exits. Failure keeps a private diagnostic log; success removes
+it. `--check` retains its no-service behavior. Activation's verification summary
+now includes `service_startup` with zero terminals.
+
+Linux activation coverage rejects a candidate whose service exits during
+startup while preserving the active service instance/PID and running shells.
+Dedicated failure tests cover early exit/logging, startup timeout, an
+unresponsive socket, an incomplete dripping reply and interruption with a
+SIGTERM-ignoring descendant. This
+reduces failures discovered only after retirement; it does not guarantee the
+subsequent real-namespace startup or implement automatic rollback. Native Mac
+startup-rehearsal acceptance remains pending.
