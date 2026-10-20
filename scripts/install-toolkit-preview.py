@@ -84,7 +84,7 @@ def describe(directory,launcher,*,verified=False):
     command=shlex.quote(str(launcher))
     heading='Check again if needed' if verified else 'Check this installed copy'
     print(f'Preview installed alongside existing builds:\n  {directory}\nInstallation ID: {directory.name}\n\n{heading}:\n  {command} --check\n\nClose preview windows, then activate:\n  {command} --activate\n\nOpen a window:')
-    if sys.platform=='darwin':print('  open '+shlex.quote(str(directory/MAC_APP)))
+    if sys.platform=='darwin':print('  open -n '+shlex.quote(str(directory/MAC_APP)))
     else:print('  '+command)
     if sys.platform.startswith('linux'):
         print(f'\nOptional app-menu registration:\n  {command} --install-desktop-entry')

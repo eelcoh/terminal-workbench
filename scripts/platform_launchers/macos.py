@@ -90,4 +90,4 @@ def system_dependency_path(path):
 
 def preview_open_command(payload):
     """Open the explicitly selected installed preview without service activation."""
-    return ['/usr/bin/open',str(payload.parents[2])]
+    return ['/usr/bin/open','-n',str(payload.parents[2])]

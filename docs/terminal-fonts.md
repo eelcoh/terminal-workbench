@@ -165,14 +165,17 @@ and `size` fields. It is a generated client preference, separate from sessions.
 
 Preview, Cancel and Escape do not save. Size shortcuts remain temporary for the
 current window; open Terminal text and Apply to save the current size. Other
-already-open windows retain their own font choices; new launches load the saved
-platform defaults. Per-window session restoration remains later work.
+already-open Qt windows now follow saved platform font changes; new launches
+load those same defaults. Temporary size changes remain local until saved.
+Per-window session restoration remains later work.
 
 Writes use a short lock and atomic replacement. A failed or conflicting save
 keeps the dialog open with an explanation; Cancel still restores its opening
-values. External config changes require reopening the app. Invalid, unsupported
-or oversized saved files fall back to managed defaults with a startup notice;
-they stay untouched and saving is blocked until corrected and the app reopened.
+values. External font/shortcut changes now reload transactionally in open Qt
+windows. Invalid, unsupported or oversized saved files use the existing startup
+fallback on first launch; a later invalid reload retains the last valid values.
+Files stay untouched. Repair them and close the editor to retry, or use
+Configuration → Reload. See [live configuration](dotfiles.md#qt-live-font-and-shortcut-configuration).
 
 `just toolkit-fonts-test` covers save/reopen, sparse inheritance, preview/cancel,
 locks and failed/stale writes, invalid-file preservation and managed symlinks.

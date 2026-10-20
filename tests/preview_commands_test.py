@@ -71,7 +71,7 @@ class CommandTest(unittest.TestCase):
             row=commands.select(self.installs,directory.name,platform=platform)
             with patch.object(commands.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:
                 self.assertEqual(commands.execute('open',row,platform=platform),0)
-            expected=['/usr/bin/open',str(payload.parents[2])] if platform=='darwin' else [str(payload/'terminal-workbench'),'--desktop']
+            expected=['/usr/bin/open','-n',str(payload.parents[2])] if platform=='darwin' else [str(payload/'terminal-workbench'),'--desktop']
             self.assertEqual(run.call_args.args[0],expected);self.assertFalse(self.marker.exists())
 
 

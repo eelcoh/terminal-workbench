@@ -130,3 +130,14 @@ bool UiShortcuts::apply(){
     if(!workbench_shortcuts_save(encoded.constData(),draft_.constData(),base_.constData(),draft_.size(),message,sizeof(message)))return fail(QString::fromUtf8(message));
     current_=draft_;overrideBytes_=bytes(overrides_);editError_.clear();rebuild();Q_EMIT changed();return true;
 }
+
+std::unique_ptr<UiShortcuts> UiShortcuts::reloadCandidate() const
+{
+    return std::make_unique<UiShortcuts>(path_,apple_,nullptr,overrides_);
+}
+void UiShortcuts::adoptReload(const UiShortcuts &candidate)
+{
+    base_=candidate.base_;current_=candidate.current_;draft_=current_;
+    managedBytes_=candidate.managedBytes_;overrideBytes_=candidate.overrideBytes_;
+    error_=candidate.error_;editError_.clear();rebuild();
+}

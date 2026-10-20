@@ -3,16 +3,21 @@
 #include <QVariantMap>
 #include <QVariantList>
 #include <QVector>
+#include <memory>
 #include "shortcut_bridge.h"
 class UiShortcuts final : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantMap sequences READ sequences NOTIFY changed)
     Q_PROPERTY(QVariantMap labels READ labels NOTIFY changed)
-    Q_PROPERTY(QString error READ error CONSTANT)
+    Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString editError READ editError NOTIFY changed)
     Q_PROPERTY(QVariantMap draftLabels READ draftLabels NOTIFY changed)
 public:
     explicit UiShortcuts(const QString &path,bool apple,QObject *parent=nullptr,const QString &overrides={});
+    std::unique_ptr<UiShortcuts> reloadCandidate() const;
+    void adoptReload(const UiShortcuts &candidate);
+    QString managedPath() const {return path_;}
+    QString overridesPath() const {return overrides_;}
     QVariantMap sequences() const{return sequences_;}
     QVariantMap labels() const{return labels_;}
     QVariantMap draftLabels() const;

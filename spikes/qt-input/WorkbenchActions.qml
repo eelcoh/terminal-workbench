@@ -45,6 +45,8 @@ QtObject {
         row("paste", "Paste", "Paste clipboard text into the focused terminal", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.ready, host.overview ? "Leave Overview first" : "No connected terminal selected"),
         row("motion", host.reducedMotion ? "Enable animations" : "Reduce motion", "Change interface transitions for this window", true, ""),
         row("help", "Keyboard shortcuts", "Show the navigation and layout bindings", true, ""),
+        row("configuration", "Configuration", "Show managed files and preference locations", true, ""),
+        row("configuration-reload", "Reload configuration", "Read font and shortcut files without restarting terminals", !studyConfiguration.editing, "Close settings editors first"),
         row("about", "About Terminal Workbench", "Show this client build and copy installation diagnostics", true, "")
     ]
     function find(id) { return entries.find(entry => entry.id === id) }

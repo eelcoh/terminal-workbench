@@ -1901,3 +1901,30 @@ both copies without activation instructions. Copy isolation, retained-shell
 activation/restoration, desktop routing and packaging suites pass. Native Mac
 combined verification, receipt inventory and managed open/activation acceptance
 remain pending; existing runtime/display/dependency gates remain open.
+
+
+## Live managed font/shortcut batch
+
+The Qt client now prepares font and shortcut reload candidates together and
+publishes both only after validation and a stable file snapshot. The existing
+adapters retain their Apply/Cancel and sparse-save logic. Invalid updates keep
+the last valid maps; fixing/removing overrides retries without restarting.
+Temporary font-size choices survive unrelated shortcut changes, while new saved
+font choices propagate. Open editors defer reload and preserve stale-save guards.
+
+A separate client coordinator uses debounced file/parent-directory notifications,
+including atomic replacements and managed-file symlink targets. No polling,
+service/runtime changes or file reads are added to pane paint/parse loops. The
+Configuration panel/menu/Commands show sources, folder access and explicit retry.
+Hidden deployment checks disable watching and continue to use private sources.
+
+Focused adapter/coordinator checks pass for transactions, last-valid retention,
+peer updates, draft deferral, deletion and symlink retargeting. Real X11/Wayland
+checks retain reader objects, input and restored PTY grids while changing live
+font sizes/chords, rejecting invalid config and retaining open drafts. Native
+Mac watcher/interaction review remains pending; managed appearance/workspace
+defaults are outside this batch.
+
+The owner reported all toolkit-preview checks/actions passing after the preceding
+managed-preview workflow batch; the platform and individual command transcript
+were not recorded, so remaining native packaging gates stay explicit.

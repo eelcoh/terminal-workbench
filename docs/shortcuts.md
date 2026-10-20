@@ -281,10 +281,14 @@ rewritten. Previously saved working-viewer overrides use the same format/path.
 Other supported legacy bindings in that file are preserved even when Qt does
 not expose those actions. Qt-only pane-move chords are still fixed defaults.
 
-External config edits require reopening the app. If managed or UI files change
-after launch, Apply refuses to overwrite them; the existing live bindings stay
-active. Saves use a short lock and atomic replacement; no lock spans editing.
-No live file watching or cross-window shortcut broadcast is added by this slice.
+External config edits now reload transactionally in open Qt windows, with the
+last valid font/shortcut maps retained on error. Updates wait while a settings
+editor is open. Configuration → Reload provides an explicit retry. If managed
+or UI files change while editing, Apply refuses to overwrite them; the existing
+live bindings stay active until the editor closes and a valid reload succeeds.
+Saves use a short lock and atomic replacement; no lock spans editing. Other open
+Qt windows follow the same saved files. See
+[live configuration](dotfiles.md#qt-live-font-and-shortcut-configuration).
 
 Validation: `just toolkit-shortcuts-test` covers recording, conflict/reserved-key
 rejection, Mac physical modifier mapping, drafts, sparse save/reopen, clear/reset,

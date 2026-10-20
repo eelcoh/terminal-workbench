@@ -2,6 +2,7 @@
 #include "terminal_item.h"
 #include "deployment_check.h"
 #include "ui_build_info.h"
+#include "ui_configuration.h"
 #include "ui_startup_check.h"
 #include "chrome_icon.h"
 #include <QFontDatabase>
@@ -84,6 +85,7 @@ int main(int argc,char **argv) {
     UiShortcuts shortcuts(configuration["preferences"].toString(),apple,nullptr,configuration["shortcut_overrides"].toString());
     if(!shortcuts.error().isEmpty())std::fprintf(stderr,"Qt UI shortcut settings: %s\n",qPrintable(shortcuts.error()));
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
+    UiConfiguration settings(fonts,shortcuts,!checking);
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QStringList startupWarnings;
@@ -95,6 +97,7 @@ int main(int argc,char **argv) {
     }
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studyBuild",&buildInfo);
+    engine.rootContext()->setContextProperty("studyConfiguration",&settings);
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
@@ -174,7 +177,10 @@ int main(int argc,char **argv) {
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
-            const QJsonObject data{{"about_open",window->property("aboutOpen").toBool()},
+            const QJsonObject data{{"configuration_open",window->property("configurationOpen").toBool()},
+                {"configuration_error",settings.error()},{"configuration_status",settings.status()},
+                {"configuration_menu",center("configurationMenuItem")},{"configuration_reload",center("configurationReload")},{"configuration_close",center("configurationClose")},
+                {"about_open",window->property("aboutOpen").toBool()},
                 {"about_menu",center("aboutMenuItem")},{"about_copy",center("aboutCopy")},{"about_details",center("aboutDetails")},{"about_close",center("aboutClose")},
                 {"about_clipboard_matches",window->property("aboutOpen").toBool() && QGuiApplication::clipboard()->text()==buildInfo.diagnostics()},
                 {"about_summary",buildInfo.summary()},{"about_details_ready",window->property("aboutDetailsReady").toBool()},

@@ -674,3 +674,14 @@ names, terminal output and process environment. Review local paths before
 sharing it. `configured_runtime` names the runtime configured for this client;
 retained shells can still use helpers from an older preview. This report does
 not inventory those helpers or decide whether an old installation can be removed.
+
+
+## Live configuration workflow
+
+**Configuration…** in the menu and **Configuration** / **Reload configuration**
+in Commands expose the managed font/shortcut file and UI override locations.
+Fonts and bindings follow valid file changes across open windows. Invalid files
+retain the previous maps, with a visible notice; open font/shortcut drafts defer
+external updates. Reload does not restart or replace terminal readers. See
+[live configuration](dotfiles.md#qt-live-font-and-shortcut-configuration) for
+precedence, temporary-size behavior and native Mac review steps.

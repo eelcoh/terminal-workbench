@@ -69,7 +69,8 @@ signed payload or session. Activate uses the same preflight, window exclusion,
 handoff and restoration as the installed launcher's `--activate`; close preview
 windows first. Open launches exactly that build (Finder on Mac, desktop logging
 on Linux), without selecting its service. Each command performs only its named
-action. Ambiguous prefixes, invalid installation records, escaping payloads,
+action. On Mac, open uses `open -n` so repeating the command creates a separate
+window rather than raising the existing instance. Ambiguous prefixes, invalid installation records, escaping payloads,
 linked installation directories and platform mismatches are refused before
 execution. No implicit newest-build selection or old-build removal is added.
 
@@ -697,3 +698,11 @@ Workbench Preview from the app menu; About → Details should show the new copy'
 windows closed to check `already-current`; the entry should retain its timestamp.
 Automated private fixtures are available through `just toolkit-activation-test`
 and `just toolkit-desktop-launcher-test`.
+
+
+To open a second window on the same installed preview, run
+`just toolkit-preview open ID` again. On Mac the updated command uses `open -n`;
+Finder or plain `open` may only raise the existing app. For a build predating
+that fix, run `open -n` with the same app path shown by the installer. Each window
+leases its own saved view; a terminal already attached elsewhere keeps its owner.
+Create a terminal in the second window to work independently.

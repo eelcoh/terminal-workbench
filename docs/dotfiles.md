@@ -186,3 +186,51 @@ themes and Mac UI settings are copied only where a destination does not already
 exist; existing destination symlinks are left alone. Original files stay intact,
 and session/runtime data is never copied. Explicit `WORKBENCH_CONFIG_DIR` overrides
 skip this migration. A marker prevents removed settings/themes from reappearing.
+
+
+## Qt live font and shortcut configuration
+
+The Qt candidate now follows changes to `config.conf`,
+`ui/<platform>/terminal-font.json` and `ui/<platform>/shortcuts.conf` without
+restarting terminals. The application menu and Commands expose **Configuration**;
+the panel shows the managed file and UI override destinations, opens their folder
+and provides Reload. Commands also offers **Reload configuration**.
+
+Shared/platform rules and sparse UI precedence stay the same. A reload prepares
+both complete font and shortcut candidates before publishing either. Malformed
+managed data, invalid UI overrides or conflicting shortcuts keep the last valid
+maps and show a reload error. Repairing the files retries automatically; manual
+Reload is available too. Deleting a UI override restores managed inheritance.
+Unused appearance files do not block these font/shortcut reads.
+
+File and parent-directory notifications are debounced outside terminal paint,
+parse and presentation loops. Atomic file replacement and managed-file symlink
+retargeting are followed. While Terminal text or Shortcut settings is open,
+external updates wait so the editor keeps its draft. Existing stale-save checks
+still reject Apply after an external change; close the editor to accept the new
+valid files. Reload never writes the managed file, comments, symlink or UI layers.
+
+Saved font/shortcut edits now propagate to other open Qt windows. A local,
+temporary font-size shortcut stays local when persisted font values did not
+change; changing the saved font choice updates all those windows. Existing
+workspace themes, session organization, terminal identities and ownership are
+independent of reload. Appearance defaults, workspace creation defaults and
+per-session font restoration remain separate follow-ups. This behavior applies
+to the Qt candidate; the earlier sections retain the `just spike` behavior.
+
+Validation: `just toolkit-configuration-test` covers transactions, peer updates,
+last-valid retention, deferred drafts, temporary zoom, override deletion and
+symlink replacement. `just toolkit-configuration-ui-test` runs real-reader checks
+on X11 and Wayland for panel/menu/palette access, font/chord updates, invalid
+reload and draft retention without PTY input or reader replacement. Native Mac
+filesystem/interaction review remains pending.
+
+For a Mac review, install/activate/open the new preview, then open Configuration.
+Run `just toolkit-preview open ID` twice (replace `ID` with the installation
+ID) to open two windows. The updated Mac launcher uses `open -n`. Give each
+window its own terminal. Change a managed font value or a saved font UI setting;
+both windows should follow. Existing UI overrides win over managed values, so
+use **Use dotfile defaults → Apply** when testing managed font inheritance. A
+malformed file should produce a notice while retaining the previous working
+font and chords; repairing it should recover. Leave Terminal text open while
+editing the file to check that its draft survives until you close the dialog.

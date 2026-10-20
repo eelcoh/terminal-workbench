@@ -484,3 +484,12 @@ toolkit-preview-workflow-test: runtime-build
     python3 tests/preview_commands_test.py
     python3 tests/preview_inventory_test.py
     python3 tests/preview_build_install_test.py
+
+# Transactional settings reload, peer-window propagation and file-replacement watching.
+toolkit-configuration-test: toolkit-stage
+    cmake --build .local/build/qt-input --target workbench-configuration-test --parallel
+    QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-configuration-test
+
+# Linux: real PTY/input/grid invariants during live configuration updates.
+toolkit-configuration-ui-test: runtime-build
+    python3 scripts/toolkit-probe.py ui-test --configuration-only

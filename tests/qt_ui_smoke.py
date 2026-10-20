@@ -232,6 +232,34 @@ while True:
             assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in About regression'
             print(('wayland' if wayland else 'xcb')+' PASS: About menu/palette, visible details, exact diagnostic copy, modal navigation isolation and restored terminal focus/input/grids')
             sys.exit(0)
+        # The configuration panel is modal; managed reload is transactional and
+        # defers external updates until a font/shortcut editor closes.
+        config_inputs=[received(i) for i in range(6)];config_instances=[p['instance'] for p in data()['panes']];config_sizes=sizes()
+        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+        click(*data()['configuration_menu']);wait_until(lambda:data()['configuration_open'])
+        capture('configuration.png');raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==0
+        click(*data()['configuration_reload']);wait_until(lambda:data()['configuration_status']=='Preferences reloaded')
+        key('Escape');wait_until(lambda:not data()['configuration_open'] and data()['panes'][0]['focus'])
+        changed_config=managed_bytes.replace(b'commands = F10',b'commands = F11').replace(b'[linux.font]\nsize = 16',b'[linux.font]\nsize = 18')
+        managed.write_bytes(changed_config)
+        wait_until(lambda:data()['font_preferences']['size']==18 and data()['shortcut_sequences']['commands']=='F11')
+        raw_key('F11');wait_until(lambda:data()['commands_open']);typed('Reload configuration')
+        wait_until(lambda:len(data()['command_matches'])==1 and data()['command_matches'][0]['id']=='configuration-reload')
+        key('Return');wait_until(lambda:not data()['commands_open'] and data()['panes'][0]['focus'])
+        managed.write_text('broken configuration\n')
+        wait_until(lambda:bool(data()['configuration_error']))
+        assert data()['font_preferences']['size']==18 and data()['shortcut_sequences']['commands']=='F11','invalid reload discarded last valid preferences'
+        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open']);click(*data()['font_menu_item']);wait_until(lambda:data()['font_settings_open'])
+        click(*data()['font_plus']);wait_until(lambda:data()['font_preferences']['size']==19)
+        managed.write_bytes(managed_bytes);time.sleep(.4)
+        assert data()['font_preferences']['size']==19,'external update discarded an open font draft'
+        key('Escape');wait_until(lambda:not data()['font_settings_open'] and data()['font_preferences']['size']==16 and data()['shortcut_sequences']['commands']=='F10' and not data()['configuration_error'] and sizes()==config_sizes)
+        assert [received(i) for i in range(6)]==config_inputs and [p['instance'] for p in data()['panes']]==config_instances,'reload changed readers or typed into PTYs'
+        assert managed.read_bytes()==managed_bytes and not (root/'ui/linux/terminal-font.json').exists()
+        if '--configuration-only' in sys.argv[3:]:
+            assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in configuration regression'
+            print(('wayland' if wayland else 'xcb')+' PASS: configuration panel, manual/automatic reload, live managed font/chord changes, last-valid rejection, editor deferral, restored input/focus/grids and retained readers')
+            sys.exit(0)
         # Deliver real window wheel events, including fractional motion and sideways jitter.
         wheel_instances=[p['instance'] for p in data()['panes']];wheel_sizes=sizes()
         def wheel(pixel,angle,count=1,inverted=False):

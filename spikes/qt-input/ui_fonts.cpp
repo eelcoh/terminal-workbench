@@ -12,7 +12,7 @@ namespace {
 QByteArray bytes(const QString &path,qint64 limit=4097){QFile file(path);return file.open(QIODevice::ReadOnly)?file.read(limit):QByteArray();}
 bool valid(const QString &family,int size){return (family=="Fira Code" || family=="JetBrains Mono") && size>=10 && size<=32;}
 }
-UiFonts::UiFonts(const QString &path,bool apple,QObject *parent,const QString &overrides):QObject(parent),path_(path),overrides_(overrides)
+UiFonts::UiFonts(const QString &path,bool apple,QObject *parent,const QString &overrides):QObject(parent),path_(path),overrides_(overrides),apple_(apple)
 {
     int family=0,size=16;char error[256]={0};const auto encoded=QFile::encodeName(path);
     if(!workbench_font_defaults(path.isEmpty()?nullptr:encoded.constData(),apple,&family,&size,error,sizeof(error)))error_="Using built-in fonts. "+QString::fromUtf8(error);
@@ -31,7 +31,7 @@ UiFonts::UiFonts(const QString &path,bool apple,QObject *parent,const QString &o
         if(ok && valid(next["family"].toString(),next["size"].toInt()))current_=next;
         else {saveAllowed_=false;error_+=(error_.isEmpty()?QString():QStringLiteral(" "))+QStringLiteral("Using managed font defaults. Cannot read saved font settings; file left untouched.");}
     }
-    original_=current_;
+    original_=current_;persisted_=current_;
 }
 bool UiFonts::preview(const QString &family,int size)
 {
@@ -48,7 +48,7 @@ bool UiFonts::apply()
 {
     const auto fail=[&](const QString &message){editError_=message;Q_EMIT changed();return false;};
     // Standalone probes may intentionally omit durable preference storage.
-    if(overrides_.isEmpty()){original_=current_;return true;}
+    if(overrides_.isEmpty()){original_=current_;persisted_=current_;return true;}
     if(!saveAllowed_)return fail("Saved font settings are invalid. Correct the file and reopen the app before saving.");
     if(!QDir().mkpath(QFileInfo(overrides_).absolutePath()))return fail("Cannot create font settings folder.");
     QLockFile lock(overrides_+".lock");if(!lock.tryLock(0))return fail("Font settings are being saved in another window. Try again.");
@@ -59,5 +59,19 @@ bool UiFonts::apply()
     if(!file.open(QIODevice::WriteOnly))return fail("Cannot save font settings: "+file.errorString());
     if(!file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner))return fail("Cannot set font settings permissions.");
     if(file.write(encoded)!=encoded.size() || !file.commit())return fail("Cannot save font settings: "+file.errorString());
-    overrideBytes_=encoded;original_=current_;editError_.clear();Q_EMIT changed();return true;
+    overrideBytes_=encoded;original_=current_;persisted_=current_;editError_.clear();Q_EMIT changed();return true;
+}
+
+std::unique_ptr<UiFonts> UiFonts::reloadCandidate() const
+{
+    return std::make_unique<UiFonts>(path_,apple_,nullptr,overrides_);
+}
+void UiFonts::adoptReload(const UiFonts &candidate)
+{
+    // Temporary font-size shortcuts stay window-local when persisted values
+    // did not change (for example, a peer only saved new shortcuts).
+    if(persisted_!=candidate.persisted_)current_=candidate.current_;
+    persisted_=candidate.persisted_;defaults_=candidate.defaults_;original_=current_;
+    managedBytes_=candidate.managedBytes_;overrideBytes_=candidate.overrideBytes_;
+    saveAllowed_=candidate.saveAllowed_;error_=candidate.error_;editError_.clear();
 }

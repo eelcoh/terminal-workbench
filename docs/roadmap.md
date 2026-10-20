@@ -320,8 +320,17 @@ The first dotfiles slice now implements shared/platform appearance and shortcuts
 native user configuration paths, read-only managed/symlinked settings, sparse
 per-platform UI overrides and once-only preference migration. Scoped theme
 identities stay with local sessions. Configuration reads occur at startup, with
-no work added to pane rendering or runtime parsing. Font preferences, workspace
-defaults, live reload and native Mac acceptance remain open. See [dotfiles](dotfiles.md).
+no work added to pane rendering or runtime parsing. Qt font preferences and live
+reload are covered below; workspace defaults and native Mac acceptance remain
+open. See [dotfiles](dotfiles.md).
+
+The Qt candidate now has a larger font/shortcut configuration slice: a visible
+Configuration panel, explicit reload, debounced filesystem updates across windows,
+transactional last-valid retention and deferred open-editor updates. Managed-file
+symlink replacements and override deletion are covered; temporary font zoom stays
+local when saved font values did not change. Focused X11/Wayland reader/input
+checks pass. Native Mac review, managed appearance defaults and workspace creation
+defaults remain open. See [live configuration](dotfiles.md#qt-live-font-and-shortcut-configuration).
 
 ## Apps: Workbench as a TUI window manager
 

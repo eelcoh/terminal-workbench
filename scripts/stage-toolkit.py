@@ -135,7 +135,7 @@ def main():
         installer.describe(installed,launcher,verified=True)
         return
     launch=shlex.quote(str(directory/'terminal-workbench'))
-    if sys.platform=='darwin':launch='open '+shlex.quote(str(directory/'Terminal Workbench Preview.app'))
+    if sys.platform=='darwin':launch='open -n '+shlex.quote(str(directory/'Terminal Workbench Preview.app'))
     requirements='Uses recorded Python and deployed Qt.' if args.bundle_qt else 'Uses installed Python and Qt.'
     print(f'Build complete. Preview created at:\n  {directory}\n\nOpen a window:\n  {launch}\n\nThis command builds the preview; it does not open a window. {requirements}')
     check_launcher=directory/'Terminal Workbench Preview.app/Contents/Resources/workbench/terminal-workbench' if sys.platform=='darwin' else directory/'terminal-workbench'
