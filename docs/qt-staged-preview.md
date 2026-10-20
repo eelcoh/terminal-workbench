@@ -11,6 +11,35 @@ and the Qt installation used to build it must remain available. The optional Mac
 Qt libraries/plugins once native loader review passes. Python remains external.
 The production toolkit has not been selected.
 
+## Build and install in one command
+
+For the normal preview update workflow on Mac or Linux:
+
+```sh
+just toolkit-install
+```
+
+This builds the runtime/viewer and installs a new copy in a separate permanent
+directory. No `SOURCE` argument is needed. On Mac it uses the owner-tested
+selective Qt bundle path; Linux uses the same-machine stage with installed Qt.
+Python remains external on both targets. The completed source stage is retained.
+
+The final output prints exact commands for the installed copy. Run its `--check`,
+close preview windows and run its `--activate`, then open the installed app using
+the printed launch command. Building/installing does not activate a service or
+open a window. Keep older installs in place while retained runtimes or helpers
+still reference them. `just toolkit-preview-list` shows observed references.
+
+If copying fails after a successful build, the error identifies the retained
+stage. Retry it with `just toolkit-install-preview SOURCE` after addressing the
+copy error; no rebuild is needed. Existing stage/bundle recipes remain available
+for reviewing build output separately, and the source installer below supports
+copying an existing stage or choosing another installation parent.
+
+The combined recipe has real Linux build/copy/check coverage under a private
+install root, including copy-failure preservation. Mac command selection is
+covered by portable tests; combined native Mac acceptance remains pending.
+
 ## Install a preview alongside previous builds
 
 After building a preview, use its printed stage directory as the source:

@@ -80,6 +80,17 @@ def install(source,root,*,platform=None):
         if temporary.exists():shutil.rmtree(temporary)
 
 
+def describe(directory,launcher):
+    command=shlex.quote(str(launcher))
+    print(f'Preview installed alongside existing builds:\n  {directory}\n\nCheck this installed copy:\n  {command} --check\n\nClose preview windows, then activate:\n  {command} --activate\n\nOpen a window:')
+    if sys.platform=='darwin':print('  open '+shlex.quote(str(directory/MAC_APP)))
+    else:print('  '+command)
+    if sys.platform.startswith('linux'):
+        print(f'\nOptional app-menu registration:\n  {command} --install-desktop-entry')
+    print('\nExisting builds and sessions were left in place. Nothing was activated or opened.')
+
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source',type=Path,help='Staged preview directory or Mac preview app')
@@ -89,13 +100,7 @@ def main():
         directory,launcher=install(args.source,args.root or installation_root(os.environ,sys.platform))
     except (OSError,ValueError) as error:
         parser.exit(1,f'Preview installation failed: {error}\n')
-    command=shlex.quote(str(launcher))
-    print(f'Preview installed alongside existing builds:\n  {directory}\n\nCheck this installed copy:\n  {command} --check\n\nClose preview windows, then activate:\n  {command} --activate\n\nOpen a window:')
-    if sys.platform=='darwin':print('  open '+shlex.quote(str(directory/MAC_APP)))
-    else:print('  '+command)
-    if sys.platform.startswith('linux'):
-        print(f'\nOptional app-menu registration:\n  {command} --install-desktop-entry')
-    print('\nExisting builds and sessions were left in place. Nothing was activated or opened.')
+    describe(directory,launcher)
 
 
 if __name__=='__main__':main()

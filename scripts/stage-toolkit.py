@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Stage a same-machine Qt preview, optionally deploying Qt on Mac. Python remains external."""
 import argparse
+import importlib.util
 import json
 import os
 import shlex
@@ -103,6 +104,7 @@ def main():
     if sys.platform=='darwin':default=default.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
     parser.add_argument('--viewer',type=Path,default=default)
     parser.add_argument('--bootstrap',type=Path,default=ROOT/'.local/build/qt-input/workbench-preview-bootstrap')
+    parser.add_argument('--install',action='store_true',help='Copy the completed preview into a fresh permanent installation; do not activate or open')
     parser.add_argument('--bundle-qt',action='store_true',help='Mac: deploy Qt into the app and audit static Qt linkage')
     parser.add_argument('--selective-qml',action='store_true',help='Trial: use Qt CMake import deployment before library bundling')
     parser.add_argument('--qml-deploy-script',type=Path,help='Qt-generated deployment script (normally read from the build)')
@@ -116,6 +118,16 @@ def main():
     if args.selective_qml and qml_script is None:
         qml_script=Path((ROOT/'.local/build/qt-input/workbench-qml-deploy.txt').read_text().strip())
     directory=stage(args.parent.expanduser().resolve(),args.runtime.resolve(strict=True),args.viewer.resolve(strict=True),args.bootstrap.resolve(),bundle_qt=args.bundle_qt,qt_tools=args.qt_tools.resolve(),qt_notices=args.qt_notices.expanduser().resolve() if args.qt_notices else None,selective_qml=args.selective_qml,qml_deploy_script=qml_script.resolve() if qml_script else None)
+    if args.install:
+        spec=importlib.util.spec_from_file_location('preview_install',ROOT/'scripts/install-toolkit-preview.py')
+        installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
+        try:
+            installed,launcher=installer.install(directory,installer.installation_root(os.environ,sys.platform))
+        except (OSError,ValueError) as error:
+            parser.exit(1,f'Preview built at {directory}, but installation failed: {error}\n')
+        print(f'Build complete. Source stage retained at:\n  {directory}')
+        installer.describe(installed,launcher)
+        return
     launch=shlex.quote(str(directory/'terminal-workbench'))
     if sys.platform=='darwin':launch='open '+shlex.quote(str(directory/'Terminal Workbench Preview.app'))
     requirements='Uses recorded Python and deployed Qt.' if args.bundle_qt else 'Uses installed Python and Qt.'

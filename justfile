@@ -456,3 +456,11 @@ toolkit-preview-list:
 
 toolkit-preview-list-test:
     python3 tests/preview_inventory_test.py
+
+# Build and install a fresh preview; activation and opening remain explicit.
+toolkit-install: runtime-build
+    python3 scripts/toolkit-probe.py install
+
+# Native command selection and real build/install under a private installation root.
+toolkit-install-test:
+    python3 tests/preview_build_install_test.py

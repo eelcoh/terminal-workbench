@@ -230,6 +230,11 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    service/runtime/helper references, with unknown/legacy and outside-root
    references explicit. Listing is read-only and never assesses removal safety.
    Native Mac inventory review remains pending.
+   `just toolkit-install` now builds and installs a fresh preview without a
+   manual source argument (selective Qt bundle on Mac, installed Qt on Linux).
+   It prints explicit check/activate/open commands; real Linux build/copy/check
+   and failed-copy retry coverage pass, with native Mac combined-command review
+   pending.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

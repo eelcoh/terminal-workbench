@@ -1757,3 +1757,21 @@ references, missing services/roots, malformed records and escaping links. A
 real zero-terminal service retains its PID and does not seed a catalog or run
 the fixture runtime during inventory. JSON CLI coverage confirms a missing state
 namespace remains uncreated. Native Mac inventory acceptance remains pending.
+
+
+## No-argument preview build and install
+
+`just toolkit-install` composes the runtime/viewer build and separate-directory
+installer, without parsing console output to discover the stage. Mac uses the
+selective Qt deployment path plus its bootstrap; Linux uses ordinary staging
+with installed Qt. The final installed-copy instructions reuse the existing
+installer output. Activation and opening remain explicit, and the completed
+stage survives an installation failure for retry.
+
+Portable orchestration tests cover Mac/Linux flag selection, stopping after a
+failed build and preservation of existing stage/full/selective bundle flags.
+The real Linux recipe builds and installs under a temporary XDG data root, runs
+the copied launcher diagnostic, and leaves session/configuration directories
+uncreated. A deliberately invalid copy destination leaves the successful source
+stage and prior installed copy intact. Native Mac combined-command review is
+pending; existing separate bundle/install acceptance remains valid.
