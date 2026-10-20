@@ -27,6 +27,8 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
     def payload(index):
         return stages[index]/'Terminal Workbench Preview.app/Contents/Resources/workbench' if sys.platform=='darwin' else stages[index]
     binaries=[payload(i)/'libexec/workbench-session' for i in range(3)]
+    def resign(index):
+        if sys.platform=='darwin':subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(stages[index]/'Terminal Workbench Preview.app')],check=True,capture_output=True,timeout=30)
     def cli(index,action,code=0,**environment):
         result=subprocess.run([str(stages[index]/'terminal-workbench'),action],env=dict(env,**environment),capture_output=True,text=True,timeout=45)
         assert result.returncode==code,(result.stdout,result.stderr)
@@ -137,13 +139,28 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         # A failed daemon is rejected in the private startup rehearsal before
         # the healthy service is retired. Retained shells need no recovery.
         service=payload(2)/'scripts/session_service.py'
-        source=service.read_text();source=source.replace('if __name__ == "__main__":','if __name__ == "__main__":\n    raise SystemExit(42)')
-        service.write_text(source)
+        original_service_source=service.read_text();source=original_service_source.replace('if __name__ == "__main__":','if __name__ == "__main__":\n    raise SystemExit(42)')
+        service.write_text(source);resign(2)
         before_failed_service=health()
         result=cli(2,'--activate',1);assert 'Candidate session service check failed' in result.stderr
         assert health()['service_instance']==before_failed_service['service_instance']
         assert health()['service_pid']==before_failed_service['service_pid']
         assert all(path.stat().st_ino==inode for path,inode in inodes.items())
+        # Pass the private rehearsal but fail only in the real namespace after
+        # retirement. Restore the prior service code, with all shell state kept.
+        guard='if __name__ == "__main__":\n    if "--state-dir" in sys.argv and Path(sys.argv[sys.argv.index("--state-dir")+1]).resolve() == Path('+repr(str(state))+'):\n        raise SystemExit(43)'
+        service.write_text(original_service_source.replace('if __name__ == "__main__":',guard));resign(2)
+        before_late_failure=health()
+        late_snapshots={path:(path.read_bytes(),path.stat().st_mtime_ns) for path in saved}
+        late_inodes={path:path.stat().st_ino for path in state.glob('*.sock')}
+        result=cli(2,'--activate',1)
+        assert 'Previous preview service restored' in result.stderr,(result.stdout,result.stderr)
+        restored=health()
+        assert restored['runtime_binary']==str(binaries[1]) and restored['service_instance']!=before_late_failure['service_instance']
+        assert next(t['state'] for t in restored['terminals'] if t['id']==stopped)=='stopped'
+        assert all(path.stat().st_ino==inode for path,inode in inodes.items())
+        for path,(contents,stamp) in late_snapshots.items():assert path.read_bytes()==contents and path.stat().st_mtime_ns==stamp,path
+        assert all(path.stat().st_ino==inode for path,inode in late_inodes.items())
         cli(1,'--activate')
         assert next(t['state'] for t in health()['terminals'] if t['id']==stopped)=='stopped'
         resumed=home/'resumed';send(connection,16,('printf "%s:%s:%s" "$$" "$retained" "$WORKBENCH_AGENT_BIN" > '+shlex.quote(str(resumed))+'\n').encode())
@@ -184,4 +201,4 @@ c.sendall((json.dumps(dict(protocol=1,ok=True,runtime_binary=sys.argv[3],directo
         process.wait(timeout=5);assert json.loads(observed.read_text())['method']=='health'
     finally:
         if process.poll() is None:process.kill();process.wait()
-print('PASS: candidate startup-check rejection before state creation/retirement, explicit preview handoff, stale-instance refusal, active-window exclusion, unchanged catalog/preferences/views and shell PIDs/variables/sockets; retained/new preview-origin reporting, stopped-shell retention, startup-failure retry, legacy and unrelated-service isolation')
+print('PASS: candidate startup-check rejection before state creation/retirement, explicit preview handoff, stale-instance refusal, active-window exclusion, unchanged catalog/preferences/views and shell PIDs/variables/sockets; retained/new preview-origin reporting, stopped-shell retention, post-retirement failure restoration, legacy and unrelated-service isolation')

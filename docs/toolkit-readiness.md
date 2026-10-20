@@ -1775,3 +1775,31 @@ the copied launcher diagnostic, and leaves session/configuration directories
 uncreated. A deliberately invalid copy destination leaves the successful source
 stage and prior installed copy intact. Native Mac combined-command review is
 pending; existing separate bundle/install acceptance remains valid.
+
+
+## Previous-service restoration after late activation failure
+
+If candidate startup fails after successful retirement of a responding old
+preview service, activation now checks for an existing authority before
+attempting restoration. Responding or unverifiable services are not replaced.
+When absent, it starts the previous payload's service script, using recorded
+Python where available and the current interpreter otherwise, and verifies
+health with the shared bounded startup/cleanup helper. No initialize, recover,
+stop or catalog mutation is sent. This is client-side service restoration,
+without new runtime protocol fields or persistence formats.
+
+The activation command still fails and reports the restoration outcome. A
+successful restoration directs the owner to reopen the previous preview.
+Missing previous payloads/interpreters and failed restoration are explicit,
+with service logs retained. There is no claim to restore previously dead shells,
+undo saved data, or recover when a fresh install had no previous service.
+
+Linux coverage passes a private startup rehearsal, deliberately fails only
+in the real namespace after retirement, then observes the previous service code
+running again. Existing shell PID/variables, all terminal socket identities,
+stopped state and catalog/preferences/view bytes and timestamps are preserved.
+Five focused restoration tests cover responding/unverifiable authorities,
+missing prior files/Python and cleanup of a failed restoration child. Existing
+startup cleanup/rehearsal and handoff tests also pass. Temporary modified Mac
+fault fixtures are re-signed so signature checking does not mask the intended
+service failure. Native Mac restoration acceptance remains pending.

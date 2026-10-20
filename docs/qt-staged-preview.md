@@ -402,6 +402,13 @@ mismatch until you explicitly activate that build. No update is automatic.
 
 ## Switch preview builds
 
+The isolated `just toolkit-activation-test` suite exercises candidate refusal,
+normal handoff and post-retirement failure restoration with disposable service
+namespaces and shells. It does not switch the installed user session. On Mac,
+the suite signs its temporary fixture apps and re-signs deliberately modified
+fault fixtures; native restoration acceptance remains pending.
+
+
 From the new preview's final payload location, use its launcher:
 
 ```sh
@@ -439,15 +446,27 @@ stopped entries remain. New terminals use the new build's runtime and helpers.
 Retained shells keep their original helper paths, so **keep the old preview
 payload until those shells have exited**. Activation does not update their PATH
 or replace their runtime processes. The startup checks do not guarantee that
-starting the replacement service in the real namespace will succeed: if that
-later step fails after retirement, shells remain running but the service may
-be absent.
-Inspect `service.log` and retry a working build in that case. A failed or
-interrupted real startup now reaps only the newly spawned service process group,
-so a timed-out startup cannot become an unexpected service later. Existing
-independent terminal runtimes remain running. Once readiness succeeds, a lost
-reply to a mutation is still reported without replaying it or stopping the
-ready service.
+starting the replacement service in the real namespace will succeed. If that
+step fails after a previous service was retired, activation checks whether a
+service is now responding. A responding or unverifiable service is left alone.
+If none is responding, activation attempts to restart the previous preview's
+service code with its recorded Python interpreter where available, otherwise
+the current interpreter. It sends health only: no terminal recovery, catalog
+initialization or mutation replay is performed.
+
+Activation still exits nonzero for the failed update, and reports whether the
+previous service was restored. If restored, reopen the previous preview's app
+or launcher at the reported path. If restoration also fails, inspect
+`service.log` and retry a known working build. The old payload and its external
+Python dependency must remain available. This restores the session service, not
+a previously dead shell process or a copy of saved files. A fresh install with
+no previous service has nothing to restore.
+
+A failed or interrupted real startup reaps only the newly spawned service
+process group, so a timed-out startup cannot become an unexpected service later.
+Existing independent terminal runtimes remain running. Once readiness succeeds,
+a lost reply to a mutation is still reported without replaying it or stopping
+the ready service.
 
 `--status` never starts a missing service or creates user directories. It reports
 selected/runtime service paths, service health and whether activation is needed.

@@ -235,6 +235,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    It prints explicit check/activate/open commands; real Linux build/copy/check
    and failed-copy retry coverage pass, with native Mac combined-command review
    pending.
+   If real-namespace startup fails after retirement, activation now attempts to
+   restore the previous preview service without recovering shells or changing
+   saved state. Responding/unverifiable services are left alone; Linux late-failure
+   restoration tests pass, with native Mac acceptance pending.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

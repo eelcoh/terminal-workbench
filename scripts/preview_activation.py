@@ -3,16 +3,18 @@ import json
 import os
 from pathlib import Path
 import stat
-from session_service import PROTOCOL,Unavailable,exchange,prepare_directory,request
+import subprocess
+import sys
+from session_service import PROTOCOL,Unavailable,exchange,prepare_directory,request,_wait_for_startup
 from window_slots import reserve_window_slots
 
 
-def inspect(state):
+def inspect(state, *, timeout=None):
     if not state.exists():return None
     metadata=state.stat()
     if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid!=os.getuid() or metadata.st_mode&0o022:
         raise ValueError('Session directory must be owned by you and not writable by other users')
-    try:return exchange(state,dict(protocol=PROTOCOL,method='health'))
+    try:return exchange(state,dict(protocol=PROTOCOL,method='health'),timeout=timeout)
     except Unavailable:return None
 
 
@@ -38,6 +40,38 @@ def _preview(runtime):
         if not isinstance(value,dict) or value.get('format')!=1:raise ValueError('Unknown preview metadata format')
     except (OSError,ValueError) as error:
         raise ValueError(f'Cannot verify a staged preview at {runtime.parent.parent}: {error}') from error
+
+
+def restore_previous_service(state,previous):
+    """Best-effort authority restoration only; never replace a responding service."""
+    try:
+        current=inspect(state,timeout=5)
+    except (OSError,ValueError,subprocess.SubprocessError) as error:
+        return f'Previous service was not restored because current status could not be verified: {error}'
+    if current is not None:
+        return 'A responding service was left unchanged; previous service was not restored'
+    runtime=Path(previous['runtime_binary']);cwd=Path(previous['directory'])
+    try:
+        _preview(runtime)
+        payload=runtime.parent.parent;script=payload/'scripts/session_service.py'
+        if not script.is_file():raise ValueError('Previous preview service script is missing')
+        recorded=payload/'python.path'
+        python=Path(recorded.read_text().rstrip('\r\n')) if recorded.is_file() else Path(sys.executable)
+        if not python.is_absolute() or not python.is_file() or not os.access(python,os.X_OK):
+            raise ValueError('Previous preview Python interpreter is missing or not executable')
+        with (state/'service.log').open('ab',buffering=0) as log:
+            child=subprocess.Popen([str(python),'-B',str(script),'serve','--state-dir',str(state),
+                '--runtime',str(runtime),'--cwd',str(cwd)],stdin=subprocess.DEVNULL,
+                stdout=log,stderr=log,start_new_session=True,close_fds=True)
+        # Readiness owns cleanup of a failed child. No initialize/recover/mutation
+        # request is issued, so journals and stopped terminals stay untouched.
+        _wait_for_startup(state,dict(protocol=PROTOCOL,method='health'),child)
+        restored=inspect(state,timeout=5)
+        if not restored or restored.get('runtime_binary')!=str(runtime) or restored.get('directory')!=str(cwd):
+            return 'Another service configuration is responding; it was left unchanged'
+        return f'Previous preview service restored from {payload}; reopen that preview to continue'
+    except (OSError,ValueError,subprocess.SubprocessError,Unavailable) as error:
+        return f'Previous preview service could not be restored: {error}; inspect {state / "service.log"}'
 
 
 def activate(state,runtime,viewer,cwd):
@@ -71,9 +105,14 @@ def activate(state,runtime,viewer,cwd):
             exchange(state,dict(protocol=PROTOCOL,method='service.retire',expected_instance=instance))
         # Health starts only the service, without seeding a missing catalog,
         # finishing journals, attaching PTYs or restarting stopped terminals.
-        selected=request(state,runtime,cwd,'health')
-        if selected.get('runtime_binary')!=str(runtime) or selected.get('directory')!=str(cwd):
-            raise ValueError('Another service configuration is active; existing shells were left running')
+        try:
+            selected=request(state,runtime,cwd,'health')
+            if selected.get('runtime_binary')!=str(runtime) or selected.get('directory')!=str(cwd):
+                raise ValueError('Another service configuration is active; existing shells were left running')
+        except (OSError,ValueError,subprocess.SubprocessError,Unavailable) as error:
+            if health is None:raise
+            restoration=restore_previous_service(state,health)
+            raise ValueError(f'Preview activation failed: {error}. {restoration}') from error
         return dict(result='activated' if health else 'started',service=selected,verification=verification)
 
 
