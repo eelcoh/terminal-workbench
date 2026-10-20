@@ -1,25 +1,12 @@
 """Rehearse one candidate service in an empty private namespace, without shells."""
 import os
 from pathlib import Path
-import signal
 import socket
 import subprocess
 import sys
 import tempfile
 import time
-from session_service import PROTOCOL,Unavailable,exchange
-
-
-def _stop(process):
-    # Also reap descendants when the leader exits before a stuck child.
-    try:os.killpg(process.pid,signal.SIGTERM)
-    except ProcessLookupError:pass
-    try:process.wait(timeout=1)
-    except subprocess.TimeoutExpired:pass
-    finally:
-        try:os.killpg(process.pid,signal.SIGKILL)
-        except ProcessLookupError:pass
-        process.wait()
+from session_service import PROTOCOL,Unavailable,exchange,stop_owned_startup
 
 
 def check(runtime,cwd,*,timeout=5):
@@ -59,7 +46,7 @@ def check(runtime,cwd,*,timeout=5):
                     process.wait(timeout=1)
                     if process.returncode!=0:raise ValueError(f'Candidate service retirement exited {process.returncode}')
                     result=dict(name='service_startup',ok=True,terminal_count=0)
-                finally:_stop(process)
+                finally:stop_owned_startup(process)
         log.unlink()
         return result
     except (OSError,ValueError,subprocess.SubprocessError,Unavailable) as error:

@@ -47,6 +47,7 @@ check: runtime-build
     python3 tests/font_assets_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
+    python3 tests/service_startup_cleanup_test.py
     python3 tests/terminal_status_cli_test.py
     python3 tests/preview_usage_test.py
     python3 tests/lifecycle_record_test.py
@@ -412,6 +413,7 @@ toolkit-desktop-launcher-test: toolkit-stage
 
 # Explicit preview update with real retained shells and failure isolation.
 toolkit-activation-test: toolkit-stage
+    python3 tests/service_startup_cleanup_test.py
     python3 tests/preview_service_check_test.py
     python3 tests/preview_activation_test.py target/debug/workbench-session
 

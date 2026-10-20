@@ -96,6 +96,48 @@ def prepare_directory(directory):
         raise ValueError("Session directory must be owned by you and not writable by other users")
 
 
+def stop_owned_startup(process):
+    """Reap only a process group spawned by this caller with a new session."""
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        pass
+    finally:
+        # The leader may exit before a descendant that ignores SIGTERM.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
+
+
+def _wait_for_startup(directory, message, child, *, timeout=5):
+    deadline = time.monotonic() + timeout
+    try:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ValueError(f"Session service did not start; inspect {directory / 'service.log'}")
+            try:
+                # Only readiness is retried. A mutation is sent after this
+                # function returns, outside failed-start cleanup ownership.
+                exchange(directory, dict(message, method="health"), timeout=remaining)
+                return
+            except (Unavailable, socket.timeout):
+                if child.poll() is not None or time.monotonic() >= deadline:
+                    raise ValueError(f"Session service did not start; inspect {directory / 'service.log'}")
+                time.sleep(min(.02, max(0, deadline - time.monotonic())))
+    except BaseException:
+        # Once startup fails or is interrupted, this child must not become an
+        # unexpected authority later. Retained Rust shell runtimes are separate.
+        stop_owned_startup(child)
+        raise
+
+
 def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None, terminal_ids=None, expected_instance=None):
     directory, runtime, cwd = directory.resolve(), runtime.resolve(), cwd.resolve()
     message = dict(protocol=PROTOCOL, method=method, identity=identity, title=title,
@@ -126,16 +168,7 @@ def request(directory, runtime, cwd, method="initialize", identity="", title="",
                 "--state-dir", str(directory), "--runtime", str(runtime), "--cwd", str(cwd)],
                 stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True,
                 close_fds=True)
-        deadline = time.monotonic() + 5
-        while True:
-            try:
-                # Probe readiness separately: a failed mutation is not replayed.
-                exchange(directory, dict(message, method="health"))
-                break
-            except Unavailable:
-                if child.poll() is not None or time.monotonic() >= deadline:
-                    raise ValueError(f"Session service did not start; inspect {directory / 'service.log'}")
-                time.sleep(.02)
+        _wait_for_startup(directory, message, child)
         return exchange(directory, message)
 
 

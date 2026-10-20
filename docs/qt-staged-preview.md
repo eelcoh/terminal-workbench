@@ -334,7 +334,12 @@ or replace their runtime processes. The startup checks do not guarantee that
 starting the replacement service in the real namespace will succeed: if that
 later step fails after retirement, shells remain running but the service may
 be absent.
-Inspect `service.log` and retry a working build in that case.
+Inspect `service.log` and retry a working build in that case. A failed or
+interrupted real startup now reaps only the newly spawned service process group,
+so a timed-out startup cannot become an unexpected service later. Existing
+independent terminal runtimes remain running. Once readiness succeeds, a lost
+reply to a mutation is still reported without replaying it or stopping the
+ready service.
 
 `--status` never starts a missing service or creates user directories. It reports
 selected/runtime service paths, service health and whether activation is needed.

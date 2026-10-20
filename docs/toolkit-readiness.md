@@ -1668,3 +1668,38 @@ SIGTERM-ignoring descendant. This
 reduces failures discovered only after retirement; it does not guarantee the
 subsequent real-namespace startup or implement automatic rollback. Native Mac
 startup-rehearsal acceptance remains pending.
+
+
+## Cleanup of unsuccessful real service startup
+
+Real service startup now uses a bounded readiness wait and reaps its owned
+process group on timeout, early failure or interruption. The private startup
+rehearsal shares that cleanup implementation. Only health is retried before
+readiness; the requested mutation remains outside the cleanup/retry boundary.
+A lost mutation reply after readiness leaves the service running and is not
+replayed. No runtime protocol or persistence schema changes are introduced.
+
+Linux activation tests pass with five focused startup-cleanup cases, the five
+private-rehearsal cases and real retained-shell handoff. Coverage includes an
+unresponsive startup health connection, interruption, an unrelated process
+remaining alive, successful readiness preserving the child, and a real
+health-then-mutation exchange whose reply closes unexpectedly. Existing service
+concurrency/adoption/recovery and lost-reply regression coverage also passes.
+Native Mac cleanup acceptance remains pending.
+
+
+## Native Mac activation retention review, 2026-10-20
+
+At `5d03edc`, the owner redeployed the app, created new terminals, restarted
+some previously disappeared terminals and left other stopped entries untouched.
+After closing the app, running `--activate` and reopening it, the new and
+restarted terminals remained running. This confirms retention for that native
+Mac activation cycle and is consistent with stopped entries remaining stopped.
+The activation report also showed successful runtime/QML, signature, bundled
+Qt loading and private zero-terminal service-startup checks.
+
+The preceding report contained `missing_exit` records for older runtimes and
+`result: started`, without establishing when those runtimes disappeared.
+Their original loss remains unexplained; this review does not attribute it to
+activation or prove that replacing a live installed payload preserves sessions.
+Keep old payloads in place while retained runtimes/helpers still reference them.

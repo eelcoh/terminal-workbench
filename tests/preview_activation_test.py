@@ -94,8 +94,12 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         with reserve_window_slots(state/'qt'):
             result=subprocess.run([str(stages[1]/'terminal-workbench')],env=env,capture_output=True,text=True,timeout=15)
             assert result.returncode!=0 and 'All 64 window slots' in result.stderr,(result.stdout,result.stderr)
+        # Match a real update: no viewer is attached while the service changes.
+        connection.close();connection=None
         changed=json.loads(cli(1,'--status').stdout);assert changed['activation_required']
+        assert next(t['state'] for t in changed['service']['terminals'] if t['id']==terminal)=='running'
         cli(1,'--activate');second=health()
+        connection,_,_=attach(state/(terminal+'.sock'))
         assert second['service_instance']!=first['service_instance'] and second['service_pid']!=first['service_pid']
         assert second['runtime_binary']==str(binaries[1])
         selected_status=json.loads(cli(1,'--status').stdout)
