@@ -222,6 +222,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    activation and moved-bundle loader/launch review, Python/non-Qt dependencies
    and the remaining installed lifecycle still
    precede an installable release. Decide the product name and update approach first.
+   `just toolkit-install-preview SOURCE` now copies an existing build into a
+   separate permanent directory and prints check/activation/launch commands,
+   keeping earlier payloads in place. Linux copied-launcher checks pass; native
+   Mac installation review remains pending.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

@@ -441,3 +441,11 @@ toolkit-bundle-selective: runtime-build
 toolkit-qml-deployment-test: toolkit-stage
     cmake --build .local/build/qt-input --target workbench-qml-deployment-probe --parallel
     python3 tests/qt_qml_deployment_test.py
+
+# Install an existing local preview into its own permanent directory; no build or activation.
+toolkit-install-preview source:
+    python3 scripts/install-toolkit-preview.py {{quote(source)}}
+
+# Copy isolation, source validation and real installed launcher/state behavior.
+toolkit-install-preview-test: toolkit-stage
+    python3 tests/preview_install_test.py

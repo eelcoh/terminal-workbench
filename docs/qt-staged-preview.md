@@ -11,11 +11,54 @@ and the Qt installation used to build it must remain available. The optional Mac
 Qt libraries/plugins once native loader review passes. Python remains external.
 The production toolkit has not been selected.
 
+## Install a preview alongside previous builds
+
+After building a preview, use its printed stage directory as the source:
+
+```sh
+just toolkit-install-preview ".local/staged/qt-preview-…"
+```
+
+Replace `qt-preview-…` with the actual directory from the build output. On Mac
+both the stage directory and its `Terminal Workbench Preview.app` are accepted.
+This command copies an existing build; it does not rebuild, activate or open it.
+Each invocation creates a separate permanent installation, even for the same
+commit. Earlier installations and the source stage remain unchanged.
+
+The default parent is `~/Applications/Terminal Workbench Previews` on Mac and
+`$XDG_DATA_HOME/terminal-workbench/previews` on Linux (default
+`~/.local/share/terminal-workbench/previews`). Each installation has its own
+`preview-<revision>-<unique-id>` directory. The installer prints exact quoted
+commands to check the installed copy, activate it after closing preview windows,
+and open a window. On Linux it also prints the optional app-menu registration
+command; builds made in Distrobox retain their recorded container launch path.
+
+Use those printed commands rather than replacing an older app at a shared
+location. Retained shells and helpers keep their original installation paths.
+No old payload is removed and no service is selected during copying. The copy
+is prepared in a private temporary directory and published only after it is
+complete; a failed copy removes its partial directory. `installation.json`
+lives outside the signed app/payload. Python and other external same-machine
+dependencies remain unchanged. This is a preview installer, not release/update
+management or automatic cleanup.
+
+To choose a different installation parent:
+
+```sh
+python3 scripts/install-toolkit-preview.py SOURCE --root /chosen/parent
+```
+
+Real copied-launcher/check coverage passes on Linux after deleting the source
+stage, with no session/configuration state created. Portable Mac fixtures verify
+unchanged app file bytes and symlinks; the installed Mac copy still needs native
+`--check`, activation and Finder launch review.
+
 ## Mac: open the app
 
-The printed directory contains **Terminal Workbench Preview.app**. Move that
-app to a convenient location, such as `~/Applications`, **before its first
-launch**, then open it in Finder. The app contains the runtime, service, agent
+The printed directory contains **Terminal Workbench Preview.app**. Prefer the
+installer above for repeated builds. For a manual move, choose a new, unused
+directory **before its first launch**, then open the app in Finder. Keep earlier
+payloads in place while retained shells still reference them. The app contains the runtime, service, agent
 wrappers and client. The sibling `terminal-workbench` command works while the app remains beside it.
 Moving the app alone keeps its payload intact; use the launcher inside the app
 for terminal commands after that move.

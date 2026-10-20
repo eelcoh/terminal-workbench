@@ -1703,3 +1703,25 @@ The preceding report contained `missing_exit` records for older runtimes and
 Their original loss remains unexplained; this review does not attribute it to
 activation or prove that replacing a live installed payload preserves sessions.
 Keep old payloads in place while retained runtimes/helpers still reference them.
+
+
+## Separate preview installation directories
+
+`just toolkit-install-preview SOURCE` installs an existing staged preview into
+a fresh permanent directory, without rebuilding, activating or launching it.
+Mac defaults to `~/Applications/Terminal Workbench Previews`; Linux defaults to
+the XDG data directory's `terminal-workbench/previews`. Revision/randomized
+names let repeated installs coexist. The source and all earlier installations
+remain unchanged; partial-copy cleanup only removes the newly created private
+staging directory. Installation evidence is outside the signed app/payload.
+
+The installer prints correctly quoted check, activation and launch commands,
+plus optional Linux app-menu registration. Source validation rejects mismatched
+platforms and incomplete executable payloads, and prevents recursive installs
+inside the source. It adds no dependencies or automatic update/removal policy.
+Portable fixtures check multiple same-build copies, unchanged Mac bundle bytes
+and links, partial-copy failure, path validation and no automatic payload launch.
+Real Linux coverage deletes the source stage, then runs the installed launcher
+and QML diagnostic without checkout paths in runtime/viewer locations or new
+session/configuration state. Native Mac signature/activation/Finder acceptance
+of this installation helper remains pending.
