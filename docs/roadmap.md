@@ -204,7 +204,10 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    a preceding 65-second run. Opt-in `just toolkit-bundle-selective` now uses
    Qt's CMake import closure; a real Linux copied-QML load check passes. The owner
    confirmed the trial works on Mac at `5a6c9f4`; native size/time comparison
-   remains open. Native shell startup,
+   remains open. Installed `--check` now verifies runtime/QML startup without
+   sessions, with observed Qt containment and existing-signature verification
+   on Mac; native command acceptance is pending. Pane-chrome focus is confirmed
+   on Mac at `f820f0f`. Native shell startup,
    activation and moved-bundle loader/launch review, Python/non-Qt dependencies
    and the remaining installed lifecycle still
    precede an installable release. Decide the product name and update approach first.

@@ -15,7 +15,7 @@ import time
 ROOT=Path(__file__).resolve().parent.parent
 MODULES=('toolkit-ui.py','installed_paths.py','config_paths.py','window_slots.py',
          'session_service.py','workspace_catalog.py','session_shutdown.py',
-         'terminal_lifecycle.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
+         'terminal_lifecycle.py','preview_check.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
 
 
 def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None,selective_qml=False,qml_deploy_script=None):
@@ -120,6 +120,8 @@ def main():
     if sys.platform=='darwin':launch='open '+shlex.quote(str(directory/'Terminal Workbench Preview.app'))
     requirements='Uses recorded Python and deployed Qt.' if args.bundle_qt else 'Uses installed Python and Qt.'
     print(f'Build complete. Preview created at:\n  {directory}\n\nOpen a window:\n  {launch}\n\nThis command builds the preview; it does not open a window. {requirements}')
+    check_launcher=directory/'Terminal Workbench Preview.app/Contents/Resources/workbench/terminal-workbench' if sys.platform=='darwin' else directory/'terminal-workbench'
+    print(f'Check this preview (use its new path after moving):\n  {shlex.quote(str(check_launcher))} --check')
     if args.bundle_qt:print('Qt frameworks/QML deployed. See Contents/Resources/workbench/qt-dependencies.json for remaining dependencies and native review status.')
     if sys.platform=='darwin':print('You can move Terminal Workbench Preview.app before first use, then open it in Finder.')
     else:print('Move the preview directory before its first launch. To add it to your app menu, run its launcher with --install-desktop-entry.')

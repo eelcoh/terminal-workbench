@@ -71,3 +71,13 @@ def show_error(message):
     subprocess.run(['/usr/bin/osascript','-e',
         'on run argv\n display alert "Terminal Workbench could not start" message (item 1 of argv) as critical\nend run',
         message],check=False)
+
+
+def verify_signature(bundle):
+    """Verify the existing staged signature without modifying the app."""
+    try:
+        reply=subprocess.run(['/usr/bin/codesign','--verify','--deep','--strict','--verbose=2',str(bundle)],
+                             capture_output=True,text=True,timeout=30)
+        return dict(ok=reply.returncode==0,exit_code=reply.returncode,stderr=reply.stderr)
+    except (OSError,subprocess.SubprocessError) as error:
+        return dict(ok=False,error=str(error))

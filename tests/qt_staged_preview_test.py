@@ -109,6 +109,20 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
         assert {str(p.relative_to(moved)) for p in moved.rglob('*')}==payload_files,'launcher wrote into the preview payload'
         if sys.platform.startswith('linux'):
             shutil.copy2(real,viewer)
+            # The real installed check runs while a service/shell already exists.
+            # It must neither acquire a window slot nor alter saved sessions.
+            before_health=request(state,staged_runtime,home,'health')
+            before_files={str(p.relative_to(state)):p.read_bytes() for p in state.rglob('*') if p.is_file() and p.name in ('workspaces.json','qt-view.json')}
+            checked=json.loads(launch('--check',QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software').stdout)
+            assert checked['ok'],checked
+            assert any('libQt6Core.so' in path for item in checked['checks'] if item['name']=='qml_startup' for path in item['report']['loaded_images'])
+            after_health=request(state,staged_runtime,home,'health')
+            assert before_health['service_pid']==after_health['service_pid'] and before_health['terminals']==after_health['terminals'],'check changed existing runtime state'
+            assert before_files=={str(p.relative_to(state)):p.read_bytes() for p in state.rglob('*') if p.is_file() and p.name in ('workspaces.json','qt-view.json')}
+            # A clean namespace remains entirely uncreated by --check.
+            untouched=root/'check must not create state'
+            checked=json.loads(launch('--check',WORKBENCH_STATE_DIR=str(untouched),QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software').stdout)
+            assert checked['ok'] and not untouched.exists(),checked
             display=root/'display.json'
             for desktop in (False,True):
                 display.unlink(missing_ok=True)

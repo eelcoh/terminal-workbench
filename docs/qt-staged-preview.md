@@ -111,6 +111,44 @@ to create a fresh stage preserving them too. Notice completeness and the chosen
 Qt distribution's license obligations still require review before distribution;
 `notices_review_required` remains true in the dependency report.
 
+## Check an installed preview
+
+After building and moving the preview, run its own launcher with `--check`.
+On Mac, for example:
+
+```sh
+"$HOME/Applications/Terminal Workbench Preview.app/Contents/Resources/workbench/terminal-workbench" --check
+```
+
+Use the actual app location if you chose another directory. On Linux run
+`./terminal-workbench --check` from the relocated preview directory, inside the
+same graphics/container environment used to run it. No rebuild is needed for
+subsequent checks of that installed payload.
+
+The command prints JSON and exits zero when its checks pass, or nonzero on
+failure. You should see `"ok": true` at the top. It starts the runtime's usage
+path and a short-lived Qt process, without creating terminals, acquiring a
+window slot, connecting to the service or changing the selected preview. It is
+safe to run while preview windows are open. The new check must be present in
+the app you are testing; older staged copies do not gain it after a Git pull.
+
+The Qt process creates Basic controls, layouts, and file/folder dialog
+components without showing a window. Its report includes Qt version, platform,
+QML/plugin search paths and loaded images. For Qt-bundled Mac apps, filesystem
+QML imports are restricted to the app's copied QML tree, with Qt resource
+imports retained. The check rejects observed Qt frameworks or known bundled
+plugin names loaded from outside the app, including paths escaping through
+symlinks. Mac also runs `codesign --verify --deep --strict`; it verifies the
+existing signature and never signs or changes the app.
+
+Mac image evidence comes from [dyld's loaded-image API](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/dyld.3.html).
+QML import reporting/restriction uses [QQmlEngine](https://doc.qt.io/qt-6/qqmlengine.html).
+This is evidence for the modules loaded by this diagnostic process. It does
+not open native dialogs, exercise GPU rendering or every app workflow, establish
+notarization, or remove the external Python/non-Qt dependency requirement.
+Retain the printed JSON with a report of any failure; it contains installation
+paths and diagnostic errors, without reading terminal contents.
+
 ## Packaging size and timing
 
 The native Mac bundle checks the selected `macdeployqt` tool's advertised

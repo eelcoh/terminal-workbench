@@ -69,11 +69,16 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-terminal-probe PROPERTIES MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.terminal-probe"
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
-    qt_add_executable(workbench-ui-study ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
+    if(APPLE)
+        set(workbench_deployment_images "../../native/macos/deployment_images.cpp")
+    else()
+        set(workbench_deployment_images "../../native/linux/deployment_images.cpp")
+    endif()
+    qt_add_executable(workbench-ui-study deployment_check.cpp ${workbench_deployment_images} ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
-    target_include_directories(workbench-ui-study PRIVATE "${VT_ROOT}/include")
+    target_include_directories(workbench-ui-study PRIVATE "${VT_ROOT}/include" "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(workbench-ui-study PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
     qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml TerminalSearch.qml)
     qt_add_resources(workbench-ui-study "ui_font" PREFIX "/"
@@ -91,7 +96,8 @@ if(WORKBENCH_TERMINAL_PROBE)
     set_target_properties(workbench-ui-study PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_GUI_IDENTIFIER "dev.terminal-workbench.ui-study"
         MACOSX_BUNDLE_BUNDLE_NAME "Terminal Workbench UI Study")
-    qt_add_executable(workbench-qml-deployment-probe qml_deployment_probe.cpp)
+    qt_add_executable(workbench-qml-deployment-probe qml_deployment_probe.cpp deployment_check.cpp ${workbench_deployment_images})
+    target_include_directories(workbench-qml-deployment-probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(workbench-qml-deployment-probe PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2)
     target_compile_options(workbench-qml-deployment-probe PRIVATE -Wall -Wextra)
     set_target_properties(workbench-qml-deployment-probe PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)

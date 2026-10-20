@@ -67,12 +67,18 @@ parser.add_argument('--installed',action='store_true',help='Use user state and h
 parser.add_argument('--paths',action='store_true',help='Print launch paths without opening a window or starting sessions')
 parser.add_argument('--desktop',action='store_true',help='Launch with a private log for Finder or the desktop app menu')
 parser.add_argument('--install-desktop-entry',action='store_true',help='Install this relocated preview in your Linux app menu')
+parser.add_argument('--check',action='store_true',help='Check installed runtime, QML and Mac bundle loading without opening terminals')
 parser.add_argument('--status',action='store_true',help='Inspect preview service status without starting it')
 parser.add_argument('--activate',action='store_true',help='Select this preview service after closing all preview windows; retain shells')
 args=parser.parse_args();runtime=args.runtime.resolve();viewer=args.viewer.resolve()
 if args.installed and not args.saved:parser.error('--installed requires --saved')
-if (args.desktop or args.install_desktop_entry or args.status or args.activate) and not args.installed:parser.error('Preview actions require --installed')
-if sum((args.paths,args.install_desktop_entry,args.status,args.activate))>1:parser.error('Select one preview action')
+if (args.desktop or args.install_desktop_entry or args.status or args.activate or args.check) and not args.installed:parser.error('Preview actions require --installed')
+if sum((args.paths,args.install_desktop_entry,args.status,args.activate,args.check))>1:parser.error('Select one preview action')
+if args.check:
+    from preview_check import check
+    result=check(ROOT,runtime,viewer)
+    print(json.dumps(result,indent=2))
+    sys.exit(0 if result['ok'] else 1)
 if args.status or args.activate:
     from installed_paths import session_directory
     from preview_activation import activate,status

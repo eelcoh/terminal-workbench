@@ -1551,7 +1551,7 @@ requires further dependency analysis and is not implemented in this slice.
 Printed phase timings and sibling `bundle-metrics.json` record packaging time,
 selected switches and regular-file bytes/counts by area. Metrics publication
 occurs outside the already signed app. Portable fixtures cover old/new tool
-options, signature-order immutability, accounting and symlink exclusion. Native
+options, signature-order immutability, accounting and symlink exclusion.
 The owner measured about 50 seconds for Qt deployment after this change,
 compared with a preceding 65-second run; these are single-run observations.
 The owner also confirmed Mac runtime/helper origin reporting: the new terminal
@@ -1593,3 +1593,32 @@ changing PTY input during clicks or resizing terminal grids.
 The owner also confirmed the selective QML bundle trial works on Mac at
 `5a6c9f4`, apart from this pane-chrome focus issue. A native selective-deployment
 timing/size comparison has not yet been reported.
+
+
+## Installed payload verification
+
+The installed launcher's `--check` now exercises runtime startup through its
+no-argument usage path and QML startup through a dedicated viewer action,
+without constructing UiSession or starting/attaching terminals. The shared
+QML probe instantiates Basic controls, layouts and dialog components. The
+viewer returns version, search paths and a loaded-image snapshot using isolated
+Mac dyld/Linux proc adapters. This code runs once on request, outside terminal
+parsing, rendering and regular startup.
+
+For Qt-bundled Mac previews, filesystem QML imports are limited to the copied
+tree, observed Qt framework/plugin paths must remain inside the app, and the
+existing deep/strict ad hoc signature is verified. Non-Qt image paths are
+reported without claiming they are bundled. The checker does not sign files,
+select a preview or request the session service. Metadata, startup, signature
+and containment failures produce separate results and a nonzero exit.
+
+Portable failure fixtures cover malformed metadata, failed subprocesses,
+external Qt/plugins, escaping QML symlinks, missing loader evidence and invalid
+signatures. Real Linux relocated-preview coverage checks a running service and
+a clean state namespace. The QML export/load proof still passes after sharing
+the diagnostic component loader. Native Mac check-command acceptance remains
+pending; dialog opening, physical rendering and external Python support remain
+separate acceptance items.
+
+The owner confirmed pane-chrome focus on Mac at `f820f0f`; the preceding
+selective-bundle workflow acceptance remains recorded above.

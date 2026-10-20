@@ -1,5 +1,6 @@
 // Qt candidate: client presentation around disposable or explicitly saved sessions.
 #include "terminal_item.h"
+#include "deployment_check.h"
 #include "chrome_icon.h"
 #include <QFontDatabase>
 #include "ui_session.h"
@@ -43,6 +44,11 @@ int main(int argc,char **argv) {
     QQuickWindow::setTextRenderType(QQuickWindow::NativeTextRendering);
     qmlRegisterType<ChromeIcon>("Workbench.Probe",1,0,"ChromeIcon");
     const auto args=app.arguments();
+    if (args.value(1) == "--check-deployment") {
+        const auto report = deploymentCheck(args.value(2));
+        std::fputs(QJsonDocument(report).toJson().constData(), stdout);
+        return report["qml_ok"].toBool() ? 0 : 1;
+    }
     if(argc<2)return 2;
     QFile config(QString::fromLocal8Bit(argv[1]));if(!config.open(QIODevice::ReadOnly))return 2;
     const auto configuration=QJsonDocument::fromJson(config.readAll()).object();
