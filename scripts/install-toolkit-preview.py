@@ -80,9 +80,10 @@ def install(source,root,*,platform=None):
         if temporary.exists():shutil.rmtree(temporary)
 
 
-def describe(directory,launcher):
+def describe(directory,launcher,*,verified=False):
     command=shlex.quote(str(launcher))
-    print(f'Preview installed alongside existing builds:\n  {directory}\n\nCheck this installed copy:\n  {command} --check\n\nClose preview windows, then activate:\n  {command} --activate\n\nOpen a window:')
+    heading='Check again if needed' if verified else 'Check this installed copy'
+    print(f'Preview installed alongside existing builds:\n  {directory}\nInstallation ID: {directory.name}\n\n{heading}:\n  {command} --check\n\nClose preview windows, then activate:\n  {command} --activate\n\nOpen a window:')
     if sys.platform=='darwin':print('  open '+shlex.quote(str(directory/MAC_APP)))
     else:print('  '+command)
     if sys.platform.startswith('linux'):
@@ -95,12 +96,18 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source',type=Path,help='Staged preview directory or Mac preview app')
     parser.add_argument('--root',type=Path,help='Parent directory for separate preview installations')
+    parser.add_argument('--verify',action='store_true',help='Run the copied launcher check and save results; do not activate or open')
     args=parser.parse_args()
     try:
         directory,launcher=install(args.source,args.root or installation_root(os.environ,sys.platform))
     except (OSError,ValueError) as error:
         parser.exit(1,f'Preview installation failed: {error}\n')
-    describe(directory,launcher)
+    if args.verify:
+        from preview_install_check import verify
+        try:receipt=verify(directory,launcher)
+        except (OSError,ValueError) as error:parser.exit(1,f'Installed verification failed: {error}\nNothing was activated or opened.\n')
+        print(f'Installed preview verified. Results: {receipt}')
+    describe(directory,launcher,verified=args.verify)
 
 
 if __name__=='__main__':main()

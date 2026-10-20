@@ -473,3 +473,14 @@ toolkit-about-test: toolkit-stage
     python3 tests/client_build_info_test.py
     cmake --build .local/build/qt-input --target workbench-build-info-test --parallel
     QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-build-info-test
+
+# Explicit managed-preview action by exact ID or unique prefix; opening never activates.
+toolkit-preview action identity:
+    python3 scripts/manage-toolkit-preview.py {{quote(action)}} {{quote(identity)}}
+
+# Verification receipts, managed selection and complete build/install workflow.
+toolkit-preview-workflow-test: runtime-build
+    python3 tests/preview_install_check_test.py
+    python3 tests/preview_commands_test.py
+    python3 tests/preview_inventory_test.py
+    python3 tests/preview_build_install_test.py

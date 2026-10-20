@@ -24,10 +24,12 @@ directory. No `SOURCE` argument is needed. On Mac it uses the owner-tested
 selective Qt bundle path; Linux uses the same-machine stage with installed Qt.
 Python remains external on both targets. The completed source stage is retained.
 
-The final output prints exact commands for the installed copy. Run its `--check`,
-close preview windows and run its `--activate`, then open the installed app using
-the printed launch command. Building/installing does not activate a service or
-open a window. Keep older installs in place while retained runtimes or helpers
+The combined recipe automatically runs the installed copy's `--check`. It saves
+`installation-check.json`, raw output and a log beside the payload, outside the
+signed Mac app. Successful verification prints exact activation/open commands
+and the installation ID. Close preview windows and run `--activate`, then open
+the installed app using the printed command. You can rerun `--check` if needed.
+Building/installing does not activate a service or open a window. Keep older installs in place while retained runtimes or helpers
 still reference them. `just toolkit-preview-list` shows observed references.
 
 If copying fails after a successful build, the error identifies the retained
@@ -36,9 +38,46 @@ copy error; no rebuild is needed. Existing stage/bundle recipes remain available
 for reviewing build output separately, and the source installer below supports
 copying an existing stage or choosing another installation parent.
 
+A failed/timed-out check exits nonzero, retains the copied build, source stage
+and diagnostics, and prints no activation/open instructions. Earlier installs and
+sessions remain untouched. Check processes and their children are stopped on
+failure/cancellation. The successful result records this check at that point in
+time; it is not a fresh verification after external dependencies change.
+
 The combined recipe has real Linux build/copy/check coverage under a private
-install root, including copy-failure preservation. Mac command selection is
+install root, including copy- and verification-failure preservation. Mac command selection is
 covered by portable tests; combined native Mac acceptance remains pending.
+
+## Manage installed previews by ID
+
+These checkout commands avoid copying long app paths. After `just toolkit-install`,
+copy its printed **Installation ID**. `just toolkit-preview-list` lists those IDs,
+observed service/runtime/helper references and the **last recorded** check result.
+Older installs show `not-run`; corrupt or path-mismatched records are unavailable.
+Listing stays read-only and does not run a new check.
+
+Replace `ID` below with that installation ID or a unique prefix:
+
+```sh
+just toolkit-preview check ID
+just toolkit-preview activate ID
+just toolkit-preview open ID
+```
+
+Check reruns verification and updates the sidecar result without changing the
+signed payload or session. Activate uses the same preflight, window exclusion,
+handoff and restoration as the installed launcher's `--activate`; close preview
+windows first. Open launches exactly that build (Finder on Mac, desktop logging
+on Linux), without selecting its service. Each command performs only its named
+action. Ambiguous prefixes, invalid installation records, escaping payloads,
+linked installation directories and platform mismatches are refused before
+execution. No implicit newest-build selection or old-build removal is added.
+
+The `just` commands use the installer's normal root. For a custom root use
+`python3 scripts/manage-toolkit-preview.py check ID --root /chosen/parent`
+(substitute `activate` or `open` as needed). These are checkout conveniences;
+the independent installed launcher and printed absolute commands remain usable
+without the checkout.
 
 ## Install a preview alongside previous builds
 
@@ -51,6 +90,8 @@ just toolkit-install-preview ".local/staged/qt-preview-…"
 Replace `qt-preview-…` with the actual directory from the build output. On Mac
 both the stage directory and its `Terminal Workbench Preview.app` are accepted.
 This command copies an existing build; it does not rebuild, activate or open it.
+Copy-only installation does not run the payload. To request verification too,
+use `python3 scripts/install-toolkit-preview.py SOURCE --verify`.
 Each invocation creates a separate permanent installation, even for the same
 commit. Earlier installations and the source stage remain unchanged.
 

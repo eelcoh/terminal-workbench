@@ -127,8 +127,12 @@ def main():
             installed,launcher=installer.install(directory,installer.installation_root(os.environ,sys.platform))
         except (OSError,ValueError) as error:
             parser.exit(1,f'Preview built at {directory}, but installation failed: {error}\n')
-        print(f'Build complete. Source stage retained at:\n  {directory}')
-        installer.describe(installed,launcher)
+        from preview_install_check import verify
+        try:receipt=verify(installed,launcher)
+        except (OSError,ValueError) as error:
+            parser.exit(1,f'Preview built at {directory}, but installed verification failed: {error}\nNothing was activated or opened.\n')
+        print(f'Build complete. Source stage retained at:\n  {directory}\nInstalled preview verified. Results: {receipt}')
+        installer.describe(installed,launcher,verified=True)
         return
     launch=shlex.quote(str(directory/'terminal-workbench'))
     if sys.platform=='darwin':launch='open '+shlex.quote(str(directory/'Terminal Workbench Preview.app'))

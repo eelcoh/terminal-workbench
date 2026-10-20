@@ -92,3 +92,8 @@ def follow_activation(launcher,state,environment):
         # The service has already been selected. A launcher write failure must
         # not report a failed activation or trigger restoration/replay.
         return dict(result='warning',error=str(error))
+
+
+def preview_open_command(payload):
+    """Open the explicitly selected installed preview without service activation."""
+    return [str(payload/'terminal-workbench'),'--desktop']

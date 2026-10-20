@@ -105,6 +105,20 @@ class PreviewInstallTest(unittest.TestCase):
         self.assertTrue(Path(command[0]).is_relative_to(target))
         self.assertFalse(marker.exists(),'installer launched the payload')
 
+    @unittest.skipUnless(sys.platform.startswith('linux'),'native copy/verify CLI fixture uses Linux layout')
+    def test_cli_verifies_only_when_requested_and_saves_result_outside_payload(self):
+        source,_,payload=self.fixture('linux')
+        launcher=payload/'terminal-workbench'
+        launcher.write_text('#!'+sys.executable+'\nimport json,sys\nfrom pathlib import Path\nassert sys.argv[1:]==["--check"]\nprint(json.dumps(dict(schema=1,ok=True,payload=str(Path(__file__).parent),checks=[dict(ok=True)])))\n')
+        target=self.root/'verified copies'
+        result=subprocess.run([sys.executable,str(ROOT/'scripts/install-toolkit-preview.py'),str(source),'--root',str(target),'--verify'],
+            capture_output=True,text=True,timeout=10)
+        self.assertEqual(result.returncode,0,(result.stdout,result.stderr))
+        installed=next(target.glob('preview-*'))
+        self.assertTrue(json.loads((installed/'installation-check.json').read_text())['ok'])
+        self.assertFalse((installed/'payload/installation-check.json').exists())
+        self.assertIn('Installed preview verified',result.stdout)
+
     def test_default_roots_respect_terminal_configuration_conventions(self):
         self.assertEqual(installer.installation_root({'HOME':'/Users/test'},'darwin'),Path('/Users/test/Applications/Terminal Workbench Previews'))
         self.assertEqual(installer.installation_root({'HOME':'/home/test','XDG_DATA_HOME':'/data'},'linux'),Path('/data/terminal-workbench/previews'))

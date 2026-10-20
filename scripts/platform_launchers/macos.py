@@ -86,3 +86,8 @@ def verify_signature(bundle):
 def system_dependency_path(path):
     """Conventional platform library locations, after resolving path aliases."""
     return any(path.is_relative_to(root) for root in ('/System/Library','/usr/lib'))
+
+
+def preview_open_command(payload):
+    """Open the explicitly selected installed preview without service activation."""
+    return ['/usr/bin/open',str(payload.parents[2])]

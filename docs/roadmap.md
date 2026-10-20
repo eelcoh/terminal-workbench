@@ -248,6 +248,12 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    stays explicit; custom sessions/unmanaged entries are preserved and launcher
    failures are separate warnings. Real Linux handoff and GLib launcher checks
    pass; physical host app-menu review remains pending.
+   Preview management is now a single reviewable workflow: combined installation
+   verifies its final copy and saves results outside the signed app; inventory
+   shows the last recorded check; explicit check/activate/open commands select
+   an exact installed ID or unique prefix. Linux full-workflow, failed-check
+   retention, selection and activation regressions pass. Native Mac batch review
+   remains pending. Source copy-only installation is retained.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

@@ -1874,3 +1874,30 @@ to the selected payload. Failed preflight preserves its bytes; repeat activation
 keeps its timestamp, and an invalid app-menu location returns a warning with the
 same selected service. Existing GLib desktop decoding/routing checks pass. Physical
 host app-menu review remains pending.
+
+
+## Batched preview install, verification and selection workflow
+
+The combined install recipe now checks the final copied payload before publishing
+activation/open instructions. Bounded process-group handling separates stdout
+JSON from stderr/progress, retains failure evidence and reaps failed/timed-out
+check processes. JSON validation binds the result to the copied payload and
+requires passing checks. Atomic timestamped receipts, raw output and logs live
+outside the signed app. Copy-only installation remains available; source installs
+can explicitly opt into verification.
+
+The inventory reports last-recorded check results without running checks. A
+managed-preview command resolves exact IDs or unique prefixes and dispatches only
+check, activate or open. Selection validates installation records, containment and
+platform before execution, without contacting a session service. Recheck updates
+sidecars; activation reuses the established handoff; opening uses a native platform
+adapter. Old installs are never selected implicitly or removed.
+
+Portable fixtures cover failed/malformed/contradictory/wrong-payload reports,
+timeout cleanup, receipt corruption/relocation, ambiguous IDs, escaping/linked
+installs and Mac/Linux open dispatch. Real Linux build/install/inventory/recheck
+coverage leaves session/configuration paths uncreated. Failed verification retains
+both copies without activation instructions. Copy isolation, retained-shell
+activation/restoration, desktop routing and packaging suites pass. Native Mac
+combined verification, receipt inventory and managed open/activation acceptance
+remain pending; existing runtime/display/dependency gates remain open.

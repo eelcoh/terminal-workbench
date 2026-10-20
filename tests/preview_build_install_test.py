@@ -47,6 +47,21 @@ class BuildInstallTest(unittest.TestCase):
     def test_failed_build_cannot_reach_install_or_activation(self):
         self.assertEqual(len(self.commands('linux',fail=True)),2)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'),'real staged Linux verification failure')
+    def test_failed_installed_check_keeps_copies_without_activation_instructions(self):
+        with tempfile.TemporaryDirectory(prefix='wb-install-rejected-',dir='/tmp') as directory:
+            root=Path(directory);viewer=root/'broken-viewer';viewer.write_text('#!/bin/sh\nexit 42\n');viewer.chmod(0o755)
+            state=root/'state';config=root/'config';data=root/'data'
+            environment=dict(os.environ,XDG_DATA_HOME=str(data),WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(config),QT_QPA_PLATFORM='offscreen')
+            result=subprocess.run([sys.executable,str(ROOT/'scripts/stage-toolkit.py'),'--install','--parent',str(root/'stages'),'--viewer',str(viewer)],
+                cwd=ROOT,env=environment,capture_output=True,text=True,timeout=60)
+            self.assertNotEqual(result.returncode,0);self.assertIn('installed verification failed',result.stderr)
+            self.assertNotIn('Close preview windows, then activate',result.stdout)
+            copies=list((data/'terminal-workbench/previews').glob('preview-*'));self.assertEqual(len(copies),1)
+            verification=json.loads((copies[0]/'installation-check.json').read_text());self.assertFalse(verification['ok'])
+            self.assertEqual(len(list((root/'stages').glob('qt-preview-*/preview.json'))),1)
+            self.assertFalse(state.exists());self.assertFalse(config.exists())
+
     @unittest.skipUnless(sys.platform.startswith('linux'),'real Linux build/install; native Mac bundle review remains separate')
     def test_real_just_recipe_installs_into_private_root_without_source_argument(self):
         with tempfile.TemporaryDirectory(prefix='wb-build-install-',dir='/tmp') as directory:
@@ -62,6 +77,16 @@ class BuildInstallTest(unittest.TestCase):
             source=Path(installation['source']);self.assertTrue(source.is_dir(),'source stage was not retained')
             launcher=installs[0]/installation['payload']/'terminal-workbench'
             self.assertIn(str(launcher),result.stdout)
+            self.assertIn('Installed preview verified',result.stdout)
+            verification=json.loads((installs[0]/'installation-check.json').read_text())
+            self.assertTrue(verification['ok'],verification)
+            self.assertTrue(verification['report']['ok'])
+            self.assertEqual(verification['report']['payload'],str(launcher.parent))
+            self.assertFalse(state.exists());self.assertFalse(preferences.exists())
+            listed=subprocess.run([sys.executable,str(ROOT/'scripts/list-toolkit-previews.py'),'--json'],env=environment,capture_output=True,text=True,check=True,timeout=10)
+            self.assertEqual(json.loads(listed.stdout)['installations'][0]['last_check']['result'],'passed')
+            managed=subprocess.run([sys.executable,str(ROOT/'scripts/manage-toolkit-preview.py'),'check',installs[0].name],env=environment,capture_output=True,text=True,timeout=45)
+            self.assertEqual(managed.returncode,0,(managed.stdout,managed.stderr))
             self.assertFalse(state.exists());self.assertFalse(preferences.exists())
             checked=subprocess.run([str(launcher),'--check'],env=environment,capture_output=True,text=True,timeout=40)
             self.assertEqual(checked.returncode,0,(checked.stdout,checked.stderr))

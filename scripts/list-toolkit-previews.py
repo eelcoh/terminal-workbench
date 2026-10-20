@@ -9,6 +9,7 @@ import stat
 import sys
 
 from installed_paths import session_directory
+from preview_install_check import last_check
 from preview_activation import inspect,payload_usage
 
 spec=importlib.util.spec_from_file_location('preview_install',Path(__file__).with_name('install-toolkit-preview.py'))
@@ -36,7 +37,7 @@ def record(directory):
         raise ValueError('Payload metadata does not match installation record')
     return dict(directory=str(directory),payload=str(payload),revision=revision,
         source_dirty=value.get('source_dirty',False),qt_bundled=preview.get('qt_bundled',False),
-        platform=preview.get('platform'))
+        platform=preview.get('platform'),last_check=last_check(directory,payload))
 
 
 def inventory(root,state):
@@ -71,7 +72,7 @@ def display(value):
         if row['source_dirty']:name+=' (dirty build)'
         counts=(f"{len(row['runtime_terminals'])} runtimes, {len(row['helper_terminals'])} helpers" if value['service_available'] else 'references unknown')
         service=('active service' if row['service'] else 'no service reference') if value['service_available'] else 'service unknown'
-        print(f"  {name} | {service} | {counts}")
+        print(f"  {name} | {service} | {counts} | last check: {row['last_check']['result']}")
         print('    '+row['payload'])
     for row in value['invalid_installations']:print(f"  Unreadable installation: {row['directory']}: {row['error']}")
     for row in value['references_outside_root']:
