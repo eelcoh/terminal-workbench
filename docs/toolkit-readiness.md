@@ -1725,3 +1725,35 @@ Real Linux coverage deletes the source stage, then runs the installed launcher
 and QML diagnostic without checkout paths in runtime/viewer locations or new
 session/configuration state. Native Mac signature/activation/Finder acceptance
 of this installation helper remains pending.
+
+
+## Native Mac separate-directory installer review
+
+On 2026-10-20 the owner confirmed the installer works on Mac at `ff847f2` after
+following the source-stage installation instructions. The earlier passing
+verification and activation retention evidence remains recorded above. External
+Python/non-Qt dependencies, broader display/accessibility review and the
+production toolkit/release decision remain separate work.
+
+
+## Read-only managed-preview inventory
+
+`just toolkit-preview-list` lists managed installs and correlates each payload
+with existing service/runtime/helper origins from one session namespace. It
+reuses the installer's default parent and the existing reference classifier,
+without adding runtime fields, events, background polling or dependencies.
+The CLI supports custom roots/state directories and full JSON output.
+
+Unavailable services keep references unknown. Incomplete/legacy origins and
+references outside the install root stay visible; stopped terminals are not
+counted as running references. Invalid installation metadata is reported per
+entry so valid siblings remain visible. Listing does not select or activate
+builds, create missing state, start services/terminals or remove payloads. It
+makes no removal-safety claim and does not inspect other namespaces or
+child-program dependencies.
+
+Linux tests cover retained/new/split helper origins, stopped/legacy/foreign
+references, missing services/roots, malformed records and escaping links. A
+real zero-terminal service retains its PID and does not seed a catalog or run
+the fixture runtime during inventory. JSON CLI coverage confirms a missing state
+namespace remains uncreated. Native Mac inventory acceptance remains pending.

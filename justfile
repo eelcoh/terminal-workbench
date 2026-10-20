@@ -449,3 +449,10 @@ toolkit-install-preview source:
 # Copy isolation, source validation and real installed launcher/state behavior.
 toolkit-install-preview-test: toolkit-stage
     python3 tests/preview_install_test.py
+
+# Read-only installed-preview inventory; no service startup or removal.
+toolkit-preview-list:
+    python3 scripts/list-toolkit-previews.py
+
+toolkit-preview-list-test:
+    python3 tests/preview_inventory_test.py

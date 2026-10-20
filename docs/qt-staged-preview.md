@@ -53,6 +53,42 @@ stage, with no session/configuration state created. Portable Mac fixtures verify
 unchanged app file bytes and symlinks; the installed Mac copy still needs native
 `--check`, activation and Finder launch review.
 
+## List installed previews
+
+Run from the checkout:
+
+```sh
+just toolkit-preview-list
+```
+
+The list shows each managed installation, whether the current session service
+uses it, and the terminal IDs counted through runtime/helper origin references.
+The regular display prints counts and paths; full terminal IDs and errors are
+available as JSON:
+
+```sh
+python3 scripts/list-toolkit-previews.py --json
+```
+
+For installations made with a custom parent, or a different session namespace:
+
+```sh
+python3 scripts/list-toolkit-previews.py --root /chosen/parent --state-dir /chosen/state --json
+```
+
+Listing never starts a service, creates a missing installation/state directory,
+opens terminals, changes the selected preview or removes files. An unavailable
+service makes references unknown. Legacy/incomplete runtime origins and paths
+outside the managed installation root remain explicit. Stopped terminals add no
+running references. Unreadable installations are reported without hiding valid
+siblings; installation-directory/record symlinks and escaping payload paths are
+not followed.
+
+These are observed references from one namespace, not a determination that an
+older build is safe to remove. Child-program dependencies and other namespaces
+are outside this inventory. The installer and listing tools use the same default
+parent on each platform.
+
 ## Mac: open the app
 
 The printed directory contains **Terminal Workbench Preview.app**. Prefer the

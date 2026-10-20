@@ -224,8 +224,12 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    precede an installable release. Decide the product name and update approach first.
    `just toolkit-install-preview SOURCE` now copies an existing build into a
    separate permanent directory and prints check/activation/launch commands,
-   keeping earlier payloads in place. Linux copied-launcher checks pass; native
-   Mac installation review remains pending.
+   keeping earlier payloads in place. Linux copied-launcher checks pass; the owner
+   confirmed the installer works on Mac at `ff847f2`.
+   `just toolkit-preview-list` now inventories those installs against observed
+   service/runtime/helper references, with unknown/legacy and outside-root
+   references explicit. Listing is read-only and never assesses removal safety.
+   Native Mac inventory review remains pending.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither
