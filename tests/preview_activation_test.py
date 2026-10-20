@@ -20,7 +20,7 @@ built=ROOT/'.local/build/qt-input/workbench-ui-study'
 if sys.platform=='darwin':built=built.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
 
 with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
-    root=Path(directory).resolve();home=root/'home';home.mkdir();state=root/'sessions';config=root/'preferences'
+    root=Path(directory).resolve();home=root/'home';home.mkdir();state=home/'.local/state/terminal-workbench/qt-preview';config=root/'preferences'
     env={k:v for k,v in os.environ.items() if not k.startswith(('WORKBENCH_','XDG_'))}
     env.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',HOME=str(home),SHELL='/bin/sh',WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(config),PYTHONDONTWRITEBYTECODE='1')
     stages=[staging.stage(root/f'build-{i}',runtime,built,ROOT/'.local/build/qt-input/workbench-preview-bootstrap',sign=sys.platform=='darwin') for i in range(3)]
@@ -49,6 +49,12 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         assert not state.exists() and not config.exists(),'failed candidate created user state'
     finally:candidate.write_bytes(original_viewer)
     initial=json.loads(cli(0,'--activate').stdout.split('\nPreview service selected.',1)[0])
+    desktop=None;desktop_before=None
+    if sys.platform.startswith('linux'):
+        from platform_launchers import linux
+        assert initial['desktop_entry']==dict(result='skipped',reason='not-registered')
+        assert not (home/'.local/share/applications').exists(),'activation registered an unsolicited app-menu entry'
+        cli(0,'--install-desktop-entry');desktop=linux.desktop_path(env);desktop_before=desktop.read_bytes()
     assert initial['verification']['ok']
     assert initial['verification']['checks'][-1]==dict(name='service_startup',ok=True,terminal_count=0)
     assert not (state/'workspaces.json').exists(),'activation seeded terminals before a window opened'
@@ -80,6 +86,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
             candidate.write_text('#!/bin/sh\nexit 42\n')
             result=cli(1,'--activate',1)
             assert 'qml_startup' in result.stderr and 'current service was left unchanged' in result.stderr
+            if desktop:assert desktop.read_bytes()==desktop_before,'failed activation changed the app-menu entry'
             unchanged=health()
             assert unchanged['service_instance']==first['service_instance'] and unchanged['service_pid']==first['service_pid']
             for path,(contents,stamp) in snapshots.items():assert path.read_bytes()==contents and path.stat().st_mtime_ns==stamp,path
@@ -100,7 +107,11 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         connection.close();connection=None
         changed=json.loads(cli(1,'--status').stdout);assert changed['activation_required']
         assert next(t['state'] for t in changed['service']['terminals'] if t['id']==terminal)=='running'
-        cli(1,'--activate');second=health()
+        selection=json.loads(cli(1,'--activate').stdout.split('\nPreview service selected.',1)[0]);second=health()
+        if desktop:
+            assert selection['desktop_entry']['result']=='updated',selection
+            assert str(payload(1)) in desktop.read_text() and str(payload(0)) not in desktop.read_text()
+
         connection,_,_=attach(state/(terminal+'.sock'))
         assert second['service_instance']!=first['service_instance'] and second['service_pid']!=first['service_pid']
         assert second['runtime_binary']==str(binaries[1])
@@ -123,7 +134,15 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
             except ValueError as error:assert 'changed' in str(error)
             else:raise AssertionError('stale retirement stopped a replacement service')
         assert health()['service_instance']==second['service_instance']
-        cli(1,'--activate');assert health()['service_instance']==second['service_instance'],'repeat activation restarted the selected service'
+        desktop_stamp=desktop.stat().st_mtime_ns if desktop else None
+        repeated=json.loads(cli(1,'--activate').stdout.split('\nPreview service selected.',1)[0])
+        assert health()['service_instance']==second['service_instance'],'repeat activation restarted the selected service'
+        if desktop:
+            assert repeated['desktop_entry']['result']=='already-current' and desktop.stat().st_mtime_ns==desktop_stamp
+            warning=json.loads(cli(1,'--activate',XDG_DATA_HOME='relative').stdout.split('\nPreview service selected.',1)[0])
+            assert warning['result']=='already-active' and warning['desktop_entry']['result']=='warning',warning
+            assert health()['service_instance']==second['service_instance'] and desktop.stat().st_mtime_ns==desktop_stamp
+
         # New shells use the selected service/runtime helpers; retained ones keep
         # their original helper paths, so old payload removal remains explicit.
         data=request(state,binaries[1],home,'terminal.create',workspace,'New shell')['data']

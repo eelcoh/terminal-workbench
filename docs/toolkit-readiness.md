@@ -1855,3 +1855,22 @@ static/observed separation, missing/malformed evidence and allowlisted audit fie
 The real relocated Linux preview reports its Python/mapping evidence while retaining
 service identity, terminals and saved files. Packaging fixtures pass. Native Mac
 external-dependency review remains pending; Python and non-Qt deployment are still open.
+
+
+## Linux app-menu following after activation
+
+Successful activation now refreshes an existing managed desktop entry while the
+window/activation reservation is held. The Linux adapter keeps the selected
+payload's recorded Distrobox route, skips missing/unmanaged entries and custom
+session namespaces, and avoids rewriting a current entry. Registration remains
+explicit. Filesystem/metadata failures produce a separate warning in the successful
+activation result, without retirement/restoration replay.
+
+Private unit fixtures cover initial-registration opt-in, default/custom namespaces,
+managed/unmanaged/symlink/directory entries, current-entry timestamps, container
+routing and write failure. The real Linux handoff suite retains shell PIDs,
+variables, socket identities and saved data while moving a registered menu entry
+to the selected payload. Failed preflight preserves its bytes; repeat activation
+keeps its timestamp, and an invalid app-menu location returns a warning with the
+same selected service. Existing GLib desktop decoding/routing checks pass. Physical
+host app-menu review remains pending.

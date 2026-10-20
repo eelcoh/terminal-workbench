@@ -88,12 +88,18 @@ def activate(state,runtime,viewer,cwd):
     verification=dict(ok=True,checks=[dict(name=item['name'],ok=item['ok']) for item in verification['checks']])
     from preview_service_check import check as check_service
     verification['checks'].append(check_service(runtime,cwd))
+    def selected_result(kind,selected):
+        value=dict(result=kind,service=selected,verification=verification)
+        if sys.platform.startswith('linux'):
+            from platform_launchers.linux import follow_activation
+            value['desktop_entry']=follow_activation(runtime.parent.parent/'terminal-workbench',state,os.environ)
+        return value
     prepare_directory(state)
     views=state/'qt';views.mkdir(mode=0o700,exist_ok=True)
     with reserve_window_slots(views):
         health=inspect(state)
         if health and health.get('runtime_binary')==str(runtime) and health.get('directory')==str(cwd):
-            return dict(result='already-active',service=health,verification=verification)
+            return selected_result('already-active',health)
         if health:
             if health.get('directory')!=str(cwd):
                 raise ValueError('This service uses a different initial directory; its sessions were left unchanged')
@@ -113,7 +119,7 @@ def activate(state,runtime,viewer,cwd):
             if health is None:raise
             restoration=restore_previous_service(state,health)
             raise ValueError(f'Preview activation failed: {error}. {restoration}') from error
-        return dict(result='activated' if health else 'started',service=selected,verification=verification)
+        return selected_result('activated' if health else 'started',selected)
 
 
 def payload_usage(selected_runtime,health):

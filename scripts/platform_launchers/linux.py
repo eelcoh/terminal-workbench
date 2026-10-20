@@ -1,5 +1,6 @@
-"""Install a user desktop entry only on explicit request, after relocation."""
+"""Manage the opt-in desktop entry after relocation and preview activation."""
 import os
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -34,12 +35,15 @@ def entry(launcher,container=''):
         'StartupWMClass='+IDENTITY,'StartupNotify=false',MARKER,''))
 
 
-def install(launcher,environment,container=''):
+def desktop_path(environment):
     home=Path(environment.get('HOME',str(Path.home())))
     base=Path(environment.get('XDG_DATA_HOME',str(home/'.local/share'))).expanduser()
     if not base.is_absolute():raise ValueError('XDG_DATA_HOME must be an absolute path')
-    directory=base/'applications';directory.mkdir(parents=True,exist_ok=True)
-    path=directory/(IDENTITY+'.desktop')
+    return base/'applications'/(IDENTITY+'.desktop')
+
+
+def install(launcher,environment,container=''):
+    path=desktop_path(environment);directory=path.parent;directory.mkdir(parents=True,exist_ok=True)
     if path.is_symlink() or (path.exists() and MARKER not in path.read_text().splitlines()):
         raise ValueError(f'Refusing to replace an unmanaged desktop entry: {path}')
     contents=entry(launcher.resolve(),container)
@@ -62,3 +66,29 @@ def show_error(message):
 def system_dependency_path(path):
     """Conventional platform library locations, after resolving path aliases."""
     return any(path.is_relative_to(root) for root in ('/usr/lib','/usr/lib64','/lib','/lib64'))
+
+
+def follow_activation(launcher,state,environment):
+    """Follow successful default-session selection only for an existing managed entry."""
+    from installed_paths import session_directory
+    try:
+        default_environment={key:value for key,value in environment.items() if key!='WORKBENCH_STATE_DIR'}
+        if state.resolve()!=session_directory(default_environment):
+            return dict(result='skipped',reason='custom-session')
+        path=desktop_path(environment)
+        if path.is_symlink():return dict(result='skipped',reason='unmanaged-entry',path=str(path))
+        if not path.exists():return dict(result='skipped',reason='not-registered')
+        if not path.is_file():return dict(result='skipped',reason='unmanaged-entry',path=str(path))
+        original=path.read_text()
+        if MARKER not in original.splitlines():return dict(result='skipped',reason='unmanaged-entry',path=str(path))
+        metadata=json.loads((launcher.parent/'preview.json').read_text())
+        if not isinstance(metadata,dict):raise ValueError('Invalid preview metadata')
+        container=metadata.get('container','')
+        if not isinstance(container,str):raise ValueError('Invalid preview container name')
+        if original==entry(launcher.resolve(),container):return dict(result='already-current',path=str(path))
+        installed=install(launcher,environment,container)
+        return dict(result='updated',path=str(installed),launcher=str(launcher.resolve()))
+    except (OSError,ValueError,RuntimeError) as error:
+        # The service has already been selected. A launcher write failure must
+        # not report a failed activation or trigger restoration/replay.
+        return dict(result='warning',error=str(error))

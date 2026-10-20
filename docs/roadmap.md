@@ -243,6 +243,11 @@ acceptance gates rather than a list of wholly unstarted features. Remaining work
    outside the preview/system library locations and separately recorded static
    non-Qt imports. Linux relocated-preview and portable path/unknown-evidence checks
    pass. Native Mac dependency review and actual dependency deployment remain open.
+   Successful Linux activation now follows an existing managed app-menu entry
+   to the selected preview under the activation reservation. First registration
+   stays explicit; custom sessions/unmanaged entries are preserved and launcher
+   failures are separate warnings. Real Linux handoff and GLib launcher checks
+   pass; physical host app-menu review remains pending.
    See [the staged preview](qt-staged-preview.md).
 6. Explore named TUI apps and Workbench as a TUI window manager, then plugins
    where extensions add something beyond launching terminal programs. Neither

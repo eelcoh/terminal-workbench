@@ -504,10 +504,22 @@ started by an earlier preview, close its windows and use the manual service stop
 command below once, leaving shells running if desired; then activate the new
 build. Do not use that legacy stop command while another update is in progress.
 
-The activation command does not change the installed Linux desktop entry. Run
-`--install-desktop-entry` from the newly activated payload to update the app-menu
-link. Python/non-Qt dependency deployment, automatic updates and old-payload
-cleanup are still pending.
+Successful Linux activation now updates an existing Workbench-managed app-menu
+entry to the selected payload, including its recorded Distrobox route. First-time
+registration remains explicit: run the printed `--install-desktop-entry` command
+once. An absent entry, unmanaged entry, symlink or non-default
+session namespace is left alone. Repeating activation avoids rewriting an entry
+that already points to this build. Remove the
+`X-TerminalWorkbench-Preview=true` marker from a customized entry to opt out of
+automatic following.
+
+The activation JSON includes `desktop_entry`: `updated`, `already-current`,
+`skipped` with a reason, or `warning` with an error. A launcher update failure is
+a separate warning after successful service selection; it does not fail or undo
+activation. Updates run under the existing activation/window reservation. Failed
+candidate verification or service startup never retargets the app-menu entry.
+Python/non-Qt dependency deployment, automatic updates and old-payload cleanup
+are still pending.
 
 To retire a preview: close its windows, first use **Stop all terminals…** if you
 want to stop its shells, then stop the session service explicitly. Run from the
@@ -633,3 +645,14 @@ and retain its JSON output. Expect `dependencies.python.bundled` to be false,
 `build_python.available` true for this build and `viewer_mappings.available` true
 when viewer startup succeeds. External paths can be an empty list; do not infer
 that the app is standalone. No service activation is needed for this report.
+
+
+To review Linux app-menu following, first register an older installed preview's
+entry with its printed `--install-desktop-entry` command. Build a new installed
+copy with `just toolkit-install`, close Workbench windows, and run that copy's
+printed `--activate` command. Expect `desktop_entry.result: updated`. Open Terminal
+Workbench Preview from the app menu; About → Details should show the new copy's
+`payload_root`. The saved shells should retain their PIDs. Repeat activation with
+windows closed to check `already-current`; the entry should retain its timestamp.
+Automated private fixtures are available through `just toolkit-activation-test`
+and `just toolkit-desktop-launcher-test`.
