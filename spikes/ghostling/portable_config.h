@@ -75,6 +75,7 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
                 if (!strcmp(value,"1/3")) layer->terminal_width=1.0/3.0;
                 else if (!strcmp(value,"1/2")) layer->terminal_width=0.5;
                 else if (!strcmp(value,"2/3")) layer->terminal_width=2.0/3.0;
+                else if (!strcmp(value,"1/1") || !strcmp(value,"3/3")) layer->terminal_width=1.0;
                 else {valid=false;break;}
                 layer->has_width=true;
             } else {valid=false;break;}

@@ -493,3 +493,8 @@ toolkit-configuration-test: toolkit-stage
 # Linux: real PTY/input/grid invariants during live configuration updates.
 toolkit-configuration-ui-test: runtime-build
     python3 scripts/toolkit-probe.py ui-test --configuration-only
+
+# Shared client workspace palettes, concurrent edits and live peer notifications.
+toolkit-workspace-appearance-test: toolkit-stage
+    cmake --build .local/build/qt-input --target workbench-workspace-appearance-test --parallel
+    QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-workspace-appearance-test

@@ -3,6 +3,7 @@
 #include "deployment_check.h"
 #include "ui_build_info.h"
 #include "ui_configuration.h"
+#include "ui_workspace_appearance.h"
 #include "ui_startup_check.h"
 #include "chrome_icon.h"
 #include <QFontDatabase>
@@ -88,6 +89,7 @@ int main(int argc,char **argv) {
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
     UiAppearance appearance(configuration["preferences"].toString(),apple,themes);
     UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance,apple);
+    UiWorkspaceAppearance workspaceAppearance(QDir(configuration["state"].toString()).filePath("qt/workspace-appearance"),!checking);
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QStringList startupWarnings;
     QQmlApplicationEngine engine;
@@ -100,6 +102,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyBuild",&buildInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
     engine.rootContext()->setContextProperty("studyView",&view);
+    engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
     engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
@@ -129,6 +132,7 @@ int main(int argc,char **argv) {
                 const auto *caption=panes.size()<labels.size() ? qobject_cast<QQuickItem *>(labels[panes.size()].value<QObject *>()) : nullptr;
                 const auto life=item->parentItem()->property("lifecycle").toMap();
                 const auto actionPoint=[item](const QString &name){const auto *button=item->parentItem()->findChild<QQuickItem *>(name);if(!button)return QJsonArray();const auto p=button->mapToScene(QPointF(button->width()/2,button->height()/2));return QJsonArray{p.x(),p.y()};};
+                const auto *exitedClose=item->parentItem()->findChild<QQuickItem *>("terminalCloseExited"+QString::number(panes.size()));
                 const auto size=item->terminalGridSize();const auto position=item->mapToScene(QPointF(item->width()/2,item->height()/2));
                 const auto cell=item->cellSize();
                 const auto bounds=item->parentItem()->mapRectToScene(item->parentItem()->boundingRect());
@@ -141,6 +145,8 @@ int main(int argc,char **argv) {
                     {"instance",QString::number(quintptr(item),16)},
                     {"primary_action",actionPoint("terminalPrimary"+QString::number(panes.size()))},
                     {"check_action",actionPoint("terminalCheck"+QString::number(panes.size()))},
+                    {"exited_close_action",actionPoint("terminalCloseExited"+QString::number(panes.size()))},
+                    {"exited_close_visible",exitedClose && exitedClose->isVisible()},
                     {"reconnect_action",actionPoint("terminalReconnect"+QString::number(panes.size()))},
                     {"caption",caption ? caption->property("text").toString() : QString()},{"caption_visible",caption && caption->isVisible()},
                     {"facts",QJsonObject::fromVariantMap(item->property("runtimeFacts").toMap())},{"visible",item->parentItem()->isVisible()},
@@ -179,7 +185,7 @@ int main(int argc,char **argv) {
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
             const QJsonObject data{{"configuration_open",window->property("configurationOpen").toBool()},
-                {"creation_directory",settings.workspaceDirectory()},{"creation_width",settings.terminalWidth()},{"pane_widths",QJsonArray::fromVariantList(listProperty(window,"widths"))},{"configuration_error",settings.error()},{"configuration_status",settings.status()},
+                {"creation_directory",settings.workspaceDirectory()},{"creation_width",settings.terminalWidth()},{"pane_widths",QJsonArray::fromVariantList(listProperty(window,"widths"))},{"workspace_appearance_error",workspaceAppearance.error()},{"workspace_appearance_directory",workspaceAppearance.directory()},{"configuration_error",settings.error()},{"configuration_status",settings.status()},
                 {"configuration_menu",center("configurationMenuItem")},{"configuration_reload",center("configurationReload")},{"configuration_close",center("configurationClose")},
                 {"about_open",window->property("aboutOpen").toBool()},
                 {"about_menu",center("aboutMenuItem")},{"about_copy",center("aboutCopy")},{"about_details",center("aboutDetails")},{"about_close",center("aboutClose")},

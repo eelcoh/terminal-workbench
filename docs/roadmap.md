@@ -334,7 +334,8 @@ files are watched, new workspaces inherit, and Appearance can restore inheritanc
 with Apply/Cancel. Existing project snapshots stay explicit and unchanged; typed
 inheritance persists across restart. X11/Wayland acceptance is covered by the
 configuration/UI checks. Workspace creation defaults now add shared/platform
-starting folders and one-third/half/two-thirds initial pane widths. These prefill
+starting folders and one-third/half/two-thirds/full initial pane widths (full
+accepts `1/1` or `3/3`). These prefill
 future creations, preserve existing workspace folders and pane widths, and defer
 reload while workspace forms have drafts. Availability stays with the existing
 explicit service Create boundary. Configuration displays the resolved defaults;
@@ -1494,7 +1495,28 @@ and paint paths perform no persistence work. Invalid/future/oversized/stale view
 files stay untouched with a local notice. Independent slot reuse, theme roundtrip
 and removed-source restoration are covered alongside native Linux restart checks
 with real readers. The owner confirmed appearance retention with `f80f00b`. Broader Mac view/display
-acceptance and cross-window appearance synchronization remain open.
+acceptance remains open. Workspace appearance synchronization is now implemented
+as described below, with native Mac interaction review pending.
+
+## Qt shared workspace appearance and exited-pane controls
+
+Applied workspace palettes and default markers now propagate between windows in
+the same session, using bounded per-workspace client preferences alongside saved
+views. Preview/Cancel remains local; stale same-workspace drafts reject Apply,
+while independent workspace saves merge naturally. Existing snapshots remain
+valid and become a fallback when no shared choice exists. File repair and atomic
+replacement are watched outside presentation/terminal loops. Appearance never
+changes terminal ownership, catalog organization or shell state.
+
+Exited panes now expose Close pane beside Start new shell and Check again, using
+the existing explicit confirmation and stable-ID removal. Managed full-width
+creation defaults accept `1/1` and `3/3`, with an accurate Configuration label.
+Precise horizontal pane-strip gestures now bypass reveal easing and retain all
+deltas in rapid bursts; coarse wheels accumulate destinations while keyboard
+navigation retains easing. Vertical scrolling and Overview remain independent.
+Model/concurrency and real X11/Wayland two-window, full-width and Ctrl+D coverage
+exercise these paths. Native Mac acceptance remains required. See
+[workspace palettes](dotfiles.md#qt-workspace-palettes-across-windows).
 
 ## Qt cross-window workspace updates
 

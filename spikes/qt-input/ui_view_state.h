@@ -14,6 +14,7 @@ public:
     Q_INVOKABLE bool save(const QVariantMap &state);
     Q_INVOKABLE void invalidate(const QString &message){writable_=false;error_=message;Q_EMIT changed();}
     static bool valid(const QVariantMap &state);
+    static bool validTheme(const QVariantMap &theme);
 Q_SIGNALS:
     void changed();
 private:

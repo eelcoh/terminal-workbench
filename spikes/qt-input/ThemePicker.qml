@@ -5,6 +5,7 @@ Dialog {
     objectName: "appearanceDialog"
     property var catalog: []
     property int themeIndex: 0
+    property string saveError: ""
     property bool followsDefault: false
     property string defaultName: ""
     signal defaultRequested()
@@ -73,7 +74,7 @@ Dialog {
         }
         Label { id: folderStatus; width: parent.width; visible: picker.directoryStatus.length > 0; text: picker.directoryStatus; textFormat: Text.PlainText; elide: Text.ElideRight; color: "#9caabd"; font.pixelSize: 11 }
         ListView {
-            id: list; objectName: "themeList"; width: parent.width; height: Math.max(80, parent.height - search.height - modes.height - previewLabel.implicitHeight - sourceLabel.implicitHeight - (folderStatus.visible ? folderStatus.implicitHeight + parent.spacing : 0) - parent.spacing * 4)
+            id: list; objectName: "themeList"; width: parent.width; height: Math.max(80, parent.height - search.height - modes.height - previewLabel.implicitHeight - sourceLabel.implicitHeight - (folderStatus.visible ? folderStatus.implicitHeight + parent.spacing : 0) - (saveErrorLabel.visible ? saveErrorLabel.implicitHeight + parent.spacing : 0) - parent.spacing * 4)
             clip: true; spacing: 8; model: picker.matches; currentIndex: -1
             ScrollBar.vertical: ScrollBar {}
             onCurrentIndexChanged: if (picker.visible && !picker.preparing && activeFocus && currentIndex >= 0 && currentIndex < count) picker.previewSelected(picker.matches[currentIndex].index)
@@ -110,6 +111,7 @@ Dialog {
             }
             Label { anchors.centerIn: parent; visible: list.count === 0; text: "No matching themes"; color: "#9caabd" }
         }
+        Label { id: saveErrorLabel; objectName: "workspaceAppearanceError"; width: parent.width; visible: picker.saveError.length > 0; text: picker.saveError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#e6c689"; font.pixelSize: 12 }
         Label { id: previewLabel; width: parent.width; textFormat: Text.PlainText; text: "Previewing " + ((picker.catalog.find(theme => theme.index === picker.themeIndex) || picker.retainedTheme)?.name || "Current workspace theme") + " · all terminals in this workspace"; color: "#9caabd"; font.pixelSize: 12; elide: Text.ElideRight }
         Label {
             id: sourceLabel; width: parent.width; color: "#9caabd"; font.pixelSize: 11; textFormat: Text.PlainText; elide: Text.ElideMiddle

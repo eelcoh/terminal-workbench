@@ -20,6 +20,7 @@ terminal-theme = Workbench Night
 # [workspace]
 # directory = ~/Code
 # terminal-width = 1/2
+# Widths: 1/3, 1/2, 2/3, or full width 1/1 (also 3/3).
 # [macos.workspace]
 # terminal-width = 2/3
 

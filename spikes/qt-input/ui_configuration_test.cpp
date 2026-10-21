@@ -102,5 +102,9 @@ int main(int argc,char **argv){
     require(!creationSettings.reload() && creationSettings.workspaceDirectory()==oldDirectory,"creation editor defers external defaults");
     creationSettings.setEditing(false);require(wait([&]{return creationSettings.error().isEmpty() && creationSettings.workspaceDirectory()==QDir::homePath();}),"deferred creation defaults accepted after dialog closes");
     QFile::remove(creationPath);require(wait([&]{return creationSettings.workspaceDirectory().isEmpty() && creationSettings.terminalWidth()==0.5;}),"managed file removal restores inherited folder and half width");
+    for(const auto *width:{"1/1","3/3"}){
+        write(creationPath,QByteArray("workbench-config-v1\n[workspace]\nterminal-width = ")+width+"\n");
+        require(creationSettings.reload() && creationSettings.terminalWidth()==1.0,"full-width aliases survive managed reload");
+    }
     std::puts("PASS: creation folders/widths, Unicode/home paths, platform field precedence, transaction rollback, deferred drafts,  managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
 }

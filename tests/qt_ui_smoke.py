@@ -288,6 +288,15 @@ while True:
         (root/'0'/'cursor').write_bytes(b''.join(('SCROLL-HISTORY-%03d\r\n'%i).encode() for i in range(100))+b'\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
         wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
         strip_x=data()['content_x']
+        # A burst in one event-loop turn must retain every sideways delta.
+        wheel([-2,0],[-2,0],60)
+        wait_until(lambda:abs(data()['content_x']-(strip_x+120))<1)
+        wheel([2,0],[2,0],60)
+        wait_until(lambda:abs(data()['content_x']-strip_x)<1)
+        wheel([0,0],[-120,0],2)
+        wait_until(lambda:abs(data()['content_x']-(strip_x+240))<1)
+        wheel([0,0],[120,0],2)
+        wait_until(lambda:abs(data()['content_x']-strip_x)<1)
         wheel([1,2],[1,2],100)
         wait_until(lambda:'SCROLL-HISTORY-' in data()['panes'][0]['text'])
         assert abs(data()['content_x']-strip_x)<1,'vertical jitter moved horizontal strip'
@@ -638,6 +647,47 @@ while True:
         wait_until(lambda:len(peer_data().get('panes',[]))==6 and all(p['attachment']=='elsewhere' for p in peer_data()['panes']),timeout=30)
         if wayland:run('niri','msg','action','focus-window','--id',window)
         else:cmd('windowraise',window);cmd('windowfocus',window)
+        # Workspace palettes are shared client preferences. Preview/Cancel stays
+        # local; conflicting drafts cannot overwrite a peer's applied choice.
+        theme_peer_catalog=workspace_catalog.load(root);theme_peer_sizes=sizes()
+        def owner_appearance():
+            command_search('workspace appearance');key('Return')
+            wait_until(lambda:data()['appearance_open'] and data()['theme_search_focus'])
+        def owner_dawn():
+            owner_appearance();typed('Workbench Dawn');wait_until(lambda:data()['theme_matches']==1);key('Down')
+            wait_until(lambda:data()['chrome_background']=='#f4f1eb')
+        owner_dawn();time.sleep(.2)
+        assert peer_data()['chrome_background']=='#15191f','unapplied preview leaked to another window'
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and data()['chrome_background']=='#15191f')
+        owner_dawn()
+        main_window=window
+        if wayland:
+            peer_window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w.get('pid')==peer.pid),None))
+            run('niri','msg','action','focus-window','--id',peer_window);run('niri','msg','action','move-window-to-floating')
+            run('niri','msg','action','set-window-width','1240');run('niri','msg','action','set-window-height','760');run('niri','msg','action','move-floating-window','--x','90','--y','70')
+        else:peer_window=cmd('search','--onlyvisible','--pid',peer.pid).splitlines()[0];cmd('windowraise',peer_window);cmd('windowfocus',peer_window)
+        try:
+            window=peer_window;raw_key('F10');wait_until(lambda:peer_data()['commands_open']);typed('workspace appearance')
+            wait_until(lambda:len(peer_data()['command_matches'])==1);key('Return');wait_until(lambda:peer_data()['appearance_open'] and peer_data()['theme_search_focus'])
+            typed('Dracula');wait_until(lambda:peer_data()['theme_matches']==1);key('Down')
+            wait_until(lambda:peer_data()['chrome_background']=='#282a36')
+            click(*peer_data()['theme_apply_button']);wait_until(lambda:not peer_data()['appearance_open'] and peer_data()['chrome_background']=='#282a36')
+        finally:
+            window=main_window
+            if wayland:run('niri','msg','action','focus-window','--id',window)
+            else:cmd('windowraise',window);cmd('windowfocus',window)
+        assert data()['chrome_background']=='#f4f1eb','peer update replaced an open appearance draft'
+        click(*data()['theme_apply_button'])
+        wait_until(lambda:data()['appearance_open'] and 'changed in another window' in data()['workspace_appearance_error'])
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and data()['chrome_background']=='#282a36' and not data()['workspace_appearance_error'])
+        owner_appearance();click(*data()['theme_default_button']);click(*data()['theme_apply_button'])
+        wait_until(lambda:not data()['appearance_open'] and data()['chrome_background']=='#15191f' and peer_data()['chrome_background']=='#15191f')
+        shared_file=Path(data()['workspace_appearance_directory'])/'workspace-0.json'
+        assert json.loads(shared_file.read_text())=={'version':1,'default':True}
+        assert workspace_catalog.load(root)==theme_peer_catalog and sizes()==theme_peer_sizes
+        assert all(p['ready'] for p in data()['panes']) and all(p['attachment']=='elsewhere' for p in peer_data()['panes']),'appearance transferred terminal ownership'
+        assert {p['identity']:p['instance'] for p in data()['panes']}==peer_instances and [received(i) for i in range(6)]==peer_input
+        capture('appearance-peer-conflict-resolved.png')
         raw_key('F8');wait_until(lambda:data()['creation_open'] and data()['name_focus']);key('ctrl+a');typed('Peer renamed');key('Return')
         wait_until(lambda:not data()['creation_open'] and peer_data().get('workspace_names',[None])[0]=='Peer renamed')
         request(root,Path(runtime),root,'workspace.rename','workspace-0','Workbench')
@@ -1220,6 +1270,28 @@ while True:
         typed('Back again');key('Tab');key('Return');wait_until(lambda:data()['workspace_count']==1 and not data()['creation_open'] and len(data()['panes'])==1 and data()['panes'][0]['ready'])
         assert data()['workspace_names']==['Back again'] and not data()['error']
         capture('workspace-recreated.png')
+        # Full-width aliases and closing a real Ctrl+D-exited pane from its
+        # recovery surface. Closing never restarts the shell or removes siblings.
+        survivor=data()['panes'][0]['identity'];survivor_instance=data()['panes'][0]['instance'];survivor_width=data()['pane_widths'][0]
+        managed.write_bytes(managed_bytes+b'\n[workspace]\nterminal-width = 3/3\n')
+        wait_until(lambda:data()['creation_width']==1)
+        key('super+alt+t');wait_until(lambda:len(data()['panes'])==2 and data()['panes'][1]['ready'] and data()['panes'][1]['focus'])
+        assert data()['pane_widths'][1]==1 and data()['pane_widths'][0]==survivor_width
+        exited_id=data()['panes'][1]['identity'];exited_pid=root/'full-pane-pid'
+        typed('echo $$ > '+shlex.quote(str(exited_pid)));key('Return');wait_until(exited_pid.exists)
+        raw_key('ctrl+d');wait_until(lambda:not data()['panes'][1]['ready'])
+        wait_until(lambda:request(root,Path(runtime),root,'terminal.lifecycle',exited_id)['state']=='stopped')
+        click(*settled_point(lambda d:None if d['panes'][1]['ready'] or d['panes'][1]['lifecycle'].get('busy') else d['panes'][1]['check_action']))
+        wait_until(lambda:data()['panes'][1]['lifecycle'].get('state')=='stopped' and data()['panes'][1]['exited_close_visible'])
+        stopped_catalog=workspace_catalog.load(root);capture('exited-close-pane.png')
+        click(*settled_point(lambda d:d['panes'][1]['exited_close_action']));wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='close')
+        key('Return');wait_until(lambda:not data()['terminal_action_open'])
+        assert workspace_catalog.load(root)==stopped_catalog and not data()['panes'][1]['ready'],'initial Enter closed or restarted an exited pane'
+        click(*data()['panes'][1]['exited_close_action']);wait_until(lambda:data()['terminal_action_open'])
+        click(*data()['confirm_terminal_action']);wait_until(lambda:len(data()['panes'])==1 and not data()['terminal_action_open'] and data()['panes'][0]['ready'],timeout=20)
+        assert data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
+        assert all(t['id']!=exited_id for w in workspace_catalog.load(root)['workspaces'] for t in w['terminals'])
+        managed.write_bytes(managed_bytes);wait_until(lambda:data()['creation_width']==0.5)
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
@@ -1228,6 +1300,7 @@ while True:
     except SystemExit:
         raise
     except BaseException:
+        (artifacts/"failure-client-status.json").write_text(json.dumps({"exit_code":client.poll() if client else None}))
         if report.exists():(artifacts/'failure.json').write_bytes(report.read_bytes())
         for evidence in root.glob('*.log'):(artifacts/('failure-'+evidence.name)).write_bytes(evidence.read_bytes())
         if client and client.poll() is None:

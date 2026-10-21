@@ -37,6 +37,12 @@ int main(void)
     assert(portable_read(path,true,&creation,error,sizeof(error)) && creation.terminal_width==2.0/3.0 && !strcmp(creation.workspace_directory,"~/Project folder"));
     assert(portable_read(path,false,&creation,error,sizeof(error)) && creation.terminal_width==1.0/3.0 && !strcmp(creation.workspace_directory,"../Projects"));
     assert(portable_read(NULL,false,&creation,error,sizeof(error)) && creation.terminal_width==0.5 && !creation.workspace_directory[0]);
+    const char *full_widths[]={"1/1","3/3"};
+    for(size_t i=0;i<sizeof(full_widths)/sizeof(*full_widths);++i){
+        char full[128];snprintf(full,sizeof(full),"workbench-config-v1\n[workspace]\nterminal-width = %s\n",full_widths[i]);write_text(path,full);
+        assert(portable_read(path,false,&creation,error,sizeof(error)) && creation.terminal_width==1.0);
+        assert(portable_read(path,true,&creation,error,sizeof(error)) && creation.terminal_width==1.0);
+    }
     PortableConfig unchanged=linux_config;
     const char *bad[]={
         "workbench-config-v1\n[workspace]\nterminal-width = 0.4\n",

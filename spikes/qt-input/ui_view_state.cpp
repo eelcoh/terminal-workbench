@@ -14,6 +14,12 @@ bool identity(const QString &value){static const QRegularExpression id("^[a-zA-Z
 bool number(const QJsonValue &value,double low,double high){const auto n=value.toDouble(-1);return value.isDouble() && std::isfinite(n) && n>=low && n<=high;}
 bool keys(const QJsonObject &object,const QStringList &names){for(auto it=object.begin();it!=object.end();++it)if(!names.contains(it.key()))return false;return true;}
 }
+bool UiViewState::validTheme(const QVariantMap &value){
+    const auto theme=QJsonObject::fromVariantMap(value);
+    if(!keys(theme,{"name","colors","source","attribution"}))return false;
+    for(const auto &key:{"name","colors","source","attribution"})if(!theme[key].isString())return false;
+    return !theme["name"].toString().isEmpty() && theme["name"].toString().toUtf8().size()<=120 && theme["colors"].toString().toUtf8().size()<=65536 && theme["source"].toString().size()<=2048 && theme["attribution"].toString().size()<=1024;
+}
 bool UiViewState::valid(const QVariantMap &state){
     const auto root=QJsonObject::fromVariantMap(state),window=root["window"].toObject();
     if(!keys(root,{"navigation_pinned","version","window","workspace","terminal","overview","agents","needs","motion","overview_y","workspaces","terminals"}) || root["version"].toDouble()!=1)return false;
@@ -26,9 +32,7 @@ bool UiViewState::valid(const QVariantMap &state){
     for(auto it=workspaces.begin();it!=workspaces.end();++it){
         const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"focus","x","theme","theme_default"}) || !value["focus"].isString() || !identity(value["focus"].toString()) || !number(value["x"],0,1e7) || !value["theme"].isObject())return false;
         if(value.contains("theme_default") && !value["theme_default"].isBool())return false;
-        const auto theme=value["theme"].toObject();if(!keys(theme,{"name","colors","source","attribution"}))return false;
-        for(const auto &key:{"name","colors","source","attribution"})if(!theme[key].isString())return false;
-        if(theme["name"].toString().isEmpty() || theme["name"].toString().toUtf8().size()>120 || theme["colors"].toString().toUtf8().size()>65536 || theme["source"].toString().size()>2048 || theme["attribution"].toString().size()>1024)return false;
+        if(!validTheme(value["theme"].toObject().toVariantMap()))return false;
     }
     for(auto it=terminals.begin();it!=terminals.end();++it){const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"width","full"}) || !number(value["width"],.25,1) || !value["full"].isBool())return false;}
     return true;

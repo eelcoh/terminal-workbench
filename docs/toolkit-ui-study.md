@@ -359,6 +359,8 @@ service, replace a shell or attach a PTY owner. Check again refreshes those fact
 - **Start new shell** is offered only for a stopped runtime. The existing service
   revalidates that no shell is live and starts in the workspace's configured
   folder. It preserves terminal identity, theme and width; it starts a new process.
+- **Close pane**, on an exited/stopped pane, opens the existing close confirmation.
+  It removes the pane without starting a replacement shell.
 - **Close terminal…**, in the pane menu, asks before stopping the process and
   removing its catalog entry. Cancel receives initial focus; Enter cannot silently
   confirm destruction. Other terminals retain their live items, PIDs and input.
@@ -685,3 +687,28 @@ retain the previous maps, with a visible notice; open font/shortcut drafts defer
 external updates. Reload does not restart or replace terminal readers. See
 [live configuration](dotfiles.md#qt-live-font-and-shortcut-configuration) for
 precedence, temporary-size behavior and native Mac review steps.
+
+
+## Shared workspace appearance and exited-pane actions
+
+Appearance Apply now publishes a workspace's immutable palette or managed-default
+marker to other windows in the same saved session. Preview/Cancel stays local.
+An open editor rejects Apply if a peer changed the same workspace; Cancel adopts
+the newer shared choice. Independent workspace files prevent unrelated edits
+from overwriting each other. Existing local view snapshots remain a fallback
+until a shared choice is applied. See [workspace palette persistence](dotfiles.md#qt-workspace-palettes-across-windows).
+
+A shell exited with Ctrl+D now offers **Start new shell**, **Close pane** and
+**Check again** on its recovery surface. Close pane uses the existing confirmation
+and stable-identity catalog removal; Cancel is initially focused. It never
+recovers a shell or affects neighbouring panes. Ordinary live-pane closing stays
+available through the pane menu and Commands.
+
+Managed `terminal-width = 1/1` and `3/3` now select full initial pane width.
+Configuration labels that value Full width. Existing panes retain their saved
+widths. The UI suite exercises actual Ctrl+D, confirmed/cancelled exited-pane
+removal and retained sibling identity after creating a full-width terminal.
+
+Precise horizontal trackpad scrolling follows pixel deltas directly in the pane
+strip. Coarse wheel deltas accumulate while easing; keyboard navigation retains
+its reveal animation. Vertical terminal scrolling and Overview are separate.

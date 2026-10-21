@@ -36,6 +36,17 @@ ApplicationWindow {
             navigation_pinned: navigationPinned, overview: overview, agents: agentsOnly, needs: needsOnly, motion: reducedMotion, overview_y: overview ? Math.max(0,deck.contentY) : 0,
             workspaces: workspaces, terminals: terminals}
     }
+    function applySharedAppearance() {
+        let themes = workspaceThemes.slice()
+        for (let w = 0; w < spaceIds.length; ++w) {
+            const choice = studyWorkspaceAppearance.choice(spaceIds[w])
+            if (choice.version !== 1) continue
+            const index = choice.default === true ? -1 : studyThemes.restoreSnapshot(choice.theme)
+            if (index >= 0 || choice.default === true) themes[w] = index
+        }
+        workspaceThemes = themes
+    }
+    Connections { target: studyWorkspaceAppearance; function onChanged() { if (window.viewReady) Qt.callLater(window.applySharedAppearance) } function onReloadFailed() { window.fontWarningDismissed = false } }
     function persistView() { if (viewReady && studyView.enabled) studyView.save(captureView()) }
     function restoreView(saved) {
         if (!saved.version) return
@@ -285,7 +296,10 @@ ApplicationWindow {
     function showAppearance() {
         if (spaces.length === 0) return
         studyThemes.reloadDirectory()
-        appearanceWorkspace = spaceIds[workspace]; previewTheme = effectiveTheme(workspace); previewDefault = (workspaceThemes[workspace] ?? -1) < 0; appearance.open()
+        appearanceWorkspace = spaceIds[workspace]
+        if (!studyWorkspaceAppearance.begin(appearanceWorkspace)) return
+        applySharedAppearance()
+        previewTheme = effectiveTheme(workspace); previewDefault = (workspaceThemes[workspace] ?? -1) < 0; appearance.open()
     }
     property var widths: []
     property var fullWidths: []
@@ -347,6 +361,7 @@ ApplicationWindow {
             }
         }
         spaces = names; spaceIds = ids; directories = folders; counts = totals; workspaceThemes = themes
+        studyWorkspaceAppearance.setWorkspaces(ids)
         ++catalogRevision
         Qt.callLater(rebuildOverview)
         for (let w = 0; w < names.length; ++w) {
@@ -472,10 +487,11 @@ ApplicationWindow {
     readonly property int motion: reducedMotion ? 0 : 220
     function panel(i) { return panels.itemAt(i) }
     function paneWidth(i) { return Math.max(240, (deck.width + 12) * (fullWidths[i] ? 1 : widths[i]) - 12) }
-    function left(i) { if (i < 0) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
+    function left(i) { if (i < 0 || i >= terminalModel.count) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
     function stripWidth() { const items = indices(workspace); return items.length === 0 ? deck.width : Math.max(deck.width, left(items[items.length - 1]) + paneWidth(items[items.length - 1])) }
     function reveal() {
-        if (overview || selected < 0) return
+        if (overview || selected < 0 || selected >= terminalModel.count) return
+        deck.directPanning = false
         const x = left(selected), w = paneWidth(selected)
         let target = Math.max(0, Math.min(deck.scrollTarget, stripWidth() - deck.width))
         if (x < target) target = x
@@ -490,6 +506,7 @@ ApplicationWindow {
         else Qt.callLater(function() { revealOverview(i) })
     }
     function chooseWorkspace(i) {
+        deck.directPanning = false
         let values = positions.slice(); values[workspace] = deck.contentX; positions = values
         workspace = Math.max(0, Math.min(spaces.length - 1, i)); selected = remembered[workspace] === undefined ? -1 : remembered[workspace]
         drawer.close(); deck.scrollTarget = overview ? 0 : Math.max(0, Math.min(positions[workspace] || 0, stripWidth() - deck.width)); deck.contentX = deck.scrollTarget
@@ -666,6 +683,7 @@ ApplicationWindow {
         onContentXChanged: window.scheduleViewSave()
         onContentYChanged: window.scheduleViewSave()
         property real scrollTarget: 0
+        property bool directPanning: false
         x: window.navigationEdge + 16; y: window.overview ? overviewFilters.y + overviewFilters.implicitHeight + 16 : 60; width: parent.width - x - 12; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
         interactive: window.overview && window.dragSlot < 0
@@ -680,7 +698,7 @@ ApplicationWindow {
         function rows(space) { return Math.max(1, Math.ceil(window.overviewIndices(space).length / columns)) }
         function groupTop(space) { let y = 0; for (let i = 0; i < space; ++i) if (!window.overviewFiltered || window.overviewIndices(i).length) y += window.overviewIndices(i).length ? rows(i) * rowStride + 76 : 152; return y }
         function overviewHeight() { return Math.max(height, groupTop(window.spaces.length)) }
-        Behavior on contentX { enabled: !window.overview; NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
+        Behavior on contentX { enabled: !window.overview && !deck.directPanning; NumberAnimation { id: stripAnimation; duration: window.motion; easing.type: Easing.OutCubic } }
         Repeater {
             model: window.spaces.length
             Item {
@@ -769,7 +787,13 @@ ApplicationWindow {
                             const dx = precise ? event.pixelDelta.x : event.angleDelta.x
                             const dy = precise ? event.pixelDelta.y : event.angleDelta.y
                             if (!window.overview && dx !== 0 && Math.abs(dx) > Math.abs(dy)) {
-                                deck.scrollTarget = Math.max(0, Math.min(deck.contentWidth - deck.width, deck.contentX - dx)); deck.contentX = deck.scrollTarget; event.accepted = true
+                                // Pixel deltas are direct manipulation; easing each event loses motion.
+                                // Coarse wheel events accumulate against the destination while easing.
+                                const origin = precise && !deck.directPanning ? deck.contentX : deck.scrollTarget
+                                deck.directPanning = precise
+                                if (precise) stripAnimation.stop()
+                                deck.scrollTarget = Math.max(0, Math.min(deck.contentWidth - deck.width, origin - dx))
+                                deck.contentX = deck.scrollTarget; event.accepted = true
                             } else event.accepted = false
                         }
                     }
@@ -811,6 +835,7 @@ ApplicationWindow {
                                 onClicked: { if (pane.lifecycle.state === "stopped") studySession.recover(pane.terminalId); else if (terminal.attachment === "elsewhere") window.requestTerminalAction(pane.terminalId, "move"); else studySession.reconnect(terminal, pane.terminalId, false) }
                             }
                             QuietButton { objectName: "terminalReconnect" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Reconnect"; visible: terminal.attachment === "elsewhere" && pane.lifecycle.state === "running"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: studySession.reconnect(terminal, pane.terminalId, false) }
+                            QuietButton { objectName: "terminalCloseExited" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Close pane"; visible: pane.lifecycle.state === "stopped"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: window.requestTerminalAction(pane.terminalId, "close") }
                             QuietButton { objectName: "terminalCheck" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: pane.lifecycle.busy ? "Checking…" : "Check again"; enabled: !pane.lifecycle.busy && !window.overview; onClicked: studySession.inspect(pane.terminalId) }
                         }
                     }
@@ -977,6 +1002,7 @@ ApplicationWindow {
     }
     ThemePicker {
         id: appearance; anchors.centerIn: parent
+        saveError: studyWorkspaceAppearance.error
         retainedTheme: studyThemes.theme(window.previewTheme)
         directoryPath: studyThemes.themesPath; directoryStatus: studyThemes.directoryStatus
         onFolderRequested: studyThemes.openThemesDirectory()
@@ -988,10 +1014,10 @@ ApplicationWindow {
         onDefaultRequested: { window.previewTheme = studyConfiguration.themeIndex; window.previewDefault = true }
         onApplySelected: {
             const space = window.spaceIds.indexOf(window.appearanceWorkspace)
-            if (space >= 0) { let themes = window.workspaceThemes.slice(); themes[space] = window.previewDefault ? -1 : window.previewTheme; window.workspaceThemes = themes }
-            close()
+            if (space < 0 || !studyWorkspaceAppearance.apply(window.appearanceWorkspace, window.previewDefault, window.previewDefault ? ({}) : studyThemes.snapshot(window.previewTheme))) return
+            window.applySharedAppearance(); close()
         }
-        onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+        onClosed: { studyWorkspaceAppearance.end(); if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus() }
     }
     FontSettings {
         id: fontSettings; anchors.centerIn: parent; tones: window.chrome; preferences: studyFonts
@@ -1007,9 +1033,9 @@ ApplicationWindow {
     Connections { target: studyView; function onChanged() { window.fontWarningDismissed = false } }
     property bool fontWarningDismissed: false
     Rectangle {
-        visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0 || studyView.error.length > 0 || studyConfiguration.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
+        visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0 || studyView.error.length > 0 || studyConfiguration.error.length > 0 || studyWorkspaceAppearance.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
         QuietButton { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Dismiss"; onClicked: window.fontWarningDismissed = true }
-        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyConfiguration.error, studyFonts.error, studyShortcuts.error, studyView.error].filter(value => value.length > 0).join("\n") }
+        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyWorkspaceAppearance.error, studyConfiguration.error, studyFonts.error, studyShortcuts.error, studyView.error].filter(value => value.length > 0).join("\n") }
     }
     CommandPalette {
         id: commands; objectName: "commandPalette"; anchors.centerIn: parent
@@ -1120,7 +1146,7 @@ ApplicationWindow {
     Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible || appearance.visible || createDialog.visible }
     readonly property bool configurationOpen: configurationDialog.visible
     Configuration {
-        id: configurationDialog; anchors.centerIn: parent; tones: window.chrome; settings: studyConfiguration
+        id: configurationDialog; anchors.centerIn: parent; tones: window.chrome; settings: studyConfiguration; workspaceAppearancePath: studyWorkspaceAppearance.directory
         onClosed: Qt.callLater(window.restoreAfterPopup)
     }
     Connections { target: studyConfiguration; function onReloadFailed() { window.fontWarningDismissed = false } }
@@ -1179,5 +1205,5 @@ ApplicationWindow {
     }
     Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
-    Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
+    Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

@@ -308,7 +308,8 @@ Existing workspace folders and running shell directories remain unchanged.
 New terminals in an existing workspace continue using that workspace's saved
 folder; the global folder preference applies to New workspace.
 
-`terminal-width` accepts exactly `1/3`, `1/2` or `2/3`, defaulting to `1/2`.
+`terminal-width` accepts `1/3`, `1/2`, `2/3` or full width `1/1` (also `3/3`),
+defaulting to `1/2`.
 It sets the initial pane width for newly added terminals, including the first
 terminal of a new workspace. Saved window widths restore as before; later
 configuration changes do not resize existing panes. A window without saved
@@ -338,3 +339,51 @@ another terminal: the earlier pane should retain its size. Leave New workspace
 open while editing the managed file: its draft should stay intact until closing.
 `just toolkit-workbench` instead opens checkout-local sessions by default; it
 does not update or activate the installed app.
+
+
+## Qt workspace palettes across windows
+
+Applying Appearance now saves a session-scoped workspace choice. Other windows
+showing that workspace follow the applied palette, including **Use default →
+Apply**. Managed default-theme edits remain live for inheriting workspaces.
+Preview and Cancel stay local to the editing window; they never publish colors.
+This also works when another window owns all the workspace's terminals. Changing
+appearance never reconnects, recovers or transfers a terminal.
+
+Each workspace has a private, bounded JSON preference in the session's
+`qt/workspace-appearance/<workspace-id>.json` directory. Configuration shows that
+folder. The files contain either a default marker or an immutable color snapshot,
+independent of source-theme availability. These contain local session IDs and
+belong with session data, outside your portable dotfiles. Different sessions,
+including the checkout and installed app's default namespaces, remain separate.
+
+Existing window profiles keep their saved colors until a shared choice is
+applied. A shared choice then takes precedence over every window's older snapshot.
+Current snapshots continue to be cached in each view for compatibility and
+fallback. Removing a shared preference leaves those cached colors available;
+use **Use default → Apply** to deliberately reset all windows for a workspace.
+Inactive workspace files are retained with the session's other metadata and
+cannot affect unrelated IDs.
+
+Files use atomic owner-only writes and independent per-workspace locks. An open
+Appearance dialog retains its draft and original comparison state. If another
+window applies a different choice to that workspace, Apply reports the conflict
+and keeps the editor open. Cancel and reopen to edit the newer choice. Changes to
+different workspaces save independently. Invalid or oversized files retain the
+last working palette in existing windows and show a notice; Apply refuses to
+overwrite invalid data. Repairing a file is followed automatically. File watches
+and snapshot parsing run outside terminal paint, input and parse loops.
+
+Validation: `just toolkit-workspace-appearance-test` covers independent saves,
+stale drafts, locks, restarts, private permissions, invalid/oversized retention
+and repair, bounded identities and write failures. The real X11/Wayland UI suite
+checks local preview/Cancel, an actual peer-window Apply, stale draft rejection,
+shared default inheritance and unchanged terminal owners, catalog, readers and
+grids. Native Mac interaction acceptance remains manual.
+
+After installing/activating the new Mac preview, run `just toolkit-preview open
+ID` twice. Apply a workspace theme in either window and check the other window.
+Leave Appearance open in window A; apply another theme to the same workspace in
+window B. A should keep its preview, reject Apply, and adopt B's saved theme when
+you Cancel. **Use default → Apply** should return both windows to the configured
+workspace default.
