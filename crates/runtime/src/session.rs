@@ -45,7 +45,7 @@ enum Event {
     AgentTick,
     Inspect(UnixStream),
     TerminalRead(UnixStream, bool),
-    Watch(u64, UnixStream, bool),
+    Watch(u64, UnixStream, u8),
     Signal(UnixStream, [u8; 30]),
     Unwatch(u64),
     ContextUpdated(crate::context::Context),
@@ -143,12 +143,20 @@ fn start_client(
     Ok(frames_tx)
 }
 
-type AgentWatchers = Vec<(u64, SyncSender<Frame>, bool)>;
-fn attention_frame(attention: &crate::attention::Attention, version2: bool) -> Frame {
-    if version2 {
-        frame(6, &[attention.agent.tag(), attention.status.tag()])
+type AgentWatchers = Vec<(u64, SyncSender<Frame>, u8)>;
+fn attention_frame(attention: &crate::attention::Attention, version: u8) -> Frame {
+    // Existing subscriptions retain their published tag range. Pi is exposed
+    // only through WAT3; old clients get their existing Unknown fallback.
+    let tag = attention.agent.tag();
+    let supported = version >= 3 || tag <= 6;
+    let tag = if supported { tag } else { 255 };
+    if version >= 2 {
+        frame(
+            6,
+            &[tag, if supported { attention.status.tag() } else { 0 }],
+        )
     } else {
-        frame(5, &[attention.agent.tag()])
+        frame(5, &[tag])
     }
 }
 fn publish_attention(
@@ -156,12 +164,12 @@ fn publish_attention(
     attention: &crate::attention::Attention,
     identity_changed: bool,
 ) {
-    watchers.retain(|(_, frames, version2)| {
-        if !version2 && !identity_changed {
+    watchers.retain(|(_, frames, version)| {
+        if *version == 1 && !identity_changed {
             return true;
         }
         frames
-            .try_send(attention_frame(attention, *version2))
+            .try_send(attention_frame(attention, *version))
             .is_ok()
     });
 }
@@ -330,7 +338,7 @@ pub fn serve_with_shell_launch(
                 b"CAPS\n" => {
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let report = format!(
-                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\",\"runtime-origin\"],\"origin\":{}}}\n",
+                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\",\"runtime-origin\",\"agent-watch-v3\"],\"origin\":{}}}\n",
                         std::process::id(), runtime_origin
                     );
                     let _ = stream.write_all(report.as_bytes());
@@ -355,8 +363,9 @@ pub fn serve_with_shell_launch(
                     // Control and legacy listeners have independent ID counters.
                     Event::Attach((id as u64) | (1 << 63), stream, true, command == *b"ATM1\n")
                 }
-                b"WATCH" => Event::Watch(id as u64, stream, false),
-                b"WAT2\n" => Event::Watch(id as u64, stream, true),
+                b"WATCH" => Event::Watch(id as u64, stream, 1),
+                b"WAT2\n" => Event::Watch(id as u64, stream, 2),
+                b"WAT3\n" => Event::Watch(id as u64, stream, 3),
                 b"STATE" => {
                     let mut report = [0; 30];
                     if stream.read_exact(&mut report).is_err() {
@@ -575,15 +584,15 @@ pub fn serve_with_shell_launch(
                     let _ = stream.write_all(attention.json().as_bytes());
                     continue;
                 }
-                Event::Watch(id, stream, version2) => {
+                Event::Watch(id, stream, version) => {
                     if watchers.len() < 8 {
                         if let Ok(frames) = start_agent_watch(
                             id,
                             stream,
                             events_tx.clone(),
-                            attention_frame(&attention, version2),
+                            attention_frame(&attention, version),
                         ) {
-                            watchers.push((id, frames, version2));
+                            watchers.push((id, frames, version));
                         }
                     }
                     continue;
@@ -749,6 +758,23 @@ pub fn context(socket: PathBuf) -> Result<String, Failure> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn new_agents_do_not_extend_legacy_watch_tag_ranges() {
+        use crate::agent::Agent;
+        use crate::attention::{Attention, Status};
+        let mut attention = Attention::new();
+        attention.sample(Agent::Pi, Some(10));
+        attention.status = Status::Working;
+        assert_eq!(&*attention_frame(&attention, 1), &[5, 0, 0, 0, 1, 255]);
+        assert_eq!(&*attention_frame(&attention, 2), &[6, 0, 0, 0, 2, 255, 0]);
+        assert_eq!(&*attention_frame(&attention, 3), &[6, 0, 0, 0, 2, 7, 1]);
+        attention.sample(Agent::Copilot, Some(10));
+        attention.status = Status::Ready;
+        assert_eq!(
+            attention_frame(&attention, 2),
+            attention_frame(&attention, 3)
+        );
+    }
     #[test]
     fn codec_preserves_binary_input_and_rejects_invalid_shapes() {
         let packet = frame(INPUT, &[0, 255, 27, 13]);

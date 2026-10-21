@@ -171,7 +171,8 @@ changes (`unknown`, `working`, `waiting`, `ready`). `waiting` is the UI's Needs 
 Repeated identical states are omitted. The command captures runtime-delivered
 transitions, not every hook callback or a guarantee that events were emitted.
 
-The watcher reads the existing catalog once and subscribes through `WAT2` on
+The watcher reads the existing catalog once, probes bounded read-only runtime
+capabilities and selects `WAT3` when advertised, otherwise baseline `WAT2`, on
 user-owned control sockets. It never attaches a PTY, sends terminal input, starts
 services or agents, recovers terminals, or writes preferences/catalogs. It does
 not read terminal output, prompts, transcripts or credentials. Missing/stopped,
@@ -225,3 +226,58 @@ The user-owned debug files are retained locally and are not committed.
 The rapid synthetic-input finding above is now reproduced and fixed locally on
 Linux with ordered native events and batched Ghostty input. See
 [terminal input](terminal-input.md) for the regression and remaining native gates.
+
+## Pi on Linux — 2026-10-21
+
+Pi **1.3.0**, installed under `~/.pi/agent/install/releases/1.3.0`, passed a
+real no-tool turn through a disposable Workbench runtime based on `325afda` with
+this batch's changes. The invocation-local `wb-pi` observer produced Unknown →
+Working → Ready and the expected reply; foreground exit cleared identity.
+The test used an ephemeral session, disabled tools/MCP and automatic extension/
+context discovery, and explicitly loaded only the Workbench observer. It did not
+change project/user settings. Private evidence is under
+`.local/artifacts/pi-live/`.
+
+This installed Pi rewrites Node argv to the exact process title `pi`. Recognition
+uses the Node executable plus that exact invocation when no script remains, or
+known package launcher paths. Prompt/output text and process-tree searches do
+not establish identity. Plain `pi` can be recognized independently of lifecycle
+observers; older saved runtimes still require a newly created terminal for Pi
+recognition. Rebuilding a viewer does not upgrade a retained runtime.
+
+`wb-pi` adds one explicit `--extension` file for this invocation. The observer
+reports Working on `agent_start`, Ready on `agent_settled`, and Unknown on
+`session_shutdown`. It creates no resources at extension factory time, returns no
+decisions, changes no tools/permissions, and reads no prompt/tool/transcript data.
+It uses the existing bounded STATE report with group/run/sequence validation and
+checks its own PID against the launcher's PID so child Pi processes cannot reuse
+the parent reporting identity. Reporting failure remains silent.
+
+Pi's [extension lifecycle documentation](https://pi.dev/docs/latest/extensions)
+explains that `agent_end` can precede retries/continuations; final idle uses
+`agent_settled`. Needs input has no verified observer in this slice: do not infer
+it from arbitrary tool starts or output. Cancellation, resumed sessions,
+permission prompts and Mac Pi behavior remain separate acceptance work. Mac
+acceptance continues to use the owner's permitted GitHub Copilot CLI.
+
+Pi is exposed through the separately named `WAT3` metadata subscription. Existing
+WATCH/WAT2 clients keep their original tag range and see Unknown for Pi; Codex,
+Claude and other existing tags retain their bytes. Qt retries WAT2 once only when
+an old runtime closes the new request before any response, never after a partial
+or malformed reply. CLI tracing selects WAT3 by advertised capability. These are
+read-only subscriptions and never attach, recover, transfer or send PTY input.
+
+To review on Linux, install/open the current preview and create a new terminal.
+Run plain `pi` to check identity-only recognition, or `wb-pi` for lifecycle reports.
+After a no-tool reply, check Working/Ready in its header, Agents and Agent details.
+If the wrapper is missing, the shell still has older launch helpers. Normal trust
+and policy settings remain in effect; no bypass is required. Use `just agent-watch`
+with the matching session directory for a content-free trace.
+
+The owner's first `wb-pi` trial on 2026-10-21 used a retained terminal whose shell
+and runtime started on 10 October. Read-only inspection confirmed that runtime
+had neither the new metadata endpoint nor Pi identity support. Starting Pi today
+inside a retained pane does not upgrade the runtime. Use New terminal
+(Super+Alt+T on Linux), then launch `wb-pi`; existing work can stay running.
+Qt/runtime-only builds now prepare invocation-local helpers too, removing the
+previous dependency on a full spike build or manual helper generation.

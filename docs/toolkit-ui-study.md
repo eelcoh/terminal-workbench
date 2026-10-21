@@ -723,3 +723,25 @@ sequence continues when its starting terminal moves outside the clip. A native
 window-event regression crosses three full-width panes and reverses in the same
 gesture; the former per-terminal receiver fails this check. This addresses swipe
 stalling, independently of terminal-output throughput or native Mac load review.
+
+## Agent details
+
+Commands → Agent details and the pane's overflow menu open a read-only panel for
+a stable terminal identity. Each Agents row also has a separate information icon;
+it inspects a background agent without switching workspace, changing Overview
+filters or taking terminal ownership. The existing metadata feed keeps identity
+and state live. Removing its terminal closes the panel; its target never follows
+an array index into another terminal.
+
+The panel distinguishes absent/unavailable identity from a recognized agent with
+Unknown state, explains Working/Needs input/Ready, and states the limits of last
+reports after cancellation. Ready does not claim task success. Supported agents
+have an allowlisted Copy command action for `wb-codex`, `wb-claude`, `wb-copilot`
+or `wb-pi`; copying never types or launches anything. Existing policies and
+invocation-local observer setup stay with the CLI. Escape/Close restores the
+previous view/focus, and application shortcuts remain isolated while open.
+
+`just toolkit-agent-info-test` covers explanations and clipboard allowlisting;
+native X11/Wayland UI checks exercise live transitions, background inspection,
+command/menu entry, input/grid/reader preservation and Pi recognition. Mac
+interaction review remains required; use Copilot there.

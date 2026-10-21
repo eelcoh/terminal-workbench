@@ -14,10 +14,10 @@ public:
     void open(const QString &path);
 private:
     void drain();
-    void fail();
-    QByteArray request_,buffer_;quint8 kind_;QLocalSocket socket_;QTimer deadline_;
+    void fail(bool initialClose=false);
+    QByteArray request_,buffer_;QString path_;quint8 kind_;QLocalSocket socket_;QTimer deadline_;
     std::function<bool(const QByteArray &)> consume_;std::function<void()> unavailable_;
-    bool failed_=true;
+    bool failed_=true,received_=false,legacy_=false,retryPending_=false;
 };
 class RuntimeFacts final : public QObject {
     Q_OBJECT

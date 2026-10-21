@@ -13,7 +13,7 @@ import struct
 import time
 from workspace_catalog import validate, socket_path
 
-AGENTS = {0: None, 1: 'codex', 2: 'claude', 3: 'gemini', 4: 'opencode', 5: 'aider', 6: 'copilot', 255: None}
+AGENTS = {0: None, 1: 'codex', 2: 'claude', 3: 'gemini', 4: 'opencode', 5: 'aider', 6: 'copilot', 7: 'pi', 255: None}
 STATES = {0: 'unknown', 1: 'working', 2: 'waiting', 3: 'ready'}
 CATALOG_LIMIT = 256 * 1024
 
@@ -35,10 +35,26 @@ def subscribe(entry):
         info = path.lstat()
         if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid():
             raise ValueError('Not a user-owned control socket')
+        # Capability probing is read-only and bounded; legacy runtimes retain WAT2.
+        version = b'WAT2\n'
+        with socket.socket(socket.AF_UNIX) as probe:
+            probe.settimeout(.4)
+            try:
+                probe.connect(str(path));probe.sendall(b'CAPS\n');raw = bytearray()
+                while len(raw) <= 4096 and not raw.endswith(b'\n'):
+                    part = probe.recv(min(1024,4097-len(raw)))
+                    if not part:break
+                    raw.extend(part)
+                if len(raw) <= 4096:
+                    capabilities = json.loads(raw).get('capabilities',[])
+                    if isinstance(capabilities,list) and 'agent-watch-v3' in capabilities:
+                        version = b'WAT3\n'
+            except (OSError,ValueError,AttributeError,TypeError):
+                pass
         connection = socket.socket(socket.AF_UNIX)
         connection.settimeout(.4)
         connection.connect(str(path))
-        connection.sendall(b'WAT2\n')
+        connection.sendall(version)
         connection.setblocking(False)
         return identity, connection, None
     except (OSError, ValueError) as error:

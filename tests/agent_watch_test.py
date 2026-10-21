@@ -65,6 +65,8 @@ def main():
         sockets=[];threads=[];commands=[];errors=[]
         def serve(listener,name):
             try:
+                with listener.accept()[0] as probe:
+                    probe.settimeout(3);assert probe.recv(64)==b'CAPS\n';probe.sendall(b'{"capabilities":[]}\n')
                 with listener.accept()[0] as connection:
                     connection.settimeout(3);commands.append(connection.recv(64));assert commands[-1]==b'WAT2\n'
                     if name=='broken':connection.sendall(struct.pack('!BI',6,2**31));return

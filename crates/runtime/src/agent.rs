@@ -10,6 +10,7 @@ pub enum Agent {
     OpenCode,
     Aider,
     Copilot,
+    Pi,
     Unknown,
 }
 
@@ -23,6 +24,7 @@ impl Agent {
             Self::OpenCode => 4,
             Self::Aider => 5,
             Self::Copilot => 6,
+            Self::Pi => 7,
             Self::Unknown => 255,
         }
     }
@@ -47,6 +49,7 @@ impl Agent {
             Self::Copilot => {
                 "{\"agent\":\"copilot\",\"available\":true,\"source\":\"foreground-process\"}\n"
             }
+            Self::Pi => "{\"agent\":\"pi\",\"available\":true,\"source\":\"foreground-process\"}\n",
             Self::Aider => {
                 "{\"agent\":\"aider\",\"available\":true,\"source\":\"foreground-process\"}\n"
             }
@@ -84,15 +87,30 @@ pub fn identify(process: Option<ProcessIdentity>) -> Agent {
         "opencode" => Agent::OpenCode,
         "aider" => Agent::Aider,
         "copilot" => Agent::Copilot,
+        "pi" => Agent::Pi,
         _ => Agent::None,
     };
     if direct != Agent::None {
         return direct;
     }
+    // Pi rewrites Node argv to a single exact public process title. Retain
+    // the executable boundary: an unrelated native program named in argv is not Pi.
+    if (name == "node" || name == "nodejs")
+        && process.script.is_none()
+        && process.invocation.as_deref() == Some(std::path::Path::new("pi"))
+    {
+        return Agent::Pi;
+    }
     let Some(script) = process.script else {
         return Agent::None;
     };
     if name == "node" || name == "nodejs" {
+        if script.ends_with("@earendil-works/pi-coding-agent/dist/bundle/cli.js")
+            || script.ends_with("@earendil-works/pi-coding-agent/dist/cli.js")
+            || script.ends_with("@mariozechner/pi-coding-agent/dist/cli.js")
+        {
+            return Agent::Pi;
+        }
         if script.ends_with("@github/copilot/npm-loader.js") {
             return Agent::Copilot;
         }
@@ -123,11 +141,60 @@ mod tests {
         Some(ProcessIdentity {
             executable: executable.into(),
             script: script.map(Into::into),
+            invocation: None,
         })
     }
     #[test]
     fn identification_uses_executable_and_launcher_boundaries() {
         assert_eq!(identify(None), Agent::Unknown);
+        assert_eq!(
+            identify(Some(ProcessIdentity {
+                executable: "/bin/node".into(),
+                script: None,
+                invocation: Some("pi".into())
+            })),
+            Agent::Pi
+        );
+        assert_eq!(
+            identify(Some(ProcessIdentity {
+                executable: "/bin/echo".into(),
+                script: None,
+                invocation: Some("pi".into())
+            })),
+            Agent::None
+        );
+        assert_eq!(
+            identify(Some(ProcessIdentity {
+                executable: "/bin/node".into(),
+                script: None,
+                invocation: Some("pi unrelated".into())
+            })),
+            Agent::None
+        );
+
+        assert_eq!(identify(process("/opt/bin/pi", None)), Agent::Pi);
+        assert_eq!(
+            identify(process(
+                "/bin/node",
+                Some("/pkg/@earendil-works/pi-coding-agent/dist/bundle/cli.js")
+            )),
+            Agent::Pi
+        );
+        assert_eq!(
+            identify(process(
+                "/bin/node",
+                Some("/pkg/pi-coding-agent/dist/bundle/cli.js")
+            )),
+            Agent::None
+        );
+        assert_eq!(
+            identify(process(
+                "/bin/echo",
+                Some("/pkg/@earendil-works/pi-coding-agent/dist/cli.js")
+            )),
+            Agent::None
+        );
+
         assert_eq!(Agent::Codex.tag(), 1);
         assert_eq!(Agent::Claude.tag(), 2);
         assert_eq!(Agent::Aider.tag(), 5);

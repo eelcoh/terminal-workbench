@@ -54,6 +54,14 @@ def main():
             assert str(build.ROOT/'.local/build'/expected) in configure
             assert ('-DGLFW_BUILD_WAYLAND=ON' in configure)==bool(args)
             assert ('-DGLFW_BUILD_X11=OFF' in configure)==bool(args)
+    # Qt/runtime-only builds must prepare launchers even on a clean checkout.
+    # Do not depend on the older full spike having generated helpers first.
+    with patch.object(sys,'argv',['build-spike.py','--runtime-only']), patch.object(build,'build_environment',return_value=(Path('/zig'),{})), patch.object(build.subprocess,'run') as run:
+        assert build.main()==0
+        commands=[call.args[0] for call in run.call_args_list]
+        assert commands[0]==[sys.executable,str(build.ROOT/'scripts/prepare-agent-launchers.py')]
+        assert commands[-1]==['cargo','build','--locked','--bin','workbench-session']
+        assert not any(c[0]=='cmake' for c in commands)
     with patch.object(sys,'argv',['build-spike.py','--wayland']), patch.object(build.platform,'system',return_value='Darwin'), patch.object(build.subprocess,'run') as run:
         assert build.main()==2 and not run.called
     print('PASS: Apple Silicon/Intel/Linux local discovery, PATH fallback, explicit compiler override, version rejection, paths with spaces and child-only environment')

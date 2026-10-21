@@ -34,6 +34,7 @@ check: runtime-build
     python3 tests/close_smoke.py target/debug/workbench-session
     python3 tests/agent_smoke.py target/debug/workbench-session
     python3 tests/attention_smoke.py target/debug/workbench-session
+    python3 tests/pi_runtime_test.py target/debug/workbench-session
     python3 tests/agent_watch_test.py target/debug/workbench-session
     python3 tests/copilot_observer_test.py
     python3 scripts/prepare-theme-catalog.py --check
@@ -498,3 +499,16 @@ toolkit-configuration-ui-test: runtime-build
 toolkit-workspace-appearance-test: toolkit-stage
     cmake --build .local/build/qt-input --target workbench-workspace-appearance-test --parallel
     QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-workspace-appearance-test
+
+# Read-only agent explanations and allowlisted launcher clipboard actions.
+toolkit-agent-info-test: toolkit-stage
+    cmake --build .local/build/qt-input --target workbench-agent-info-test --parallel
+    QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-agent-info-test
+
+# Runtime contracts for Pi and older metadata clients.
+pi-runtime-test: runtime-build
+    python3 tests/pi_runtime_test.py target/debug/workbench-session
+
+# Optional integration check: Node 22+ TypeScript loader, no Pi/account needed.
+pi-observer-test:
+    node --experimental-strip-types tests/pi_observer_test.mjs

@@ -7,7 +7,7 @@ import shlex
 root = Path(__file__).resolve().parent.parent
 directory = root / '.local/bin'
 directory.mkdir(parents=True, exist_ok=True)
-for agent in ('codex', 'claude', 'copilot'):
+for agent in ('codex', 'claude', 'copilot', 'pi'):
     path = directory / f'wb-{agent}'
     contents = '#!/bin/sh\nexec python3 ' + shlex.quote(str(root / 'scripts/workbench-agent.py')) + ' ' + agent + ' "$@"\n'
     if not path.exists() or path.read_text() != contents:
@@ -30,3 +30,8 @@ for name, value in [('plugin.json', manifest), ('hooks.json', hooks)]:
     contents = json.dumps(value, indent=2) + '\n'
     if not path.exists() or path.read_text() != contents:
         path.write_text(contents)
+
+# The Pi extension is loaded only for wb-pi, with no settings installation.
+pi = root / '.local/integrations/pi'
+pi.mkdir(parents=True, exist_ok=True)
+(pi / 'workbench.ts').write_bytes((root / 'integrations/pi/workbench.ts').read_bytes())

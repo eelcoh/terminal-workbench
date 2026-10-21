@@ -9,21 +9,27 @@ RuntimeFeed::RuntimeFeed(QByteArray request,quint8 kind,QObject *parent,
     :QObject(parent),request_(std::move(request)),kind_(kind),consume_(std::move(consume)),unavailable_(std::move(unavailable)) {
     socket_.setReadBufferSize(32768+5);deadline_.setSingleShot(true);deadline_.setInterval(2500);
     connect(&socket_,&QLocalSocket::connected,this,[this]{
-        if(!failed_ && socket_.write(request_)!=request_.size())fail();
+        if(!failed_ && socket_.write(legacy_?QByteArray("WAT2\n"):request_)!=request_.size())fail();
     });
     connect(&socket_,&QLocalSocket::readyRead,this,[this]{drain();});
-    connect(&socket_,&QLocalSocket::disconnected,this,[this]{fail();});
-    connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){fail();});
+    connect(&socket_,&QLocalSocket::disconnected,this,[this]{fail(true);});
+    connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto error){fail(error==QLocalSocket::PeerClosedError);});
     connect(&deadline_,&QTimer::timeout,this,[this]{fail();});
 }
 RuntimeFeed::~RuntimeFeed() {socket_.disconnect(this);socket_.abort();}
 void RuntimeFeed::open(const QString &path) {
-    if(!failed_)return;
-    buffer_.clear();
+    if(!failed_ || retryPending_)return;
+    path_=path;buffer_.clear();received_=false;legacy_=false;
     if(!ownedLocalSocket(path)) {unavailable_();return;}
     failed_=false;deadline_.start();socket_.connectToServer(path,QIODevice::ReadWrite);
 }
-void RuntimeFeed::fail() {
+void RuntimeFeed::fail(bool initialClose) {
+    if(!failed_ && initialClose && !received_ && socket_.bytesAvailable()==0 && !legacy_ && request_=="WAT3\n" && ownedLocalSocket(path_)) {
+        // Older runtimes close unknown handshakes. Only an empty initial close
+        // permits one baseline retry; malformed/partial streams never do.
+        legacy_=true;retryPending_=true;failed_=true;deadline_.stop();socket_.abort();
+        QTimer::singleShot(0,this,[this]{retryPending_=false;failed_=false;deadline_.start();socket_.connectToServer(path_,QIODevice::ReadWrite);});return;
+    }
     if(failed_)return;
     failed_=true;deadline_.stop();socket_.abort();buffer_.clear();unavailable_();
 }
@@ -31,7 +37,7 @@ void RuntimeFeed::drain() {
     // Consume incrementally even when multiple complete frames arrive together.
     while(!failed_ && socket_.bytesAvailable()>0) {
         const qint64 needed=buffer_.size()<5 ? 5-buffer_.size() : 5+qFromBigEndian<quint32>(buffer_.constData()+1)-buffer_.size();
-        buffer_+=socket_.read(needed);
+        const auto bytes=socket_.read(needed);received_=received_ || !bytes.isEmpty();buffer_+=bytes;
         if(buffer_.size()<5)return;
         const auto size=qFromBigEndian<quint32>(buffer_.constData()+1);
         if(quint8(buffer_[0])!=kind_ || size>32768 || (kind_==6 && size!=2)) {fail();return;}
@@ -42,7 +48,7 @@ void RuntimeFeed::drain() {
 }
 RuntimeFacts::RuntimeFacts(const QString &path,QObject *parent):QObject(parent),path_(path),
     contextFeed_("CTX1\n",10,this,[this](const auto &p){return context(p);},[this]{clearContext();}),
-    agentFeed_("WAT2\n",6,this,[this](const auto &p){return agent(p);},[this]{clearAgent();}) {
+    agentFeed_("WAT3\n",6,this,[this](const auto &p){return agent(p);},[this]{clearAgent();}) {
     // Defer until construction is complete; callbacks may emit changed().
     QTimer::singleShot(0,this,[this]{refresh();});
 }
@@ -78,12 +84,12 @@ bool RuntimeFacts::context(const QByteArray &payload) {
 bool RuntimeFacts::agent(const QByteArray &payload) {
     if(payload.size()!=2)return false;
     const auto agent=quint8(payload[0]),state=quint8(payload[1]);
-    if((agent>6 && agent!=255) || state>3)return false;
+    if((agent>7 && agent!=255) || state>3)return false;
     if(agent_==agent && state_==state && agentAvailable_==(agent!=255))return true;
     agent_=agent;state_=state;agentAvailable_=agent!=255;Q_EMIT changed();return true;
 }
 QVariantMap RuntimeFacts::facts() const {
-    static const QStringList agents={"","Codex","Claude","Gemini","OpenCode","Aider","Copilot"};
+    static const QStringList agents={"","Codex","Claude","Gemini","OpenCode","Aider","Copilot","Pi"};
     static const QStringList states={"Status unknown","Working","Needs input","Ready"};
     QString title=remote_ ? "Remote session" : "Terminal";
     if(contextAvailable_) {
@@ -98,7 +104,7 @@ QVariantMap RuntimeFacts::facts() const {
     }
     return {{"title",title},{"cwd",cwd_},{"repository",repository_},{"branch",branch_},{"worktree",worktree_},
         {"context_available",contextAvailable_},{"remote",remote_},{"detached",detached_},
-        {"agent_available",agentAvailable_},{"agent",agent_<=6 ? agents[agent_] : QString()},
-        {"state",agent_>0 && agent_<=6 ? states[state_] : QString()},
-        {"needs_input",agent_>0 && agent_<=6 && state_==2}};
+        {"agent_available",agentAvailable_},{"agent",agent_<=7 ? agents[agent_] : QString()},
+        {"state",agent_>0 && agent_<=7 ? states[state_] : QString()},
+        {"needs_input",agent_>0 && agent_<=7 && state_==2}};
 }

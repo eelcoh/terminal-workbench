@@ -229,6 +229,10 @@ while True:
             time.sleep(.3)
         assert [received(i) for i in range(6)]==chrome_input and sizes()==chrome_sizes,'chrome click changed PTY input or grids'
         typed('first');wait_until(lambda:received(0)==b'first')
+        key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('Agent details');key('Return')
+        wait_until(lambda:data()['agent_info_open'])
+        assert data()['agent_info_details']['heading']=='No agent detected' and not data()['agent_info_details']['launcher']
+        key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][0]['focus'])
         # About is modal and client-only: copying diagnostics never types into PTYs.
         about_input=[received(i) for i in range(6)];about_sizes=sizes()
         click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
@@ -1169,11 +1173,31 @@ while True:
         assert not data()['overview']
         wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
         capture('navigation-agent-working.png')
+        info_inputs=[received(i) for i in range(6)];info_instances=[p['instance'] for p in data()['panes']];info_sizes=sizes();info_catalog=workspace_catalog.load(root)
+        click(*data()['navigation_agent_info']);wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
+        assert data()['agent_info_target']==data()['panes'][8]['identity'] and data()['agent_info_details']['heading']=='Working'
+        raw_key('super+alt+Right');raw_key('super+alt+o');time.sleep(.1)
+        assert data()['selected']==8 and not data()['overview'],'agent details leaked a global shortcut'
+        hook('PermissionRequest','Needs input');wait_until(lambda:data()['agent_info_details']['heading']=='Needs input')
+        hook('Stop','Ready');wait_until(lambda:data()['agent_info_details']['heading']=='Ready')
+        click(*settled_point(lambda d:d['agent_info_copy']));wait_until(lambda:data()['agent_launcher_clipboard_matches'])
+        assert data()['agent_info_details']['launcher']=='wb-codex'
+        capture('agent-details-ready.png');key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])
+        assert workspace_catalog.load(root)==info_catalog and sizes()==info_sizes and [p['instance'] for p in data()['panes']]==info_instances
+        assert [received(i) for i in range(6)]==info_inputs,'agent details or copying typed into a terminal'
+        hook('UserPromptSubmit','Working')
+        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+
         hook('PermissionRequest','Needs input');wait_until(lambda:any('Codex · Needs input' in label for label in data()['navigation_agent_labels']))
         capture('navigation-agent-needs.png')
         hook('UserPromptSubmit','Working');wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
         click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
+        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        background_selected=data()['selected'];background_workspace=data()['workspace']
+        click(*data()['navigation_agent_info']);wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
+        assert data()['selected']==background_selected and data()['workspace']==background_workspace,'inspecting a background agent navigated to it'
+        key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][background_selected]['focus'])
         click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'])
         key('super+alt+o');wait_until(lambda:data()['overview'])
@@ -1194,6 +1218,17 @@ while True:
         click(*data()['state_filter_button']);wait_until(lambda:not data()['needs_only'] and data()['overview_matches']==1)
         click(*data()['agent_filter_button']);wait_until(lambda:not data()['agents_only'] and data()['overview_matches']==14)
         key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][8]['focus'])
+        key('ctrl+c');wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='')
+        # Pi uses a new metadata subscription; older clients retain Unknown.
+        pi_fixture=root/'pi';shutil.copyfile('/usr/bin/sleep',pi_fixture);pi_fixture.chmod(0o700)
+        typed('sh -c '+shlex.quote('echo $$ > '+shlex.quote(str(root/'pi.pid'))+'; exec '+shlex.quote(str(pi_fixture))+' 120'));key('Return')
+        wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='Pi');wait_until((root/'pi.pid').exists)
+        click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+        click(*data()['agent_info_menu']);wait_until(lambda:data()['agent_info_open'] and not data()['layout_menu_open'])
+        assert data()['agent_info_details']['agent']=='Pi' and data()['agent_info_details']['launcher']=='wb-pi' and data()['agent_info_details']['heading']=='Status unknown'
+        key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])
+        key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('Agent details');key('Return');wait_until(lambda:data()['agent_info_open'])
+        key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])
         key('ctrl+c');wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='')
         typed('echo $$ > '+shlex.quote(str(root/'metadata-shell-after')));key('Return');wait_until((root/'metadata-shell-after').exists)
         assert (root/'metadata-shell-after').read_text()==(root/'metadata-shell-pid').read_text(),'metadata changed the shell owner'

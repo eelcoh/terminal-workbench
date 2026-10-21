@@ -69,6 +69,7 @@ def main():
         print(f"Building with Zig {ZIG_VERSION}: {binary}", flush=True)
         source, build = ROOT / ".local/ghostling-viewer", ROOT / (".local/build/viewer-wayland" if wayland else ".local/build/viewer")
         if runtime_only:
+            subprocess.run([sys.executable,str(ROOT / "scripts/prepare-agent-launchers.py")],cwd=ROOT,env=environment,check=True)
             subprocess.run([sys.executable,str(ROOT / "scripts/prepare-runtime-vt.py")],cwd=ROOT,env=environment,check=True)
             subprocess.run(["cargo","build","--locked","--bin","workbench-session"],cwd=ROOT,env=environment,check=True)
             return 0

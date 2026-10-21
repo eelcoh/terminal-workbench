@@ -18,6 +18,9 @@ pub(super) fn decode(bytes: &[u8]) -> Option<ProcessIdentity> {
     let argv_start = argv.iter().position(|byte| *byte != 0)?;
     let argv = &argv[argv_start..];
     let first_end = argv.iter().position(|byte| *byte == 0)?;
+    let invocation = Some(PathBuf::from(std::ffi::OsStr::from_bytes(
+        &argv[..first_end],
+    )));
     let script = if argc > 1 {
         let tail = argv.get(first_end + 1..)?;
         let end = tail.iter().position(|byte| *byte == 0)?;
@@ -25,7 +28,11 @@ pub(super) fn decode(bytes: &[u8]) -> Option<ProcessIdentity> {
     } else {
         None
     };
-    Some(ProcessIdentity { executable, script })
+    Some(ProcessIdentity {
+        executable,
+        script,
+        invocation,
+    })
 }
 
 #[cfg(test)]
@@ -41,6 +48,7 @@ mod tests {
             identity.script,
             Some(PathBuf::from("/pkg/@github/copilot/npm-loader.js"))
         );
+        assert_eq!(identity.invocation, Some(PathBuf::from("node")));
         assert!(decode(&[]).is_none());
         assert!(decode(&0i32.to_ne_bytes()).is_none());
         assert!(decode(&bytes[..10]).is_none());

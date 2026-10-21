@@ -10,6 +10,11 @@ import uuid
 COMMON = ('SessionStart', 'SessionEnd', 'UserPromptSubmit', 'PreToolUse', 'PermissionRequest', 'PostToolUse', 'Stop')
 
 def arguments(agent, tail):
+    if agent == 'pi':
+        extension = Path(__file__).resolve().parent.parent / '.local/integrations/pi/workbench.ts'
+        if not extension.is_file():
+            raise ValueError('Pi observers are missing; rebuild or install a current preview.')
+        return ['pi', '--extension', str(extension), *tail]
     if agent == 'copilot':
         plugin = Path(__file__).resolve().parent.parent / '.local/integrations/copilot'
         if not (plugin / 'hooks.json').is_file():
@@ -28,11 +33,11 @@ def arguments(agent, tail):
     return [*result, *tail]
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ('codex', 'claude', 'copilot'):
-        sys.exit('Usage: workbench-agent.py codex|claude|copilot [agent arguments...]')
+    if len(sys.argv) < 2 or sys.argv[1] not in ('codex', 'claude', 'copilot', 'pi'):
+        sys.exit('Usage: workbench-agent.py codex|claude|copilot|pi [agent arguments...]')
     if not os.environ.get('WORKBENCH_SESSION_SOCKET'):
-        sys.exit('Run wb-codex, wb-claude or wb-copilot inside a newly created Workbench terminal.')
-    environment = dict(os.environ, WORKBENCH_AGENT_GROUP=str(os.getpgrp()), WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
+        sys.exit('Run wb-codex, wb-claude, wb-copilot or wb-pi inside a newly created Workbench terminal.')
+    environment = dict(os.environ, WORKBENCH_AGENT_GROUP=str(os.getpgrp()), WORKBENCH_AGENT_RUN=uuid.uuid4().hex, WORKBENCH_AGENT_PID=str(os.getpid()))
     try:
         args = arguments(sys.argv[1], sys.argv[2:])
     except ValueError as error:

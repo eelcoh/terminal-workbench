@@ -84,11 +84,17 @@ Item {
                     tones: host.chrome; width: body.width; height: 86
                     padding: 10; selected: host.selected === modelData && !host.overview
                     hint: facts.agent + " · " + facts.state + " · " + space + " · " + facts.title
+                    ChromeButton {
+                        objectName: "navigationAgentInfo" + agentRow.index; z: 2
+                        anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
+                        tones: host.chrome; iconName: "info"; hint: "Agent details for " + agentRow.facts.agent
+                        onClicked: if (agentRow.pane) host.openAgentInfo(agentRow.pane.terminalId)
+                    }
                     contentItem: Column {
-                        spacing: 5
-                        Text { width: parent.width; text: agentRow.facts.agent + " · " + agentRow.facts.state; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 13; color: agentRow.facts.needs_input ? host.chrome.waiting : agentRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.foreground }
-                        Text { width: parent.width; text: agentRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: host.chrome.muted }
-                        Text { width: parent.width; text: agentRow.facts.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12; color: host.chrome.muted }
+                        rightPadding: 30; spacing: 5
+                        Text { width: parent.width - 30; text: agentRow.facts.agent + " · " + agentRow.facts.state; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 13; color: agentRow.facts.needs_input ? host.chrome.waiting : agentRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.foreground }
+                        Text { width: parent.width - 30; text: agentRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: host.chrome.muted }
+                        Text { width: parent.width - 30; text: agentRow.facts.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12; color: host.chrome.muted }
                     }
                     onClicked: host.chooseAgent(modelData)
                 }

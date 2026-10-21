@@ -88,13 +88,15 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
         # Every wrapper must find its copied script after relocation, preserve
         # arguments, and leave user agent policy untouched.
         commands=root/'commands';commands.mkdir()
-        for agent in ('codex','claude','copilot'):
+        for agent in ('codex','claude','copilot','pi'):
             command=commands/agent
             command.write_text('#!'+sys.executable+'\nimport json,sys\nprint(json.dumps(sys.argv[1:]))\n');command.chmod(0o755)
             result=subprocess.run([str(Path(agent_bin)/('wb-'+agent)),'a spaced argument'],cwd=outside,
                 env=dict(env,PATH=str(commands)+os.pathsep+env['PATH'],WORKBENCH_AGENT_BIN=agent_bin,WORKBENCH_SESSION_SOCKET=str(state/(terminal+'.sock'))),capture_output=True,text=True,check=True)
             arguments=json.loads(result.stdout);assert arguments[-1]=='a spaced argument'
             assert str(ROOT) not in result.stdout and str(initial) not in result.stdout
+            if agent=='pi':
+                extension=Path(arguments[1]);assert arguments[0]=='--extension' and extension.is_relative_to(moved) and extension.read_bytes()==(ROOT/'integrations/pi/workbench.ts').read_bytes()
             if agent=='copilot':
                 plugin=Path(arguments[1]);assert plugin.is_relative_to(moved)
                 hooks=json.loads((plugin/'hooks.json').read_text())

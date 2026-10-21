@@ -1568,5 +1568,23 @@ a terminal moving through its clip. Continuous gestures cross multiple full-widt
 panes without losing their receiver. The new native-event check reproduces the
 stall with the previous handler and passes with the fixed one. X11/Wayland
 coverage retains vertical scrolling, keyboard reveal, input and reader checks.
-The owner's broader Mac vertical/output sluggishness remains under investigation;
-this fix does not establish a cause for that report.
+The owner subsequently confirmed both scrolling and terminal-output responsiveness
+are restored after the fix; this acceptance supersedes the initial slowdown report.
+
+## Qt agent explanations and Pi validation
+
+The agent list now has a separate read-only details action, also available through
+Commands and each pane menu. Live identity and lifecycle explanations include
+honest Unknown/unavailable states, last-report limitations, and copyable optional
+launcher commands. Inspecting an agent preserves the current workspace, Overview
+filters, terminal ownership and shell input. The target follows stable identity.
+
+Linux Pi 1.3.0 recognition and an invocation-local `wb-pi` observer now add real
+Working/Ready/exit evidence. Pi uses final `agent_settled` for Ready; Needs input
+remains unsupported pending a verified signal. A separately named WAT3 feed
+keeps existing subscriptions' tag ranges unchanged and retains older-runtime
+fallback in Qt. The read-only trace selects advertised extended metadata.
+Model, runtime and native UI checks cover these boundaries. Native Mac panel
+review uses Copilot; Pi cancellation/resume/permission edge cases remain open.
+See [Pi validation](agent-validation.md#pi-on-linux--2026-10-21) and
+[Agent details](toolkit-ui-study.md#agent-details).

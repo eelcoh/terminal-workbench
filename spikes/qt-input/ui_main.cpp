@@ -2,6 +2,7 @@
 #include "terminal_item.h"
 #include "deployment_check.h"
 #include "ui_build_info.h"
+#include "ui_agent_info.h"
 #include "ui_configuration.h"
 #include "ui_workspace_appearance.h"
 #include "ui_startup_check.h"
@@ -89,6 +90,7 @@ int main(int argc,char **argv) {
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
     UiAppearance appearance(configuration["preferences"].toString(),apple,themes);
     UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance,apple);
+    UiAgentInfo agentInfo;
     UiWorkspaceAppearance workspaceAppearance(QDir(configuration["state"].toString()).filePath("qt/workspace-appearance"),!checking);
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QStringList startupWarnings;
@@ -100,6 +102,7 @@ int main(int argc,char **argv) {
     }
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studyBuild",&buildInfo);
+    engine.rootContext()->setContextProperty("studyAgentInfo",&agentInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
@@ -187,6 +190,10 @@ int main(int argc,char **argv) {
             const QJsonObject data{{"configuration_open",window->property("configurationOpen").toBool()},
                 {"creation_directory",settings.workspaceDirectory()},{"creation_width",settings.terminalWidth()},{"pane_widths",QJsonArray::fromVariantList(listProperty(window,"widths"))},{"workspace_appearance_error",workspaceAppearance.error()},{"workspace_appearance_directory",workspaceAppearance.directory()},{"configuration_error",settings.error()},{"configuration_status",settings.status()},
                 {"configuration_menu",center("configurationMenuItem")},{"configuration_reload",center("configurationReload")},{"configuration_close",center("configurationClose")},
+                {"agent_info_open",window->property("agentInfoOpen").toBool()},{"agent_info_target",window->property("agentInfoTarget").toString()},
+                {"agent_info_details",window->findChild<QObject *>("agentInformation") ? QJsonObject::fromVariantMap(window->findChild<QObject *>("agentInformation")->property("information").toMap()):QJsonObject()},
+                {"agent_info_copy",center("agentInfoCopy")},{"agent_info_menu",center("agentInfoMenuItem")},{"navigation_agent_info",center("navigationAgentInfo0")},
+                {"agent_launcher_clipboard_matches",QStringList{"wb-codex","wb-claude","wb-copilot","wb-pi"}.contains(QGuiApplication::clipboard()->text())},
                 {"about_open",window->property("aboutOpen").toBool()},
                 {"about_menu",center("aboutMenuItem")},{"about_copy",center("aboutCopy")},{"about_details",center("aboutDetails")},{"about_close",center("aboutClose")},
                 {"about_clipboard_matches",window->property("aboutOpen").toBool() && QGuiApplication::clipboard()->text()==buildInfo.diagnostics()},

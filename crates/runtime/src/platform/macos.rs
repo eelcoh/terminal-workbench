@@ -49,6 +49,7 @@ pub fn identity(group: i32) -> Option<ProcessIdentity> {
     Some(ProcessIdentity {
         executable,
         script: None,
+        invocation: None,
     })
 }
 

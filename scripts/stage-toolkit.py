@@ -53,13 +53,15 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         # Retain the helper layout expected by the session service. All launch
         # scripts resolve their own location; no generated checkout paths escape.
         agents=payload/'.local/bin';agents.mkdir(parents=True)
-        for agent in ('codex','claude','copilot'):
+        for agent in ('codex','claude','copilot','pi'):
             wrapper=agents/('wb-'+agent)
             wrapper.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/workbench-agent.py" '+agent+' "$@"\n')
             wrapper.chmod(0o755)
         hook=agents/'wb-agent-hook'
         hook.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/agent-hook.py" "$@"\n')
         hook.chmod(0o755)
+        pi=payload/'.local/integrations/pi';pi.mkdir(parents=True)
+        shutil.copy2(ROOT/'integrations/pi/workbench.ts',pi/'workbench.ts')
         plugin=payload/'.local/integrations/copilot';plugin.mkdir(parents=True)
         # These hooks run inside a Workbench shell with WORKBENCH_AGENT_BIN set
         # by the runtime, so the plugin stays valid after relocating the preview.

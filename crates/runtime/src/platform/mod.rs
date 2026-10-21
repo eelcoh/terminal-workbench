@@ -27,6 +27,7 @@ mod macos_path;
 pub struct ProcessIdentity {
     pub executable: std::path::PathBuf,
     pub script: Option<std::path::PathBuf>,
+    pub invocation: Option<std::path::PathBuf>,
 }
 
 pub fn identity(group: Option<i32>) -> Option<ProcessIdentity> {

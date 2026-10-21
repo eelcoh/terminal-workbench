@@ -193,6 +193,20 @@ ApplicationWindow {
     WorkbenchActions { id: commandRegistry; host: window; session: studySession }
     readonly property bool shortcutSettingsOpen: shortcutSettings.visible
     readonly property bool shortcutRecording: shortcutSettings.recordingActive
+    property string agentInfoTarget: ""
+    property bool pendingAgentInfo: false
+    readonly property bool agentInfoOpen: agentInformation.visible
+    readonly property var agentInfoPane: { const revision = catalogRevision; const i = identityIndex(agentInfoTarget); return i >= 0 ? panel(i) : null }
+    function openAgentInfo(identity) {
+        if (identityIndex(identity) < 0 || agentInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || fontSettings.visible || shortcutSettings.visible || configurationDialog.visible || about.visible || help.visible) return
+        agentInfoTarget = identity
+        if (drawer.visible || paneMenu.visible || appMenu.visible) {
+            pendingAgentInfo = true
+            if (drawer.visible) drawer.close()
+            if (paneMenu.visible) paneMenu.close()
+            if (appMenu.visible) appMenu.close()
+        } else Qt.callLater(function() { if (identityIndex(agentInfoTarget) >= 0) agentInformation.open() })
+    }
     property bool pendingShortcutSettings: false
     function openShortcutSettings() {
         if (shortcutSettings.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible || fontSettings.visible || drawer.visible || paneMenu.visible) return
@@ -216,7 +230,7 @@ ApplicationWindow {
     readonly property int commandCurrent: commands.currentResult
     readonly property var commandMatches: commands.matches
     function openCommands() {
-        if (terminalAction.visible || createDialog.visible || appearance.visible || configurationDialog.visible || help.visible || drawer.visible || paneMenu.visible || shortcutSettings.visible || fontSettings.visible || commands.visible || dragSlot >= 0) return
+        if (agentInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || configurationDialog.visible || help.visible || drawer.visible || paneMenu.visible || shortcutSettings.visible || fontSettings.visible || commands.visible || dragSlot >= 0) return
         if (appMenu.visible) { pendingCommands = true; appMenu.close() }
         else showCommands()
     }
@@ -229,6 +243,7 @@ ApplicationWindow {
         const entry = commandRegistry.find(id)
         if (!entry || !entry.available) return
         switch (id) {
+        case "agent-info": openAgentInfo(terminalModel.get(selected).terminalId); break
         case "terminal-search": openTerminalSearch(); break
         case "commands": openCommands(); break
         case "shortcut-settings": openShortcutSettings(); break
@@ -375,6 +390,7 @@ ApplicationWindow {
         remembered = focus; positions = scroll
         selected = identityIndex(selectedId)
         if (selected < 0) { workspace = ids.indexOf(oldWorkspaceId) >= 0 ? ids.indexOf(oldWorkspaceId) : Math.max(0, Math.min(oldWorkspace, names.length - 1)); selected = focus[workspace] ?? -1 }
+        if (agentInformation.visible && identityIndex(agentInfoTarget) < 0) agentInformation.close()
         Qt.callLater(syncItems)
         if (selected >= 0) {
             workspace = terminalModel.get(selected).spaceIndex
@@ -464,6 +480,7 @@ ApplicationWindow {
     property bool pendingForward: false
     readonly property bool forwardingArmed: selected >= 0 && panel(selected) !== null && panel(selected).terminal.forwardingArmed
     function restoreAfterPopup() {
+        if (pendingAgentInfo) { pendingAgentInfo = false; Qt.callLater(function() { if (identityIndex(agentInfoTarget) >= 0) agentInformation.open() }); return }
         if (pendingSearch) { pendingSearch = false; Qt.callLater(showTerminalSearch); return }
         if (pendingTerminalAction) { pendingTerminalAction = false; Qt.callLater(function() { if (actionExists()) terminalAction.open() }); return }
         if (pendingForward) { pendingForward = false; Qt.callLater(function() { window.dispatchCommand("forward") }); return }
@@ -477,7 +494,7 @@ ApplicationWindow {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -567,7 +584,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -978,7 +995,9 @@ ApplicationWindow {
     ChromeMenu {
         tones: window.chrome
         id: paneMenu
-        onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+        onClosed: window.restoreAfterPopup()
+        MenuAction { objectName: "agentInfoMenuItem"; text: "Agent details…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0; onTriggered: window.openAgentInfo(window.paneMenuTarget) }
+        MenuRule {}
         MenuAction { objectName: "terminalCloseMenuItem"; text: "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.requestTerminalAction(window.paneMenuTarget, "close") }
         MenuRule {}
         MenuAction { text: "Cycle width"; onTriggered: window.dispatchCommand("cycle-width") }
@@ -1150,6 +1169,12 @@ ApplicationWindow {
     }
     Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible || appearance.visible || createDialog.visible }
     readonly property bool configurationOpen: configurationDialog.visible
+    AgentInformation {
+        id: agentInformation; objectName: "agentInformation"; anchors.centerIn: parent; tones: window.chrome; model: studyAgentInfo
+        facts: window.agentInfoPane ? window.agentInfoPane.facts : ({})
+        contextLabel: window.agentInfoPane ? window.spaces[window.agentInfoPane.spaceIndex] + " · " + window.agentInfoPane.facts.title : "Terminal unavailable"
+        onClosed: Qt.callLater(window.restoreAfterPopup)
+    }
     Configuration {
         id: configurationDialog; anchors.centerIn: parent; tones: window.chrome; settings: studyConfiguration
         navigationInherited: window.navigationOverride === null; motionInherited: window.motionOverride === null
@@ -1189,7 +1214,7 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     function activateShortcut(id) {
         // Boundary navigation still reveals/focuses the selected pane after scrolling.
         if (id === "previous-terminal") navigate(-1)
@@ -1212,7 +1237,7 @@ ApplicationWindow {
             }
         }
     }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

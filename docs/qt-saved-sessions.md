@@ -22,8 +22,8 @@ Current limits:
 
 - Workspace organization and live processes persist in the service. Qt window
   layout, focus, filters and workspace colors now persist in separate leased
-  view profiles, described below. Theme edits are local to that view profile;
-  this slice does not broadcast appearance changes to peer windows.
+  view profiles, described below. Applied workspace palettes now synchronize across session windows; preview/Cancel
+  remains local. See [shared workspace palettes](dotfiles.md#qt-workspace-palettes-across-windows).
 - Font defaults and application shortcuts already use the separate user config
   directory. They do not move into the session catalog.
 - Workspace changes made in another window update automatically.

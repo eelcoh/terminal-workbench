@@ -42,6 +42,9 @@ def inspect(entry):
     result = dict(workspace=workspace['name'], terminal=terminal['name'], id=terminal['id'])
     for field, command, framed in [('runtime',b'CAPS\n',False),('identity',b'INFO\n',False),('viewer_metadata',b'WAT2\n',True)]:
         try:
+            capabilities = result.get('runtime',{}).get('capabilities',[])
+            if field == 'viewer_metadata' and isinstance(capabilities,list) and 'agent-watch-v3' in capabilities:
+                command = b'WAT3\n'
             result[field] = read_reply(path, command, framed)
         except (OSError, ValueError) as error:
             result[field] = {'unavailable':str(error)}
