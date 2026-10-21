@@ -28,7 +28,7 @@ ApplicationWindow {
         for (let w = 0; w < spaceIds.length; ++w) {
             const focus = remembered[w], validFocus = indices(w).indexOf(focus) >= 0
             const x = !overview && w === workspace ? deck.contentX : (positions[w] || 0)
-            workspaces[spaceIds[w]] = {focus: validFocus ? terminalModel.get(focus).terminalId : "", x: Math.max(0,x), theme: studyThemes.snapshot(workspaceThemes[w] || 0)}
+            workspaces[spaceIds[w]] = {focus: validFocus ? terminalModel.get(focus).terminalId : "", x: Math.max(0,x), theme: studyThemes.snapshot(effectiveTheme(w)), theme_default: (workspaceThemes[w] ?? -1) < 0}
         }
         for (let i = 0; i < terminalModel.count; ++i) terminals[terminalModel.get(i).terminalId] = {width: widths[i] || 0.5, full: fullWidths[i] || false}
         return {version: 1, window: {width: Math.max(680,Math.min(16384,Math.round(width))), height: Math.max(440,Math.min(16384,Math.round(height)))},
@@ -51,9 +51,9 @@ ApplicationWindow {
             const value = saved.workspaces[spaceIds[w]], items = indices(w)
             const candidate = value ? identityIndex(value.focus) : -1
             focus.push(items.indexOf(candidate) >= 0 ? candidate : (items[0] ?? -1)); scroll.push(value ? value.x : 0)
-            const theme = value ? studyThemes.restoreSnapshot(value.theme) : 0
-            themes.push(Math.max(0,theme))
-            if (theme < 0) studyView.invalidate("A saved workspace theme is invalid. Using default colors; view file left untouched.")
+            const theme = value ? (value.theme_default === true ? -1 : studyThemes.restoreSnapshot(value.theme)) : -1
+            themes.push(theme)
+            if (theme < 0 && value && value.theme_default !== true) studyView.invalidate("A saved workspace theme is invalid. Using default colors; view file left untouched.")
         }
         workspaceThemes = themes; remembered = focus; positions = scroll
         workspace = Math.max(0,spaceIds.indexOf(saved.workspace)); selected = identityIndex(saved.terminal)
@@ -267,6 +267,7 @@ ApplicationWindow {
     property var workspaceThemes: []
     property string appearanceWorkspace: ""
     property int previewTheme: 0
+    property bool previewDefault: true
     readonly property bool appearanceOpen: appearance.visible
     readonly property bool themeHelpOpen: appearance.helpOpen
     readonly property bool applicationMenuOpen: appMenu.visible
@@ -274,7 +275,8 @@ ApplicationWindow {
     readonly property bool themeSearchFocus: appearance.searchFocused
     readonly property int themeMatchCount: appearance.matches.length
     readonly property var chrome: studyThemes.theme(themeIndexFor(workspace))
-    function themeIndexFor(space) { return appearance.visible && spaceIds[space] === appearanceWorkspace ? previewTheme : (workspaceThemes[space] || 0) }
+    function effectiveTheme(space) { const index = workspaceThemes[space] ?? -1; return index < 0 ? studyConfiguration.themeIndex : index }
+    function themeIndexFor(space) { return appearance.visible && spaceIds[space] === appearanceWorkspace ? previewTheme : effectiveTheme(space) }
     function openAppearance() {
         if (spaces.length === 0 || terminalAction.visible || overview || createDialog.visible || appearance.visible) return
         if (appMenu.visible) { pendingAppearance = true; appMenu.close() }
@@ -283,7 +285,7 @@ ApplicationWindow {
     function showAppearance() {
         if (spaces.length === 0) return
         studyThemes.reloadDirectory()
-        appearanceWorkspace = spaceIds[workspace]; previewTheme = workspaceThemes[workspace] || 0; appearance.open()
+        appearanceWorkspace = spaceIds[workspace]; previewTheme = effectiveTheme(workspace); previewDefault = (workspaceThemes[workspace] ?? -1) < 0; appearance.open()
     }
     property var widths: []
     property var fullWidths: []
@@ -311,7 +313,7 @@ ApplicationWindow {
         let previous = {}
         for (let w = 0; w < spaceIds.length; ++w) {
             const i = remembered[w]
-            previous[spaceIds[w]] = {focus: i >= 0 && i < terminalModel.count ? terminalModel.get(i).terminalId : "", x: positions[w] || 0, theme: workspaceThemes[w] || 0}
+            previous[spaceIds[w]] = {focus: i >= 0 && i < terminalModel.count ? terminalModel.get(i).terminalId : "", x: positions[w] || 0, theme: workspaceThemes[w] ?? -1}
         }
         let incoming = []
         for (let space of catalog.workspaces) for (let terminal of space.terminals) incoming.push(terminal.id)
@@ -328,7 +330,7 @@ ApplicationWindow {
             const space = catalog.workspaces[w]
             names.push(space.name); ids.push(space.id); folders.push(space.directory || studySession.defaultDirectory); totals.push(space.terminals.length)
             const retained = previous[space.id]
-            focus.push(retained ? identityIndex(retained.focus) : -1); scroll.push(retained ? retained.x : 0); themes.push(retained ? retained.theme : 0)
+            focus.push(retained ? identityIndex(retained.focus) : -1); scroll.push(retained ? retained.x : 0); themes.push(retained ? retained.theme : -1)
             for (let j = 0; j < space.terminals.length; ++j) {
                 const terminal = space.terminals[j]
                 let existing = -1
@@ -980,10 +982,13 @@ ApplicationWindow {
         onFolderRequested: studyThemes.openThemesDirectory()
         catalog: studyThemes.catalog; themeIndex: window.previewTheme
         workspaceName: window.spaces[window.spaceIds.indexOf(window.appearanceWorkspace)] || ""
-        onPreviewSelected: index => window.previewTheme = index
+        onPreviewSelected: index => { window.previewTheme = index; window.previewDefault = false }
+        followsDefault: window.previewDefault
+        defaultName: studyThemes.theme(studyConfiguration.themeIndex).name
+        onDefaultRequested: { window.previewTheme = studyConfiguration.themeIndex; window.previewDefault = true }
         onApplySelected: {
             const space = window.spaceIds.indexOf(window.appearanceWorkspace)
-            if (space >= 0) { let themes = window.workspaceThemes.slice(); themes[space] = window.previewTheme; window.workspaceThemes = themes }
+            if (space >= 0) { let themes = window.workspaceThemes.slice(); themes[space] = window.previewDefault ? -1 : window.previewTheme; window.workspaceThemes = themes }
             close()
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
@@ -1112,7 +1117,7 @@ ApplicationWindow {
         tones: window.chrome; preferences: studyShortcuts; actions: commandRegistry.entries
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible }
+    Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible || appearance.visible }
     readonly property bool configurationOpen: configurationDialog.visible
     Configuration {
         id: configurationDialog; anchors.centerIn: parent; tones: window.chrome; settings: studyConfiguration

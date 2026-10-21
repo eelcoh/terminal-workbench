@@ -1,6 +1,12 @@
 /* Reuse the original bounded Ghostty parser and attributed offline catalog. */
 #include "theme_bridge.h"
-#include "../ghostling/theme_catalog.h"
+#include "../ghostling/portable_config.h"
+bool workbench_theme_default_source(const char *path,bool apple,char *source,size_t length,char *error,size_t capacity) {
+    PortableConfig config;
+    if(!portable_read_with_theme_files(path,apple,false,&config,error,capacity))return false;
+    if(snprintf(source,length,"%s",config.terminal_source)>=(int)length)return false;
+    return true;
+}
 #define IMPORT_CAPACITY 512
 /* GUI-thread registration, immutable slots; no parsing or allocation during paint. */
 static WorkbenchTheme imports[IMPORT_CAPACITY];

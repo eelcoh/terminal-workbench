@@ -10,6 +10,7 @@ typedef struct {
     WorkbenchThemeColor background,foreground,cursor,selection_background,selection_foreground;
     WorkbenchThemeColor palette[256];bool light;
 } WorkbenchTheme;
+bool workbench_theme_default_source(const char *path,bool apple,char *source,size_t length,char *error,size_t capacity);
 int workbench_theme_count(void);
 int workbench_theme_builtin_count(void);
 bool workbench_theme_parse(const char *text,WorkbenchTheme *result,int *ignored,char *error,size_t capacity);

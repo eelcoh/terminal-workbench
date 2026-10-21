@@ -2,8 +2,8 @@
 
 Workbench can load shared appearance, terminal-font and shortcut settings outside the source
 checkout. It reads your managed file and writes UI edits to separate files.
-Shell dotfile installation, arbitrary installed fonts, workspace defaults and live reload
-are follow-up work.
+Shell dotfile installation, arbitrary installed fonts and workspace creation
+defaults are follow-up work. Qt live configuration is described below.
 
 ## Getting started
 
@@ -159,16 +159,17 @@ Native Mac filesystem and keyboard review remains pending.
 
 `just toolkit-ui` reads managed shared/platform font defaults and supported
 application shortcuts. The adapters validate existing field syntax and shortcut
-rules, with defaults and a visible notice when invalid. They do not resolve unused
-appearance files, so a missing or malformed theme cannot discard valid fonts or
-bindings. The working viewer retains full theme validation.
+rules, with defaults and a visible notice when invalid. Font and shortcut adapters
+ignore unused appearance assets. The Qt workspace theme adapter reads only
+`terminal-theme`; legacy `application-theme` and `follow-workspace` fields stay
+syntax-checked but do not introduce additional color layers. Qt chrome follows
+the workspace palette.
 
 Terminal text settings preview changes across the window; Apply saves sparse
 platform UI font defaults in `ui/<platform>/terminal-font.json`. Cancel leaves
 the saved defaults untouched. Qt application shortcuts load the existing
 platform `ui/` layer and their editor saves sparse overrides there, preserving
-managed files. Managed appearance and per-session font restoration remain
-follow-ups. See
+managed files. Per-session font restoration remains a follow-up. See
 [Qt fonts](terminal-fonts.md#qt-candidate-terminal-text-and-dotfile-defaults) and
 [Qt shortcut scope](shortcuts.md#qt-candidate-managed-application-shortcuts).
 
@@ -197,15 +198,16 @@ the panel shows the managed file and UI override destinations, opens their folde
 and provides Reload. Commands also offers **Reload configuration**.
 
 Shared/platform rules and sparse UI precedence stay the same. A reload prepares
-both complete font and shortcut candidates before publishing either. Malformed
+complete font, shortcut and workspace-theme candidates before publishing any. Malformed
 managed data, invalid UI overrides or conflicting shortcuts keep the last valid
 maps and show a reload error. Repairing the files retries automatically; manual
 Reload is available too. Deleting a UI override restores managed inheritance.
-Unused appearance files do not block these font/shortcut reads.
+An unreadable or malformed selected `terminal-theme` also rejects the complete
+live update. Legacy application-theme files are unused and are never opened.
 
 File and parent-directory notifications are debounced outside terminal paint,
 parse and presentation loops. Atomic file replacement and managed-file symlink
-retargeting are followed. While Terminal text or Shortcut settings is open,
+retargeting are followed. While Appearance, Terminal text or Shortcut settings is open,
 external updates wait so the editor keeps its draft. Existing stale-save checks
 still reject Apply after an external change; close the editor to accept the new
 valid files. Reload never writes the managed file, comments, symlink or UI layers.
@@ -214,8 +216,8 @@ Saved font/shortcut edits now propagate to other open Qt windows. A local,
 temporary font-size shortcut stays local when persisted font values did not
 change; changing the saved font choice updates all those windows. Existing
 workspace themes, session organization, terminal identities and ownership are
-independent of reload. Appearance defaults, workspace creation defaults and
-per-session font restoration remain separate follow-ups. This behavior applies
+independent of reload. Workspace creation defaults and per-session font
+restoration remain separate follow-ups. This behavior applies
 to the Qt candidate; the earlier sections retain the `just spike` behavior.
 
 Validation: `just toolkit-configuration-test` covers transactions, peer updates,
@@ -234,3 +236,42 @@ use **Use dotfile defaults → Apply** when testing managed font inheritance. A
 malformed file should produce a notice while retaining the previous working
 font and chords; repairing it should recover. Leave Terminal text open while
 editing the file to check that its draft survives until you close the dialog.
+
+
+## Qt workspace appearance defaults
+
+`[appearance] terminal-theme` sets the palette inherited by workspaces without
+an explicit choice. `[macos.appearance]` and `[linux.appearance]` override it.
+A bundled name or a Ghostty file path works; relative paths resolve beside
+`config.conf`, including TerminalColors `.default` downloads:
+
+```text
+workbench-config-v1
+[appearance]
+terminal-theme = themes/miasma-default
+[macos.appearance]
+terminal-theme = Workbench Dawn
+```
+
+Only the active platform's selected file is read. File replacement, deletion,
+repair and symlink retargeting participate in the same automatic reload as
+fonts and shortcuts. A missing or invalid selected file keeps the last working
+configuration and shows a diagnostic. Startup uses built-in workspace colors
+when the selected file cannot load. Reload never restarts shells or executes
+non-color Ghostty settings.
+
+Appearance shows **Use default** and the configured palette name. This previews
+inheritance for the selected workspace; **Apply** saves it and **Cancel** keeps
+the previous choice. Selecting a palette and applying it saves an explicit,
+immutable workspace snapshot. Explicit choices keep their colors when managed
+files change or disappear. Inheriting workspaces follow future default edits,
+including after a window restart. Existing saved workspace snapshots remain
+explicit to preserve their previous appearance; use **Use default → Apply** to
+opt them in. New workspaces inherit automatically.
+
+Validation: `just toolkit-configuration-test` covers builtin/platform selection,
+custom-file notifications, invalid-file retention and transaction rollback,
+preview deferral and immutable slot reuse. `just toolkit-view-state-test` covers
+backward-compatible, typed inheritance persistence. `just toolkit-ui-test`
+checks real X11/Wayland terminals, Apply/Cancel, inherited versus explicit
+palettes, live edits and restore. Native Mac acceptance remains manual.

@@ -13,6 +13,7 @@ typedef struct {
 } PortableLayer;
 typedef struct {
     Theme application,terminal;
+    char terminal_source[1024];
     FontPreferences font;
     bool has_application,has_terminal,has_follow,follow;
     ShortcutState shortcuts;
@@ -90,6 +91,7 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
     PortableLayer *platform=&layers[apple ? 2 : 1];
     const char *application=platform->seen_application ? platform->application : layers[0].application;
     const char *terminal=platform->seen_terminal ? platform->terminal : layers[0].terminal;
+    snprintf(next.terminal_source,sizeof(next.terminal_source),"%s",terminal);
     next.has_application=load_theme_files && *application;next.has_terminal=load_theme_files && *terminal;
     if ((next.has_application && !portable_theme(path,application,&next.application,error,capacity))
         || (next.has_terminal && !portable_theme(path,terminal,&next.terminal,error,capacity))) return false;

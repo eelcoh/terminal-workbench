@@ -37,6 +37,8 @@ public:
     Q_INVOKABLE void cancelImport();
     Q_INVOKABLE void clearError();
     static QUrl downloadUrl(const QString &source);
+    int registerColors(const QString &name,const QByteArray &text,const QString &source);
+    static bool parse(const QByteArray &text,WorkbenchTheme &theme,int &ignored,QString &error);
 Q_SIGNALS:
     void changed();
     void catalogChanged();
@@ -46,11 +48,11 @@ private:
     void collect();
     void finish(const QByteArray &text,const QString &source,const QString &name,const QString &attribution);
     void fail(const QString &error);
-    static bool parse(const QByteArray &text,WorkbenchTheme &theme,int &ignored,QString &error);
     mutable QHash<int,QVariantMap> snapshots_;
     QString themesPath_,directoryStatus_;QHash<QString,int> directoryIndices_;
     QString directory_,error_,storeError_,status_,pendingSource_,pendingName_,pendingAttribution_;
     QVector<StoredTheme> records_;
+    QHash<QString,int> managedIndices_;
     QVariantList catalog_;QHash<int,QVariantMap> lookup_;QVector<int> importIndices_;
     QNetworkAccessManager *network_;QPointer<QNetworkReply> reply_;QByteArray download_;QTimer deadline_;bool busy_=false;
 };

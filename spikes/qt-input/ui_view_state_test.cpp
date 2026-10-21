@@ -22,6 +22,9 @@ int main(int argc,char **argv){
     auto pinned=state;pinned["navigation_pinned"]=true;check(UiViewState::valid(pinned),"optional pin preference accepts old profiles");
     const auto pinnedPath=dir.filePath("pinned.json");UiViewState pinStore(pinnedPath);check(pinStore.save(pinned),"pin preference save");UiViewState pinRestore(pinnedPath);check(pinRestore.initial()==pinned,"pin preference roundtrip");
     pinned["navigation_pinned"]="true";check(!UiViewState::valid(pinned),"pin preference stays typed");
+    auto inherited=state;auto spaces=inherited["workspaces"].toMap();auto workspace=spaces["w2"].toMap();workspace["theme_default"]=true;spaces["w2"]=workspace;inherited["workspaces"]=spaces;
+    const auto defaultPath=dir.filePath("default-theme.json");UiViewState defaults(defaultPath);check(defaults.save(inherited),"default inheritance marker save");UiViewState defaultRestore(defaultPath);check(defaultRestore.initial()==inherited,"default inheritance survives restart with fallback snapshot");
+    workspace["theme_default"]="true";spaces["w2"]=workspace;inherited["workspaces"]=spaces;check(!UiViewState::valid(inherited),"inheritance marker stays typed");
     auto invalid=state;invalid["version"]=2;check(!UiViewState::valid(invalid),"future version rejected");
     invalid=state;invalid["overview"]="true";check(!UiViewState::valid(invalid),"filter booleans stay typed");
     invalid=state;invalid["window"]=QVariantMap{{"width",40000},{"height",760}};check(!UiViewState::valid(invalid),"geometry bounded");

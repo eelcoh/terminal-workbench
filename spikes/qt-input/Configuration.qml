@@ -26,7 +26,7 @@ Dialog {
                     TextEdit { width: parent.width; height: contentHeight; text: modelData.path || "Not configured"; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; textFormat: TextEdit.PlainText; color: popup.tones.muted; font.pixelSize: 12 }
                 }
             }
-            Label { text: "Fonts and shortcuts follow file changes. Open editors keep their drafts."; width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 13; color: popup.tones.muted }
+            Label { text: "Fonts, shortcuts and the workspace default theme follow file changes. Workspaces with a chosen theme keep their colors. Open editors keep their drafts."; width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 13; color: popup.tones.muted }
             Label { objectName: "configurationStatus"; text: popup.settings.error || popup.settings.status; width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; font.pixelSize: 13; color: popup.settings.error.length ? popup.tones.waiting : popup.tones.foreground }
         }
     }

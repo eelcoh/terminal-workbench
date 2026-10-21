@@ -5,6 +5,9 @@ Dialog {
     objectName: "appearanceDialog"
     property var catalog: []
     property int themeIndex: 0
+    property bool followsDefault: false
+    property string defaultName: ""
+    signal defaultRequested()
     property string workspaceName: ""
     property int mode: 0
     property bool preparing: false
@@ -146,11 +149,13 @@ Dialog {
         }
     }
     footer: Item {
-        implicitHeight: 56
+        implicitHeight: 92
+        ActionButton { objectName: "workspaceThemeDefault"; x: 20; y: 0; text: picker.followsDefault ? "Using default" : "Use default"; enabled: !picker.followsDefault; onClicked: picker.defaultRequested() }
+        Label { x: 132; y: 10; width: parent.width - 152; text: picker.defaultName; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: "#9caabd" }
         Row {
-            anchors.right: parent.right; anchors.rightMargin: 20; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+            anchors.right: parent.right; anchors.rightMargin: 20; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; spacing: 8
             ActionButton { text: "Cancel"; onClicked: picker.close() }
-            ActionButton { text: "Apply"; primary: true; onClicked: picker.applySelected() }
+            ActionButton { objectName: "workspaceThemeApply"; text: "Apply"; primary: true; onClicked: picker.applySelected() }
         }
     }
 }

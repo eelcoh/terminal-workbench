@@ -85,8 +85,9 @@ int main(int argc,char **argv) {
     UiShortcuts shortcuts(configuration["preferences"].toString(),apple,nullptr,configuration["shortcut_overrides"].toString());
     if(!shortcuts.error().isEmpty())std::fprintf(stderr,"Qt UI shortcut settings: %s\n",qPrintable(shortcuts.error()));
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
-    UiConfiguration settings(fonts,shortcuts,!checking);
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
+    UiAppearance appearance(configuration["preferences"].toString(),apple,themes);
+    UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance);
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QStringList startupWarnings;
     QQmlApplicationEngine engine;
@@ -229,7 +230,7 @@ int main(int argc,char **argv) {
                 {"layout_menu_open",window->property("layoutMenuOpen").toBool()},
                 {"move_right_item",center("moveRightMenuItem")},
                 {"theme_search_focus",window->property("themeSearchFocus").toBool()},
-                {"theme_search_field",center("themeSearch")},{"theme_help_button",center("themeHelpButton")},{"theme_help_open",window->property("themeHelpOpen").toBool()},
+                {"theme_apply_button",center("workspaceThemeApply")},{"theme_default_button",center("workspaceThemeDefault")},{"theme_default_index",settings.themeIndex()},{"workspace_themes",QJsonArray::fromVariantList(listProperty(window,"workspaceThemes"))},{"theme_search_field",center("themeSearch")},{"theme_help_button",center("themeHelpButton")},{"theme_help_open",window->property("themeHelpOpen").toBool()},
                 {"theme_matches",window->property("themeMatchCount").toInt()},
                 {"theme_directory",themes.themesPath()},{"theme_directory_status",themes.directoryStatus()},{"theme_catalog_count",themes.catalog().size()},
                 {"chrome_background",window->color().name()},

@@ -24,7 +24,8 @@ bool UiViewState::valid(const QVariantMap &state){
     if(!number(root["overview_y"],0,1e7) || !root["workspaces"].isObject() || !root["terminals"].isObject())return false;
     const auto workspaces=root["workspaces"].toObject(),terminals=root["terminals"].toObject();if(workspaces.size()>8 || terminals.size()>64)return false;
     for(auto it=workspaces.begin();it!=workspaces.end();++it){
-        const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"focus","x","theme"}) || !value["focus"].isString() || !identity(value["focus"].toString()) || !number(value["x"],0,1e7) || !value["theme"].isObject())return false;
+        const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"focus","x","theme","theme_default"}) || !value["focus"].isString() || !identity(value["focus"].toString()) || !number(value["x"],0,1e7) || !value["theme"].isObject())return false;
+        if(value.contains("theme_default") && !value["theme_default"].isBool())return false;
         const auto theme=value["theme"].toObject();if(!keys(theme,{"name","colors","source","attribution"}))return false;
         for(const auto &key:{"name","colors","source","attribution"})if(!theme[key].isString())return false;
         if(theme["name"].toString().isEmpty() || theme["name"].toString().toUtf8().size()>120 || theme["colors"].toString().toUtf8().size()>65536 || theme["source"].toString().size()>2048 || theme["attribution"].toString().size()>1024)return false;

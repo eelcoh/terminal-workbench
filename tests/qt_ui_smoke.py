@@ -55,7 +55,7 @@ while True:
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
-        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = missing-terminal-theme\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
+        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = Workbench Night\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
         config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'view_state':str(root/'qt-view.json'),'catalog_updates':True,'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
@@ -141,6 +141,19 @@ while True:
             else:cmd('mousemove','--window',window,int(x),int(y))
         def button(action):
             (host if wayland else cmd)(action,1)
+        def settled_point(read):
+            # State notifications can precede Qt Quick's next layout polish.
+            # Require the same target in two distinct reports before clicking
+            # beside labels whose widths just changed (Copy/Checking status).
+            previous=None
+            def stable():
+                nonlocal previous
+                point=read(data());stamp=report.stat().st_mtime_ns
+                current=(stamp,point)
+                ready=point and previous and stamp!=previous[0] and point==previous[1]
+                previous=current
+                return point if ready else None
+            return wait_until(stable)
         def click(x,y,button=1):
             move(x,y);(host if wayland else cmd)('click',button)
         def show_preview(slot):
@@ -221,7 +234,7 @@ while True:
         click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
         click(*data()['about_menu']);wait_until(lambda:data()['about_open'] and not data()['application_menu_open'])
         click(*data()['about_copy']);wait_until(lambda:data()['about_clipboard_matches'])
-        click(*data()['about_details']);wait_until(lambda:data()['about_details_ready']);time.sleep(.2);capture('about-details.png')
+        click(*settled_point(lambda d:d['about_details']));wait_until(lambda:data()['about_details_ready']);time.sleep(.2);capture('about-details.png')
         raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==0,'About leaked navigation shortcut'
         key('Escape');wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
         key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('About Terminal Workbench')
@@ -246,6 +259,12 @@ while True:
         raw_key('F11');wait_until(lambda:data()['commands_open']);typed('Reload configuration')
         wait_until(lambda:len(data()['command_matches'])==1 and data()['command_matches'][0]['id']=='configuration-reload')
         key('Return');wait_until(lambda:not data()['commands_open'] and data()['panes'][0]['focus'])
+        appearance_config=changed_config.replace(b'terminal-theme = Workbench Night',b'terminal-theme = Workbench Dawn')
+        managed.write_bytes(appearance_config)
+        wait_until(lambda:data()['chrome_background']=='#f4f1eb' and all(p['theme']==1 for p in data()['panes']))
+        managed.write_bytes(changed_config.replace(b'terminal-theme = Workbench Night',b'terminal-theme = nonexistent.default').replace(b'size = 18',b'size = 21'))
+        wait_until(lambda:bool(data()['configuration_error']))
+        assert data()['chrome_background']=='#f4f1eb' and data()['font_preferences']['size']==18,'missing theme partially applied configuration'
         managed.write_text('broken configuration\n')
         wait_until(lambda:bool(data()['configuration_error']))
         assert data()['font_preferences']['size']==18 and data()['shortcut_sequences']['commands']=='F11','invalid reload discarded last valid preferences'
@@ -709,6 +728,18 @@ while True:
         wait_until(lambda:not data()['appearance_open'] and data()['panes'][4]['focus'])
         assert theme_state(2,'#282a36','#ff5555') and sizes()==theme_sizes
         assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'appearance mutated runtime organization'
+        # Returning to the managed default is a draft until Apply; explicit
+        # project themes stay unchanged when the managed default changes.
+        appearance();click(*data()['theme_default_button']);wait_until(lambda:theme_state(0,'#15191f','#e49b9b'))
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
+        appearance();click(*data()['theme_default_button']);click(*data()['theme_apply_button'])
+        wait_until(lambda:not data()['appearance_open'] and theme_state(0,'#15191f','#e49b9b') and data()['workspace_themes'][1]==-1)
+        managed.write_bytes(managed_bytes.replace(b'terminal-theme = Workbench Night',b'terminal-theme = Workbench Dawn'))
+        wait_until(lambda:theme_state(1,'#f4f1eb','#a93f4a') and all(p['theme']==1 for p in data()['panes'][:3]))
+        appearance();typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
+        managed.write_bytes(managed_bytes)
+        wait_until(lambda:data()['theme_default_index']==0 and all(p['theme']==0 for p in data()['panes'][:3]))
+        assert theme_state(2,'#282a36','#ff5555'),'managed reload overwrote explicit workspace theme'
         appearance();typed('no-theme-matches-this');wait_until(lambda:data()['theme_matches']==0);capture('theme-no-results.png');key('Escape')
         wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
         # Drop a TerminalColors .default file; opening Appearance discovers it.
@@ -750,6 +781,11 @@ while True:
         wait_until(lambda:data()['overview'] and data()['workspace']==1 and data()['selected']==4 and data()['reduced_motion'] and sizes()==saved_geometry)
         assert data()['navigation_docked'] and not data()['view_error'] and data()['chrome_background']=='#214365'
         folder_index=data()['panes'][3]['theme'];assert theme_state(folder_index,'#214365','#aa1133')
+        managed.write_bytes(managed_bytes.replace(b'terminal-theme = Workbench Night',b'terminal-theme = Workbench Dawn'))
+        wait_until(lambda:data()['theme_default_index']==1 and all(p['theme']==1 for p in data()['panes'][:3]))
+        assert theme_state(folder_index,'#214365','#aa1133'),'restore lost the distinction between inherited and explicit themes'
+        managed.write_bytes(managed_bytes)
+        wait_until(lambda:data()['theme_default_index']==0 and all(p['theme']==0 for p in data()['panes'][:3]))
         assert [received(i) for i in range(6)]==preserved_input
         for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
         capture('view-restored.png');key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
@@ -1079,7 +1115,7 @@ while True:
             request(root,Path(runtime),root)  # Explicit test-owned service restart.
             click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='running' and not data()['panes'][8]['lifecycle'].get('busy'))
             attempts=data()['panes'][8]['attachment_attempts']
-            click(*data()['panes'][8]['reconnect_action']);wait_until(lambda:data()['panes'][8]['attachment_attempts']>attempts and data()['panes'][8]['attachment']=='elsewhere')
+            click(*settled_point(lambda d:None if d['panes'][8]['lifecycle'].get('busy') else d['panes'][8]['reconnect_action']));wait_until(lambda:data()['panes'][8]['attachment_attempts']>attempts and data()['panes'][8]['attachment']=='elsewhere')
             send(peer,16,b"printf WB_RECONNECT_DID_NOT_STEAL\n");expect(peer,b'WB_RECONNECT_DID_NOT_STEAL')
         finally:peer.close()
         time.sleep(.15);click(*data()['panes'][8]['reconnect_action']);wait_until(lambda:data()['panes'][8]['ready'] and data()['panes'][8]['focus'])

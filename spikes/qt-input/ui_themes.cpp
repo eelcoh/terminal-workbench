@@ -86,6 +86,18 @@ void UiThemes::openThemesDirectory() {
     if(themesPath_.isEmpty())return;
     if(!QDir().mkpath(themesPath_) || !QDesktopServices::openUrl(QUrl::fromLocalFile(themesPath_))){directoryStatus_="Could not open themes folder: "+themesPath_;Q_EMIT changed();}
 }
+int UiThemes::registerColors(const QString &name,const QByteArray &text,const QString &source) {
+    const auto key=ThemeStore::digest(name.toUtf8()+'\0'+source.toUtf8()+'\0'+text);
+    if(managedIndices_.contains(key))return managedIndices_[key];
+    WorkbenchTheme colors;int ignored=0;QString error;
+    if(!label(name,120) || !parse(text,colors,ignored,error))return -1;
+    const int index=workbench_theme_register(name.toUtf8().constData(),&colors);if(index<0)return -1;
+    const StoredTheme record{key,name,source,{},text};append(index,&record,ignored);
+    // The managed choice has its own default action. Keep historical immutable
+    // slots available to snapshots without adding duplicate gallery entries.
+    catalog_.removeLast();
+    managedIndices_.insert(key,index);return index;
+}
 QVariantMap UiThemes::theme(int index) const {return lookup_.value(index,lookup_.value(0));}
 QVariantMap UiThemes::snapshot(int index) const {
     if(snapshots_.contains(index))return snapshots_.value(index);

@@ -46,5 +46,42 @@ int main(int argc,char **argv){
     const auto replacement=root.filePath("replacement.conf");write(replacement,managed(26,"F5"));require(QFile::remove(path) && QFile::link(replacement,path),"replace managed symlink");
     require(wait([&]{return size(firstFonts)==26 && size(peerFonts)==26;}),"symlink retarget followed");
     write(replacement,managed(27,"F4"));require(wait([&]{return size(peerFonts)==27;}),"retargeted file remains watched");
-    std::puts("PASS: atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
+    // Workspace defaults participate in the same transaction, including files
+    // outside the config directory. Legacy global chrome fields are unused.
+    QDir().mkpath(root.filePath("settings"));
+    const auto appearancePath=root.filePath("settings/appearance.conf"),themePath=root.filePath("theme.default");
+    const auto appearanceConfig=[](const char *theme,int size=17){return QByteArray("workbench-config-v1\n[appearance]\napplication-theme = missing-unused-app\nfollow-workspace = false\nterminal-theme = ")+theme+"\n[font]\nsize = "+QByteArray::number(size)+"\n";};
+    write(appearancePath,appearanceConfig("Workbench Dawn"));
+    UiThemes themes("");UiAppearance appearance(appearancePath,false,themes);
+    UiFonts appearanceFonts(appearancePath,false);UiShortcuts appearanceKeys(appearancePath,false);
+    UiConfiguration colors(appearanceFonts,appearanceKeys,true,nullptr,&appearance);
+    require(colors.error().isEmpty() && colors.themeIndex()==1,"managed builtin workspace default, unused application fields ignored");
+    write(appearancePath,appearanceConfig("../theme.default",19));
+    require(wait([&]{return !colors.error().isEmpty();}) && colors.themeIndex()==1 && size(appearanceFonts)==17,"missing selected theme rejects font and appearance transaction");
+    write(themePath,"background = #123456\nforeground = #ffffff\ncommand = never-run\n");
+    require(wait([&]{return colors.error().isEmpty() && size(appearanceFonts)==19;}),"creating missing selected theme recovers automatically");
+    const int initialIndex=colors.themeIndex(),registered=workbench_theme_count();
+    require(themes.theme(initialIndex)["background"]=="#123456","custom .default palette selected");
+    for(int i=0;i<10;++i)require(colors.reload(),"unchanged appearance reload succeeds");
+    require(workbench_theme_count()==registered && colors.themeIndex()==initialIndex,"unchanged reload reuses immutable theme slot");
+    colors.setEditing(true);write(themePath,"background = #654321\nforeground = #ffffff\n");
+    QElapsedTimer deferred;deferred.start();while(deferred.elapsed()<300){QCoreApplication::processEvents();QThread::msleep(10);}
+    require(colors.themeIndex()==initialIndex,"appearance preview draft defers file edits");colors.setEditing(false);
+    require(wait([&]{return themes.theme(colors.themeIndex())["background"]=="#654321";}),"referenced theme atomic replacement reloads without managed edit");
+    WorkbenchTheme old;require(workbench_theme_get(initialIndex,&old) && old.background.r==0x12,"previous color snapshot remains immutable");
+    write(themePath,"background = invalid\n");
+    require(wait([&]{return !colors.error().isEmpty();}) && themes.theme(colors.themeIndex())["background"]=="#654321","invalid color file keeps last valid theme");
+    QFile::remove(themePath);require(!colors.reload() && themes.theme(colors.themeIndex())["background"]=="#654321","deleted selected theme keeps colors");
+    const auto remoteDirectory=root.filePath("external");QDir().mkpath(remoteDirectory);const auto remote=remoteDirectory+"/palette.default";
+    require(QFile::link(remote,themePath),"dangling theme symlink fixture");colors.reload();
+    write(remote,"background = #fedcba\nforeground = #000000\n");
+    require(wait([&]{return colors.error().isEmpty() && themes.theme(colors.themeIndex())["background"]=="#fedcba";}),"dangling theme symlink target creation repairs reload");
+    write(remote,"background = #abcdef\nforeground = #000000\n");
+    require(wait([&]{return themes.theme(colors.themeIndex())["background"]=="#abcdef";}),"external symlink target remains watched");
+    write(appearancePath,appearanceConfig("Workbench Night"));
+    require(wait([&]{return colors.error().isEmpty() && colors.themeIndex()==0;}),"return to builtin drops missing file dependency");
+    write(appearancePath,"workbench-config-v1\n[macos.appearance]\nterminal-theme = Dracula\n[linux.appearance]\nterminal-theme = Workbench Dawn\n[appearance]\nterminal-theme = Workbench Night\n");
+    UiAppearance mac(appearancePath,true,themes),linuxAppearance(appearancePath,false,themes);
+    require(mac.themeIndex()==2 && linuxAppearance.themeIndex()==1,"platform appearance override wins regardless of section order");
+    std::puts("PASS: managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
 }
