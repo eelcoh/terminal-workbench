@@ -277,12 +277,16 @@ int main(int argc,char **argv) {
                 if(index>=0 && index<items.size()) {
                     auto *item=qobject_cast<TerminalItem *>(items[index].value<QObject *>());
                     if(item) {
-                        const auto local=item->mapToScene(QPointF(item->width()/2,item->height()/2));
+                        auto *source=request["deck"].toBool()?window->findChild<QQuickItem *>("deck"):item;
+                        const auto local=source->mapToScene(QPointF(source->width()/2,source->height()/2));
+                        const auto phase=[&](Qt::ScrollPhase value){QWheelEvent event(local,window->mapToGlobal(local),QPoint(),QPoint(),Qt::NoButton,Qt::NoModifier,value,false);QCoreApplication::sendEvent(window,&event);};
+                        if(request["begin"].toBool())phase(Qt::ScrollBegin);
                         const auto delta=[&request](const char *key){const auto values=request[key].toArray();return QPoint(qBound(-120,values[0].toInt(),120),qBound(-120,values[1].toInt(),120));};
                         for(int count=qBound(1,request["count"].toInt(1),200);count>0;--count) {
                             QWheelEvent event(local,window->mapToGlobal(local),delta("pixel"),delta("angle"),Qt::NoButton,Qt::NoModifier,Qt::ScrollUpdate,request["inverted"].toBool());
                             QCoreApplication::sendEvent(window,&event);
                         }
+                        if(request["end"].toBool())phase(Qt::ScrollEnd);
                     }
                 }
                 wheelRequest.close();QFile::remove(path+".wheel");

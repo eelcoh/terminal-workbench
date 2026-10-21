@@ -1560,3 +1560,13 @@ markers retain inheritance across restart, and older views preserve their
 explicit choices. Narrow windows still collapse pinned navigation to a drawer.
 Parser, transaction and X11/Wayland live/restart checks cover this behavior;
 native Mac review remains open. See [view defaults](dotfiles.md#qt-window-view-defaults).
+
+## Qt continuous swipe delivery
+
+The horizontal gesture handler now belongs to the stationary pane viewport, not
+a terminal moving through its clip. Continuous gestures cross multiple full-width
+panes without losing their receiver. The new native-event check reproduces the
+stall with the previous handler and passes with the fixed one. X11/Wayland
+coverage retains vertical scrolling, keyboard reveal, input and reader checks.
+The owner's broader Mac vertical/output sluggishness remains under investigation;
+this fix does not establish a cause for that report.

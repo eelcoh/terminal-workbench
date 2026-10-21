@@ -703,6 +703,27 @@ ApplicationWindow {
         function groupTop(space) { let y = 0; for (let i = 0; i < space; ++i) if (!window.overviewFiltered || window.overviewIndices(i).length) y += window.overviewIndices(i).length ? rows(i) * rowStride + 76 : 152; return y }
         function overviewHeight() { return Math.max(height, groupTop(window.spaces.length)) }
         Behavior on contentX { enabled: !window.overview && !deck.directPanning; NumberAnimation { id: stripAnimation; duration: window.motion; easing.type: Easing.OutCubic } }
+        // Keep the gesture receiver fixed while terminal panes move out of view.
+        WheelHandler {
+            orientation: Qt.Horizontal
+            blocking: false
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            target: null
+            onWheel: event => {
+                const precise = event.pixelDelta.x !== 0 || event.pixelDelta.y !== 0
+                const dx = precise ? event.pixelDelta.x : event.angleDelta.x
+                const dy = precise ? event.pixelDelta.y : event.angleDelta.y
+                if (!window.overview && dx !== 0 && Math.abs(dx) > Math.abs(dy)) {
+                    // Pixel deltas are direct manipulation; easing each event loses motion.
+                    // Coarse wheel events accumulate against the destination while easing.
+                    const origin = precise && !deck.directPanning ? deck.contentX : deck.scrollTarget
+                    deck.directPanning = precise
+                    if (precise) stripAnimation.stop()
+                    deck.scrollTarget = Math.max(0, Math.min(deck.contentWidth - deck.width, origin - dx))
+                    deck.contentX = deck.scrollTarget; event.accepted = true
+                } else event.accepted = false
+            }
+        }
         Repeater {
             model: window.spaces.length
             Item {
@@ -781,26 +802,6 @@ ApplicationWindow {
                     themeIndex: window.themeIndexFor(pane.spaceIndex)
                     presentationEnabled: pane.visible && pane.x + pane.width * pane.scale > deck.contentX && pane.x < deck.contentX + deck.width && pane.y + pane.height * pane.scale > deck.contentY && pane.y < deck.contentY + deck.height
                     opacity: presentationEnabled ? 1 : 0
-                    WheelHandler {
-                        orientation: Qt.Horizontal
-                        blocking: false
-                        acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                        target: null
-                        onWheel: event => {
-                            const precise = event.pixelDelta.x !== 0 || event.pixelDelta.y !== 0
-                            const dx = precise ? event.pixelDelta.x : event.angleDelta.x
-                            const dy = precise ? event.pixelDelta.y : event.angleDelta.y
-                            if (!window.overview && dx !== 0 && Math.abs(dx) > Math.abs(dy)) {
-                                // Pixel deltas are direct manipulation; easing each event loses motion.
-                                // Coarse wheel events accumulate against the destination while easing.
-                                const origin = precise && !deck.directPanning ? deck.contentX : deck.scrollTarget
-                                deck.directPanning = precise
-                                if (precise) stripAnimation.stop()
-                                deck.scrollTarget = Math.max(0, Math.min(deck.contentWidth - deck.width, origin - dx))
-                                deck.contentX = deck.scrollTarget; event.accepted = true
-                            } else event.accepted = false
-                        }
-                    }
                     Accessible.role: Accessible.Terminal; Accessible.name: pane.facts.title + " in " + window.spaces[pane.spaceIndex]
                     onStatusChanged: {
                         if (!ready && attachment !== "connecting") studySession.inspect(pane.terminalId)

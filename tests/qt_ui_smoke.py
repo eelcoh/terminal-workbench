@@ -319,9 +319,9 @@ while True:
             sys.exit(0)
         # Deliver real window wheel events, including fractional motion and sideways jitter.
         wheel_instances=[p['instance'] for p in data()['panes']];wheel_sizes=sizes()
-        def wheel(pixel,angle,count=1,inverted=False):
+        def wheel(pixel,angle,count=1,inverted=False,deck=False,begin=False,end=False):
             path=Path(str(report)+'.wheel')
-            temporary=path.with_suffix('.wheel.tmp');temporary.write_text(json.dumps({'pane':0,'pixel':pixel,'angle':angle,'count':count,'inverted':inverted}));temporary.replace(path)
+            temporary=path.with_suffix('.wheel.tmp');temporary.write_text(json.dumps({'pane':0,'pixel':pixel,'angle':angle,'count':count,'inverted':inverted,'deck':deck,'begin':begin,'end':end}));temporary.replace(path)
             wait_until(lambda:not path.exists());time.sleep(.15)
         (root/'0'/'cursor').write_bytes(b''.join(('SCROLL-HISTORY-%03d\r\n'%i).encode() for i in range(100))+b'\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
         wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
@@ -335,6 +335,23 @@ while True:
         wait_until(lambda:abs(data()['content_x']-(strip_x+240))<1)
         wheel([0,0],[120,0],2)
         wait_until(lambda:abs(data()['content_x']-strip_x)<1)
+        # Keep one gesture at a fixed screen position as its starting pane leaves
+        # the viewport. Delivery must continue across multiple full-width panes.
+        for i in range(3):
+            key('super+alt+f')
+            if i<2:key('super+alt+Right')
+        key('super+alt+Left');key('super+alt+Left');wait_until(lambda:abs(data()['content_x'])<1)
+        for segment in range(3):
+            wheel([-20,0],[-20,0],30,deck=True,begin=segment==0)
+            wait_until(lambda:abs(data()['content_x']-600*(segment+1))<1)
+        for segment in range(3):
+            wheel([20,0],[20,0],30,deck=True,end=segment==2)
+            wait_until(lambda:abs(data()['content_x']-600*(2-segment))<1)
+        for i in range(3):
+            key('super+alt+f')
+            if i<2:key('super+alt+Right')
+        key('super+alt+Left');key('super+alt+Left')
+        wait_until(lambda:abs(data()['content_x'])<1 and sizes()==wheel_sizes)
         wheel([1,2],[1,2],100)
         wait_until(lambda:'SCROLL-HISTORY-' in data()['panes'][0]['text'])
         assert abs(data()['content_x']-strip_x)<1,'vertical jitter moved horizontal strip'
@@ -981,6 +998,7 @@ while True:
         assert data()['pane_widths']==prior_widths and workspace_catalog.load(root)==creation_catalog,'defaults changed existing panes or catalog'
         key('super+alt+n');wait_until(lambda:data()['creation_open'] and data()['folder_input']==str(project))
         typed('Draft stays');key('Tab');key('ctrl+a');typed(str(child))
+        wait_until(lambda:data()['name_input']=='Draft stays' and data()['folder_input']==str(child))
         managed.write_bytes(creation_config(root/'missing-default','2/3'))
         wait_until(lambda:data()['configuration_status']=='Changes waiting until settings close')
         assert data()['name_input']=='Draft stays' and data()['folder_input']==str(child) and abs(data()['creation_width']-1/3)<1e-6,'live defaults overwrote an open creation form'

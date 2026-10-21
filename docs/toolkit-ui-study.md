@@ -717,3 +717,9 @@ Managed `[view]` defaults now control navigation pinning and reduced motion.
 Configuration shows whether each current value follows dotfiles or a saved
 window choice. Use view defaults clears both overrides immediately; pin/menu
 choices remain local to each saved window. See [window defaults](dotfiles.md#qt-window-view-defaults).
+
+Horizontal gestures are received by one fixed deck viewport handler, so a scroll
+sequence continues when its starting terminal moves outside the clip. A native
+window-event regression crosses three full-width panes and reverses in the same
+gesture; the former per-terminal receiver fails this check. This addresses swipe
+stalling, independently of terminal-output throughput or native Mac load review.
