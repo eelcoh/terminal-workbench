@@ -16,6 +16,13 @@ terminal-theme = Workbench Night
 # A theme can also be a Ghostty color file relative to this config file:
 # terminal-theme = themes/my-theme
 
+# Qt candidate: values affect future creations; existing sessions/layouts stay saved.
+# [workspace]
+# directory = ~/Code
+# terminal-width = 1/2
+# [macos.workspace]
+# terminal-width = 2/3
+
 [font]
 family = JetBrains Mono
 size = 16

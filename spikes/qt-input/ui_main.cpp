@@ -87,7 +87,7 @@ int main(int argc,char **argv) {
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
     UiAppearance appearance(configuration["preferences"].toString(),apple,themes);
-    UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance);
+    UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance,apple);
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QStringList startupWarnings;
     QQmlApplicationEngine engine;
@@ -179,7 +179,7 @@ int main(int argc,char **argv) {
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
             const QJsonObject data{{"configuration_open",window->property("configurationOpen").toBool()},
-                {"configuration_error",settings.error()},{"configuration_status",settings.status()},
+                {"creation_directory",settings.workspaceDirectory()},{"creation_width",settings.terminalWidth()},{"pane_widths",QJsonArray::fromVariantList(listProperty(window,"widths"))},{"configuration_error",settings.error()},{"configuration_status",settings.status()},
                 {"configuration_menu",center("configurationMenuItem")},{"configuration_reload",center("configurationReload")},{"configuration_close",center("configurationClose")},
                 {"about_open",window->property("aboutOpen").toBool()},
                 {"about_menu",center("aboutMenuItem")},{"about_copy",center("aboutCopy")},{"about_details",center("aboutDetails")},{"about_close",center("aboutClose")},

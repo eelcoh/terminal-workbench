@@ -83,5 +83,24 @@ int main(int argc,char **argv){
     write(appearancePath,"workbench-config-v1\n[macos.appearance]\nterminal-theme = Dracula\n[linux.appearance]\nterminal-theme = Workbench Dawn\n[appearance]\nterminal-theme = Workbench Night\n");
     UiAppearance mac(appearancePath,true,themes),linuxAppearance(appearancePath,false,themes);
     require(mac.themeIndex()==2 && linuxAppearance.themeIndex()==1,"platform appearance override wins regardless of section order");
-    std::puts("PASS: managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
+    // Creation preferences never probe project folders during reload; the
+    // existing session-service Create boundary checks availability explicitly.
+    const auto creationPath=root.filePath("settings/creation.conf");
+    write(creationPath,"workbench-config-v1\n[workspace]\ndirectory = ../Project café\nterminal-width = 1/3\n[macos.workspace]\nterminal-width = 2/3\n");
+    const auto shared=CreationDefaults::read(creationPath,false),appleDefaults=CreationDefaults::read(creationPath,true);
+    require(shared.error.isEmpty() && shared.directory==root.filePath("Project café") && shared.terminalWidth==1.0/3.0,"relative Unicode project folder resolved beside managed config");
+    require(appleDefaults.error.isEmpty() && appleDefaults.directory==shared.directory && appleDefaults.terminalWidth==2.0/3.0,"platform width inherits shared directory independently");
+    UiFonts creationFonts(creationPath,false);UiShortcuts creationKeys(creationPath,false);
+    UiConfiguration creationSettings(creationFonts,creationKeys);
+    write(creationPath,"workbench-config-v1\n[workspace]\ndirectory = ~/Workbench projects\nterminal-width = 2/3\n[font]\nsize = 21\n");
+    require(wait([&]{return creationSettings.terminalWidth()==2.0/3.0 && size(creationFonts)==21;}),"creation and font defaults follow managed changes");
+    require(creationSettings.workspaceDirectory()==QDir::home().filePath("Workbench projects"),"home-relative folder expanded without requiring directory availability");
+    const auto oldDirectory=creationSettings.workspaceDirectory();
+    write(creationPath,"workbench-config-v1\n[workspace]\nterminal-width = 0.4\n[font]\nsize = 22\n");
+    require(wait([&]{return !creationSettings.error().isEmpty();}) && size(creationFonts)==21 && creationSettings.terminalWidth()==2.0/3.0 && creationSettings.workspaceDirectory()==oldDirectory,"invalid creation preference retains entire live transaction");
+    creationSettings.setEditing(true);write(creationPath,"workbench-config-v1\n[workspace]\ndirectory = ~\nterminal-width = 1/2\n");
+    require(!creationSettings.reload() && creationSettings.workspaceDirectory()==oldDirectory,"creation editor defers external defaults");
+    creationSettings.setEditing(false);require(wait([&]{return creationSettings.error().isEmpty() && creationSettings.workspaceDirectory()==QDir::homePath();}),"deferred creation defaults accepted after dialog closes");
+    QFile::remove(creationPath);require(wait([&]{return creationSettings.workspaceDirectory().isEmpty() && creationSettings.terminalWidth()==0.5;}),"managed file removal restores inherited folder and half width");
+    std::puts("PASS: creation folders/widths, Unicode/home paths, platform field precedence, transaction rollback, deferred drafts,  managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
 }

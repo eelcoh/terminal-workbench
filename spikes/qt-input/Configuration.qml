@@ -27,6 +27,8 @@ Dialog {
                 }
             }
             Label { text: "Fonts, shortcuts and the workspace default theme follow file changes. Workspaces with a chosen theme keep their colors. Open editors keep their drafts."; width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 13; color: popup.tones.muted }
+            Label { text: "New workspace folder: " + (popup.settings.workspaceDirectory || "Current workspace folder"); width: parent.width; wrapMode: Text.WrapAnywhere; textFormat: Text.PlainText; font.pixelSize: 13; color: popup.tones.muted }
+            Label { text: "New terminal width: " + (popup.settings.terminalWidth < 0.4 ? "⅓" : popup.settings.terminalWidth > 0.6 ? "⅔" : "½"); font.pixelSize: 13; color: popup.tones.muted }
             Label { objectName: "configurationStatus"; text: popup.settings.error || popup.settings.status; width: parent.width; wrapMode: Text.Wrap; textFormat: Text.PlainText; font.pixelSize: 13; color: popup.settings.error.length ? popup.tones.waiting : popup.tones.foreground }
         }
     }

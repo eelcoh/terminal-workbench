@@ -5,10 +5,11 @@
 #include <QFileInfo>
 #include <QUrl>
 
-UiConfiguration::UiConfiguration(UiFonts &fonts,UiShortcuts &shortcuts,bool watch,QObject *parent,UiAppearance *appearance)
-    :QObject(parent),appearance_(appearance),fonts_(fonts),shortcuts_(shortcuts),watching_(watch)
+UiConfiguration::UiConfiguration(UiFonts &fonts,UiShortcuts &shortcuts,bool watch,QObject *parent,UiAppearance *appearance,bool apple)
+    :QObject(parent),appearance_(appearance),apple_(apple),creation_(CreationDefaults::read(fonts.managedPath(),apple)),fonts_(fonts),shortcuts_(shortcuts),watching_(watch)
 {
     if(appearance_)error_=appearance_->error();
+    if(!creation_.error.isEmpty())error_+=(error_.isEmpty()?QString():QString(" "))+creation_.error;
     attempted_=snapshot();debounce_.setSingleShot(true);debounce_.setInterval(150);
     connect(&watcher_,&QFileSystemWatcher::fileChanged,this,[this]{debounce_.start();});
     connect(&watcher_,&QFileSystemWatcher::directoryChanged,this,[this]{debounce_.start();});
@@ -64,11 +65,13 @@ bool UiConfiguration::refresh(bool manual)
     if(!manual && before==attempted_){pending_=false;return true;}
     auto fonts=fonts_.reloadCandidate();auto shortcuts=shortcuts_.reloadCandidate();
     const auto appearance=appearance_?appearance_->prepare():UiAppearance::Candidate{};
+    const auto creation=CreationDefaults::read(managedPath(),apple_);
     if(before!=snapshot()){pending_=true;debounce_.start();return false;}
     attempted_=before;pending_=false;
-    QStringList errors;if(!fonts->error().isEmpty())errors.append(fonts->error());if(!shortcuts->error().isEmpty())errors.append(shortcuts->error());if(!appearance.error.isEmpty())errors.append(appearance.error);errors.removeDuplicates();
+    QStringList errors;if(!fonts->error().isEmpty())errors.append(fonts->error());if(!shortcuts->error().isEmpty())errors.append(shortcuts->error());if(!appearance.error.isEmpty())errors.append(appearance.error);if(!creation.error.isEmpty())errors.append(creation.error);errors.removeDuplicates();
     if(!errors.isEmpty()) {error_="Settings kept. "+errors.join(" ");status_="Reload failed";Q_EMIT changed();Q_EMIT reloadFailed();return false;}
     if(appearance_ && !appearance_->adopt(appearance)){error_="Settings kept. "+appearance_->error();status_="Reload failed";Q_EMIT changed();Q_EMIT reloadFailed();return false;}
+    creation_=creation;
     fonts_.adoptReload(*fonts);shortcuts_.adoptReload(*shortcuts);
     error_.clear();status_="Preferences reloaded";
     // All domains are installed before observers are notified.

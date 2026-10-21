@@ -320,9 +320,9 @@ The first dotfiles slice now implements shared/platform appearance and shortcuts
 native user configuration paths, read-only managed/symlinked settings, sparse
 per-platform UI overrides and once-only preference migration. Scoped theme
 identities stay with local sessions. Configuration reads occur at startup, with
-no work added to pane rendering or runtime parsing. Qt font preferences and live
-reload are covered below; workspace defaults and native Mac acceptance remain
-open. See [dotfiles](dotfiles.md).
+no work added to pane rendering or runtime parsing. Qt font preferences, live
+reload and workspace creation defaults are covered below; native Mac acceptance
+remains open. See [dotfiles](dotfiles.md).
 
 The Qt candidate now has a larger font/shortcut/appearance configuration slice: a visible
 Configuration panel, explicit reload, debounced filesystem updates across windows,
@@ -333,7 +333,13 @@ checks pass. Managed workspace appearance defaults now join that transaction: se
 files are watched, new workspaces inherit, and Appearance can restore inheritance
 with Apply/Cancel. Existing project snapshots stay explicit and unchanged; typed
 inheritance persists across restart. X11/Wayland acceptance is covered by the
-configuration/UI checks. Native Mac review and workspace creation defaults remain open. See [live configuration](dotfiles.md#qt-live-font-and-shortcut-configuration).
+configuration/UI checks. Workspace creation defaults now add shared/platform
+starting folders and one-third/half/two-thirds initial pane widths. These prefill
+future creations, preserve existing workspace folders and pane widths, and defer
+reload while workspace forms have drafts. Availability stays with the existing
+explicit service Create boundary. Configuration displays the resolved defaults;
+managed files remain read-only. Linux parser, transaction and X11/Wayland UI
+checks cover these paths; native Mac acceptance remains open. See [live configuration](dotfiles.md#qt-live-font-and-shortcut-configuration).
 
 ## Apps: Workbench as a TUI window manager
 

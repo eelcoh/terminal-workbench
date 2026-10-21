@@ -2,8 +2,8 @@
 
 Workbench can load shared appearance, terminal-font and shortcut settings outside the source
 checkout. It reads your managed file and writes UI edits to separate files.
-Shell dotfile installation, arbitrary installed fonts and workspace creation
-defaults are follow-up work. Qt live configuration is described below.
+Shell dotfile installation and arbitrary installed fonts are follow-up work.
+Qt live configuration and creation defaults are described below.
 
 ## Getting started
 
@@ -216,8 +216,7 @@ Saved font/shortcut edits now propagate to other open Qt windows. A local,
 temporary font-size shortcut stays local when persisted font values did not
 change; changing the saved font choice updates all those windows. Existing
 workspace themes, session organization, terminal identities and ownership are
-independent of reload. Workspace creation defaults and per-session font
-restoration remain separate follow-ups. This behavior applies
+independent of reload. Per-session font restoration remains a separate follow-up. This behavior applies
 to the Qt candidate; the earlier sections retain the `just spike` behavior.
 
 Validation: `just toolkit-configuration-test` covers transactions, peer updates,
@@ -275,3 +274,67 @@ preview deferral and immutable slot reuse. `just toolkit-view-state-test` covers
 backward-compatible, typed inheritance persistence. `just toolkit-ui-test`
 checks real X11/Wayland terminals, Apply/Cancel, inherited versus explicit
 palettes, live edits and restore. Native Mac acceptance remains manual.
+
+
+## Qt workspace and terminal creation defaults
+
+The Qt candidate accepts shared `[workspace]`, `[linux.workspace]` and
+`[macos.workspace]` sections. Platform fields override shared fields independently,
+regardless of section order:
+
+```text
+[workspace]
+directory = ~/Code
+terminal-width = 1/3
+
+[macos.workspace]
+terminal-width = 2/3
+```
+
+Add these sections to your existing `workbench-config-v1` file. Omit `directory`
+to prefill New workspace with the selected workspace's saved folder (or the
+launch default when there is no workspace). A configured folder replaces that
+prefill; you can edit it or Browse before Create. Absolute paths, `~`, `~/path`
+and paths relative to the directory containing `config.conf` are supported.
+Spaces and Unicode stay literal. Other-user `~name` expansion and environment
+interpolation are unsupported. Theme-file values retain their existing path
+rules; home expansion here applies to the workspace folder field.
+
+Folder availability is checked by the session service on explicit Create.
+A disconnected drive or missing default folder does not block unrelated settings
+from reloading. Create reports the ordinary folder error, retains the form, and
+lets you choose a usable folder. Configuration does not create project folders.
+Existing workspace folders and running shell directories remain unchanged.
+New terminals in an existing workspace continue using that workspace's saved
+folder; the global folder preference applies to New workspace.
+
+`terminal-width` accepts exactly `1/3`, `1/2` or `2/3`, defaulting to `1/2`.
+It sets the initial pane width for newly added terminals, including the first
+terminal of a new workspace. Saved window widths restore as before; later
+configuration changes do not resize existing panes. A window without saved
+layout starts with the current configured width. Width remains client
+presentation state, separate from the session catalog.
+
+Both fields reload with fonts, shortcuts and the workspace theme. Invalid widths,
+duplicates and unknown fields reject the complete live update, preserving the
+last valid settings. New workspace, Rename and Workspace folder dialogs defer
+updates until they close so their drafts survive. Configuration shows the
+resolved default folder and width. Defaults are read-only managed preferences;
+Workbench never writes them back into your dotfiles or introduces a second UI
+override layer for these fields.
+
+Validation: `just toolkit-configuration-test` covers platform fields, relative,
+home and Unicode folders, invalid-update retention, deferred edits and deletion.
+`just check` exercises the shared C parser and existing runtime folder contracts.
+`just toolkit-ui-test` exercises real X11/Wayland input, folder prefills, retained
+drafts, missing-folder errors, independent new pane widths and preserved readers.
+
+For the installed Mac app, build with `git pull` then `just toolkit-install`.
+Close preview windows, run `just toolkit-preview activate ID` with the new ID,
+then `just toolkit-preview open ID`. Set `directory` to an existing project
+folder and `terminal-width = 1/3`; New workspace should prefill the folder and
+new terminals should start at one third. Change the default to `2/3` and add
+another terminal: the earlier pane should retain its size. Leave New workspace
+open while editing the managed file: its draft should stay intact until closing.
+`just toolkit-workbench` instead opens checkout-local sessions by default; it
+does not update or activate the installed app.

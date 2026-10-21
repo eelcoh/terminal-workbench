@@ -32,8 +32,20 @@ int main(void)
     write_text(path,"workbench-config-v1\n[shortcuts]\ncopy = Super+Alt+=\n");
     assert(portable_read(path,false,&fonts,error,sizeof(error)) && !fonts.shortcuts.bindings[COMMAND_FONT_INCREASE].key
         && fonts.shortcuts.bindings[COMMAND_COPY].key==61);
+    write_text(path,"workbench-config-v1\n[macos.workspace]\nterminal-width = 2/3\n[workspace]\ndirectory = ~/Project folder\nterminal-width = 1/3\n[linux.workspace]\ndirectory = ../Projects\n");
+    PortableConfig creation;
+    assert(portable_read(path,true,&creation,error,sizeof(error)) && creation.terminal_width==2.0/3.0 && !strcmp(creation.workspace_directory,"~/Project folder"));
+    assert(portable_read(path,false,&creation,error,sizeof(error)) && creation.terminal_width==1.0/3.0 && !strcmp(creation.workspace_directory,"../Projects"));
+    assert(portable_read(NULL,false,&creation,error,sizeof(error)) && creation.terminal_width==0.5 && !creation.workspace_directory[0]);
     PortableConfig unchanged=linux_config;
-    const char *bad[]={"workbench-config-v9\n","workbench-config-v1\n[font]\nsize = 99\n",
+    const char *bad[]={
+        "workbench-config-v1\n[workspace]\nterminal-width = 0.4\n",
+        "workbench-config-v1\n[workspace]\nterminal-width = 1/4\n",
+        "workbench-config-v1\n[workspace]\nterminal-width = 1/3\nterminal-width = 2/3\n",
+        "workbench-config-v1\n[workspace]\ndirectory = first\ndirectory = second\n",
+        "workbench-config-v1\n[workspace]\ndirectory = \n",
+        "workbench-config-v1\n[workspace]\ndirectory = control\tcharacter\n",
+        "workbench-config-v1\n[workspace]\ncommand = unexpected\n","workbench-config-v9\n","workbench-config-v1\n[font]\nsize = 99\n",
         "workbench-config-v1\n[font]\nsize = 9\n",
         "workbench-config-v1\n[font]\nsize = 18pt\n",
         "workbench-config-v1\n[font]\nfamily = absent\n",

@@ -885,10 +885,33 @@ while True:
         key('super+alt+shift+Left');key('super+alt+shift+Up')
         assert workspace_catalog.load(root)==keyboard_catalog,'boundary move wrapped or mutated organization'
         key('super+alt+Down');wait_until(lambda:data()['selected']==4 and data()['panes'][4]['focus'])
+        # Managed creation preferences change future form/pane defaults only.
+        creation_catalog=workspace_catalog.load(root);prior_widths=data()['pane_widths'];prior_items=[p['instance'] for p in data()['panes']]
+        def creation_config(folder,width):return managed_bytes+('\n[workspace]\ndirectory = '+str(folder)+'\nterminal-width = '+width+'\n').encode()
+        managed.write_bytes(creation_config('Project folder','1/3'))
+        wait_until(lambda:data()['creation_directory']==str(project) and abs(data()['creation_width']-1/3)<1e-6)
+        assert data()['pane_widths']==prior_widths and workspace_catalog.load(root)==creation_catalog,'defaults changed existing panes or catalog'
+        key('super+alt+n');wait_until(lambda:data()['creation_open'] and data()['folder_input']==str(project))
+        typed('Draft stays');key('Tab');key('ctrl+a');typed(str(child))
+        managed.write_bytes(creation_config(root/'missing-default','2/3'))
+        wait_until(lambda:data()['configuration_status']=='Changes waiting until settings close')
+        assert data()['name_input']=='Draft stays' and data()['folder_input']==str(child) and abs(data()['creation_width']-1/3)<1e-6,'live defaults overwrote an open creation form'
+        key('Escape');wait_until(lambda:not data()['creation_open'] and data()['creation_directory']==str(root/'missing-default'))
+        key('super+alt+n');wait_until(lambda:data()['creation_open'] and data()['folder_input']==str(root/'missing-default'))
+        typed('Unavailable default');key('Tab');key('Return')
+        wait_until(lambda:'Folder' in data()['error'] and not data()['busy'])
+        assert workspace_catalog.load(root)==creation_catalog,'missing configured folder created a workspace'
+        managed.write_bytes(creation_config('Project folder','1/3'));key('Escape')
+        wait_until(lambda:not data()['creation_open'] and data()['creation_directory']==str(project) and abs(data()['creation_width']-1/3)<1e-6)
+        assert [p['instance'] for p in data()['panes']]==prior_items and data()['pane_widths']==prior_widths
         # Creation uses the real service, keeping the original six attached readers.
         key('super+alt+t')
         wait_until(lambda:len(data()['panes'])==7 and data()['panes'][6]['ready'] and data()['selected']==6 and data()['panes'][6]['focus'])
         wait_until(lambda:data()['panes'][6]['theme']==2 and data()['panes'][6]['background']=='#282a36')
+        assert abs(data()['pane_widths'][6]-1/3)<1e-6 and data()['pane_widths'][:6]==prior_widths,'new terminal did not use configured width independently'
+        managed.write_bytes(creation_config('Project folder','2/3'))
+        wait_until(lambda:abs(data()['creation_width']-2/3)<1e-6)
+        assert abs(data()['pane_widths'][6]-1/3)<1e-6,'changing default resized an existing terminal'
         created=workspace_catalog.load(root)['workspaces'][1]['terminals'][-1]['id']
         marker=root/'new-terminal-cwd'
         typed('pwd > '+shlex.quote(str(marker)));key('Return');wait_until(marker.exists)
@@ -918,6 +941,10 @@ while True:
         key('Return')
         wait_until(lambda:data()['workspace_count']==4 and len(data()['panes'])==8 and not data()['creation_open'] and data()['panes'][7]['ready'] and data()['panes'][7]['focus'])
         assert data()['workspace']==3
+        assert abs(data()['pane_widths'][7]-2/3)<1e-6,'first pane of new workspace ignored configured width'
+        managed.write_bytes(managed_bytes)
+        wait_until(lambda:data()['creation_directory']=='' and data()['creation_width']==0.5)
+        assert abs(data()['pane_widths'][6]-1/3)<1e-6 and abs(data()['pane_widths'][7]-2/3)<1e-6,'removing defaults resized existing panes'
         marker2=root/'workspace-cwd';typed('pwd > '+shlex.quote(str(marker2)));key('Return');wait_until(marker2.exists)
         assert marker2.read_text().strip()==str(project)
         created_workspace=workspace_catalog.load(root)['workspaces'][-1]

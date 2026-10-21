@@ -340,7 +340,7 @@ ApplicationWindow {
                     terminalModel.setProperty(existing, "ordinal", j)
                     continue
                 }
-                sizes.push(0.5); full.push(false); widths = sizes; fullWidths = full
+                sizes.push(studyConfiguration.terminalWidth); full.push(false); widths = sizes; fullWidths = full
                 terminalModel.append({terminalId: terminal.id, spaceIndex: w, ordinal: j})
                 added = terminalModel.count - 1
                 if (focus[w] < 0) focus[w] = added
@@ -398,7 +398,7 @@ ApplicationWindow {
         if (target < 0) return
         studySession.clearError()
         newName.text = workspaceFormMode === "create" ? "" : spaces[target]
-        newFolder.text = directories[target] || studySession.defaultDirectory
+        newFolder.text = (workspaceFormMode === "create" ? studyConfiguration.workspaceDirectory : "") || directories[target] || studySession.defaultDirectory
         createDialog.open()
     }
     function browseWorkspaceFolder() {
@@ -1117,7 +1117,7 @@ ApplicationWindow {
         tones: window.chrome; preferences: studyShortcuts; actions: commandRegistry.entries
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible || appearance.visible }
+    Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible || appearance.visible || createDialog.visible }
     readonly property bool configurationOpen: configurationDialog.visible
     Configuration {
         id: configurationDialog; anchors.centerIn: parent; tones: window.chrome; settings: studyConfiguration
