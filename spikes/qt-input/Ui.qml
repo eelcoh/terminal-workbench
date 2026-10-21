@@ -33,7 +33,7 @@ ApplicationWindow {
         for (let i = 0; i < terminalModel.count; ++i) terminals[terminalModel.get(i).terminalId] = {width: widths[i] || 0.5, full: fullWidths[i] || false}
         return {version: 1, window: {width: Math.max(680,Math.min(16384,Math.round(width))), height: Math.max(440,Math.min(16384,Math.round(height)))},
             workspace: spaceIds[workspace] || "", terminal: selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : "",
-            navigation_pinned: navigationPinned, overview: overview, agents: agentsOnly, needs: needsOnly, motion: reducedMotion, overview_y: overview ? Math.max(0,deck.contentY) : 0,
+            navigation_default: navigationOverride === null, motion_default: motionOverride === null, navigation_pinned: navigationPinned, overview: overview, agents: agentsOnly, needs: needsOnly, motion: reducedMotion, overview_y: overview ? Math.max(0,deck.contentY) : 0,
             workspaces: workspaces, terminals: terminals}
     }
     function applySharedAppearance() {
@@ -70,8 +70,8 @@ ApplicationWindow {
         workspace = Math.max(0,spaceIds.indexOf(saved.workspace)); selected = identityIndex(saved.terminal)
         if (selected >= 0) workspace = terminalModel.get(selected).spaceIndex
         else selected = remembered[workspace] ?? -1
-        navigationPinned = saved.navigation_pinned === true
-        reducedMotion = saved.motion; agentsOnly = saved.agents; needsOnly = saved.needs; overview = saved.overview
+        navigationOverride = saved.navigation_default === true || saved.navigation_pinned === undefined ? null : saved.navigation_pinned
+        motionOverride = saved.motion_default === true ? null : saved.motion; agentsOnly = saved.agents; needsOnly = saved.needs; overview = saved.overview
         rebuildOverview()
         Qt.callLater(function() {
             deck.scrollTarget = overview ? 0 : Math.max(0,Math.min(positions[workspace] || 0,stripWidth() - deck.width)); deck.contentX = deck.scrollTarget
@@ -140,7 +140,8 @@ ApplicationWindow {
     property int overviewMatches: 0
     property int waitingCount: 0
     property var agentIndices: []
-    property bool navigationPinned: false
+    property var navigationOverride: null
+    readonly property bool navigationPinned: navigationOverride === null ? studyConfiguration.navigationPinned : navigationOverride
     property string navigationSection: "workspaces"
     readonly property bool navigationDocked: navigationPinned && width >= 920
     readonly property int navigationEdge: navigationDocked ? 288 : 44
@@ -155,7 +156,7 @@ ApplicationWindow {
         else if (section === "workspaces") Qt.callLater(function() { navigation.focusWorkspace(workspace) })
     }
     function toggleNavigationPin() {
-        navigationPinned = !navigationPinned
+        navigationOverride = !navigationPinned
         if (navigationDocked) drawer.close()
         else drawer.open()
     }
@@ -258,14 +259,17 @@ ApplicationWindow {
         case "forward": panel(selected).terminal.forceActiveFocus(); panel(selected).terminal.forwardNextKey(); break;
         case "copy": panel(selected).terminal.copy(); break
         case "paste": panel(selected).terminal.paste(); break
-        case "motion": reducedMotion = !reducedMotion; break
+        case "motion": motionOverride = !reducedMotion; break
         case "configuration": configurationDialog.open(); break
         case "configuration-reload": if (studyConfiguration.reload()) { moveNotice = "Preferences reloaded"; moveNoticeTimer.restart() }; break
         case "about": about.open(); break
         case "help": help.open(); break
         }
     }
-    property bool reducedMotion: false
+    property var motionOverride: null
+    readonly property bool reducedMotion: motionOverride === null ? studyConfiguration.reducedMotion : motionOverride
+    onNavigationOverrideChanged: scheduleViewSave()
+    onMotionOverrideChanged: scheduleViewSave()
     property bool pendingWorkspaceDialog: false
     property string workspaceFormMode: "create"
     property string editingWorkspace: ""
@@ -957,7 +961,7 @@ ApplicationWindow {
         MenuAction { objectName: "configurationMenuItem"; text: "Configuration…"; onTriggered: configurationDialog.open() }
         MenuAction { objectName: "shortcutSettingsMenuItem"; text: "Shortcut settings…"; onTriggered: window.openShortcutSettings() }
         MenuAction { keyHint: studyShortcuts.labels["help"] || ""; text: "Keyboard shortcuts"; onTriggered: help.open() }
-        MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.reducedMotion = checked }
+        MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.motionOverride = checked }
         MenuRule {}
         MenuAction { objectName: "forwardKeyMenuItem"; text: "Send next key to terminal"; keyHint: studyShortcuts.labels["forward"] || ""; enabled: commandRegistry.find("forward").available; onTriggered: { window.pendingForward = true; appMenu.close() } }
         MenuAction { text: "Copy selection"; enabled: window.selected >= 0; onTriggered: window.panel(window.selected).terminal.copy() }
@@ -1146,7 +1150,11 @@ ApplicationWindow {
     Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible || appearance.visible || createDialog.visible }
     readonly property bool configurationOpen: configurationDialog.visible
     Configuration {
-        id: configurationDialog; anchors.centerIn: parent; tones: window.chrome; settings: studyConfiguration; workspaceAppearancePath: studyWorkspaceAppearance.directory
+        id: configurationDialog; anchors.centerIn: parent; tones: window.chrome; settings: studyConfiguration
+        navigationInherited: window.navigationOverride === null; motionInherited: window.motionOverride === null
+        navigationPinned: window.navigationPinned; reducedMotion: window.reducedMotion
+        onViewDefaultsRequested: { window.navigationOverride = null; window.motionOverride = null }
+        workspaceAppearancePath: studyWorkspaceAppearance.directory
         onClosed: Qt.callLater(window.restoreAfterPopup)
     }
     Connections { target: studyConfiguration; function onReloadFailed() { window.fontWarningDismissed = false } }

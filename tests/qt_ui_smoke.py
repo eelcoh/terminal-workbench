@@ -275,6 +275,44 @@ while True:
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and data()['font_preferences']['size']==16 and data()['shortcut_sequences']['commands']=='F10' and not data()['configuration_error'] and sizes()==config_sizes)
         assert [received(i) for i in range(6)]==config_inputs and [p['instance'] for p in data()['panes']]==config_instances,'reload changed readers or typed into PTYs'
         assert managed.read_bytes()==managed_bytes and not (root/'ui/linux/terminal-font.json').exists()
+        # Managed view defaults stay live until this window chooses otherwise.
+        assert data()['navigation_default'] and data()['motion_default']
+        managed.write_bytes(managed_bytes+b'\n[view]\nnavigation-pinned = true\nreduced-motion = true\n')
+        wait_until(lambda:data()['navigation_pinned'] and data()['reduced_motion'])
+        wait_until(lambda:json.loads((root/'qt-view.json').read_text()).get('navigation_default') is True)
+        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and not data()['navigation_default'])
+        key('Escape');wait_until(lambda:not data()['drawer_open'])
+        key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('enable animations');key('Return')
+        wait_until(lambda:not data()['commands_open'] and not data()['reduced_motion'] and not data()['motion_default'])
+        managed.write_bytes(managed_bytes+b'\n[view]\nnavigation-pinned = false\nreduced-motion = false\n')
+        wait_until(lambda:not data()['managed_navigation_pinned'] and not data()['managed_reduced_motion'])
+        managed.write_bytes(managed_bytes+b'\n[view]\nnavigation-pinned = true\nreduced-motion = true\n')
+        wait_until(lambda:data()['managed_navigation_pinned'] and data()['managed_reduced_motion'])
+        assert not data()['navigation_pinned'] and not data()['reduced_motion'],'managed defaults replaced explicit window choices'
+        key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('configuration');key('Return');wait_until(lambda:data()['configuration_open'])
+        click(*data()['configuration_view_defaults'])
+        wait_until(lambda:data()['navigation_default'] and data()['motion_default'] and data()['navigation_pinned'] and data()['reduced_motion'])
+        key('Escape');wait_until(lambda:not data()['configuration_open'])
+        wait_until(lambda:json.loads((root/'qt-view.json').read_text()).get('motion_default') is True)
+        managed.write_bytes(managed_bytes);wait_until(lambda:not data()['navigation_pinned'] and not data()['reduced_motion'] and sizes()==config_sizes)
+        assert [received(i) for i in range(6)]==config_inputs and [p['instance'] for p in data()['panes']]==config_instances,'view defaults replaced readers or typed into terminals'
+        wait_until(lambda:json.loads((root/'qt-view.json').read_text()).get('motion_default') is True and json.loads((root/'qt-view.json').read_text()).get('motion') is False and json.loads((root/'qt-view.json').read_text()).get('navigation_pinned') is False)
+        client.terminate();client.wait(timeout=5)
+        # Saved fallback values must not freeze inherited settings on restart.
+        managed.write_bytes(managed_bytes+b'\n[view]\nnavigation-pinned = true\nreduced-motion = true\n')
+        report.unlink(missing_ok=True)
+        client=subprocess.Popen([viewer,str(config),'--test-report',str(report)],env=env,stdout=log,stderr=log);processes.append(client)
+        wait_until(ready_ui,timeout=30)
+        if wayland:
+            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study'),None))
+            run('niri','msg','action','focus-window','--id',window);run('niri','msg','action','move-window-to-floating')
+            run('niri','msg','action','set-window-width','1240');run('niri','msg','action','set-window-height','760');run('niri','msg','action','move-floating-window','--x','70','--y','50')
+        else:
+            window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
+        wait_until(lambda:data()['navigation_pinned'] and data()['reduced_motion'] and data()['navigation_default'] and data()['motion_default'])
+        assert not data()['view_error'] and [received(i) for i in range(6)]==config_inputs
+        for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
+        managed.write_bytes(managed_bytes);wait_until(lambda:not data()['navigation_pinned'] and not data()['reduced_motion'] and sizes()==config_sizes)
         if '--configuration-only' in sys.argv[3:]:
             assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in configuration regression'
             print(('wayland' if wayland else 'xcb')+' PASS: configuration panel, manual/automatic reload, live managed font/chord changes, last-valid rejection, editor deferral, restored input/focus/grids and retained readers')
@@ -817,7 +855,7 @@ while True:
         preserved_input=[received(i) for i in range(6)];saved_geometry=sizes()
         client.terminate();client.wait(timeout=5)
         # Unknown old identities and JSON member order must not retarget state.
-        saved=saved_view();saved['terminals']['removed-terminal']={'width':1/3,'full':False}
+        saved=saved_view();saved.pop('navigation_default',None);saved.pop('motion_default',None);saved['terminals']['removed-terminal']={'width':1/3,'full':False}
         saved['terminals']=dict(reversed(list(saved['terminals'].items())))
         (root/'qt-view.json').write_text(json.dumps(saved));report.unlink(missing_ok=True)
         client=subprocess.Popen([viewer,str(config),'--test-report',str(report)],env=env,stdout=log,stderr=log);processes.append(client)

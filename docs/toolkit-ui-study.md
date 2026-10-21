@@ -712,3 +712,8 @@ removal and retained sibling identity after creating a full-width terminal.
 Precise horizontal trackpad scrolling follows pixel deltas directly in the pane
 strip. Coarse wheel deltas accumulate while easing; keyboard navigation retains
 its reveal animation. Vertical terminal scrolling and Overview are separate.
+
+Managed `[view]` defaults now control navigation pinning and reduced motion.
+Configuration shows whether each current value follows dotfiles or a saved
+window choice. Use view defaults clears both overrides immediately; pin/menu
+choices remain local to each saved window. See [window defaults](dotfiles.md#qt-window-view-defaults).

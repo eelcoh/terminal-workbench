@@ -4,6 +4,11 @@ Dialog {
     id: popup
     required property var tones
     required property var settings
+    property bool navigationInherited: true
+    property bool motionInherited: true
+    property bool navigationPinned: false
+    property bool reducedMotion: false
+    signal viewDefaultsRequested()
     property string workspaceAppearancePath: ""
     width: Math.min(620,parent.width-64); height: Math.min(480,parent.height-64)
     padding: 20; modal: true; focus: true; closePolicy: Popup.CloseOnEscape
@@ -16,6 +21,10 @@ Dialog {
         Column {
             id: fields; width: parent.width; spacing: 10
             Label { text: "Shared → platform → UI overrides"; font.pixelSize: 13; color: popup.tones.muted }
+            Label { text: "This window"; font.pixelSize: 15; color: popup.tones.foreground }
+            Label { text: "Navigation: " + (popup.navigationPinned ? "pinned" : "drawer") + " · " + (popup.navigationInherited ? "follows dotfiles" : "saved window choice"); width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 13; color: popup.tones.muted }
+            Label { text: "Motion: " + (popup.reducedMotion ? "reduced" : "animated") + " · " + (popup.motionInherited ? "follows dotfiles" : "saved window choice"); width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 13; color: popup.tones.muted }
+            ChromeButton { objectName: "configurationViewDefaults"; tones: popup.tones; text: "Use view defaults"; enabled: !popup.navigationInherited || !popup.motionInherited; onClicked: popup.viewDefaultsRequested() }
             Repeater {
                 model: [{title: "Managed settings",path: popup.settings.managedPath},
                     {title: "Font UI overrides",path: popup.settings.fontPath},

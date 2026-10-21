@@ -24,6 +24,13 @@ terminal-theme = Workbench Night
 # [macos.workspace]
 # terminal-width = 2/3
 
+# Qt candidate: live defaults; saved window choices take precedence.
+# [view]
+# navigation-pinned = false
+# reduced-motion = false
+# [macos.view]
+# navigation-pinned = true
+
 [font]
 family = JetBrains Mono
 size = 16

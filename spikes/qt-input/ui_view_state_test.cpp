@@ -25,6 +25,12 @@ int main(int argc,char **argv){
     auto inherited=state;auto spaces=inherited["workspaces"].toMap();auto workspace=spaces["w2"].toMap();workspace["theme_default"]=true;spaces["w2"]=workspace;inherited["workspaces"]=spaces;
     const auto defaultPath=dir.filePath("default-theme.json");UiViewState defaults(defaultPath);check(defaults.save(inherited),"default inheritance marker save");UiViewState defaultRestore(defaultPath);check(defaultRestore.initial()==inherited,"default inheritance survives restart with fallback snapshot");
     workspace["theme_default"]="true";spaces["w2"]=workspace;inherited["workspaces"]=spaces;check(!UiViewState::valid(inherited),"inheritance marker stays typed");
+    auto viewDefaults=state;viewDefaults["navigation_default"]=true;viewDefaults["motion_default"]=true;
+    const auto viewPath=dir.filePath("view-defaults.json");UiViewState viewStore(viewPath);
+    check(viewStore.save(viewDefaults),"window view inheritance markers save");UiViewState viewRestore(viewPath);
+    check(viewRestore.initial()==viewDefaults,"inherited view settings survive restart with fallback values");
+    viewDefaults["motion_default"]="true";check(!UiViewState::valid(viewDefaults),"motion inheritance marker stays typed");
+    viewDefaults["motion_default"]=false;viewDefaults["navigation_default"]=1;check(!UiViewState::valid(viewDefaults),"navigation inheritance marker stays typed");
     auto invalid=state;invalid["version"]=2;check(!UiViewState::valid(invalid),"future version rejected");
     invalid=state;invalid["overview"]="true";check(!UiViewState::valid(invalid),"filter booleans stay typed");
     invalid=state;invalid["window"]=QVariantMap{{"width",40000},{"height",760}};check(!UiViewState::valid(invalid),"geometry bounded");

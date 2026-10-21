@@ -11,11 +11,13 @@ typedef struct {
     bool seen[COMMAND_COUNT];
     FontPreferences font;bool has_size,has_family;
     char workspace_directory[1024];double terminal_width;bool has_directory,has_width;
+    bool navigation_pinned,reduced_motion,has_navigation_pinned,has_reduced_motion;
 } PortableLayer;
 typedef struct {
     Theme application,terminal;
     char terminal_source[1024],workspace_directory[1024];
     double terminal_width;
+    bool navigation_pinned,reduced_motion;
     FontPreferences font;
     bool has_application,has_terminal,has_follow,follow;
     ShortcutState shortcuts;
@@ -57,14 +59,20 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
         number++;if (number>512 || !strchr(line,'\n')) {valid=false;break;}
         char *text=portable_trim(line);if (!*text || *text=='#') continue;
         if (*text=='[') {
-            static const char *sections[]={"[appearance]","[shortcuts]","[font]","[workspace]","[linux.appearance]","[linux.shortcuts]","[linux.font]","[linux.workspace]","[macos.appearance]","[macos.shortcuts]","[macos.font]","[macos.workspace]"};
-            int found=-1;for (int i=0;i<12;i++) if (!strcmp(text,sections[i])) found=i;
-            if (found<0) {valid=false;break;}section=found/4;kind=found%4;continue;
+            static const char *sections[]={"[appearance]","[shortcuts]","[font]","[workspace]","[view]","[linux.appearance]","[linux.shortcuts]","[linux.font]","[linux.workspace]","[linux.view]","[macos.appearance]","[macos.shortcuts]","[macos.font]","[macos.workspace]","[macos.view]"};
+            int found=-1;for (int i=0;i<15;i++) if (!strcmp(text,sections[i])) found=i;
+            if (found<0) {valid=false;break;}section=found/5;kind=found%5;continue;
         }
         char *equal=strchr(text,'=');if (section<0 || !equal) {valid=false;break;}*equal++=0;
         char *key=portable_trim(text),*value=portable_trim(equal);PortableLayer *layer=&layers[section];
         if (!*value) {valid=false;break;}
-        if (kind==3) {
+        if (kind==4) {
+            bool *seen=NULL,*setting=NULL;
+            if (!strcmp(key,"navigation-pinned")) {seen=&layer->has_navigation_pinned;setting=&layer->navigation_pinned;}
+            else if (!strcmp(key,"reduced-motion")) {seen=&layer->has_reduced_motion;setting=&layer->reduced_motion;}
+            if (!seen || *seen || (strcmp(value,"true") && strcmp(value,"false"))) {valid=false;break;}
+            *seen=true;*setting=!strcmp(value,"true");
+        } else if (kind==3) {
             if (!strcmp(key,"directory")) {
                 if (layer->has_directory || strlen(value)>=sizeof(layer->workspace_directory)) {valid=false;break;}
                 for (const unsigned char *p=(const unsigned char *)value;*p;p++) if (*p<32 || *p==127) {valid=false;break;}
@@ -106,6 +114,8 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
     fclose(file);
     if (!valid) {snprintf(error,capacity,"Invalid dotfile near line %d; preferences kept",number);return false;}
     PortableLayer *platform=&layers[apple ? 2 : 1];
+    next.navigation_pinned=platform->has_navigation_pinned ? platform->navigation_pinned : layers[0].navigation_pinned;
+    next.reduced_motion=platform->has_reduced_motion ? platform->reduced_motion : layers[0].reduced_motion;
     snprintf(next.workspace_directory,sizeof(next.workspace_directory),"%s",platform->has_directory ? platform->workspace_directory : layers[0].workspace_directory);
     if (layers[0].has_width) next.terminal_width=layers[0].terminal_width;
     if (platform->has_width) next.terminal_width=platform->terminal_width;

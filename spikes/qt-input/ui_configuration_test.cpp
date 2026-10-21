@@ -106,5 +106,19 @@ int main(int argc,char **argv){
         write(creationPath,QByteArray("workbench-config-v1\n[workspace]\nterminal-width = ")+width+"\n");
         require(creationSettings.reload() && creationSettings.terminalWidth()==1.0,"full-width aliases survive managed reload");
     }
+    // View defaults join the atomic reload, but contain no saved-window state.
+    write(creationPath,"workbench-config-v1\n[view]\nnavigation-pinned = true\nreduced-motion = true\n[macos.view]\nreduced-motion = false\n");
+    require(creationSettings.reload() && creationSettings.navigationPinned() && creationSettings.reducedMotion(),"managed view defaults join live reload");
+    const auto appleView=ViewDefaults::read(creationPath,true);
+    require(appleView.error.isEmpty() && appleView.navigationPinned && !appleView.reducedMotion,"platform view fields inherit independently");
+    bool atomicView=true;QObject::connect(&creationFonts,&UiFonts::changed,&app,[&]{if(size(creationFonts)==20)atomicView=!creationSettings.navigationPinned() && creationSettings.reducedMotion();});
+    write(creationPath,"workbench-config-v1\n[font]\nsize = 20\n[view]\nnavigation-pinned = false\nreduced-motion = true\n");
+    require(creationSettings.reload() && atomicView && size(creationFonts)==20,"view defaults installed before font notifications");
+    write(creationPath,"workbench-config-v1\n[font]\nsize = 21\n[view]\nreduced-motion = maybe\n");
+    require(!creationSettings.reload() && size(creationFonts)==20 && creationSettings.reducedMotion(),"invalid view preference keeps entire live transaction");
+    creationSettings.setEditing(true);write(creationPath,"workbench-config-v1\n[view]\nnavigation-pinned = true\n");
+    require(!creationSettings.reload() && !creationSettings.navigationPinned() && creationSettings.reducedMotion(),"open editor defers view changes too");
+    creationSettings.setEditing(false);require(wait([&]{return creationSettings.navigationPinned() && !creationSettings.reducedMotion();}),"view defaults accepted after draft closes");
+    QFile::remove(creationPath);require(wait([&]{return !creationSettings.navigationPinned() && !creationSettings.reducedMotion();}),"removed managed file restores built-in view defaults");
     std::puts("PASS: creation folders/widths, Unicode/home paths, platform field precedence, transaction rollback, deferred drafts,  managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
 }

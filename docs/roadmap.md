@@ -1549,3 +1549,14 @@ zero workspace/terminal items are reported explicitly. Linux relocated-build,
 strict copied-QML loading, missing-module refusal and activation retention checks
 cover the slice. Native Mac review remains open; this does not close physical
 display, terminal-rendering or native-dialog acceptance gates.
+
+## Qt managed view defaults
+
+The dotfiles slice now includes shared/platform navigation pinning and reduced
+motion. New windows inherit live defaults; explicit pin/motion actions remain
+saved per-window choices. Configuration shows each source and offers Use view
+defaults without changing layout, filters, themes or sessions. Typed optional
+markers retain inheritance across restart, and older views preserve their
+explicit choices. Narrow windows still collapse pinned navigation to a drawer.
+Parser, transaction and X11/Wayland live/restart checks cover this behavior;
+native Mac review remains open. See [view defaults](dotfiles.md#qt-window-view-defaults).

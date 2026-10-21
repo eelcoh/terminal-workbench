@@ -43,8 +43,17 @@ int main(void)
         assert(portable_read(path,false,&creation,error,sizeof(error)) && creation.terminal_width==1.0);
         assert(portable_read(path,true,&creation,error,sizeof(error)) && creation.terminal_width==1.0);
     }
+    write_text(path,"workbench-config-v1\n[macos.view]\nreduced-motion = false\n[view]\nnavigation-pinned = true\nreduced-motion = true\n[linux.view]\nnavigation-pinned = false\n");
+    PortableConfig view;
+    assert(portable_read(path,true,&view,error,sizeof(error)) && view.navigation_pinned && !view.reduced_motion);
+    assert(portable_read(path,false,&view,error,sizeof(error)) && !view.navigation_pinned && view.reduced_motion);
+    assert(portable_read(NULL,false,&view,error,sizeof(error)) && !view.navigation_pinned && !view.reduced_motion);
     PortableConfig unchanged=linux_config;
     const char *bad[]={
+        "workbench-config-v1\n[view]\nnavigation-pinned = yes\n",
+        "workbench-config-v1\n[view]\nreduced-motion = 1\n",
+        "workbench-config-v1\n[view]\nreduced-motion = true\nreduced-motion = false\n",
+        "workbench-config-v1\n[macos.view]\nunknown = false\n",
         "workbench-config-v1\n[workspace]\nterminal-width = 0.4\n",
         "workbench-config-v1\n[workspace]\nterminal-width = 1/4\n",
         "workbench-config-v1\n[workspace]\nterminal-width = 1/3\nterminal-width = 2/3\n",

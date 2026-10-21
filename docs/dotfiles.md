@@ -387,3 +387,46 @@ Leave Appearance open in window A; apply another theme to the same workspace in
 window B. A should keep its preview, reject Apply, and adopt B's saved theme when
 you Cancel. **Use default → Apply** should return both windows to the configured
 workspace default.
+
+## Qt window view defaults
+
+The Qt candidate accepts `[view]`, `[linux.view]` and `[macos.view]`:
+
+```text
+[view]
+navigation-pinned = true
+reduced-motion = false
+
+[macos.view]
+reduced-motion = true
+```
+
+Both fields accept only `true` or `false`; built-in defaults are false. Platform
+fields override shared fields independently, regardless of section order. They
+join the existing live configuration transaction: malformed values keep all
+previous valid settings, and open settings editors defer updates.
+
+New windows follow these defaults. Pinning/unpinning navigation or toggling
+Reduced motion makes that setting a saved choice for the current window.
+Other windows keep their own choices. **Configuration → This window** shows
+whether each setting follows dotfiles or a saved window choice. **Use view
+defaults** clears both choices immediately; it preserves size, layout, filters,
+workspace themes and terminal sessions. Subsequent dotfile edits then take effect
+without restarting the app. The default markers survive window close/reopen;
+cached boolean values do not freeze inheritance.
+
+Older window files without default markers preserve their existing explicit
+motion/pin choices; a missing optional pin field inherits. Use view defaults to
+opt into managed values. At narrow widths, pinned navigation still collapses to
+a drawer without discarding the preference. This is Qt client presentation state,
+separate from workspace palettes, catalog organization and runtime ownership.
+
+To validate on Mac, install, activate and open the new preview. Add the example
+to `~/.config/terminal-workbench/config.conf`, open Configuration and choose
+**Use view defaults**. Change either managed value and watch it update. Toggle
+that setting using the navigation pin or Reduced motion menu action; later file
+changes should preserve the window choice. Close/reopen to check restoration,
+then reset again. Open a second window to check independent choices. Live shells
+should retain their processes throughout. Linux model and real X11/Wayland tests
+cover transactions, inheritance, reset, legacy views and restart; native Mac
+interaction review remains required.
