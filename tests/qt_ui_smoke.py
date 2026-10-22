@@ -211,6 +211,11 @@ while True:
         def sizes():return [(p['columns'],p['rows']) for p in data()['panes']]
         def capture(name):
             Path(str(report)+'.capture').touch();wait_until(lambda:not Path(str(report)+'.capture').exists());(artifacts/name).write_bytes(Path(str(report)+'.png').read_bytes())
+        def command_search(query):
+            if not data()['commands_open']:
+                key('super+alt+p');wait_until(lambda:data()['commands_open'] and data()['command_search_focus'])
+            key('ctrl+a');typed(query)
+            wait_until(lambda:bool(data()['command_matches']) and all(all(word in (entry['title']+' '+entry['detail']).lower() for word in query.lower().split()) for entry in data()['command_matches']))
         assert 'Adwaita' in data()['interface_font'],'bundled interface font was not applied'
         wait_until(lambda:all(p['facts'].get('cwd')==str(root/str(i)) for i,p in enumerate(data()['panes'])))
         wait_until(lambda:data()['panes'][0]['focus'])
@@ -233,6 +238,22 @@ while True:
         wait_until(lambda:data()['agent_info_open'])
         assert data()['agent_info_details']['heading']=='No agent detected' and not data()['agent_info_details']['launcher']
         key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][0]['focus'])
+        # Runtime details are explicitly queried without touching reader ownership.
+        details_inputs=[received(i) for i in range(6)];details_objects=[p['instance'] for p in data()['panes']];details_grids=sizes();details_catalog=workspace_catalog.load(root)
+        command_search('Terminal details');key('Return')
+        wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='available')
+        assert data()['runtime_info_target']==data()['panes'][0]['identity'] and data()['runtime_info_ownership']=='Attached here'
+        assert 'snapshot' in data()['runtime_info_report']['capabilities'] and 'agent-watch-v3' in data()['runtime_info_report']['capabilities']
+        assert data()['runtime_info_report']['runtime_binary']==str(Path(runtime).resolve())
+        raw_key('super+alt+Right');raw_key('super+alt+o');time.sleep(.1)
+        assert data()['selected']==0 and not data()['overview'],'terminal details leaked application shortcuts'
+        click(*settled_point(lambda d:d['runtime_info_copy']));wait_until(lambda:data()['runtime_info_clipboard_matches'])
+        click(*data()['runtime_info_expand']);time.sleep(.1);capture('terminal-details-runtime.png')
+        click(*data()['runtime_info_refresh']);wait_until(lambda:data()['runtime_info_report'].get('state')=='available')
+        key('Escape');wait_until(lambda:not data()['runtime_info_open'] and data()['panes'][0]['focus'])
+        assert data()['runtime_info_report']=={},'closing terminal details retained an inspection'
+        assert workspace_catalog.load(root)==details_catalog and sizes()==details_grids and [p['instance'] for p in data()['panes']]==details_objects
+        assert [received(i) for i in range(6)]==details_inputs,'terminal details or copying typed into a terminal'
         # About is modal and client-only: copying diagnostics never types into PTYs.
         about_input=[received(i) for i in range(6)];about_sizes=sizes()
         click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
@@ -526,11 +547,6 @@ while True:
         # Palette matching/input is local: no shell, geometry or ownership changes.
         command_grid=sizes();command_pids=[p['instance'] for p in data()['panes']]
         command_input=[received(i) for i in range(6)]
-        def command_search(query):
-            if not data()['commands_open']:
-                key('super+alt+p');wait_until(lambda:data()['commands_open'] and data()['command_search_focus'])
-            key('ctrl+a');typed(query)
-            wait_until(lambda:bool(data()['command_matches']) and all(all(word in (entry['title']+' '+entry['detail']).lower() for word in query.lower().split()) for entry in data()['command_matches']))
         def stop_all_flow():
             global window
             original_window=window;stop_peer=None;excluded_owner=None
@@ -1201,7 +1217,10 @@ while True:
         hook('Stop','Ready');wait_until(lambda:data()['agent_info_details']['heading']=='Ready')
         click(*settled_point(lambda d:d['agent_info_copy']));wait_until(lambda:data()['agent_launcher_clipboard_matches'])
         assert data()['agent_info_details']['launcher']=='wb-codex'
-        capture('agent-details-ready.png');key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])
+        capture('agent-details-ready.png')
+        click(*settled_point(lambda d:d['agent_info_runtime']));wait_until(lambda:data()['runtime_info_open'] and not data()['agent_info_open'] and data()['runtime_info_report'].get('state')=='available')
+        assert data()['runtime_info_target']==data()['panes'][8]['identity']
+        key('Escape');wait_until(lambda:not data()['runtime_info_open'] and data()['panes'][8]['focus'])
         assert workspace_catalog.load(root)==info_catalog and sizes()==info_sizes and [p['instance'] for p in data()['panes']]==info_instances
         assert [received(i) for i in range(6)]==info_inputs,'agent details or copying typed into a terminal'
         hook('UserPromptSubmit','Working')
@@ -1216,7 +1235,9 @@ while True:
         background_selected=data()['selected'];background_workspace=data()['workspace']
         click(*data()['navigation_agent_info']);wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
         assert data()['selected']==background_selected and data()['workspace']==background_workspace,'inspecting a background agent navigated to it'
-        key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][background_selected]['focus'])
+        click(*settled_point(lambda d:d['agent_info_runtime']));wait_until(lambda:data()['runtime_info_open'] and not data()['agent_info_open'])
+        assert data()['runtime_info_target']==data()['panes'][8]['identity'] and data()['selected']==background_selected and data()['workspace']==background_workspace
+        key('Escape');wait_until(lambda:not data()['runtime_info_open'] and data()['panes'][background_selected]['focus'])
         click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'])
         key('super+alt+o');wait_until(lambda:data()['overview'])
@@ -1275,6 +1296,12 @@ while True:
         click(*data()['panes'][8]['check_action'])
         wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='stopped' and '42' in data()['panes'][8]['lifecycle'].get('message',''))
         capture('lifecycle-exit-42.png')
+        stopped_details_attempts=data()['panes'][8]['attachment_attempts']
+        click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+        click(*data()['runtime_info_menu']);wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='unavailable')
+        assert data()['runtime_info_ownership']=='Stopped' and '42' in data()['panes'][8]['lifecycle']['message']
+        capture('terminal-details-stopped.png');key('Escape');wait_until(lambda:not data()['runtime_info_open'])
+        assert data()['panes'][8]['attachment_attempts']==stopped_details_attempts and workspace_catalog.load(root)==life_catalog,'stopped inspection recovered or reattached a shell'
         stopped_attempts=data()['panes'][8]['attachment_attempts']
         raw_key('super+alt+s');wait_until(lambda:data()['terminal_search_focus'])
         typed('exit 42');wait_until(lambda:data()['terminal_search_state'].get('count',0)>0 and not data()['terminal_search_state']['busy'])
@@ -1295,6 +1322,13 @@ while True:
         peer=snapshot_attach(target_socket,takeover=True);collect(peer)
         try:
             wait_until(lambda:data()['panes'][8]['attachment']=='elsewhere' and data()['panes'][8]['lifecycle'].get('state')=='running')
+            owned_input=[received(i) for i in range(6)]
+            click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+            click(*data()['runtime_info_menu']);wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='available')
+            assert data()['runtime_info_ownership']=='Attached in another window'
+            key('Escape');wait_until(lambda:not data()['runtime_info_open'])
+            assert data()['panes'][8]['attachment']=='elsewhere' and [received(i) for i in range(6)]==owned_input,'runtime inspection transferred ownership or typed input'
+
             click(*data()['panes'][8]['primary_action']);wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='move')
             key('Return');time.sleep(.1)  # Cancel has initial focus; Enter cannot confirm.
             if data()['terminal_action_open']:key('Escape')
@@ -1430,6 +1464,14 @@ while True:
             wait_until(lambda:len(data()['panes'])==1 and data()['panes'][0]['ready'])
             assert not data()['terminal_action_open'] and data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
             assert all(t['id']!=closing for w in workspace_catalog.load(root)['workspaces'] for t in w['terminals'])
+        # A peer removes the inspected stable identity: close, cancel, retain sibling.
+        key('super+alt+t');wait_until(lambda:len(data()['panes'])==2 and data()['panes'][1]['ready'])
+        removed_details=data()['panes'][1]['identity']
+        command_search('Terminal details');key('Return');wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='available')
+        assert data()['runtime_info_target']==removed_details
+        request(root,Path(runtime),root,'terminal.close',removed_details)
+        wait_until(lambda:not data()['runtime_info_open'] and len(data()['panes'])==1)
+        assert data()['runtime_info_report']=={} and data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
         managed.write_bytes(managed_bytes);wait_until(lambda:data()['creation_width']==0.5)
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)

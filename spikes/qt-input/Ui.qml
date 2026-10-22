@@ -219,12 +219,29 @@ ApplicationWindow {
     WorkbenchActions { id: commandRegistry; host: window; session: studySession }
     readonly property bool shortcutSettingsOpen: shortcutSettings.visible
     readonly property bool shortcutRecording: shortcutSettings.recordingActive
+    property string runtimeInfoTarget: ""
+    property bool pendingRuntimeInfo: false
+    readonly property bool runtimeInfoOpen: terminalInformation.visible
+    readonly property var runtimeInfoPane: { const revision = catalogRevision; const i = identityIndex(runtimeInfoTarget); return i >= 0 ? panel(i) : null }
+    function refreshRuntimeInfo() {
+        if (identityIndex(runtimeInfoTarget) < 0) return
+        studyRuntimeInfo.inspect(runtimeInfoTarget); studySession.inspect(runtimeInfoTarget)
+    }
+    function openRuntimeInfo(identity) {
+        if (identityIndex(identity) < 0 || terminalInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || fontSettings.visible || shortcutSettings.visible || configurationDialog.visible || about.visible || help.visible) return
+        runtimeInfoTarget = identity; pendingRuntimeInfo = true
+        if (drawer.visible) drawer.close()
+        else if (paneMenu.visible) paneMenu.close()
+        else if (appMenu.visible) appMenu.close()
+        else if (agentInformation.visible) agentInformation.close()
+        else restoreAfterPopup()
+    }
     property string agentInfoTarget: ""
     property bool pendingAgentInfo: false
     readonly property bool agentInfoOpen: agentInformation.visible
     readonly property var agentInfoPane: { const revision = catalogRevision; const i = identityIndex(agentInfoTarget); return i >= 0 ? panel(i) : null }
     function openAgentInfo(identity) {
-        if (identityIndex(identity) < 0 || agentInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || fontSettings.visible || shortcutSettings.visible || configurationDialog.visible || about.visible || help.visible) return
+        if (identityIndex(identity) < 0 || terminalInformation.visible || agentInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || fontSettings.visible || shortcutSettings.visible || configurationDialog.visible || about.visible || help.visible) return
         agentInfoTarget = identity
         if (drawer.visible || paneMenu.visible || appMenu.visible) {
             pendingAgentInfo = true
@@ -256,7 +273,7 @@ ApplicationWindow {
     readonly property int commandCurrent: commands.currentResult
     readonly property var commandMatches: commands.matches
     function openCommands() {
-        if (agentInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || configurationDialog.visible || help.visible || drawer.visible || paneMenu.visible || shortcutSettings.visible || fontSettings.visible || commands.visible || dragSlot >= 0) return
+        if (terminalInformation.visible || agentInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || configurationDialog.visible || help.visible || drawer.visible || paneMenu.visible || shortcutSettings.visible || fontSettings.visible || commands.visible || dragSlot >= 0) return
         if (appMenu.visible) { pendingCommands = true; appMenu.close() }
         else showCommands()
     }
@@ -269,6 +286,7 @@ ApplicationWindow {
         const entry = commandRegistry.find(id)
         if (!entry || !entry.available) return
         switch (id) {
+        case "terminal-info": openRuntimeInfo(terminalModel.get(selected).terminalId); break
         case "agent-info": openAgentInfo(terminalModel.get(selected).terminalId); break
         case "terminal-search": if (overview) overviewSearch.forceActiveFocus(); else openTerminalSearch(); break
         case "commands": openCommands(); break
@@ -416,6 +434,7 @@ ApplicationWindow {
         remembered = focus; positions = scroll
         selected = identityIndex(selectedId)
         if (selected < 0) { workspace = ids.indexOf(oldWorkspaceId) >= 0 ? ids.indexOf(oldWorkspaceId) : Math.max(0, Math.min(oldWorkspace, names.length - 1)); selected = focus[workspace] ?? -1 }
+        if (terminalInformation.visible && identityIndex(runtimeInfoTarget) < 0) terminalInformation.close()
         if (agentInformation.visible && identityIndex(agentInfoTarget) < 0) agentInformation.close()
         Qt.callLater(syncItems)
         if (selected >= 0) {
@@ -506,6 +525,11 @@ ApplicationWindow {
     property bool pendingForward: false
     readonly property bool forwardingArmed: selected >= 0 && panel(selected) !== null && panel(selected).terminal.forwardingArmed
     function restoreAfterPopup() {
+        if (pendingRuntimeInfo) {
+            pendingRuntimeInfo = false
+            Qt.callLater(function() { if (identityIndex(runtimeInfoTarget) >= 0) { refreshRuntimeInfo(); terminalInformation.open() } })
+            return
+        }
         if (pendingAgentInfo) { pendingAgentInfo = false; Qt.callLater(function() { if (identityIndex(agentInfoTarget) >= 0) agentInformation.open() }); return }
         if (pendingSearch) { pendingSearch = false; Qt.callLater(showTerminalSearch); return }
         if (pendingTerminalAction) { pendingTerminalAction = false; Qt.callLater(function() { if (actionExists()) terminalAction.open() }); return }
@@ -520,7 +544,7 @@ ApplicationWindow {
             pendingAppearance = false; Qt.callLater(showAppearance)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -610,7 +634,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -1033,6 +1057,7 @@ ApplicationWindow {
         tones: window.chrome
         id: paneMenu
         onClosed: window.restoreAfterPopup()
+        MenuAction { objectName: "terminalInfoMenuItem"; text: "Terminal details…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0; onTriggered: window.openRuntimeInfo(window.paneMenuTarget) }
         MenuAction { objectName: "agentInfoMenuItem"; text: "Agent details…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0; onTriggered: window.openAgentInfo(window.paneMenuTarget) }
         MenuRule {}
         MenuAction { objectName: "terminalCloseMenuItem"; text: window.exitedTerminal(window.paneMenuTarget) ? "Close pane" : "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.closePane(window.paneMenuTarget) }
@@ -1206,9 +1231,17 @@ ApplicationWindow {
     }
     Binding { target: studyConfiguration; property: "editing"; value: shortcutSettings.visible || fontSettings.visible || appearance.visible || createDialog.visible }
     readonly property bool configurationOpen: configurationDialog.visible
+    TerminalInformation {
+        id: terminalInformation; objectName: "terminalInformation"; anchors.centerIn: parent
+        tones: window.chrome; inspector: studyRuntimeInfo; pane: window.runtimeInfoPane
+        contextLabel: window.runtimeInfoPane ? window.spaces[window.runtimeInfoPane.spaceIndex] + " · " + window.runtimeInfoPane.facts.title : "Terminal unavailable"
+        onRefreshRequested: window.refreshRuntimeInfo()
+        onClosed: { studyRuntimeInfo.clear(); Qt.callLater(window.restoreAfterPopup) }
+    }
     AgentInformation {
         id: agentInformation; objectName: "agentInformation"; anchors.centerIn: parent; tones: window.chrome; model: studyAgentInfo
         facts: window.agentInfoPane ? window.agentInfoPane.facts : ({})
+        onTerminalDetailsRequested: window.openRuntimeInfo(window.agentInfoTarget)
         contextLabel: window.agentInfoPane ? window.spaces[window.agentInfoPane.spaceIndex] + " · " + window.agentInfoPane.facts.title : "Terminal unavailable"
         onClosed: Qt.callLater(window.restoreAfterPopup)
     }
@@ -1251,7 +1284,7 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     function activateShortcut(id) {
         // Boundary navigation still reveals/focuses the selected pane after scrolling.
         if (id === "previous-terminal") navigate(-1)
@@ -1274,7 +1307,7 @@ ApplicationWindow {
             }
         }
     }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

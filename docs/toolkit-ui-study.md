@@ -801,3 +801,13 @@ filesystem reads, subscriptions, polling or work in terminal parsing/painting.
 Real X11/Wayland input checks cover matching, empty results, filter isolation,
 live state changes and retained catalog, reader identity and PTY input.
 Native Mac interaction review remains required.
+
+## Per-terminal runtime diagnostics
+
+Pane menus and Commands now expose Terminal details, also linked from Agent
+details. The stable-target dialog combines existing ownership/exit-status facts
+with an explicit bounded read-only capability request. Runtime/helper launch
+paths explain retained-shell provenance without guessing build equivalence.
+Refresh and copy do not attach, transfer, recover or stop a terminal. Closing or
+peer removal cancels the inspection, with unavailable evidence kept distinct
+from absent optional origin fields. See [Terminal details](terminal-details.md).

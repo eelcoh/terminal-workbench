@@ -74,13 +74,13 @@ if(WORKBENCH_TERMINAL_PROBE)
     else()
         set(workbench_deployment_images "../../native/linux/deployment_images.cpp")
     endif()
-    qt_add_executable(workbench-ui-study ui_agent_info.cpp ui_agent_info.h ui_workspace_appearance.cpp ui_workspace_appearance.h creation_defaults.cpp creation_bridge.c view_defaults.cpp view_bridge.c ui_appearance.cpp ui_appearance.h ui_configuration.cpp ui_configuration.h ui_startup_check.cpp ui_startup_check.h ui_build_info.cpp ui_build_info.h deployment_check.cpp ${workbench_deployment_images} ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
+    qt_add_executable(workbench-ui-study ui_runtime_info.cpp ui_runtime_info.h ui_agent_info.cpp ui_agent_info.h ui_workspace_appearance.cpp ui_workspace_appearance.h creation_defaults.cpp creation_bridge.c view_defaults.cpp view_bridge.c ui_appearance.cpp ui_appearance.h ui_configuration.cpp ui_configuration.h ui_startup_check.cpp ui_startup_check.h ui_build_info.cpp ui_build_info.h deployment_check.cpp ${workbench_deployment_images} ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(workbench-ui-study PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-ui-study PRIVATE -Wall -Wextra)
     target_include_directories(workbench-ui-study PRIVATE "${VT_ROOT}/include" "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(workbench-ui-study PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
-    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml ContextSearch.qml AgentInformation.qml Configuration.qml About.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml TerminalSearch.qml)
+    qt_add_resources(workbench-ui-study "ui" PREFIX "/" FILES Ui.qml TerminalInformation.qml ContextSearch.qml AgentInformation.qml Configuration.qml About.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml TerminalSearch.qml)
     qt_add_resources(workbench-ui-study "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
         FILES "../../fonts/jetbrains-mono/JetBrainsMono-Regular.ttf" "../../fonts/jetbrains-mono/OFL.txt" "../../fonts/adwaita-sans/AdwaitaSans-Regular.ttf" "../../fonts/adwaita-sans/OFL.txt" "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")
@@ -191,6 +191,11 @@ if(TARGET Qt6::qtpaths)
 endif()
 
 if(WORKBENCH_TERMINAL_PROBE)
+    qt_add_executable(workbench-runtime-info-test ui_runtime_info_test.cpp ui_runtime_info.cpp ui_runtime_info.h)
+    target_compile_definitions(workbench-runtime-info-test PRIVATE QT_NO_KEYWORDS)
+    target_compile_options(workbench-runtime-info-test PRIVATE -Wall -Wextra)
+    target_link_libraries(workbench-runtime-info-test PRIVATE Qt6::Gui Qt6::Network)
+    set_target_properties(workbench-runtime-info-test PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE FALSE)
     qt_add_executable(workbench-agent-info-test ui_agent_info_test.cpp ui_agent_info.cpp ui_agent_info.h)
     target_compile_definitions(workbench-agent-info-test PRIVATE QT_NO_KEYWORDS)
     target_compile_options(workbench-agent-info-test PRIVATE -Wall -Wextra)

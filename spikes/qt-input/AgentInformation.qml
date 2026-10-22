@@ -33,8 +33,10 @@ Dialog {
             }
         }
     }
+    signal terminalDetailsRequested()
     footer: Item {
         implicitHeight: 52
+        ChromeButton { objectName: "agentInfoRuntime"; x: 20; tones: popup.tones; text: "Terminal details…"; onClicked: popup.terminalDetailsRequested() }
         ChromeButton { id: done; objectName: "agentInfoClose"; anchors.right: parent.right; anchors.rightMargin: 20; tones: popup.tones; text: "Close"; onClicked: popup.close() }
     }
     onOpened: { copied = false; done.forceActiveFocus() }

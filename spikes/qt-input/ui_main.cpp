@@ -3,6 +3,7 @@
 #include "deployment_check.h"
 #include "ui_build_info.h"
 #include "ui_agent_info.h"
+#include "ui_runtime_info.h"
 #include "ui_configuration.h"
 #include "ui_workspace_appearance.h"
 #include "ui_startup_check.h"
@@ -77,6 +78,7 @@ int main(int argc,char **argv) {
     }
     UiBuildInfo buildInfo(configuration);
     UiSession session(configuration);
+    UiRuntimeInfo runtimeInfo(configuration["state"].toString(),configuration["runtime"].toString());
     UiViewState view(configuration["view_state"].toString());
 #if defined(Q_OS_MACOS)
     constexpr bool apple=true;
@@ -103,6 +105,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studyBuild",&buildInfo);
     engine.rootContext()->setContextProperty("studyAgentInfo",&agentInfo);
+    engine.rootContext()->setContextProperty("studyRuntimeInfo",&runtimeInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
@@ -190,6 +193,12 @@ int main(int argc,char **argv) {
             const QJsonObject data{{"configuration_open",window->property("configurationOpen").toBool()},
                 {"creation_directory",settings.workspaceDirectory()},{"creation_width",settings.terminalWidth()},{"pane_widths",QJsonArray::fromVariantList(listProperty(window,"widths"))},{"workspace_appearance_error",workspaceAppearance.error()},{"workspace_appearance_directory",workspaceAppearance.directory()},{"configuration_error",settings.error()},{"configuration_status",settings.status()},
                 {"configuration_menu",center("configurationMenuItem")},{"configuration_reload",center("configurationReload")},{"configuration_close",center("configurationClose")},
+                {"runtime_info_open",window->property("runtimeInfoOpen").toBool()},{"runtime_info_target",window->property("runtimeInfoTarget").toString()},
+                {"runtime_info_report",QJsonObject::fromVariantMap(runtimeInfo.report())},
+                {"runtime_info_ownership",window->findChild<QObject *>("terminalInformation")->property("ownership").toString()},
+                {"runtime_info_clipboard_matches",!runtimeInfo.diagnostics().isEmpty() && QGuiApplication::clipboard()->text()==runtimeInfo.diagnostics()},
+                {"runtime_info_copy",center("terminalInfoCopy")},{"runtime_info_refresh",center("terminalInfoRefresh")},{"runtime_info_expand",center("terminalInfoExpand")},
+                {"runtime_info_menu",center("terminalInfoMenuItem")},{"agent_info_runtime",center("agentInfoRuntime")},
                 {"agent_info_open",window->property("agentInfoOpen").toBool()},{"agent_info_target",window->property("agentInfoTarget").toString()},
                 {"agent_info_details",window->findChild<QObject *>("agentInformation") ? QJsonObject::fromVariantMap(window->findChild<QObject *>("agentInformation")->property("information").toMap()):QJsonObject()},
                 {"agent_info_copy",center("agentInfoCopy")},{"agent_info_menu",center("agentInfoMenuItem")},{"navigation_agent_info",center("navigationAgentInfo0")},

@@ -517,3 +517,8 @@ pi-observer-test:
 # Metadata-only exited-pane removal and live/recovery race protection.
 terminal-dismiss-test: runtime-build
     python3 tests/terminal_dismiss_test.py target/debug/workbench-session
+
+# Read-only per-terminal runtime diagnostics, parser bounds and cancellation.
+toolkit-runtime-info-test: toolkit-stage
+    cmake --build .local/build/qt-input --target workbench-runtime-info-test --parallel
+    QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-runtime-info-test

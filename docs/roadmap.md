@@ -1613,3 +1613,15 @@ observers without new subscriptions or ownership changes, and retains unchanged
 result delegates. Native Linux input checks cover live-state transitions, separate
 Overview scope and input/catalog/reader isolation. Native Mac review remains open.
 See [finding terminals and agents](toolkit-ui-study.md#find-terminals-and-agents).
+
+## Qt terminal runtime diagnostics
+
+Terminal details now makes retained runtime/helper origins and advertised
+capabilities visible alongside existing attachment/exit-status facts. Pane menus,
+Commands and Agent details share a stable-target inspector with explicit refresh,
+expand/copy and honest unavailable/legacy outcomes. Inspection is bounded and
+read-only, runs only on request and never starts a service or changes ownership.
+Copied fields exclude terminal output, environment and project metadata. Parser,
+request-cancellation, unsafe-endpoint and native Linux live/stopped/other-window/
+background-target checks cover the slice; native Mac review remains open.
+See [Terminal details](terminal-details.md).
