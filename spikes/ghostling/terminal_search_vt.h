@@ -56,7 +56,7 @@ static inline size_t terminal_search_scan_step(TerminalSearchScan *scan,GhosttyT
             if(wrapped) terminal_search_pending(scan);
             else {scan->pending=0;terminal_search_break(&scan->result);}
             scan->col=0;scan->row++;
-            if(scan->row==scan->total) scan->scanning=false;
+            if(scan->row==scan->total) {terminal_search_finish(&scan->result,false);scan->scanning=false;}
         }
     }
     return processed;

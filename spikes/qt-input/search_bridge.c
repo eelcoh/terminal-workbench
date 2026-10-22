@@ -6,6 +6,10 @@ struct WorkbenchSearch {TerminalSearchScan scan;};
 WorkbenchSearch *workbench_search_new(void){return calloc(1,sizeof(WorkbenchSearch));}
 void workbench_search_free(WorkbenchSearch *search){free(search);}
 bool workbench_search_begin(WorkbenchSearch *s,GhosttyTerminal terminal,const char *query){return terminal_search_scan_begin(&s->scan,terminal,query);}
+bool workbench_search_begin_options(WorkbenchSearch *s,GhosttyTerminal terminal,const char *query,bool whole_word,uint32_t (*fold)(uint32_t),bool (*word)(uint32_t)){
+    if((whole_word && !word) || !workbench_search_begin(s,terminal,query))return false;
+    s->scan.result.whole_word=whole_word;s->scan.result.fold=fold;s->scan.result.word=word;return true;
+}
 bool workbench_search_step(WorkbenchSearch *s,GhosttyTerminal terminal,size_t budget){terminal_search_scan_step(&s->scan,terminal,budget);return s->scan.scanning;}
 void workbench_search_status(WorkbenchSearch *s,int *count,int *selected,bool *limited,bool *failed){
     *count=(int)s->scan.result.count;*selected=s->scan.result.selected;*limited=s->scan.result.limited;*failed=s->scan.failed;

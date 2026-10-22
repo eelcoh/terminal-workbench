@@ -1,12 +1,25 @@
 #include "terminal_search.h"
 #include "search_bridge.h"
 #include <QElapsedTimer>
+namespace {
+uint32_t fold(uint32_t cp){return QChar::toCaseFolded(cp);}
+bool word(uint32_t cp){
+    const auto category=QChar::category(cp);
+    return cp=='_' || QChar::isLetterOrNumber(cp) || category==QChar::Mark_NonSpacing || category==QChar::Mark_SpacingCombining || category==QChar::Mark_Enclosing;
+}
+QByteArray encoded(const QString &query,bool matchCase){
+    if(matchCase)return query.toUtf8();
+    QList<char32_t> points;points.reserve(query.size());
+    for(const auto cp:query.toUcs4())points.append(char32_t(fold(cp)));
+    return QString::fromUcs4(points.constData(),points.size()).toUtf8();
+}
+}
 QtTerminalSearch::QtTerminalSearch(GhosttyTerminal terminal,QObject *parent):QObject(parent),terminal_(terminal){
     timer_.setSingleShot(true);connect(&timer_,&QTimer::timeout,this,&QtTerminalSearch::tick);
 }
 QtTerminalSearch::~QtTerminalSearch(){close(false);workbench_search_free(scan_);}
 QVariantMap QtTerminalSearch::state()const {
-    return {{"active",active_},{"busy",busy_},{"count",count_},{"selected",selected_+1},{"limited",limited_},{"error",error_},{"highlight_spans",spans_.size()}};
+    return {{"match_case",matchCase_},{"whole_word",wholeWord_},{"active",active_},{"busy",busy_},{"count",count_},{"selected",selected_+1},{"limited",limited_},{"error",error_},{"highlight_spans",spans_.size()}};
 }
 bool QtTerminalSearch::begin(){
     close();if(!scan_)scan_=workbench_search_new();if(!scan_)return false;
@@ -34,7 +47,12 @@ void QtTerminalSearch::setQuery(const QString &query){
     if(!active_)return;
     const auto bytes=query.toUtf8();
     query_=query;error_=bytes.size()>255 || query.contains(QChar(10)) || query.contains(QChar(13)) || query.contains(QChar(0))?QStringLiteral("Use one line of at most 255 UTF-8 bytes"):QString();
+    if(error_.isEmpty() && encoded(query_,matchCase_).size()>255)error_="Case-folded query exceeds 255 UTF-8 bytes";
     invalidate();
+}
+void QtTerminalSearch::setOptions(bool matchCase,bool wholeWord){
+    if(!active_ || (matchCase_==matchCase && wholeWord_==wholeWord))return;
+    matchCase_=matchCase;wholeWord_=wholeWord;setQuery(query_);
 }
 void QtTerminalSearch::invalidate(){
     if(!active_)return;
@@ -47,8 +65,8 @@ void QtTerminalSearch::invalidate(){
 void QtTerminalSearch::tick(){
     if(!active_ || !busy_)return;
     if(!started_) {
-        const auto bytes=query_.toUtf8();
-        if(!workbench_search_begin(scan_,terminal_,bytes.constData())){busy_=false;error_="Could not read retained terminal text";Q_EMIT changed();return;}
+        const auto bytes=encoded(query_,matchCase_);
+        if(!workbench_search_begin_options(scan_,terminal_,bytes.constData(),wholeWord_,matchCase_?nullptr:fold,wholeWord_?word:nullptr)){busy_=false;error_="Could not read retained terminal text";Q_EMIT changed();return;}
         started_=true;
     }
     QElapsedTimer elapsed;elapsed.start();bool scanning=true;

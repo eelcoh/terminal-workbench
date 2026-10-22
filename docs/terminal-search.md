@@ -32,8 +32,10 @@ must finish attaching first. It is not cross-terminal search or a server-wide in
 ## Work bounds and output changes
 
 Queries are single-line UTF-8, at most 255 bytes. Results retain the first 1024
-matches, with a visible limit/refine-query hint. Regex, case folding and Unicode
-normalization are follow-ups; exact codepoint/byte sequences match literally.
+matches, with a visible limit/refine-query hint. The Qt options below add simple
+case folding and word boundaries. Regex, full case-fold expansions and Unicode
+normalization remain follow-ups; default queries match literal codepoint/byte
+sequences.
 
 Only the selected pane is scanned, outside rendering, in bounded batches with a
 4096-cell / approximately 2ms per-frame budget. There is no whole-buffer formatting,
@@ -66,11 +68,12 @@ Native Mac keyboard/visual acceptance remains pending; Xvfb does not prove it.
 
 ## Qt workbench
 
-The Qt candidate now provides the same literal search through **Find in terminal**
+The Qt candidate provides literal search through **Find in terminal**
 in Commands, the application menu and the inherited Cmd–Option–S / Super–Alt–S
 binding. Existing `terminal.search` dotfile and UI shortcut overrides apply; the
-shortcut editor and help show the active binding. Search is disabled in Overview
-and while a terminal is still attaching.
+shortcut editor and help show the active binding. In Overview this chord instead focuses Find terminals, which searches workspace,
+folder, Git and agent metadata. Terminal-output search waits until attachment
+finishes.
 
 The compact bar appears over the selected terminal and reveals it if it was
 scrolled offscreen. It uses the existing themed controls and a native editable
@@ -101,3 +104,47 @@ handoff, live-output refresh, stopped-terminal search without recovery, viewport
 restoration, and unchanged PTY bytes/readers/grids. Captures are under
 `.local/artifacts/qt-ui/{xcb,wayland}/terminal-search*.png`. Native Mac visual,
 keyboard and clipboard acceptance remains pending.
+
+
+## Qt case and word options
+
+Find in terminal now includes **Match case** and **Whole word** buttons. Match
+case starts enabled and Whole word starts disabled, preserving literal substring
+search. Press either button to toggle it; the query retains focus and matches
+rescan. Tab reaches both options after the existing previous/next/close controls;
+Enter and Space activate a focused button. An active search keeps ordinary
+application navigation and terminal input scoped away from the query field.
+Enter/Up/Down navigation defers while the field is composing text.
+
+With Match case disabled, Unicode simple case folding handles accented letters,
+Greek sigma variants, Kelvin-sign/K and non-BMP case pairs. Folding preserves
+one source codepoint per transformed codepoint, so highlights still refer to
+original terminal cells even when UTF-8 byte lengths differ. It does not perform
+multi-codepoint expansion (`ß` and `ss` stay distinct), locale-specific casing or
+Unicode normalization. Composed and decomposed accents remain literal sequences.
+Both original and folded query bytes must fit the existing 255-byte bound;
+overflow produces an inline query error rather than an incomplete search.
+
+Whole word requires the characters immediately before and after a match to be
+outside Unicode letters, numbers, combining marks and underscore. This prevents
+`needle` matching `needles`, `_needle`, `needle_` or an accented continuation.
+It is a character-boundary rule, rather than language-specific dictionary word
+segmentation. Soft-wrapped rows stay one logical line; hard newlines and the end
+of retained text finish a word. A pending right-boundary decision survives scan
+batch boundaries without prematurely highlighting a partial word.
+
+Options belong to each pane's client search controller. They remain in memory
+when its search closes, and are not saved to dotfiles or window restoration.
+Other panes and windows keep their own options. Changes, output and reflow clear
+stale results immediately and rescan through the existing debounce and bounded
+batches. The 1,024-result cap, tracked viewport restoration and closed-search
+behavior remain unchanged. Case conversion and word classification add no
+per-cell allocations, whole-buffer formatting or runtime requests.
+
+`just toolkit-search-test` covers the options against real Ghostty text,
+including Unicode folds, combining cells, query bounds and reflow. `just check`
+retains prototype literal behavior and exercises word decisions across one-cell
+VT batches. `just toolkit-search-gui-test` checks both Linux display backends:
+option buttons, keyboard navigation, live-output invalidation, Unicode queries,
+unchanged reader identities/grids and no query leakage into PTY input.
+Native Mac keyboard, composition and visual review remain required.

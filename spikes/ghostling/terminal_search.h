@@ -13,7 +13,13 @@ typedef struct {
     TerminalSearchPoint ring[TERMINAL_SEARCH_QUERY];
     TerminalSearchMatch matches[TERMINAL_SEARCH_MATCHES];
     int selected;
-    bool limited;
+    bool limited,whole_word,previous_word,pending_match;
+    /* Left boundary for each byte in the existing position ring. */
+    bool before[TERMINAL_SEARCH_QUERY];
+    TerminalSearchMatch pending;
+    /* Optional codepoint callbacks; queries must use the same simple fold. */
+    uint32_t (*fold)(uint32_t);
+    bool (*word)(uint32_t);
 } TerminalSearch;
 static inline bool terminal_search_begin(TerminalSearch *search,const char *query)
 {
@@ -28,21 +34,41 @@ static inline bool terminal_search_begin(TerminalSearch *search,const char *quer
     }
     return true;
 }
-static inline void terminal_search_break(TerminalSearch *search) {search->matched=0;}
+static inline void terminal_search_record(TerminalSearch *search,TerminalSearchMatch match)
+{
+    if(search->limited) return;
+    search->matches[search->count++]=match;
+    if(search->count==TERMINAL_SEARCH_MATCHES) search->limited=true;
+}
+static inline void terminal_search_finish(TerminalSearch *search,bool next_word)
+{
+    if(search->pending_match && !next_word) terminal_search_record(search,search->pending);
+    search->pending_match=false;
+}
+static inline void terminal_search_break(TerminalSearch *search)
+{terminal_search_finish(search,false);search->matched=0;search->previous_word=false;}
 static inline void terminal_search_byte(TerminalSearch *search,unsigned char byte,TerminalSearchPoint point)
 {
     if(!search->length || search->limited) return;
-    search->ring[search->seen%TERMINAL_SEARCH_QUERY]=point;search->seen++;
+    search->ring[search->seen%TERMINAL_SEARCH_QUERY]=point;
+    if(search->whole_word) search->before[search->seen%TERMINAL_SEARCH_QUERY]=search->previous_word;
+    search->seen++;
     while(search->matched && byte!=search->query[search->matched]) search->matched=search->prefix[search->matched-1];
     if(byte==search->query[search->matched]) search->matched++;
     if(search->matched==search->length) {
-        search->matches[search->count++]=(TerminalSearchMatch){search->ring[(search->seen-search->length)%TERMINAL_SEARCH_QUERY],point};
+        const size_t first=(search->seen-search->length)%TERMINAL_SEARCH_QUERY;
+        const TerminalSearchMatch match={search->ring[first],point};
+        if(!search->whole_word) terminal_search_record(search,match);
+        else if(!search->before[first]) {search->pending=match;search->pending_match=true;}
         search->matched=search->prefix[search->matched-1];
-        if(search->count==TERMINAL_SEARCH_MATCHES) search->limited=true;
     }
 }
 static inline void terminal_search_codepoint(TerminalSearch *search,uint32_t cp,TerminalSearchPoint point)
 {
+    const bool word=search->whole_word && search->word && search->word(cp);
+    if(search->whole_word) terminal_search_finish(search,word);
+    if(search->limited) return;
+    if(search->fold) cp=search->fold(cp);
     unsigned char bytes[4];int count=0;
     if(cp<0x80) {bytes[0]=(unsigned char)cp;count=1;}
     else if(cp<0x800) {bytes[0]=0xc0|(cp>>6);bytes[1]=0x80|(cp&63);count=2;}
@@ -50,6 +76,7 @@ static inline void terminal_search_codepoint(TerminalSearch *search,uint32_t cp,
     else if(cp>=0x10000 && cp<=0x10ffff) {bytes[0]=0xf0|(cp>>18);bytes[1]=0x80|((cp>>12)&63);bytes[2]=0x80|((cp>>6)&63);bytes[3]=0x80|(cp&63);count=4;}
     else {terminal_search_break(search);return;}
     for(int i=0;i<count;i++) terminal_search_byte(search,bytes[i],point);
+    search->previous_word=word;
 }
 static inline bool terminal_search_move(TerminalSearch *search,int direction)
 {

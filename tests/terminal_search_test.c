@@ -3,6 +3,8 @@
 #include "terminal_search.h"
 static void feed(TerminalSearch *s,const char *text,uint32_t row,uint16_t col)
 {for(size_t i=0;text[i];i++) terminal_search_byte(s,(unsigned char)text[i],(TerminalSearchPoint){row,(uint16_t)(col+i),1});}
+static bool word(uint32_t cp){return (cp>='a' && cp<='z') || (cp>='A' && cp<='Z') || (cp>='0' && cp<='9') || cp=='_';}
+static void whole(TerminalSearch *s,const char *text){for(size_t i=0;text[i];i++)terminal_search_codepoint(s,(unsigned char)text[i],(TerminalSearchPoint){0,(uint16_t)i,1});}
 int main(void)
 {
     TerminalSearch s;assert(terminal_search_begin(&s,"aba"));feed(&s,"ababa",2,4);
@@ -20,5 +22,13 @@ int main(void)
     assert(terminal_search_begin(&s,""));feed(&s,"anything",0,0);assert(!s.count && !terminal_search_move(&s,1));
     assert(!terminal_search_begin(&s,"bad\nquery") && !terminal_search_begin(&s,"\xc0\x80"));
     assert(terminal_search_begin(&s,"a"));for(int i=0;i<1100;i++)terminal_search_byte(&s,'a',(TerminalSearchPoint){(uint32_t)i,0,1});assert(s.limited && s.count==TERMINAL_SEARCH_MATCHES);
+    assert(terminal_search_begin(&s,"needle"));s.whole_word=true;s.word=word;
+    whole(&s,"needles needle needle_ _needle needle");assert(s.count==1 && s.pending_match);
+    terminal_search_break(&s);assert(s.count==2 && !s.pending_match);
+    assert(terminal_search_begin(&s,"a"));s.whole_word=true;s.word=word;
+    whole(&s,"a");assert(!s.count);whole(&s,"b");terminal_search_break(&s);assert(!s.count);
+    whole(&s,"a");terminal_search_finish(&s,false);assert(s.count==1 && s.matches[0].start.col==0);
+    assert(terminal_search_begin(&s,"a"));s.whole_word=true;s.word=word;
+    for(int i=0;i<1100;i++){whole(&s,"a ");}assert(s.count==TERMINAL_SEARCH_MATCHES && s.limited);
     return 0;
 }

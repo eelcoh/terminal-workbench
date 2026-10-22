@@ -22,6 +22,7 @@ public:
     void viewportChanged();
     Q_INVOKABLE bool begin();
     Q_INVOKABLE void setQuery(const QString &);
+    Q_INVOKABLE void setOptions(bool matchCase,bool wholeWord);
     Q_INVOKABLE void move(int);
     Q_INVOKABLE void close(bool restore=true);
 Q_SIGNALS:
@@ -32,6 +33,7 @@ private:
     GhosttyTerminal terminal_;WorkbenchSearch *scan_=nullptr;
     GhosttyTrackedGridRef bookmark_=nullptr;GhosttyTerminalScreen screen_=GHOSTTY_TERMINAL_SCREEN_PRIMARY;
     bool active_=false,bottom_=false,busy_=false,started_=false;
+    bool matchCase_=true,wholeWord_=false;
     QString query_,error_;int count_=0,selected_=-1;bool limited_=false;
     QTimer timer_;QVector<Span> spans_;QByteArray mask_;
 };

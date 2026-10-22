@@ -133,6 +133,16 @@ while True:
         def typed(value):
             if wayland:run(root/'keyboard','text',value)
             else:cmd('type','--window',window,'--delay',1,value)
+        def pasted(value):
+            # The US virtual keyboard intentionally emits ASCII only. Exercise
+            # Unicode through the real private compositor/X11 clipboard instead.
+            owner=subprocess.Popen(['wl-copy','--foreground','--',value] if wayland else ['xclip','-selection','clipboard','-in','-quiet'],env=env,stdin=subprocess.DEVNULL if wayland else subprocess.PIPE,stdout=log,stderr=log)
+            processes.append(owner)
+            if not wayland:owner.stdin.write(value.encode());owner.stdin.close()
+            def available():
+                result=subprocess.run(['wl-paste','--no-newline'] if wayland else ['xclip','-o','-selection','clipboard'],env=env,capture_output=True,timeout=5)
+                return result.returncode==0 and result.stdout==value.encode()
+            wait_until(available);key('ctrl+v')
         def move(x,y):
             if wayland:
                 layout=next(w['layout'] for w in json.loads(run('niri','msg','-j','windows')) if w['id']==window)
@@ -414,6 +424,23 @@ while True:
         key('ctrl+a');typed('QT-FIND-NEEDLE');wait_until(lambda:data()['terminal_search_state']['count']==3)
         (root/'0'/'cursor').write_bytes(b'\r\nQT-FIND-NEEDLE')
         wait_until(lambda:data()['terminal_search_state']['count']==4 and not data()['terminal_search_state']['busy'])
+        # Options rescan retained text locally and follow new output without input.
+        key('ctrl+a');typed('qt-find-needle');wait_until(lambda:not data()['terminal_search_state']['busy'] and data()['terminal_search_state']['count']==0)
+        click(*data()['terminal_search_match_case']);wait_until(lambda:not data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==4 and data()['terminal_search_focus'])
+        click(*data()['terminal_search_whole_word']);wait_until(lambda:data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==4)
+        (root/'0'/'cursor').write_bytes('\r\nQT-FIND-NEEDLEish _QT-FIND-NEEDLE QT-FIND-NEEDLE_ qt-find-needle.\r\nÉCOLE école École'.encode())
+        wait_until(lambda:data()['terminal_search_state']['count']==5 and not data()['terminal_search_state']['busy'])
+        capture('terminal-search-options.png')
+        click(*data()['terminal_search_whole_word']);wait_until(lambda:not data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==8)
+        click(*data()['terminal_search_match_case']);wait_until(lambda:data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==1)
+        key('ctrl+a');pasted('école');wait_until(lambda:data()['terminal_search_state']['count']==1)
+        click(*data()['terminal_search_match_case']);wait_until(lambda:not data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==3)
+        click(*data()['terminal_search_whole_word']);wait_until(lambda:data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==3)
+        # Return to default modes for the remaining broad workflow checks.
+        for _ in range(4):key('Tab')
+        key('Return');wait_until(lambda:data()['terminal_search_state']['match_case'] and data()['terminal_search_focus'] and not data()['terminal_search_state']['busy'] and data()['terminal_search_state']['count']==1)
+        for _ in range(5):key('Tab')
+        key('space');wait_until(lambda:not data()['terminal_search_state']['whole_word'] and data()['terminal_search_focus'])
         click(*data()['terminal_search_close']);wait_until(lambda:not data()['terminal_search_open'] and data()['panes'][0]['focus'])
         assert [received(i) for i in range(6)]==search_input and sizes()==search_sizes and [p['instance'] for p in data()['panes']]==search_instances,'search changed shell input, grids or reader identity'
         (root/'0'/'cursor').write_bytes(b'\x1b[3J\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')

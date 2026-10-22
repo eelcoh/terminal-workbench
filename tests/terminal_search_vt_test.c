@@ -7,6 +7,7 @@ static GhosttyTerminal create(int cols,int rows)
 static void write_text(GhosttyTerminal t,const char *text) {ghostty_terminal_vt_write(t,(const uint8_t *)text,strlen(text));}
 static TerminalSearchScan scan(GhosttyTerminal t,const char *query)
 {TerminalSearchScan s;assert(terminal_search_scan_begin(&s,t,query));while(s.scanning){size_t processed=terminal_search_scan_step(&s,t,7);assert(processed<=7 && !s.failed);}return s;}
+static bool word(uint32_t cp){return (cp>='a' && cp<='z') || (cp>='A' && cp<='Z') || (cp>='0' && cp<='9') || cp=='_';}
 int main(void)
 {
     GhosttyTerminal t=create(8,3);
@@ -25,5 +26,13 @@ int main(void)
     GhosttyTrackedGridRef bookmark=NULL;GhosttyPoint top={.tag=GHOSTTY_POINT_TAG_VIEWPORT,.value.coordinate={0,0}};
     assert(ghostty_terminal_grid_ref_track(t,top,&bookmark)==GHOSTTY_SUCCESS);
     ghostty_terminal_free(t);assert(!ghostty_tracked_grid_ref_has_value(bookmark));ghostty_tracked_grid_ref_free(bookmark);
+    t=create(4,2);write_text(t,"needle needles\r\n_needle\r\nneedle");
+    assert(terminal_search_scan_begin(&s,t,"needle"));s.result.whole_word=true;s.result.word=word;
+    while(s.scanning){assert(terminal_search_scan_step(&s,t,1)<=1 && !s.failed);}
+    assert(s.result.count==2); /* Both soft wraps and one-cell batch boundaries preserve word context. */
+    assert(ghostty_terminal_resize(t,7,3,0,0)==GHOSTTY_SUCCESS);
+    assert(terminal_search_scan_begin(&s,t,"needle"));s.result.whole_word=true;s.result.word=word;
+    while(s.scanning){assert(terminal_search_scan_step(&s,t,1)<=1 && !s.failed);}assert(s.result.count==2);
+    ghostty_terminal_free(t);
     puts("PASS: actual Ghostty scrollback, soft-wrap/newline boundaries, Unicode cells, alternate-screen isolation, reflow and read-only scans");return 0;
 }

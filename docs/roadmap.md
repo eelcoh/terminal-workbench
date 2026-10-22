@@ -732,8 +732,9 @@ stale-result invalidation outside rendering. Continuous output can delay results
 until a brief pause. Queries are literal/case-sensitive, capped at 255 bytes and
 1024 retained matches. The Linux build/check and one/fifteen-terminal GUI cases
 pass at ordinary and simulated doubled density; native Mac review remains open.
-See [terminal search](terminal-search.md). Cross-terminal search, regex and case
-folding are separate follow-ups, not part of this slice.
+See [terminal search](terminal-search.md). Cross-terminal search and regex remain
+follow-ups. Qt simple folding and word options are implemented in the later
+[search options slice](#qt-terminal-search-options).
 
 ## Qt parity: find in terminal
 
@@ -1625,3 +1626,15 @@ Copied fields exclude terminal output, environment and project metadata. Parser,
 request-cancellation, unsafe-endpoint and native Linux live/stopped/other-window/
 background-target checks cover the slice; native Mac review remains open.
 See [Terminal details](terminal-details.md).
+
+
+## Qt terminal search options
+
+Find in terminal now adds Match case and Whole word controls while preserving
+literal substring defaults. Unicode simple folding and word-character boundaries
+retain original cell highlights across soft wraps, hard newlines and scan batches.
+Mode changes immediately invalidate stale highlights and use the existing bounded
+scan/debounce/result limits; closed/hidden panes gain no search work. Query input
+also defers match navigation during composition. Options stay temporary and local
+to their pane. Engine, real-VT and native Linux search checks cover the slice;
+native Mac interaction review remains open. See [search options](terminal-search.md#qt-case-and-word-options).

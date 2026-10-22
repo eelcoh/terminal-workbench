@@ -285,6 +285,7 @@ int main(int argc,char **argv) {
                 {"navigation_first_agent",center("navigationAgent0")},{"navigation_workspace_1",center("navigationWorkspace1")},
                 {"drawer_open",window->property("drawerOpen").toBool()},{"name_focus",window->property("nameFocused").toBool()},
                 {"new_workspace_button",QJsonArray{createPoint.x(),createPoint.y()}},
+                {"terminal_search_match_case",center("terminalSearchMatchCase")},{"terminal_search_whole_word",center("terminalSearchWholeWord")},
                 {"terminal_search_open",window->property("terminalSearchOpen").toBool()},{"terminal_search_focus",window->property("terminalSearchFocused").toBool()},
                 {"terminal_search_state",searchController ? QJsonObject::fromVariantMap(searchController->property("state").toMap()) : QJsonObject()},
                 {"terminal_search_next",center("terminalSearchNext")},{"terminal_search_close",center("terminalSearchClose")},

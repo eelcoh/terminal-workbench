@@ -10,7 +10,7 @@ Popup {
     readonly property bool queryFocused: query.activeFocus
     modal: true; dim: false; focus: true; padding: 12
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    height: 92
+    height: 124
     background: Rectangle {color: popup.tones.raised;radius: 10;border.color: popup.tones.border}
     onOpened: {query.text = "";query.forceActiveFocus(Qt.TabFocusReason)}
     onClosed: {if(controller)controller.close();controller = null;finished()}
@@ -26,10 +26,10 @@ Popup {
             selectByMouse: true;maximumLength: 255
             background: Rectangle {color: popup.tones.background;radius: 6;border.color: query.activeFocus ? popup.tones.accent : popup.tones.border}
             onTextChanged: if(popup.controller)popup.controller.setQuery(text)
-            Keys.onReturnPressed: event => {if(popup.controller)popup.controller.move(event.modifiers & Qt.ShiftModifier ? -1 : 1);event.accepted = true}
-            Keys.onEnterPressed: event => {if(popup.controller)popup.controller.move(event.modifiers & Qt.ShiftModifier ? -1 : 1);event.accepted = true}
-            Keys.onUpPressed: event => {if(popup.controller)popup.controller.move(-1);event.accepted = true}
-            Keys.onDownPressed: event => {if(popup.controller)popup.controller.move(1);event.accepted = true}
+            Keys.onReturnPressed: event => {if(inputMethodComposing){event.accepted = false;return}if(popup.controller)popup.controller.move(event.modifiers & Qt.ShiftModifier ? -1 : 1);event.accepted = true}
+            Keys.onEnterPressed: event => {if(inputMethodComposing){event.accepted = false;return}if(popup.controller)popup.controller.move(event.modifiers & Qt.ShiftModifier ? -1 : 1);event.accepted = true}
+            Keys.onUpPressed: event => {if(inputMethodComposing){event.accepted = false;return}if(popup.controller)popup.controller.move(-1);event.accepted = true}
+            Keys.onDownPressed: event => {if(inputMethodComposing){event.accepted = false;return}if(popup.controller)popup.controller.move(1);event.accepted = true}
             Accessible.name: "Find literal text in this terminal"
         }
         Label {x: query.width + 8;y: 8;width: 76;text: popup.result.busy ? "Searching…" : (popup.result.selected || 0) + "/" + (popup.result.count || 0) + (popup.result.limited ? "+" : "");elide: Text.ElideRight;color: popup.tones.muted;font.pixelSize: 12}
@@ -38,8 +38,13 @@ Popup {
             SearchButton {objectName: "terminalSearchNext";tones: popup.tones;width: 32;height: 32;text: "↓";hint: "Next match";enabled: !popup.result.busy && popup.result.count > 0;onClicked: popup.controller.move(1)}
             SearchButton {objectName: "terminalSearchClose";tones: popup.tones;width: 32;height: 32;iconName: "close";hint: "Close search and restore view";onClicked: popup.close()}
         }
-        Label {x: 0;y: 42;width: parent.width;elide: Text.ElideRight;font.pixelSize: 11;color: popup.tones.muted
-            text: popup.result.error || (popup.result.limited ? "First 1024 matches · Refine your query" : !query.text ? "Literal, case-sensitive · Current terminal and scrollback" : !popup.result.busy && !popup.result.count ? "No matches · Esc restores your view" : "Enter next · Shift+Enter previous · Esc restores your view")
+        Row {
+            x: 0; y: 38; spacing: 6
+            SearchButton {objectName: "terminalSearchMatchCase";tones: popup.tones;text: "Match case";selected: popup.result.match_case === true;hint: "Match uppercase and lowercase exactly";onClicked: {popup.controller.setOptions(!popup.result.match_case,popup.result.whole_word === true);query.forceActiveFocus()}}
+            SearchButton {objectName: "terminalSearchWholeWord";tones: popup.tones;text: "Whole word";selected: popup.result.whole_word === true;hint: "Match outside letters, numbers, combining marks and underscores";onClicked: {popup.controller.setOptions(popup.result.match_case === true,!popup.result.whole_word);query.forceActiveFocus()}}
+        }
+        Label {x: 0;y: 78;width: parent.width;elide: Text.ElideRight;font.pixelSize: 11;color: popup.tones.muted
+            text: popup.result.error || (popup.result.limited ? "First 1024 matches · Refine your query" : !query.text ? "Literal · " + (popup.result.match_case ? "Match case" : "Ignore case") + (popup.result.whole_word ? " · Whole words" : "") + " · Current terminal and scrollback" : !popup.result.busy && !popup.result.count ? "No matches · Esc restores your view" : "Enter next · Shift+Enter previous · Esc restores your view")
         }
     }
 }
