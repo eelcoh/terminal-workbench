@@ -2,10 +2,9 @@
 
 A desktop terminal workspace for running and overseeing coding agents.
 
-Working name. The repository now includes a runnable Linux terminal integration
-spike with workspaces, a searchable overview, foreground agent identification,
-and optional lifecycle status.
-Real interactive agent-hook compatibility remains unverified.
+Working name. Pre-release: the Qt client (`just toolkit-workbench`) is the
+production frontend in progress, working toward v0.1. The original Raylib viewer
+(`just spike`, documented below) is frozen as a reference until Qt reaches parity.
 
 ## Product direction
 
@@ -17,8 +16,8 @@ Real interactive agent-hook compatibility remains unverified.
 - Persistent sessions owned by a background runtime, independent of open windows.
 - A fresh, configurable keyboard model with platform conventions and explicit terminal input routing.
 
-The [roadmap](docs/roadmap.md) includes a dedicated [UX spike](docs/ux-spike.md),
-platform validation, theming, runtime hardening and installable releases.
+See the [roadmap](docs/roadmap.md) for the plan to v0.3 and the
+[status log](docs/status-log.md) for the development record.
 
 This project follows an experiment built on Herdr. It has independent Git history
 and contains no copied Herdr code.
@@ -35,7 +34,7 @@ full input, clipboard and interaction acceptance remains open.
 On this workstation:
 
 ```sh
-cd /var/home/eelco/Code/ideas/terminal-workbench
+cd /var/home/eelco/Code/tools/terminal-workbench
 distrobox enter build-machine -- just spike
 ```
 

@@ -13,7 +13,7 @@ just session-soak 60 15       # compare the populated case
 ```
 
 On this Linux workstation, use `distrobox enter build-machine -- just --justfile
-/var/home/eelco/Code/ideas/terminal-workbench/justfile session-soak 300 15`.
+/var/home/eelco/Code/tools/terminal-workbench/justfile session-soak 300 15`.
 On Mac, use `TMPDIR=/tmp just session-soak 300 15` to keep Unix socket paths short.
 The owner confirmed the native Mac soak passed on 2026-10-14.
 

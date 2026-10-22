@@ -21,9 +21,10 @@ VT parsing alone does not provide fonts, rendering, selection, or native input.
 
 Reference: <https://ghostty.org/docs/about>
 
-SwiftUI/AppKit on macOS and GTK4 on Linux are candidates, not final choices.
-Qt Quick is now the first shared-toolkit candidate under an isolated input probe;
-see the [readiness audit](toolkit-readiness.md). No toolkit has been selected.
+Qt Quick is the production client toolkit on both platforms (decided
+2026-10-22; see the [roadmap](roadmap.md)). The Raylib/Ghostling viewer is frozen
+as a reference. The [readiness audit](toolkit-readiness.md) records the evidence
+and the platform gates still to close.
 The workspace layout remains experimental pending the remaining platform gates.
 
 The current VT integration permits runtime-owned PTYs with clients attaching
@@ -45,12 +46,10 @@ after examining the API and completing the terminal spike.
 
 ## Decisions still open
 
-See [the roadmap](roadmap.md) for the current sequence. The [UX spike](ux-spike.md)
-and native platform/input checks inform the final toolkit decision. Theme loading
+See [the roadmap](roadmap.md) for the current sequence. Theme loading
 and matching application colors are implemented by the viewer, not VT parsing.
 
 - Full renderer integration and version pinning.
-- Native per-platform clients versus a shared toolkit.
 - macOS application bundle and Linux packaging.
 - Final product name. The project uses MIT; dependency notices remain separate.
 
@@ -60,8 +59,8 @@ A separate Rust-owned PTY and Ghostty VT viewer now work together on Linux and
 macOS. Runtime ownership, attachment and reconnect have dedicated validation;
 agent observations use runtime metadata and explicit integration signals.
 See [integration findings](integration-findings.md) for the inspected API gaps,
-measured behavior, and remaining platform/input checks. The final UI toolkit
-remains undecided.
+measured behavior, and remaining platform/input checks. The Qt client
+replaces this viewer as the production frontend.
 
 ## Workspace layout experiment
 
