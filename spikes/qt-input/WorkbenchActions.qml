@@ -8,6 +8,7 @@ QtObject {
         return {id: id, title: title, detail: detail, key: studyShortcuts.labels[id] || "", available: available, reason: available ? "" : reason}
     }
     readonly property bool hasPane: host.selected >= 0 && host.terminalItems.length > host.selected && host.panel(host.selected) !== null
+    readonly property bool exitedPane: hasPane && host.exitedTerminal(host.panel(host.selected).terminalId)
     readonly property bool hasWorkspace: host.spaces.length > 0
     readonly property bool workingPane: hasPane && !host.overview
     readonly property var neighbours: host.overview ? host.overviewIndices(host.workspace) : host.indices(host.workspace)
@@ -39,7 +40,7 @@ QtObject {
         row("move-down", "Move to workspace below", "Keep the same running process", host.canMoveWorkspace(1), "No available workspace below"),
         row("session-stop", "Stop all terminals…", "Confirm before stopping shells across this session’s workspaces and windows; keep saved organization", host.terminalItems.length > 0 && !session.busy, session.busy ? "Another change is in progress" : "No saved terminals"),
         row("close-workspace", "Remove workspace…", "Confirm before stopping its terminals and removing this workspace", hasWorkspace && !session.busy, !hasWorkspace ? "No workspace selected" : "Another change is in progress"),
-        row("close-terminal", "Close terminal…", "Confirm before stopping and removing this terminal", hasPane && !session.busy, session.busy ? "Another change is in progress" : "No terminal selected"),
+        row("close-terminal", exitedPane ? "Close pane" : "Close terminal…", exitedPane ? "Remove this exited pane" : "Confirm before stopping and removing this terminal", hasPane && !session.busy, session.busy ? "Another change is in progress" : "No terminal selected"),
         row("forward", "Send next key to terminal", "Bypass application shortcuts once; Escape cancels", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.ready, "No connected terminal selected in the working view"),
         row("terminal-search", "Find in terminal", "Search literal text in this terminal and its scrollback", workingPane && host.panel(host.selected) !== null && host.panel(host.selected).terminal.searchable, "No retained terminal selected in the working view"),
         row("copy", "Copy selection", "Copy selected terminal text to the clipboard", workingPane, "No terminal selected in the working view"),

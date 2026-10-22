@@ -42,7 +42,9 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
 
 }
 void UiSession::fail(const QString &message) {
-    busy_=false;deadline_.stop();socket_.abort();receive_.clear();if(catalog_)catalog_->resume();error_=message;Q_EMIT changed();
+    const bool dismissed=method_=="terminal.dismiss";
+    busy_=false;deadline_.stop();socket_.abort();receive_.clear();if(catalog_)catalog_->resume();error_=dismissed && message=="Unknown session service method" ? "Closing exited panes requires a newer session service. Update the service, then try again." : message;Q_EMIT changed();
+    if(dismissed)lifecycle_.refresh(identity_);
 }
 QObject *UiSession::observe(const QString &identity) {
     static const QRegularExpression id("^[a-zA-Z0-9_-]{1,64}$");
@@ -116,6 +118,7 @@ void UiSession::refreshInactive() {
     // Only on explicit/catalog invalidations, never from render or PTY parsing.
     for(auto it=readers_.cbegin();it!=readers_.cend();++it)if(it.value() && !it.value()->ready() && it.value()->attachment()!=QStringLiteral("connecting"))lifecycle_.refresh(it.key());
 }
+void UiSession::dismissTerminal(const QString &identity) {request("terminal.dismiss",identity);}
 void UiSession::closeTerminal(const QString &identity) {request("terminal.close",identity);}
 void UiSession::inspect(const QString &identity) {lifecycle_.inspect(identity);}
 

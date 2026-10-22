@@ -119,6 +119,15 @@ ApplicationWindow {
         else if (appMenu.visible) appMenu.close()
         else { pendingTerminalAction = false; Qt.callLater(function() { if (actionExists()) terminalAction.open() }) }
     }
+    function exitedTerminal(identity) {
+        const i = identityIndex(identity), pane = i < 0 ? null : panel(i)
+        return pane !== null && !pane.terminal.ready && pane.lifecycle.state === "stopped"
+    }
+    function closePane(identity) {
+        if (studySession.busy || identityIndex(identity) < 0) return
+        if (exitedTerminal(identity)) studySession.dismissTerminal(identity)
+        else requestTerminalAction(identity,"close")
+    }
     function requestTerminalAction(identity, kind) {
         if (studySession.busy || terminalAction.visible) return
         actionTarget = identity; actionKind = kind; const i = identityIndex(identity); actionContext = i < 0 ? "" : panel(i).facts.title + " · " + spaces[terminalModel.get(i).spaceIndex]; paneMenu.close()
@@ -270,7 +279,7 @@ ApplicationWindow {
         case "move-down": moveSelectedWorkspace(1); break
         case "session-stop": requestSessionStop(); break
         case "close-workspace": requestWorkspaceClose(spaceIds[workspace]); break
-        case "close-terminal": requestTerminalAction(terminalModel.get(selected).terminalId, "close"); break
+        case "close-terminal": closePane(terminalModel.get(selected).terminalId); break
         case "forward": panel(selected).terminal.forceActiveFocus(); panel(selected).terminal.forwardNextKey(); break;
         case "copy": panel(selected).terminal.copy(); break
         case "paste": panel(selected).terminal.paste(); break
@@ -405,7 +414,7 @@ ApplicationWindow {
             followMove = false
             Qt.callLater(function() { if (overview) revealOverview(selected); else focusPane(selected) })
         }
-        if (method === "session.stop" || method === "terminal.close" || method === "workspace.close") {
+        if (method === "session.stop" || method === "terminal.close" || method === "terminal.dismiss" || method === "workspace.close") {
             terminalAction.close(); Qt.callLater(restoreAfterPopup)
         }
         if (method === "workspace.rename" || method === "workspace.directory") createDialog.close()
@@ -857,7 +866,7 @@ ApplicationWindow {
                                 onClicked: { if (pane.lifecycle.state === "stopped") studySession.recover(pane.terminalId); else if (terminal.attachment === "elsewhere") window.requestTerminalAction(pane.terminalId, "move"); else studySession.reconnect(terminal, pane.terminalId, false) }
                             }
                             QuietButton { objectName: "terminalReconnect" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Reconnect"; visible: terminal.attachment === "elsewhere" && pane.lifecycle.state === "running"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: studySession.reconnect(terminal, pane.terminalId, false) }
-                            QuietButton { objectName: "terminalCloseExited" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Close pane"; visible: pane.lifecycle.state === "stopped"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: window.requestTerminalAction(pane.terminalId, "close") }
+                            QuietButton { objectName: "terminalCloseExited" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Close pane"; visible: pane.lifecycle.state === "stopped"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: studySession.dismissTerminal(pane.terminalId) }
                             QuietButton { objectName: "terminalCheck" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: pane.lifecycle.busy ? "Checking…" : "Check again"; enabled: !pane.lifecycle.busy && !window.overview; onClicked: studySession.inspect(pane.terminalId) }
                         }
                     }
@@ -998,7 +1007,7 @@ ApplicationWindow {
         onClosed: window.restoreAfterPopup()
         MenuAction { objectName: "agentInfoMenuItem"; text: "Agent details…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0; onTriggered: window.openAgentInfo(window.paneMenuTarget) }
         MenuRule {}
-        MenuAction { objectName: "terminalCloseMenuItem"; text: "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.requestTerminalAction(window.paneMenuTarget, "close") }
+        MenuAction { objectName: "terminalCloseMenuItem"; text: window.exitedTerminal(window.paneMenuTarget) ? "Close pane" : "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.closePane(window.paneMenuTarget) }
         MenuRule {}
         MenuAction { text: "Cycle width"; onTriggered: window.dispatchCommand("cycle-width") }
         MenuAction { text: "Toggle full width"; onTriggered: window.dispatchCommand("full-width") }

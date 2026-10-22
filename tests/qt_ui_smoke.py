@@ -1375,13 +1375,25 @@ while True:
         click(*settled_point(lambda d:None if d['panes'][1]['ready'] or d['panes'][1]['lifecycle'].get('busy') else d['panes'][1]['check_action']))
         wait_until(lambda:data()['panes'][1]['lifecycle'].get('state')=='stopped' and data()['panes'][1]['exited_close_visible'])
         stopped_catalog=workspace_catalog.load(root);capture('exited-close-pane.png')
-        click(*settled_point(lambda d:d['panes'][1]['exited_close_action']));wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='close')
-        key('Return');wait_until(lambda:not data()['terminal_action_open'])
-        assert workspace_catalog.load(root)==stopped_catalog and not data()['panes'][1]['ready'],'initial Enter closed or restarted an exited pane'
-        click(*data()['panes'][1]['exited_close_action']);wait_until(lambda:data()['terminal_action_open'])
-        click(*data()['confirm_terminal_action']);wait_until(lambda:len(data()['panes'])==1 and not data()['terminal_action_open'] and data()['panes'][0]['ready'],timeout=20)
+        click(*settled_point(lambda d:d['panes'][1]['exited_close_action']))
+        wait_until(lambda:len(data()['panes'])==1 and data()['panes'][0]['ready'])
+        assert not data()['terminal_action_open'],'exited pane requested a second confirmation'
         assert data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
         assert all(t['id']!=exited_id for w in workspace_catalog.load(root)['workspaces'] for t in w['terminals'])
+        # Menu and Commands use the same stopped-only removal without a modal.
+        for entry in ('menu','commands'):
+            key('super+alt+t');wait_until(lambda:len(data()['panes'])==2 and data()['panes'][1]['ready'] and data()['panes'][1]['focus'])
+            closing=data()['panes'][1]['identity']
+            typed('printf WB_CLOSE_'+entry.upper());key('Return');wait_until(lambda:'WB_CLOSE_'+entry.upper() in data()['panes'][1]['text'])
+            raw_key('ctrl+d');wait_until(lambda:not data()['panes'][1]['ready'] and data()['panes'][1]['lifecycle'].get('state')=='stopped')
+            if entry=='menu':
+                click(*data()['panes'][1]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+                click(*data()['terminal_close_item'])
+            else:
+                command_search('Close pane');key('Return')
+            wait_until(lambda:len(data()['panes'])==1 and data()['panes'][0]['ready'])
+            assert not data()['terminal_action_open'] and data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
+            assert all(t['id']!=closing for w in workspace_catalog.load(root)['workspaces'] for t in w['terminals'])
         managed.write_bytes(managed_bytes);wait_until(lambda:data()['creation_width']==0.5)
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)

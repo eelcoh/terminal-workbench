@@ -129,3 +129,14 @@ with client-owned window lease exclusion. The service does not know about Qt,
 window slots or app bundles. Activation's slot checks/reservations, selected paths
 and update commands live entirely in the installed client layer. See
 [preview updates](qt-staged-preview.md#switch-preview-builds).
+
+## Remove a stopped terminal
+
+`terminal.dismiss` accepts a stable terminal identity with the normal service
+protocol/runtime/directory fields. It removes only a stopped terminal's catalog
+entry, preserving its workspace and runtime evidence. Endpoint ownership/type and
+liveness are rechecked inside the catalog lock shared with recovery. Live or
+uncertain endpoints, missing identities and pending operation journals reject
+without stopping, recovering or reconciling anything. It runs no runtime command.
+Existing `terminal.close` retains its explicitly confirmed stop-and-remove contract.
+Clients must not substitute it when dismissal is unavailable or rejected.

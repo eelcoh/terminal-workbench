@@ -53,6 +53,7 @@ check: runtime-build
     python3 tests/preview_usage_test.py
     python3 tests/lifecycle_record_test.py
     python3 tests/lifecycle_smoke.py target/debug/workbench-session
+    python3 tests/terminal_dismiss_test.py target/debug/workbench-session
     python3 tests/workspace_directories_test.py target/debug/workbench-session
     python3 tests/folder_picker_test.py
     python3 tests/window_slots_test.py
@@ -512,3 +513,7 @@ pi-runtime-test: runtime-build
 # Optional integration check: Node 22+ TypeScript loader, no Pi/account needed.
 pi-observer-test:
     node --experimental-strip-types tests/pi_observer_test.mjs
+
+# Metadata-only exited-pane removal and live/recovery race protection.
+terminal-dismiss-test: runtime-build
+    python3 tests/terminal_dismiss_test.py target/debug/workbench-session

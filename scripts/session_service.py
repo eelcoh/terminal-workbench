@@ -21,7 +21,7 @@ import uuid
 PROTOCOL = 1
 LIMIT = 256 * 1024
 METHODS = {"catalog.read", "initialize", "workspace.create", "workspace.rename", "workspace.close",
-           "terminal.create", "terminal.rename", "terminal.close", "terminal.move",
+           "terminal.create", "terminal.rename", "terminal.close", "terminal.dismiss", "terminal.move",
            "workspace.create_at", "workspace.directory", "session.recover", "terminal.recover", "terminal.status", "terminal.lifecycle", "health", "service.shutdown", "service.retire", "session.stop"}
 
 class Unavailable(Exception):
@@ -300,6 +300,33 @@ class Authority:
             return dict(id=identity, state=state)
         if message.get("runtime") != str(self.runtime) or message.get("cwd") != str(self.cwd):
             raise ValueError("Session service configuration differs; stop the service before changing runtime or directory")
+        if method == "terminal.dismiss":
+            # Metadata-only removal, serialized with recovery/create/close. Never
+            # reconcile destructive journals or stop a process for this action.
+            with catalog.locked(self.directory):
+                if not (self.directory / "workspaces.json").is_file():
+                    raise ValueError("Saved workspace catalog is unavailable")
+                data = catalog.load(self.directory)
+                if any(key in data for key in ("pending_create", "pending_stop", "pending_close")):
+                    raise ValueError("A session change is pending. Refresh before closing this pane.")
+                terminal = next((t for w in data["workspaces"] for t in w["terminals"] if t["id"] == identity), None)
+                if terminal is None:
+                    raise ValueError("Terminal no longer exists")
+                path = catalog.socket_path(self.directory, terminal)
+                candidates = (path.with_suffix(".ctl"), path)
+                for candidate in candidates:
+                    try:
+                        metadata = candidate.lstat()
+                    except FileNotFoundError:
+                        continue
+                    if not stat.S_ISSOCK(metadata.st_mode) or metadata.st_uid != os.getuid():
+                        raise ValueError("Runtime status unavailable. Check again before closing this pane.")
+                if any(catalog.endpoint_alive(candidate) for candidate in candidates):
+                    raise ValueError("Terminal is running. Use Close terminal to confirm stopping it.")
+                for workspace in data["workspaces"]:
+                    workspace["terminals"] = [t for t in workspace["terminals"] if t["id"] != identity]
+                catalog.save(self.directory, data)
+            return dict(data=data, service_pid=os.getpid())
         if method == "initialize":
             # Existing identities without a live runtime are retained as stopped.
             # Only initial seeding or explicit recovery can restart saved shells.

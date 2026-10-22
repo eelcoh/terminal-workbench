@@ -34,6 +34,7 @@ public:
     Q_INVOKABLE void inspect(const QString &identity);
     Q_INVOKABLE void reconnect(TerminalItem *item,const QString &identity,bool takeover=false);
     Q_INVOKABLE void recover(const QString &identity);
+    Q_INVOKABLE void dismissTerminal(const QString &identity);
     Q_INVOKABLE void closeTerminal(const QString &identity);
     Q_INVOKABLE void stopTerminals(const QStringList &identities);
     Q_INVOKABLE void closeWorkspace(const QString &identity);

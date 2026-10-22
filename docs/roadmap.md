@@ -1509,7 +1509,7 @@ replacement are watched outside presentation/terminal loops. Appearance never
 changes terminal ownership, catalog organization or shell state.
 
 Exited panes now expose Close pane beside Start new shell and Check again, using
-the existing explicit confirmation and stable-ID removal. Managed full-width
+stopped-only service removal without an extra confirmation. Managed full-width
 creation defaults accept `1/1` and `3/3`, with an accurate Configuration label.
 Precise horizontal pane-strip gestures now bypass reveal easing and retain all
 deltas in rapid bursts; coarse wheels accumulate destinations while keyboard
@@ -1588,3 +1588,14 @@ Model, runtime and native UI checks cover these boundaries. Native Mac panel
 review uses Copilot; Pi cancellation/resume/permission edge cases remain open.
 See [Pi validation](agent-validation.md#pi-on-linux--2026-10-21) and
 [Agent details](toolkit-ui-study.md#agent-details).
+
+## Qt exited-pane cleanup
+
+Close pane now removes a confirmed stopped terminal immediately, consistently
+from its recovery controls, pane menu and Commands. Live/unknown terminals retain
+confirmed Close terminal. The service's separate metadata-only `terminal.dismiss`
+method rechecks endpoint state under the recovery/catalog lock and refuses live,
+uncertain or pending-journal cases. It never stops/restarts a runtime or touches
+sibling processes. Recovery-race and endpoint tests, plus real Ctrl+D GUI checks,
+cover this boundary. Older services require an explicit service update; no unsafe
+fallback is attempted. See [exited panes](toolkit-ui-study.md#close-exited-panes).

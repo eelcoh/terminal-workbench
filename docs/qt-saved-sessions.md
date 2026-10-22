@@ -9,8 +9,8 @@ does not add the study’s sample workspaces or rename your projects.
 Closing the window detaches it. Workspaces and running shells remain in the
 session service; reopening attaches to the same processes. A failed viewer also
 leaves them intact. Stopped saved terminals remain stopped until you explicitly
-choose **Start new shell**. **Close terminal…** still confirms before stopping
-and removing that terminal. Initialization does not transfer ownership: a shell
+choose **Start new shell**. **Close terminal…** confirms before stopping a live terminal. A confirmed exited
+terminal offers **Close pane** for immediate metadata-only removal. Initialization does not transfer ownership: a shell
 owned by another window retains its owner until you explicitly choose **Move
 here…**. A second saved Qt window uses the same catalog and service.
 

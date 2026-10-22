@@ -359,7 +359,7 @@ service, replace a shell or attach a PTY owner. Check again refreshes those fact
 - **Start new shell** is offered only for a stopped runtime. The existing service
   revalidates that no shell is live and starts in the workspace's configured
   folder. It preserves terminal identity, theme and width; it starts a new process.
-- **Close pane**, on an exited/stopped pane, opens the existing close confirmation.
+- **Close pane**, on an exited/stopped pane, removes it after a stopped-only service check, without another confirmation.
   It removes the pane without starting a replacement shell.
 - **Close terminal…**, in the pane menu, asks before stopping the process and
   removing its catalog entry. Cancel receives initial focus; Enter cannot silently
@@ -699,15 +699,15 @@ from overwriting each other. Existing local view snapshots remain a fallback
 until a shared choice is applied. See [workspace palette persistence](dotfiles.md#qt-workspace-palettes-across-windows).
 
 A shell exited with Ctrl+D now offers **Start new shell**, **Close pane** and
-**Check again** on its recovery surface. Close pane uses the existing confirmation
-and stable-identity catalog removal; Cancel is initially focused. It never
-recovers a shell or affects neighbouring panes. Ordinary live-pane closing stays
+**Check again** on its recovery surface. Close pane removes only a
+service-confirmed stopped entry by its stable identity, without another
+confirmation. It never recovers a shell or affects neighbouring panes. Ordinary live-pane closing stays
 available through the pane menu and Commands.
 
 Managed `terminal-width = 1/1` and `3/3` now select full initial pane width.
 Configuration labels that value Full width. Existing panes retain their saved
-widths. The UI suite exercises actual Ctrl+D, confirmed/cancelled exited-pane
-removal and retained sibling identity after creating a full-width terminal.
+widths. The UI suite exercises actual Ctrl+D, immediate exited-pane removal
+and retained sibling identity after creating a full-width terminal.
 
 Precise horizontal trackpad scrolling follows pixel deltas directly in the pane
 strip. Coarse wheel deltas accumulate while easing; keyboard navigation retains
@@ -745,3 +745,27 @@ previous view/focus, and application shortcuts remain isolated while open.
 native X11/Wayland UI checks exercise live transitions, background inspection,
 command/menu entry, input/grid/reader preservation and Pi recognition. Mac
 interaction review remains required; use Copilot there.
+
+## Close exited panes
+
+After Ctrl+D or another confirmed shell exit, Close pane removes that saved pane
+immediately. Its lifecycle button, pane menu and Commands share this behavior.
+Running terminals retain Close terminal… and its confirmation. Unknown/unavailable
+status does not qualify for immediate removal.
+
+The new `terminal.dismiss` service method checks both runtime endpoints under the
+same catalog lock as recovery. A recovered/live terminal is refused, and a
+missing/unsafe/uncertain endpoint outcome cannot trigger a stop. This method
+removes catalog metadata only: it executes no runtime command, reconciles no
+pending destructive journal, recovers no shell and leaves lifecycle evidence
+intact. It preserves the workspace when its last pane closes. Sibling identities,
+readers and processes remain unchanged. A lost reply is never replayed.
+
+An older service rejects this action locally; the client never falls back to a
+live-terminal close. For a source Linux build, close the viewers, run
+`just service-stop`, then `just toolkit-workbench`; retained shells stay running.
+For installed previews, close their windows and activate/open the new installation.
+Create a terminal, exit with Ctrl+D and click Close pane: no second question
+should appear. Repeat through the menu and Commands, then check that closing a
+running terminal still asks for confirmation. Native Mac interaction review
+remains required.
