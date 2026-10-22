@@ -15,6 +15,10 @@ int main(int argc,char **argv){
     require(chord(linuxDefaults,"terminal-search","Meta+Alt+S") && chord(macDefaults,"terminal-search","Ctrl+Alt+S") && linuxDefaults.editable("terminal-search"),"search default modifiers and editable mapping");
     require(macDefaults.labels()["commands"].toString()==QStringLiteral("⌘⌥P"),"Mac command option label");
     const QByteArray managed="workbench-config-v1\n# preserve me\n[macos.shortcuts]\ncommands = F9\n[shortcuts]\ncommands = F8\n[linux.shortcuts]\nshortcuts.help = F11\n[appearance]\nterminal-theme = unavailable-theme\n";
+    require(linuxDefaults.editable("next-waiting") && linuxDefaults.sequences()["next-waiting"]=="Meta+Alt+J","Linux attention chord is configurable");
+    require(macDefaults.labels()["previous-waiting"]==QString::fromUtf8("⌘⌥K"),"Mac attention uses the same physical modifiers");
+    write(path,"workbench-config-v1\n[shortcuts]\ncommands = Super+Alt+J\n");UiShortcuts attentionConflict(path,false);
+    require(attentionConflict.error().isEmpty() && attentionConflict.sequences()["next-waiting"].toString().isEmpty() && chord(attentionConflict,"commands","Meta+Alt+J"),"new inherited attention chord yields to an existing custom binding");
     write(path,managed);UiShortcuts linuxKeys(path,false),macKeys(path,true);
     require(linuxKeys.error().isEmpty() && macKeys.error().isEmpty() && chord(linuxKeys,"commands","F8") && chord(macKeys,"commands","F9") && chord(linuxKeys,"help","F11"),"shared/platform precedence ignores unused theme file");
     QFile check(path);require(check.open(QIODevice::ReadOnly) && check.readAll()==managed,"managed bytes unchanged");check.close();
@@ -49,7 +53,7 @@ int main(int argc,char **argv){
     UiShortcuts staleManaged(path,false,nullptr,layer);write(path,managed+"# external edit\n");staleManaged.begin();
     require(!staleManaged.apply(),"detect managed edit before editor opens");
     write(path,managed);UiShortcuts macEditor(path,true,nullptr,dir.filePath("ui/macos/shortcuts.conf"));macEditor.begin();
-    require(macEditor.record("commands",Qt::Key_K,Qt::ControlModifier|Qt::AltModifier) && macEditor.apply() && chord(macEditor,"commands","Ctrl+Alt+K"),"Mac recording uses physical Command");
+    require(macEditor.record("commands",Qt::Key_L,Qt::ControlModifier|Qt::AltModifier) && macEditor.apply() && chord(macEditor,"commands","Ctrl+Alt+L"),"Mac recording uses physical Command");
     write(path,"workbench-config-v1\n[shortcuts]\nforward = F6\n");UiShortcuts forwarding(path,false);
     require(chord(forwarding,"forward","F6") && forwarding.editable("forward"),"forward action managed and editable");
     std::puts("PASS: managed/platform shortcuts, reserved keys, transactional drafts, sparse UI persistence, reset, unbind and stale-file protection");

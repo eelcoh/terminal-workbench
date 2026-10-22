@@ -82,6 +82,8 @@ static ShortcutState shortcut_defaults(bool apple)
     state.bindings[COMMAND_FONT_INCREASE]=(ShortcutChord){61,navigation};
     state.bindings[COMMAND_FONT_DECREASE]=(ShortcutChord){45,navigation};
     state.bindings[COMMAND_FONT_RESET]=(ShortcutChord){48,navigation};
+    state.bindings[COMMAND_AGENT_INPUT_NEXT]=(ShortcutChord){'J',navigation};
+    state.bindings[COMMAND_AGENT_INPUT_PREVIOUS]=(ShortcutChord){'K',navigation};
     state.bindings[COMMAND_SEARCH]=(ShortcutChord){'S',navigation};
     state.bindings[COMMAND_HELP]=(ShortcutChord){47,navigation};
     state.bindings[COMMAND_WIDTH_CYCLE]=(ShortcutChord){'R',navigation};

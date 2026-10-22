@@ -430,3 +430,11 @@ then reset again. Open a second window to check independent choices. Live shells
 should retain their processes throughout. Linux model and real X11/Wayland tests
 cover transactions, inheritance, reset, legacy views and restart; native Mac
 interaction review remains required.
+
+## Waiting-agent bindings
+
+The shared and platform shortcut sections accept `agent.input.next` and
+`agent.input.previous`, defaulting to Super+Alt+J/K (Command+Option+J/K on Mac).
+The existing sparse UI layer and collision rules apply: explicit older bindings
+win over new inherited defaults. No configuration migration or rewrite is needed.
+See [waiting-agent navigation](shortcuts.md#waiting-agent-navigation-in-qt).

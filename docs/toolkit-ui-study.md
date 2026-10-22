@@ -811,3 +811,29 @@ paths explain retained-shell provenance without guessing build equivalence.
 Refresh and copy do not attach, transfer, recover or stop a terminal. Closing or
 peer removal cancels the inspection, with unavailable evidence kept distinct
 from absent optional origin fields. See [Terminal details](terminal-details.md).
+
+## Waiting-agent navigation
+
+Workspace rows now show a small Needs input dot and count beside the existing
+terminal total. The rail's agent count covers all workspaces; its tooltip and
+workspace tooltips identify these as last reports. Incoming reports update the
+indicators without changing focus. Working/Ready reports remove the indicator.
+An unsupported or Unknown agent is not treated as waiting. These reports can
+remain stale if an integration does not report cancellation; they are not prompt
+inference or proof that a process is currently blocked.
+
+Commands provides **Show agents needing input**, **Next agent needing input**
+and **Previous agent needing input**. Next/previous use Super+Alt+J/K on Linux
+and Command+Option+J/K on Mac. They cycle in workspace/pane order across all
+workspaces, independently of Overview and panel filters. They select and reveal
+the terminal, leaving Overview when necessary. They never transfer a terminal
+from another window. The focused waiting list clears only the Agents panel's
+query and selects its Needs input filter.
+
+The queue derives from existing cached agent reports and stable identities,
+with no new polling, subscriptions, process inspection or service protocol.
+Pure ordering/shortcut tests and native Linux GUI checks cover wraparound,
+background updates, empty/single queues, filter isolation and retained shell
+input, reader identity, catalog, grid sizes and other-window ownership. Native
+Mac interaction review remains required; use GitHub Copilot there. Synthetic
+hook fixtures validate client behavior, rather than current CLI compatibility.

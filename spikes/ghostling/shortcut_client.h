@@ -111,7 +111,7 @@ static bool shortcut_route(WorkspaceClient *client, bool *bypass)
     unsigned mods=shortcut_modifiers();
     for (int i=0;i<COMMAND_COUNT;i++) {
         ShortcutChord chord=client->shortcuts.bindings[i];
-        bool repeat=i==COMMAND_TERMINAL_PREVIOUS || i==COMMAND_TERMINAL_NEXT || i==COMMAND_WORKSPACE_PREVIOUS || i==COMMAND_WORKSPACE_NEXT;
+        bool repeat=i==COMMAND_TERMINAL_PREVIOUS || i==COMMAND_TERMINAL_NEXT || i==COMMAND_WORKSPACE_PREVIOUS || i==COMMAND_WORKSPACE_NEXT || i==COMMAND_AGENT_INPUT_NEXT || i==COMMAND_AGENT_INPUT_PREVIOUS;
         if (!chord.key || chord.mods!=mods || (!IsKeyPressed(chord.key) && !(repeat && IsKeyPressedRepeat(chord.key)))) continue;
         if (client->help_open && i!=COMMAND_HELP) continue;
         if (client->overview_open && ((i!=COMMAND_OVERVIEW && i!=COMMAND_HELP) || client->overview_drag_armed || client->management_busy)) return false;

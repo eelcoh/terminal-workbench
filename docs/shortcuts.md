@@ -16,6 +16,7 @@ saved binding. Commands displays the active binding beside each action.
 | New workspace | Super+Alt+N | Command+Option+N |
 | Previous / next terminal | Super+Alt+Left / Right | Command+Option+Left / Right |
 | Previous / next workspace | Super+Alt+Up / Down | Command+Option+Up / Down |
+| Previous / next agent needing input | Super+Alt+K / J | Command+Option+K / J |
 | Cycle focused terminal width | Super+Alt+R | Command+Option+R |
 | Toggle focused terminal full width | Super+Alt+F | Command+Option+F |
 | Find in terminal | Super+Alt+S | Command+Option+S |
@@ -29,7 +30,9 @@ Explicit third/half/two-thirds width actions start unbound. Width cycling runs
 half → two thirds → third → half. Full width fills the terminal area and a second
 press restores the preferred width. It does not change native window fullscreen.
 
-Navigation stops at the first/last item; it does not wrap. Terminal navigation
+Terminal and workspace navigation stops at the first/last item; it does not wrap.
+Waiting-agent navigation wraps through reported Needs input agents across all
+workspaces, independently of list and Overview filters. Terminal navigation
 uses the existing scrolling transition, and workspace navigation retains each
 workspace's focused terminal. Holding a navigation chord permits key repeat.
 
@@ -230,6 +233,7 @@ action IDs:
 - `workspace.new`, `workspace.rename`, `workspace.folder`,
   `workspace.previous`, `workspace.next`
 - `terminal.new`, `terminal.stop`, `terminal.previous`, `terminal.next`
+- `agent.input.next`, `agent.input.previous`
 - `terminal.width.cycle`, `terminal.width.full`
 - `terminal.font.settings`, `terminal.font.increase`,
   `terminal.font.decrease`, `terminal.font.reset`
@@ -320,3 +324,19 @@ restored interception on the following invocation, clipboard bypass, Escape,
 Cancel, focus changes, menu handoff, timeout and Kitty release reporting against
 real PTYs. The shared terminal-key regression keeps ordinary arrow/control/word
 navigation intact. Native Mac forwarding acceptance remains pending.
+
+## Waiting-agent navigation in Qt
+
+Use Super+Alt+J / K on Linux or Command+Option+J / K on Mac for next / previous
+agent needing input. Both actions are remappable as `agent.input.next` and
+`agent.input.previous`. A prior explicit J/K customization takes precedence over
+a new inherited default. Commands and shortcut help show the effective binding.
+
+These actions wrap in workspace/pane order, including from Overview, and ignore
+Overview and Agents-panel filters. With one waiting agent they select that agent;
+with none they leave focus unchanged. Dialogs and editable search controls retain
+their input. Selecting a terminal owned by another window leaves ownership there.
+
+Commands also offers **Show agents needing input**. It opens the Agents panel,
+clears its search and selects Needs input without changing Overview filters.
+See [attention indicators](toolkit-ui-study.md#waiting-agent-navigation).

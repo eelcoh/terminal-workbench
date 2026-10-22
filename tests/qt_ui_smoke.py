@@ -1206,11 +1206,63 @@ while True:
         wait_until((root/'agent.pid').exists)
         group=os.getpgid(int((root/'agent.pid').read_text()))
         hook_env=dict(os.environ,WORKBENCH_SESSION_SOCKET=str(root/(data()['panes'][8]['identity']+'.sock')),WORKBENCH_AGENT_GROUP=str(group),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
-        def hook(event,label):
-            result=subprocess.run([sys.executable,str(ROOT/'scripts/agent-hook.py'),'codex'],input=json.dumps({'hook_event_name':event}),env=hook_env,text=True,capture_output=True,timeout=3)
+        def hook(event,label,index=8,environment=None):
+            result=subprocess.run([sys.executable,str(ROOT/'scripts/agent-hook.py'),'codex'],input=json.dumps({'hook_event_name':event}),env=hook_env if environment is None else environment,text=True,capture_output=True,timeout=3)
             assert result.returncode==0 and not result.stdout and not result.stderr
-            wait_until(lambda:data()['panes'][8]['facts'].get('state')==label)
+            wait_until(lambda:data()['panes'][index]['facts'].get('state')==label)
         hook('UserPromptSubmit','Working')
+        # An extra private agent proves explicit cross-workspace queue navigation.
+        attention_input=[received(i) for i in range(6)];attention_objects=[p['instance'] for p in data()['panes']]
+        attention_known={p['identity'] for p in data()['panes']}
+        attention_base=workspace_catalog.load(root);attention_target=data()['panes'][8]['identity'];last_workspace=attention_base['workspaces'][-1]['id']
+        created=request(root,Path(runtime),root,'terminal.create',last_workspace,'Attention fixture')['data']
+        extra_id=next(t['id'] for w in created['workspaces'] for t in w['terminals'] if t['id'] not in attention_known)
+        wait_until(lambda:len(data()['panes'])==15)
+        extra=next(i for i,p in enumerate(data()['panes']) if p['identity']==extra_id)
+        for _ in range(8):key('super+alt+Down')
+        for _ in range(8):key('super+alt+Right')
+        wait_until(lambda:data()['selected']==extra and data()['panes'][extra]['ready'] and data()['panes'][extra]['focus'])
+        typed('sh -c '+shlex.quote('echo $$ > '+shlex.quote(str(root/'attention-agent.pid'))+'; exec '+shlex.quote(str(fixture))+' 120'));key('Return')
+        wait_until(lambda:data()['panes'][extra]['facts'].get('agent')=='Codex');wait_until((root/'attention-agent.pid').exists)
+        extra_env=dict(os.environ,WORKBENCH_SESSION_SOCKET=str(root/(extra_id+'.sock')),WORKBENCH_AGENT_GROUP=str(os.getpgid(int((root/'attention-agent.pid').read_text()))),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
+        hook('PermissionRequest','Needs input');hook('PermissionRequest','Needs input',extra,extra_env)
+        wait_until(lambda:data()['waiting_count']==2 and data()['waiting_identities']==[attention_target,extra_id])
+        assert data()['selected']==extra,'a background attention report changed focus'
+        assert sum(data()['workspace_waiting_counts'])==2
+        raw_key('super+alt+j');wait_until(lambda:data()['selected']==8 and data()['panes'][8]['focus'])
+        raw_key('super+alt+k');wait_until(lambda:data()['selected']==extra and data()['panes'][extra]['focus'])
+        raw_key('super+alt+j');wait_until(lambda:data()['selected']==8)
+        raw_key('super+alt+j');wait_until(lambda:data()['selected']==extra)
+        attention_peer=snapshot_attach(root/(extra_id+'.sock'),takeover=True);collect(attention_peer)
+        try:
+            wait_until(lambda:data()['panes'][extra]['attachment']=='elsewhere')
+            attempts=data()['panes'][extra]['attachment_attempts']
+            raw_key('super+alt+j');wait_until(lambda:data()['selected']==8)
+            raw_key('super+alt+k');wait_until(lambda:data()['selected']==extra)
+            assert data()['panes'][extra]['attachment']=='elsewhere' and data()['panes'][extra]['attachment_attempts']==attempts,'attention jump took terminal ownership'
+        finally:attention_peer.close()
+        hook('Stop','Ready',extra,extra_env);wait_until(lambda:data()['waiting_identities']==[attention_target])
+        raw_key('super+alt+j');wait_until(lambda:data()['selected']==8)
+        raw_key('super+alt+k');time.sleep(.1);assert data()['selected']==8,'single waiting result did not wrap to itself'
+        key('super+alt+o');wait_until(lambda:data()['overview'])
+        click(*data()['agent_filter_button']);click(*data()['state_filter_button']);wait_until(lambda:data()['agents_only'] and data()['needs_only'] and data()['overview_matches']==1)
+        raw_key('super+alt+j');wait_until(lambda:not data()['overview'] and data()['selected']==8)
+        assert data()['agents_only'] and data()['needs_only'],'queue navigation rewrote Overview filters'
+        key('super+alt+o');wait_until(lambda:data()['overview'])
+        command_search('Show agents needing input');key('Return')
+        wait_until(lambda:data()['drawer_open'] and data()['navigation_needs_only'] and data()['navigation_matches']==[8])
+        assert data()['overview'] and data()['agents_only'] and data()['needs_only'],'waiting list rewrote Overview context'
+        capture('attention-waiting-agents.png')
+        click(*data()['navigation_clear_filters']);wait_until(lambda:not data()['navigation_needs_only'] and len(data()['navigation_matches'])==2)
+        click(*data()['navigation_workspaces']);time.sleep(.25);capture('attention-workspace-counts.png')
+        key('Escape');wait_until(lambda:not data()['drawer_open'])
+        click(*data()['overview_clear_filters']);wait_until(lambda:not data()['agents_only'] and not data()['needs_only']);key('Escape');wait_until(lambda:not data()['overview'])
+        request(root,Path(runtime),root,'terminal.close',extra_id);wait_until(lambda:len(data()['panes'])==14 and data()['navigation_agent_indices']==[8])
+        hook('UserPromptSubmit','Working');wait_until(lambda:data()['waiting_count']==0 and not data()['waiting_identities'])
+        before_empty=data()['selected'];raw_key('super+alt+j');raw_key('super+alt+k');time.sleep(.1)
+        assert data()['selected']==before_empty==8 and all(value==0 for value in data()['workspace_waiting_counts'])
+        assert workspace_catalog.load(root)==attention_base and sizes()==metadata_sizes and [p['instance'] for p in data()['panes']]==attention_objects
+        assert [received(i) for i in range(6)]==attention_input,'attention navigation typed input into a shell'
         # The left agent list is separate from the spatial Overview.
         click(*data()['agents_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_agent_indices']==[8]);time.sleep(.3)
         assert not data()['overview']

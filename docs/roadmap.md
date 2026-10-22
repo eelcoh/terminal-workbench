@@ -1638,3 +1638,14 @@ scan/debounce/result limits; closed/hidden panes gain no search work. Query inpu
 also defers match navigation during composition. Options stay temporary and local
 to their pane. Engine, real-VT and native Linux search checks cover the slice;
 native Mac interaction review remains open. See [search options](terminal-search.md#qt-case-and-word-options).
+
+## Qt agent attention navigation
+
+Workspace rows now add quiet Needs input indicators and counts derived from
+existing last reports. Commands opens a focused waiting-agent list or selects
+the next/previous waiting agent across workspaces with configurable Super+Alt+J/K
+(Command+Option+J/K on Mac). Explicit navigation wraps, preserves independent
+Overview filters and never transfers terminal ownership. Incoming reports leave
+focus unchanged. Pure ordering/model/shortcut and native Linux GUI checks cover
+this slice; native Mac review and real-agent cancellation completeness remain
+open. See [waiting-agent navigation](toolkit-ui-study.md#waiting-agent-navigation).

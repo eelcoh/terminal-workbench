@@ -19,6 +19,8 @@ int main(void)
     assert(mac.bindings[COMMAND_TERMINAL_CREATE].key=='T' && mac.bindings[COMMAND_WORKSPACE_CREATE].key=='N');
     assert(linux_state.bindings[COMMAND_HELP].key==47 && linux_state.bindings[COMMAND_HELP].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
     assert(mac.bindings[COMMAND_HELP].key==47);
+    assert(linux_state.bindings[COMMAND_AGENT_INPUT_NEXT].key=='J' && linux_state.bindings[COMMAND_AGENT_INPUT_NEXT].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
+    assert(mac.bindings[COMMAND_AGENT_INPUT_PREVIOUS].key=='K' && mac.bindings[COMMAND_AGENT_INPUT_PREVIOUS].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
     ShortcutChord chord={0};assert(shortcut_parse("Command+Option+Left",&chord) && chord.mods==12);
     char label[96];shortcut_label(chord,true,label,sizeof(label));assert(!strcmp(label,"Command+Option+Left"));
     for (int i=0;i<COMMAND_COUNT;i++) { shortcut_label(linux_state.bindings[i],false,label,sizeof(label));ShortcutChord roundtrip;assert(shortcut_parse(label,&roundtrip));assert(roundtrip.key==linux_state.bindings[i].key && roundtrip.mods==linux_state.bindings[i].mods); }
@@ -60,6 +62,8 @@ int main(void)
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_TERMINAL_CREATE].key=='S' && !loaded.bindings[COMMAND_SEARCH].key);
     file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\nterminal.new=Command+Option+S\n",file);fclose(file);
     assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_TERMINAL_CREATE].key=='S' && !loaded.bindings[COMMAND_SEARCH].key);
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncommands=Super+Alt+J\n",file);fclose(file);
+    assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_PALETTE].key=='J' && !loaded.bindings[COMMAND_AGENT_INPUT_NEXT].key);
     /* A full saved old Linux map retains every key, and loading never rewrites it. */
     ShortcutState old_linux=linux_state;
     for(int i=0;i<COMMAND_COUNT;i++) if(old_linux.bindings[i].key) old_linux.bindings[i].mods=SHORTCUT_CTRL|SHORTCUT_SHIFT;

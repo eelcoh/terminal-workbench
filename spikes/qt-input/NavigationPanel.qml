@@ -36,6 +36,7 @@ Item {
     }
     onAgentsChanged: if (!agents && agentSearch.activeFocus) host.contentItem.forceActiveFocus()
     onNeedsOnlyChanged: { rebuildMatches(); list.contentY = 0 }
+    function showWaiting() { agentSearch.clear(); needsOnly = true; list.contentY = 0 }
     function clearFilters() { agentSearch.clear(); needsOnly = false }
     function escapeSearch() {
         if (agentSearch.text.length || needsOnly) clearFilters()
@@ -105,6 +106,20 @@ Item {
                         objectName: "navigationWorkspace" + parent.index
                         tones: host.chrome; width: parent.width - 32; height: parent.height; leftAligned: true
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
+                        readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
+                        hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "")
+                        contentItem: Item {
+                            Text { anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: totals.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: workspaceEntry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
+                            Row {
+                                id: totals; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                                Row {
+                                    visible: workspaceEntry.waiting > 0; spacing: 4; height: 18
+                                    Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: host.chrome.waiting }
+                                    Text { text: String(workspaceEntry.waiting); color: host.chrome.waiting; font.pixelSize: 12; anchors.verticalCenter: parent.verticalCenter }
+                                }
+                                Text { text: workspaceEntry.trailingText; color: host.chrome.muted; font.pixelSize: 12; height: 18; verticalAlignment: Text.AlignVCenter }
+                            }
+                        }
                         onClicked: host.chooseWorkspace(parent.index)
                     }
                     ChromeButton {

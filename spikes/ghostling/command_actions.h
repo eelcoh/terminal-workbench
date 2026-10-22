@@ -11,6 +11,7 @@ typedef enum {
     COMMAND_HELP,
     COMMAND_FONT_SETTINGS, COMMAND_FONT_INCREASE, COMMAND_FONT_DECREASE, COMMAND_FONT_RESET,
     COMMAND_SEARCH, COMMAND_SESSION_STOP,
+    COMMAND_AGENT_INPUT_NEXT, COMMAND_AGENT_INPUT_PREVIOUS,
     COMMAND_COUNT
 } WorkbenchCommand;
 typedef struct { const char *title, *detail; } CommandDefinition;
@@ -45,11 +46,13 @@ static const CommandDefinition command_definitions[COMMAND_COUNT]={
     {"Decrease terminal text size","Smaller terminal text; keep interface size"},
     {"Reset terminal text size","Use the configured size, retaining the selected font"},
     {"Find in terminal","Search retained output and scrollback in the focused pane"},
-    {"Stop all terminals","Confirm shutdown across windows; keep workspaces for restart"}
+    {"Stop all terminals","Confirm shutdown across windows; keep workspaces for restart"},
+    {"Next agent needing input","Focus the next terminal whose last report needs input"},
+    {"Previous agent needing input","Focus the previous terminal whose last report needs input"}
 };
 static const char *command_ids[COMMAND_COUNT]={
     "overview", "appearance", "workspace.new", "workspace.rename", "workspace.folder", "workspace.stop",
     "terminal.new", "terminal.rename", "terminal.stop", "terminal.previous", "terminal.next",
-    "workspace.previous", "workspace.next", "terminal.recover", "commands", "copy", "paste", "forward", "shortcuts", "terminal.width.cycle", "terminal.width.full", "terminal.width.third", "terminal.width.half", "terminal.width.two-thirds", "shortcuts.help", "terminal.font.settings", "terminal.font.increase", "terminal.font.decrease", "terminal.font.reset", "terminal.search", "session.stop"
+    "workspace.previous", "workspace.next", "terminal.recover", "commands", "copy", "paste", "forward", "shortcuts", "terminal.width.cycle", "terminal.width.full", "terminal.width.third", "terminal.width.half", "terminal.width.two-thirds", "shortcuts.help", "terminal.font.settings", "terminal.font.increase", "terminal.font.decrease", "terminal.font.reset", "terminal.search", "session.stop", "agent.input.next", "agent.input.previous"
 };
 #endif

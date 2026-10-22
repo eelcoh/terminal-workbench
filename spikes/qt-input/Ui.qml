@@ -163,6 +163,8 @@ ApplicationWindow {
     readonly property int overviewColumns: deck.columns
     property int overviewMatches: 0
     property int waitingCount: 0
+    property var waitingIdentities: []
+    property var workspaceWaitingCounts: []
     property var agentIndices: []
     property var navigationOverride: null
     readonly property bool navigationPinned: navigationOverride === null ? studyConfiguration.navigationPinned : navigationOverride
@@ -185,6 +187,16 @@ ApplicationWindow {
         if (navigationDocked) drawer.close()
         else drawer.open()
     }
+    function jumpWaiting(direction) {
+        rebuildOverview()
+        let ordered = []
+        for (let w = 0; w < spaces.length; ++w) for (const i of indices(w)) ordered.push(terminalModel.get(i).terminalId)
+        const current = selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : ""
+        const identity = studyAgentInfo.nextWaiting(ordered, waitingIdentities, current, direction)
+        const target = identityIndex(identity)
+        if (target >= 0) chooseAgent(target)
+    }
+    function showWaitingAgents() { navigation.showWaiting(); openAgents() }
     function chooseAgent(i) {
         drawer.close(); enterPane(i)
         Qt.callLater(restoreAfterPopup)
@@ -192,20 +204,22 @@ ApplicationWindow {
     readonly property var overviewGroupTops: { let tops = []; for (let w = 0; w < spaces.length; ++w) tops.push(deck.y + deck.groupTop(w) - deck.contentY); return tops }
     function rebuildOverview() {
         if (dragSlot >= 0) return
-        let groups = [], positions = [], agents = [], total = 0, waiting = 0
+        let groups = [], positions = [], agents = [], waitingIds = [], waitingBySpace = [], total = 0, waiting = 0
         for (let i = 0; i < terminalModel.count; ++i) positions.push(-1)
         for (let w = 0; w < spaces.length; ++w) {
-            let matches = []
+            let matches = [], spaceWaiting = 0
             for (let i of indices(w)) {
                 const pane = panel(i), facts = pane ? pane.facts : ({agent: "", needs_input: false})
                 if (facts.agent) agents.push(i)
-                if (facts.needs_input) ++waiting
+                if (facts.agent && facts.needs_input) { ++waiting; ++spaceWaiting; waitingIds.push(terminalModel.get(i).terminalId) }
                 if (overview && ((agentsOnly && !facts.agent) || (needsOnly && !facts.needs_input) || !contextMatches(overviewQuery, i))) continue
                 positions[i] = matches.length; matches.push(i); ++total
             }
-            groups.push(matches)
+            groups.push(matches); waitingBySpace.push(spaceWaiting)
         }
         if (agents.length !== agentIndices.length || agents.some((value, index) => value !== agentIndices[index])) agentIndices = agents
+        if (waitingIds.length !== waitingIdentities.length || waitingIds.some((value, index) => value !== waitingIdentities[index])) waitingIdentities = waitingIds
+        if (waitingBySpace.length !== workspaceWaitingCounts.length || waitingBySpace.some((value, index) => value !== workspaceWaitingCounts[index])) workspaceWaitingCounts = waitingBySpace
         overviewGroups = groups; overviewOrdinals = positions; overviewMatches = total; waitingCount = waiting
         navigation.rebuildMatches()
         if (overview) deck.contentY = Math.max(0, Math.min(deck.contentY, deck.contentHeight - deck.height))
@@ -299,6 +313,9 @@ ApplicationWindow {
         case "new-workspace": newWorkspace(); break
         case "overview": toggleOverview(); break
         case "agents": openAgents(); break
+        case "waiting-agents": showWaitingAgents(); break
+        case "next-waiting": jumpWaiting(1); break
+        case "previous-waiting": jumpWaiting(-1); break
         case "previous-terminal": navigate(-1); break
         case "next-terminal": navigate(1); break
         case "previous-workspace": chooseWorkspace(workspace - 1); break
@@ -694,7 +711,7 @@ ApplicationWindow {
     Column {
         x: 8; y: 52; spacing: 14
         QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.openNavigation("workspaces") }
-        QuietButton { objectName: "agentsButton"; height: 28; iconName: "agents"; hint: "Agents"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "agents"; onClicked: window.openAgents() }
+        QuietButton { objectName: "agentsButton"; height: 28; iconName: "agents"; hint: window.waitingCount ? "Agents · " + window.waitingCount + " need input (last reports)" : "Agents"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "agents"; onClicked: window.openAgents() }
     }
     Rectangle {
         x: 27; y: 87; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting

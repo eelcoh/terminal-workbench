@@ -1,3 +1,17 @@
+#include "attention_navigation.h"
+static bool command_waiting_target(WorkspaceClient *client,int direction,OverviewItem *target)
+{
+    bool waiting[ATTENTION_LIMIT]={0};OverviewItem items[ATTENTION_LIMIT];int count=0,current=-1;
+    for(int w=0;w<client->count;w++) for(int p=0;p<client->workspaces[w].count && count<ATTENTION_LIMIT;p++) {
+        WorkbenchPane *pane=client->workspaces[w].panes[p];
+        if(w==client->active && p==client->workspaces[w].focused) current=count;
+        items[count]=(OverviewItem){w,p};
+        waiting[count++]=(!pane->closed || pane->transport.attached_elsewhere) && remote_agent_name(pane->transport.agent)[0] && pane->transport.attention==2;
+    }
+    int chosen=attention_next(waiting,(size_t)count,current,direction);
+    if(chosen<0)return false;
+    *target=items[chosen];return true;
+}
 /* Client actions and a searchable palette. Shared facts still use management. */
 /* Focus order: search, selected result (arrows choose), Done. */
 static Rectangle command_button(void) { return (Rectangle){-1000,-1000,0,0}; }
@@ -31,6 +45,9 @@ static const char *command_unavailable(WorkspaceClient *client, int command)
     case COMMAND_FONT_SETTINGS: case COMMAND_FONT_RESET: return NULL;
     case COMMAND_FONT_INCREASE: return client->text.size<TERMINAL_FONT_MAX ? NULL : "Largest terminal text size";
     case COMMAND_FONT_DECREASE: return client->text.size>TERMINAL_FONT_MIN ? NULL : "Smallest terminal text size";
+    case COMMAND_AGENT_INPUT_NEXT: case COMMAND_AGENT_INPUT_PREVIOUS: {
+        OverviewItem target;return command_waiting_target(client,1,&target) ? NULL : "No agents report Needs input";
+    }
     case COMMAND_APPEARANCE: return client->count ? NULL : "Create a workspace to choose a theme";
     case COMMAND_WIDTH_CYCLE: case COMMAND_WIDTH_FULL: case COMMAND_WIDTH_THIRD: case COMMAND_WIDTH_HALF: case COMMAND_WIDTH_TWO_THIRDS:
         return pane ? NULL : "This workspace has no terminals";
@@ -105,6 +122,14 @@ static void command_dispatch(WorkspaceClient *client, int command)
         client->forwarding=true;strcpy(client->forward_terminal,workspace->panes[workspace->focused]->id);client->forward_deadline=GetTime()+10;break;
     case COMMAND_OVERVIEW: overview_open(client); break;
     case COMMAND_APPEARANCE: theme_open(client); break;
+    case COMMAND_AGENT_INPUT_NEXT: case COMMAND_AGENT_INPUT_PREVIOUS: {
+        OverviewItem target;
+        if(command_waiting_target(client,command==COMMAND_AGENT_INPUT_NEXT ? 1 : -1,&target)) {
+            if(client->overview_open) overview_close(client,target.workspace,target.pane);
+            else overview_apply_jump(client,target.workspace,target.pane);
+        }
+        break;
+    }
     case COMMAND_SEARCH: search_open(client);break;
     case COMMAND_FONT_SETTINGS: text_open(client);break;
     case COMMAND_FONT_INCREASE: text_adjust(client,1);break;
