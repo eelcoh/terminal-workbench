@@ -65,9 +65,8 @@ replaces this viewer as the production frontend.
 ## Workspace layout experiment
 
 The spike launcher bootstraps independent runtime processes under stable socket
-identities. An automatically started Python organization service wraps the
-management module
-and owns saved workspace and terminal names, identities, startup and explicit
+identities. An automatically started organization service (`workbench-session
+service`, in Rust) owns saved workspace and terminal names, identities, startup and explicit
 recovery. All launcher/management CLI requests reuse that authority. It preserves
 `spike.sock` as Main's first shell
 when migrating the old fixed catalog. The shared organization is stored in
@@ -101,7 +100,9 @@ historical replay; it does not classify an agent as working or blocked.
 
 ## Catalog management
 
-`scripts/workspace_catalog.py` exposes neutral `workspace.create`,
+The Rust service in `crates/runtime/src/service/` implements these rules for all
+clients. `scripts/workspace_catalog.py` is the Python original, kept as the frozen
+viewer's CLI until that viewer is removed. It exposes neutral `workspace.create`,
 `workspace.rename`, `terminal.create`, `terminal.rename`, `terminal.close`, and
 `workspace.close` commands. The viewer
 starts this CLI with structured arguments and polls its completion; shell output

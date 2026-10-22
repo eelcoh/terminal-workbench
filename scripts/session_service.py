@@ -138,6 +138,13 @@ def _wait_for_startup(directory, message, child, *, timeout=5):
         raise
 
 
+def service_command(directory, runtime, cwd):
+    """The Rust session authority; the Python server below remains for older payloads."""
+    agent_bin = Path(__file__).resolve().parent.parent / ".local/bin"
+    return [str(runtime), "service", "--state-dir", str(directory), "--runtime", str(runtime),
+            "--cwd", str(cwd), "--agent-bin", str(agent_bin)]
+
+
 def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None, terminal_ids=None, expected_instance=None):
     directory, runtime, cwd = directory.resolve(), runtime.resolve(), cwd.resolve()
     message = dict(protocol=PROTOCOL, method=method, identity=identity, title=title,
@@ -164,8 +171,7 @@ def request(directory, runtime, cwd, method="initialize", identity="", title="",
         except Unavailable:
             pass
         with (directory / "service.log").open("ab", buffering=0) as log:
-            child = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "serve",
-                "--state-dir", str(directory), "--runtime", str(runtime), "--cwd", str(cwd)],
+            child = subprocess.Popen(service_command(directory, runtime, cwd),
                 stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True,
                 close_fds=True)
         _wait_for_startup(directory, message, child)

@@ -18,8 +18,11 @@ class ServiceCheckTest(unittest.TestCase):
         self.directory=tempfile.TemporaryDirectory(prefix='wb-service-fixture-')
         self.addCleanup(self.directory.cleanup)
         self.root=Path(self.directory.name)
-        self.runtime=self.root/'libexec/workbench-session';self.runtime.parent.mkdir();self.runtime.touch()
-        self.script=self.root/'scripts/session_service.py';self.script.parent.mkdir()
+        # The candidate runtime serves the authority; this fixture runtime runs a
+        # per-test script with the service arguments.
+        self.script=self.root/'scripts/fixture_service.py';self.script.parent.mkdir()
+        self.runtime=self.root/'libexec/workbench-session';self.runtime.parent.mkdir()
+        self.runtime.write_text(f'#!/bin/sh\nexec {sys.executable} {self.script} "$@"\n');self.runtime.chmod(0o700)
         self.children=[];original=probe.subprocess.Popen
         def spawn(*args,**kwargs):
             process=original(*args,**kwargs);self.children.append(process);return process

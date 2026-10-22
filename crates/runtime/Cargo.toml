@@ -9,6 +9,8 @@ license.workspace = true
 portable-pty = "=0.9.0"
 # Unix process-group termination for explicit session stop.
 libc = "0.2"
+# Session service catalog and protocol; preserve_order keeps saved key order.
+serde_json = { version = "1", features = ["preserve_order"] }
 
 [[bin]]
 name = "workbench-session"

@@ -28,9 +28,12 @@ Goal: the owner uses Workbench as their only terminal for a week on Linux and Ma
 installed from a release artifact on a machine without Python.
 
 1. **One Rust daemon.** Move the session authority into `workbench-session`:
-   - `session_service.py` and `workspace_catalog.py`: catalog, creation, close,
-     move, recovery, lifecycle, health, shutdown. Keep protocol 1 so the Qt client
-     is unchanged; the existing Python tests drive the new service over its socket.
+   - [x] `workbench-session service` replaces the Python server: catalog,
+     creation, close, move, recovery, lifecycle, health and shutdown, still on
+     protocol 1. The Qt client is unchanged, and the Python tests check the Rust
+     server over its socket.
+   - [ ] Launch clients (`session_service.request`, the management CLI) still
+     need Python. They move to the Rust binary and native launch in step 3.
    - `session_shutdown.py`, `terminal_lifecycle.py`, `window_slots.py`,
      `config_paths.py`: subcommands or library code in the same binary.
 2. **Binary agent integration.** `agent-hook.py`, `agent_status.py`,

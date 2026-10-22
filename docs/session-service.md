@@ -1,11 +1,14 @@
 # Session service spike
 
 The launcher and management CLI now share one background organization service per
-state directory. It starts automatically and concurrent launches reuse it. Python
-hosts this first service slice using the existing catalog module and its file lock;
-Rust runtimes still own individual PTYs, terminal state, attachment and agent signals.
-No new dependency or renderer integration is required. This is a prototype service,
-not the final installed daemon or completion of runtime hardening.
+state directory. It starts automatically and concurrent launches reuse it. The
+service is `workbench-session service` (`crates/runtime/src/service/`), a Rust port
+of the earlier Python server with the same protocol, catalog files and locks.
+Separate runtime processes still own individual PTYs, terminal state, attachment
+and agent signals. `scripts/session_service.py` remains the client used by the
+launchers and CLI. Its `serve` action is kept only so older staged previews can be
+restored, and `scripts/workspace_catalog.py` remains as the frozen Raylib viewer's
+CLI. This is not yet the final installed daemon.
 
 Closing a window detaches its terminals. Stopping or crashing the organization
 service leaves their shells running. The next request starts a replacement service
@@ -101,8 +104,8 @@ Graphical stopped-terminal recovery was also confirmed by the owner on 2026-10-1
 
 Optional advertised method `catalog.read` accepts only the protocol and method.
 It returns the validated existing catalog under its lock, without initialization,
-reconciliation, saves, runtime discovery or shell recovery. The Python request
-helper never starts a missing service for this method. Qt saved windows use this
+reconciliation, saves, runtime discovery or shell recovery. The request helper
+never starts a missing service for this method. Qt saved windows use this
 method after filesystem notifications, keeping background observation separate
 from explicit mutations and refresh/recovery. Older services can reject the method
 without affecting terminal runtimes or manual refresh.

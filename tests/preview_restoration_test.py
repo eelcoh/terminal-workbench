@@ -55,5 +55,17 @@ class RestorationTest(unittest.TestCase):
         self.assertTrue(all(child.poll() is not None for child in children))
         self.assertTrue((self.state/'service.log').is_file())
 
+    def test_binary_service_payload_restores_through_its_runtime(self):
+        self.script.write_text('def service_command(directory, runtime, cwd):pass\n')
+        self.runtime.write_text('#!/bin/sh\nexit 42\n')
+        children=[];original=subprocess.Popen
+        def start(*args,**kwargs):
+            child=original(*args,**kwargs);children.append(child);return child
+        with patch.object(activation,'inspect',return_value=None),patch.object(activation.subprocess,'Popen',start):
+            result=activation.restore_previous_service(self.state,self.previous)
+        self.assertIn('could not be restored',result)
+        self.assertEqual(children[0].args[:2],[str(self.runtime),'service'])
+        self.assertTrue(all(child.poll() is not None for child in children))
+
 
 if __name__=='__main__':unittest.main()

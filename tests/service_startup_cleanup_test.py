@@ -69,7 +69,7 @@ class StartupCleanupTest(unittest.TestCase):
         original=subprocess.Popen
         def start(*args,**kwargs):
             child=original(*args,**kwargs);self.children.append(child);return child
-        with patch.object(service,'__file__',str(script)),patch.object(service.subprocess,'Popen',start):
+        with patch.object(service,'service_command',lambda *_:[sys.executable,str(script)]),patch.object(service.subprocess,'Popen',start):
             with self.assertRaises(service.ReplyClosed):
                 service.request(self.root,self.root/'runtime',self.root,'terminal.create',title='once')
         self.assertEqual(json.loads(observed.read_text())['method'],'terminal.create')

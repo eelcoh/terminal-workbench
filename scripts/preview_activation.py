@@ -55,13 +55,20 @@ def restore_previous_service(state,previous):
         _preview(runtime)
         payload=runtime.parent.parent;script=payload/'scripts/session_service.py'
         if not script.is_file():raise ValueError('Previous preview service script is missing')
-        recorded=payload/'python.path'
-        python=Path(recorded.read_text().rstrip('\r\n')) if recorded.is_file() else Path(sys.executable)
-        if not python.is_absolute() or not python.is_file() or not os.access(python,os.X_OK):
-            raise ValueError('Previous preview Python interpreter is missing or not executable')
+        if 'def service_command(' in script.read_text():
+            # That payload's runtime binary serves the authority itself.
+            command=[str(runtime),'service','--state-dir',str(state),'--runtime',str(runtime),
+                '--cwd',str(cwd),'--agent-bin',str(payload/'.local/bin')]
+        else:
+            # Older payloads predate the Rust service and run their Python server.
+            recorded=payload/'python.path'
+            python=Path(recorded.read_text().rstrip('\r\n')) if recorded.is_file() else Path(sys.executable)
+            if not python.is_absolute() or not python.is_file() or not os.access(python,os.X_OK):
+                raise ValueError('Previous preview Python interpreter is missing or not executable')
+            command=[str(python),'-B',str(script),'serve','--state-dir',str(state),
+                '--runtime',str(runtime),'--cwd',str(cwd)]
         with (state/'service.log').open('ab',buffering=0) as log:
-            child=subprocess.Popen([str(python),'-B',str(script),'serve','--state-dir',str(state),
-                '--runtime',str(runtime),'--cwd',str(cwd)],stdin=subprocess.DEVNULL,
+            child=subprocess.Popen(command,stdin=subprocess.DEVNULL,
                 stdout=log,stderr=log,start_new_session=True,close_fds=True)
         # Readiness owns cleanup of a failed child. No initialize/recover/mutation
         # request is issued, so journals and stopped terminals stay untouched.

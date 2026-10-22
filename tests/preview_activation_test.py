@@ -157,9 +157,12 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         assert not usage['unknown_terminals']
         # A failed daemon is rejected in the private startup rehearsal before
         # the healthy service is retired. Retained shells need no recovery.
-        service=payload(2)/'scripts/session_service.py'
-        original_service_source=service.read_text();source=original_service_source.replace('if __name__ == "__main__":','if __name__ == "__main__":\n    raise SystemExit(42)')
-        service.write_text(source);resign(2)
+        # The runtime binary serves the authority; wrap it so only `service` fails.
+        real=binaries[2].with_name('workbench-session.real');binaries[2].rename(real)
+        def fail_service(condition):
+            binaries[2].write_text('#!/bin/sh\nif [ "$1" = service ]; then\n'+condition+'fi\nexec '+shlex.quote(str(real))+' "$@"\n')
+            binaries[2].chmod(0o755);resign(2)
+        fail_service('    exit 42\n')
         before_failed_service=health()
         result=cli(2,'--activate',1);assert 'Candidate session service check failed' in result.stderr
         assert health()['service_instance']==before_failed_service['service_instance']
@@ -167,8 +170,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         assert all(path.stat().st_ino==inode for path,inode in inodes.items())
         # Pass the private rehearsal but fail only in the real namespace after
         # retirement. Restore the prior service code, with all shell state kept.
-        guard='if __name__ == "__main__":\n    if "--state-dir" in sys.argv and Path(sys.argv[sys.argv.index("--state-dir")+1]).resolve() == Path('+repr(str(state))+'):\n        raise SystemExit(43)'
-        service.write_text(original_service_source.replace('if __name__ == "__main__":',guard));resign(2)
+        fail_service('    previous=\n    for argument in "$@"; do\n        if [ "$previous" = --state-dir ] && [ "$argument" = '+shlex.quote(str(state.resolve()))+' ]; then exit 43; fi\n        previous=$argument\n    done\n')
         before_late_failure=health()
         late_snapshots={path:(path.read_bytes(),path.stat().st_mtime_ns) for path in saved}
         late_inodes={path:path.stat().st_ino for path in state.glob('*.sock')}

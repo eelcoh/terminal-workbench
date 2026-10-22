@@ -18,6 +18,8 @@ mod platform;
 #[cfg(unix)]
 mod runtime_origin;
 #[cfg(unix)]
+pub mod service;
+#[cfg(unix)]
 pub mod session;
 #[cfg(unix)]
 pub mod shell;

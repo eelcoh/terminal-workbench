@@ -3,15 +3,13 @@ import os
 from pathlib import Path
 import socket
 import subprocess
-import sys
 import tempfile
 import time
-from session_service import PROTOCOL,Unavailable,exchange,stop_owned_startup
+from session_service import PROTOCOL,Unavailable,exchange,service_command,stop_owned_startup
 
 
 def check(runtime,cwd,*,timeout=5):
     runtime=runtime.resolve();cwd=cwd.resolve()
-    script=runtime.parent.parent/'scripts/session_service.py'
     descriptor,log=tempfile.mkstemp(prefix='workbench-service-check-',suffix='.log',dir='/tmp')
     log=Path(log)
     try:
@@ -20,8 +18,7 @@ def check(runtime,cwd,*,timeout=5):
             # otherwise lengthy per-user TMPDIR. The directory is mode 0700.
             with tempfile.TemporaryDirectory(prefix='wb-service-',dir='/tmp') as directory:
                 state=Path(directory).resolve()
-                process=subprocess.Popen([sys.executable,'-B',str(script),'serve','--state-dir',str(state),
-                    '--runtime',str(runtime),'--cwd',str(cwd)],stdin=subprocess.DEVNULL,
+                process=subprocess.Popen(service_command(state,runtime,cwd),stdin=subprocess.DEVNULL,
                     stdout=output,stderr=output,start_new_session=True,close_fds=True)
                 deadline=time.monotonic()+timeout
                 try:
