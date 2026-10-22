@@ -21,7 +21,7 @@ shape applies. Company policies may restrict hooks as well as CLI installation.
 ## Linux observations — 2026-10-11
 
 Runtime tested: `8359202`, using disposable empty directories and real installed
-CLI executables. Launchers are invocation-local `workbench-agent.py` observers.
+CLI executables. Launchers are invocation-local observers built into `workbench-session`.
 The agent ran interactively in a Workbench PTY; the test attached a protocol
 client and inspected runtime metadata and retained terminal text. This is live
 CLI/runtime evidence, not graphical or native input acceptance.

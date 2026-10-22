@@ -36,9 +36,12 @@ installed from a release artifact on a machine without Python.
      need Python. They move to the Rust binary and native launch in step 3.
    - `session_shutdown.py`, `terminal_lifecycle.py`, `window_slots.py`,
      `config_paths.py`: subcommands or library code in the same binary.
-2. **Binary agent integration.** `agent-hook.py`, `agent_status.py`,
-   `agent_watch.py`, `workbench-agent.py` and the generated `wb-*` launchers
-   become `workbench-session` subcommands, so agent hooks run without `python3`.
+2. [x] **Binary agent integration.** `wb-codex`, `wb-claude`, `wb-copilot`,
+   `wb-pi` and `wb-agent-hook` are symlinks to `workbench-session`, which picks
+   the launcher or hook observer from the name it is invoked through
+   (`workbench-session agent …` / `agent-hook …` also work). Agent hooks no longer
+   need `python3`. `agent_status.py` and `agent_watch.py` remain developer
+   diagnostics behind `just agent-status` / `just agent-watch`.
 3. **Native launch.** Replace `toolkit-ui.py` and the Mac `preview_launcher.c`
    bootstrap with startup in the Qt executable (service start, window slot lease,
    saved-view config). Replace `platform_dialogs` with Qt's native folder dialog.

@@ -1,5 +1,40 @@
 #[cfg(unix)]
+fn agent_entry(entry: &str, mut args: impl Iterator<Item = std::ffi::OsString>) -> ! {
+    use terminal_workbench_runtime::agent_hooks;
+    let mut text = || {
+        args.next()
+            .map(|value| value.to_string_lossy().into_owned())
+    };
+    if entry == "agent-hook" {
+        let agent = text().unwrap_or_default();
+        agent_hooks::report(&agent, text().as_deref());
+        std::process::exit(0);
+    }
+    let agent = entry
+        .strip_prefix("wb-")
+        .map_or_else(|| text().unwrap_or_default(), str::to_owned);
+    let tail = std::iter::from_fn(text).collect();
+    eprintln!("{}", agent_hooks::launch(&agent, tail));
+    std::process::exit(1);
+}
+
+#[cfg(unix)]
 fn main() {
+    // Agent launchers and the hook observer are symlinks named for their role.
+    let invoked = std::env::args_os().next().unwrap_or_default();
+    let name = std::path::Path::new(&invoked)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if name == "wb-agent-hook" {
+        agent_entry("agent-hook", std::env::args_os().skip(1));
+    }
+    if name
+        .strip_prefix("wb-")
+        .is_some_and(|agent| terminal_workbench_runtime::agent_hooks::AGENTS.contains(&agent))
+    {
+        agent_entry(&name, std::env::args_os().skip(1));
+    }
     let mut args = std::env::args_os().skip(1);
     let Some(socket) = args.next() else {
         eprintln!("usage: workbench-session SOCKET [--login-shell] [SHELL]");
@@ -64,6 +99,9 @@ fn main() {
             }
         }
         return;
+    }
+    if socket == "agent-hook" || socket == "agent" {
+        agent_entry(&socket.to_string_lossy(), args);
     }
     if socket == "service" {
         if let Err(error) = service(args) {

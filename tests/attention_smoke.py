@@ -48,7 +48,7 @@ def main():
                         names={'UserPromptSubmit':'userPromptSubmitted','PostToolUse':'postToolUse','Stop':'agentStop','Notification':'notification'}
                         if event=='PermissionRequest':event='Notification';fields['notification_type']='permission_prompt'
                         extra=[names.get(event,'notification')]
-                    result = subprocess.run(['python3', str(ROOT / 'scripts/agent-hook.py'), agent, *extra], input=json.dumps(dict(hook_event_name=event, **fields)), text=True, capture_output=True, env=environment, timeout=3)
+                    result = subprocess.run([runtime, 'agent-hook', agent, *extra], input=json.dumps(dict(hook_event_name=event, **fields)), text=True, capture_output=True, env=environment, timeout=3)
                     assert result.returncode == 0 and result.stdout == result.stderr == ''
                 assert snapshot(runtime, path)['status'] == 'unknown'
                 for event, status, state_tag in [('UserPromptSubmit', 'working', 1), ('PermissionRequest', 'waiting', 2), ('PostToolUse', 'working', 1), ('Stop', 'ready', 3)]:
@@ -83,7 +83,7 @@ def main():
                 hook('Stop')
                 assert snapshot(runtime, path)['status'] == 'unknown'
                 for raw in ('[]', '{', 'x' * (1024 * 1024 + 1)):
-                    result = subprocess.run(['python3', str(ROOT / 'scripts/agent-hook.py'), agent, *(['notification'] if agent == 'copilot' else [])], input=raw, text=True, capture_output=True, env=environment, timeout=3)
+                    result = subprocess.run([runtime, 'agent-hook', agent, *(['notification'] if agent == 'copilot' else [])], input=raw, text=True, capture_output=True, env=environment, timeout=3)
                     assert result.returncode == 0 and result.stdout == result.stderr == ''
             finally:
                 for connection in (viewer, legacy, watch):
@@ -98,7 +98,7 @@ def main():
             fake.write_text('#!/usr/bin/env python3\nimport json,os,sys\nprint(json.dumps({"args":sys.argv[1:],"group":os.environ["WORKBENCH_AGENT_GROUP"],"run":os.environ["WORKBENCH_AGENT_RUN"]}))\n')
             fake.chmod(0o700)
             environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'], WORKBENCH_SESSION_SOCKET='/tmp/fixture.sock')
-            result = subprocess.run(['python3', str(ROOT / 'scripts/workbench-agent.py'), agent, '--resume', 'a spaced argument'], env=environment, capture_output=True, text=True, check=True)
+            result = subprocess.run([runtime, 'agent', agent, '--resume', 'a spaced argument'], env=environment, capture_output=True, text=True, check=True)
             capture = json.loads(result.stdout)
             assert capture['args'][-2:] == ['--resume', 'a spaced argument']
             assert int(capture['group']) == os.getpgrp() and len(bytes.fromhex(capture['run'])) == 16

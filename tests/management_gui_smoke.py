@@ -235,7 +235,7 @@ def main():
                         if event == "PermissionRequest":
                             event = "Notification"
                         extra = [names.get(event, "notification")]
-                    result = subprocess.run(["python3", str(ROOT / "scripts/agent-hook.py"), agent_fixture, *extra],
+                    result = subprocess.run([runtime, "agent-hook", agent_fixture, *extra],
                         input=json.dumps({"hook_event_name": event, "notification_type": "permission_prompt"}), text=True, capture_output=True, env=hook_environment, timeout=3)
                     assert result.returncode == 0 and result.stdout == result.stderr == ""
                     wait_until(lambda: agent_identity()["status"] == status)

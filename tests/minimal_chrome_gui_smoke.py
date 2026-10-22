@@ -79,7 +79,7 @@ def main():
                 wait_until(lambda:inspect()['agent']=='codex')
                 hook=dict(env,WORKBENCH_SESSION_SOCKET=str(sock),WORKBENCH_AGENT_GROUP=str(os.getpgid(int(marker('agent.pid')))),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
                 def report(event,status):
-                    subprocess.run([sys.executable,str(ROOT/'scripts/agent-hook.py'),'codex'],input=json.dumps({'hook_event_name':event,'notification_type':'permission_prompt'}),text=True,env=hook,check=True,capture_output=True)
+                    subprocess.run([str(runtime),'agent-hook','codex'],input=json.dumps({'hook_event_name':event,'notification_type':'permission_prompt'}),text=True,env=hook,check=True,capture_output=True)
                     wait_until(lambda:inspect()['status']==status);time.sleep(.35)
                 report('PermissionRequest','waiting');key('super+alt+Up');click(22,108);click(210,112);screenshot('agents-attention');click(120,160)
                 key('ctrl+c');wait_until(lambda:inspect()['agent'] is None)

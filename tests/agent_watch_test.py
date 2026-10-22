@@ -44,7 +44,7 @@ def main():
                 watcher=subprocess.Popen([sys.executable,str(WATCH),'--state-dir',str(root),'--seconds','5'],stdout=log,stderr=subprocess.PIPE,text=True)
                 wait_until(lambda:any(e.get('status')=='unknown' and e['terminal_id']=='live' for e in records(output)))
                 for event,status in [('UserPromptSubmit','working'),('PermissionRequest','waiting'),('Stop','ready')]:
-                    hook=subprocess.run([sys.executable,str(ROOT/'scripts/agent-hook.py'),'codex'],input=json.dumps(dict(hook_event_name=event)),env=env,text=True,capture_output=True,timeout=3)
+                    hook=subprocess.run([runtime,'agent-hook','codex'],input=json.dumps(dict(hook_event_name=event)),env=env,text=True,capture_output=True,timeout=3)
                     assert hook.returncode==0 and not hook.stdout and not hook.stderr
                     wait_until(lambda:any(e.get('status')==status for e in records(output)))
                 send(viewer,16,b'\x03')

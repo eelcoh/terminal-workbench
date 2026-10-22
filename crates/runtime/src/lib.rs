@@ -6,6 +6,8 @@
 #[cfg(unix)]
 mod agent;
 #[cfg(unix)]
+pub mod agent_hooks;
+#[cfg(unix)]
 mod attention;
 #[cfg(unix)]
 mod context;

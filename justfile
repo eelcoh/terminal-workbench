@@ -36,7 +36,7 @@ check: runtime-build
     python3 tests/attention_smoke.py target/debug/workbench-session
     python3 tests/pi_runtime_test.py target/debug/workbench-session
     python3 tests/agent_watch_test.py target/debug/workbench-session
-    python3 tests/copilot_observer_test.py
+    python3 tests/copilot_observer_test.py target/debug/workbench-session
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/overview_animation_test.py
     python3 tests/terminal_search_vt_test.py

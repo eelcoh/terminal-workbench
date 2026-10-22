@@ -18,7 +18,7 @@ from preview_dependencies import python_record
 ROOT=Path(__file__).resolve().parent.parent
 MODULES=('toolkit-ui.py','client_build_info.py','installed_paths.py','config_paths.py','window_slots.py',
          'session_service.py','workspace_catalog.py','session_shutdown.py',
-         'terminal_lifecycle.py','preview_check.py','preview_dependencies.py','preview_service_check.py','workbench-agent.py','agent-hook.py','desktop_launch.py','preview_activation.py')
+         'terminal_lifecycle.py','preview_check.py','preview_dependencies.py','preview_service_check.py','desktop_launch.py','preview_activation.py')
 
 
 def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None,selective_qml=False,qml_deploy_script=None):
@@ -53,13 +53,10 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         # Retain the helper layout expected by the session service. All launch
         # scripts resolve their own location; no generated checkout paths escape.
         agents=payload/'.local/bin';agents.mkdir(parents=True)
-        for agent in ('codex','claude','copilot','pi'):
-            wrapper=agents/('wb-'+agent)
-            wrapper.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/workbench-agent.py" '+agent+' "$@"\n')
-            wrapper.chmod(0o755)
-        hook=agents/'wb-agent-hook'
-        hook.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/agent-hook.py" "$@"\n')
-        hook.chmod(0o755)
+        # The runtime binary acts as each launcher and the hook observer,
+        # selected by the name it is invoked through.
+        for name in ('wb-codex','wb-claude','wb-copilot','wb-pi','wb-agent-hook'):
+            (agents/name).symlink_to('../../libexec/workbench-session')
         pi=payload/'.local/integrations/pi';pi.mkdir(parents=True)
         shutil.copy2(ROOT/'integrations/pi/workbench.ts',pi/'workbench.ts')
         plugin=payload/'.local/integrations/copilot';plugin.mkdir(parents=True)

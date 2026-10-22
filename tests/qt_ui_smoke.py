@@ -1207,7 +1207,7 @@ while True:
         group=os.getpgid(int((root/'agent.pid').read_text()))
         hook_env=dict(os.environ,WORKBENCH_SESSION_SOCKET=str(root/(data()['panes'][8]['identity']+'.sock')),WORKBENCH_AGENT_GROUP=str(group),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
         def hook(event,label,index=8,environment=None):
-            result=subprocess.run([sys.executable,str(ROOT/'scripts/agent-hook.py'),'codex'],input=json.dumps({'hook_event_name':event}),env=hook_env if environment is None else environment,text=True,capture_output=True,timeout=3)
+            result=subprocess.run([runtime,'agent-hook','codex'],input=json.dumps({'hook_event_name':event}),env=hook_env if environment is None else environment,text=True,capture_output=True,timeout=3)
             assert result.returncode==0 and not result.stdout and not result.stderr
             wait_until(lambda:data()['panes'][index]['facts'].get('state')==label)
         hook('UserPromptSubmit','Working')
