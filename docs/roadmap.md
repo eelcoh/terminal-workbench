@@ -1599,3 +1599,17 @@ uncertain or pending-journal cases. It never stops/restarts a runtime or touches
 sibling processes. Recovery-race and endpoint tests, plus real Ctrl+D GUI checks,
 cover this boundary. Older services require an explicit service update; no unsafe
 fallback is attempted. See [exited panes](toolkit-ui-study.md#close-exited-panes).
+
+## Qt navigation search and agent triage
+
+Overview now finds terminals by workspace, folder, Git context and agent metadata.
+Its existing Find chord focuses the query in Overview; keyboard result navigation,
+empty-result handling and Clear filters share the existing spatial view. Queries
+are temporary window-local presentation state and do not search terminal output.
+
+The dedicated Agents panel adds independent metadata search, Needs input filtering,
+matched/total counts and Up/Down/Home/End/Enter navigation. It follows existing
+observers without new subscriptions or ownership changes, and retains unchanged
+result delegates. Native Linux input checks cover live-state transitions, separate
+Overview scope and input/catalog/reader isolation. Native Mac review remains open.
+See [finding terminals and agents](toolkit-ui-study.md#find-terminals-and-agents).

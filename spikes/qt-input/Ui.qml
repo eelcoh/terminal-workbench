@@ -142,7 +142,22 @@ ApplicationWindow {
     }
     property bool agentsOnly: false
     property bool needsOnly: false
-    readonly property bool overviewFiltered: agentsOnly || needsOnly
+    property string overviewQuery: ""
+    readonly property bool overviewSearchFocused: overviewSearch.activeFocus
+    readonly property bool navigationSearchFocused: navigation.searchFocused
+    readonly property var navigationMatches: navigation.matches
+    readonly property bool navigationNeedsOnly: navigation.needsOnly
+    readonly property bool overviewFiltered: agentsOnly || needsOnly || overviewQuery.trim().length > 0
+    onOverviewQueryChanged: { cancelDrag(); rebuildOverview(); deck.contentY = 0 }
+    function contextMatches(query, i) {
+        if (!query.trim().length) return true
+        const pane = panel(i)
+        if (!pane) return false
+        const f = pane.facts, w = pane.spaceIndex
+        const text = [spaces[w], directories[w], f.title, f.cwd, f.repository, f.branch, f.worktree, f.agent, f.state].join(" ").toLocaleLowerCase()
+        return query.trim().toLocaleLowerCase().split(/\s+/).every(word => text.indexOf(word) >= 0)
+    }
+    function clearOverviewFilters() { overviewSearch.clear(); changeFilter(false, false) }
     property var overviewGroups: []
     property var overviewOrdinals: []
     readonly property int overviewColumns: deck.columns
@@ -162,8 +177,9 @@ ApplicationWindow {
     function openNavigation(section) {
         navigationSection = section
         if (!navigationDocked) drawer.open()
-        else if (section === "workspaces") Qt.callLater(function() { navigation.focusWorkspace(workspace) })
+        else Qt.callLater(function() { if (section === "workspaces") navigation.focusWorkspace(workspace); else navigation.focusSearch() })
     }
+    function closeNavigation() { drawer.close() }
     function toggleNavigationPin() {
         navigationOverride = !navigationPinned
         if (navigationDocked) drawer.close()
@@ -184,13 +200,14 @@ ApplicationWindow {
                 const pane = panel(i), facts = pane ? pane.facts : ({agent: "", needs_input: false})
                 if (facts.agent) agents.push(i)
                 if (facts.needs_input) ++waiting
-                if (overview && ((agentsOnly && !facts.agent) || (needsOnly && !facts.needs_input))) continue
+                if (overview && ((agentsOnly && !facts.agent) || (needsOnly && !facts.needs_input) || !contextMatches(overviewQuery, i))) continue
                 positions[i] = matches.length; matches.push(i); ++total
             }
             groups.push(matches)
         }
         if (agents.length !== agentIndices.length || agents.some((value, index) => value !== agentIndices[index])) agentIndices = agents
         overviewGroups = groups; overviewOrdinals = positions; overviewMatches = total; waitingCount = waiting
+        navigation.rebuildMatches()
         if (overview) deck.contentY = Math.max(0, Math.min(deck.contentY, deck.contentHeight - deck.height))
     }
     function overviewIndices(space) { return overviewGroups[space] || [] }
@@ -253,7 +270,7 @@ ApplicationWindow {
         if (!entry || !entry.available) return
         switch (id) {
         case "agent-info": openAgentInfo(terminalModel.get(selected).terminalId); break
-        case "terminal-search": openTerminalSearch(); break
+        case "terminal-search": if (overview) overviewSearch.forceActiveFocus(); else openTerminalSearch(); break
         case "commands": openCommands(); break
         case "shortcut-settings": openShortcutSettings(); break
         case "font-settings": openFontSettings(); break
@@ -593,7 +610,7 @@ ApplicationWindow {
     function navigate(delta) {
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
-    readonly property bool moveKeyContext: !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
+    readonly property bool moveKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
@@ -703,9 +720,20 @@ ApplicationWindow {
     }
     Flow {
         id: overviewFilters; x: window.navigationEdge + 16; y: 54; width: window.width - x - 12; spacing: 8; visible: window.overview
+        ContextSearch {
+            id: overviewSearch; objectName: "overviewSearch"; tones: window.chrome
+            width: Math.min(240, overviewFilters.width); placeholderText: "Find terminals…"; Accessible.name: "Find terminals by workspace, folder, Git or agent"
+            onTextChanged: window.overviewQuery = text
+            onEscapePressed: { if (text.length) clear(); else window.toggleOverview() }
+            onStepRequested: direction => {
+                let results = []; for (const group of window.overviewGroups) results = results.concat(group)
+                if (results.length) { const current = results.indexOf(window.selected); const next = current < 0 ? (direction > 0 ? 0 : results.length - 1) : Math.max(0, Math.min(results.length - 1, current + direction)); window.focusPane(results[next]); forceActiveFocus() }
+            }
+            onAccepted: { if (!inputMethodComposing) { const groups = window.overviewGroups; const found = groups.reduce((all, group) => all.concat(group), []); const i = found.indexOf(window.selected) >= 0 ? window.selected : found[0]; if (i !== undefined) window.enterPane(i) } }
+        }
         QuietButton { objectName: "overviewAgentFilter"; hint: "Filter terminal or agent identity"; text: window.agentsOnly ? "Show: Agents" : "Show: All terminals"; onClicked: window.changeFilter(!window.agentsOnly, window.needsOnly); background: Rectangle { radius: 6; color: window.agentsOnly ? window.chrome.surface : "transparent"; border.width: window.agentsOnly ? 1 : 0; border.color: window.accent } }
         QuietButton { objectName: "overviewStateFilter"; hint: "Filter agents that need input"; text: window.needsOnly ? "State: Needs input" : "State: All states"; onClicked: window.changeFilter(window.agentsOnly, !window.needsOnly); background: Rectangle { radius: 6; color: window.needsOnly ? window.chrome.surface : "transparent"; border.width: window.needsOnly ? 1 : 0; border.color: window.accent } }
-        QuietButton { objectName: "overviewClearFilters"; text: "Clear filters"; visible: window.overviewFiltered; onClicked: window.changeFilter(false, false) }
+        QuietButton { objectName: "overviewClearFilters"; text: "Clear filters"; visible: window.overviewFiltered; onClicked: window.clearOverviewFilters() }
         Label { height: 32; verticalAlignment: Text.AlignVCenter; text: window.overviewMatches + (window.overviewMatches === 1 ? " match" : " matches"); color: window.chrome.muted; font.pixelSize: 12 }
     }
     Flickable {
@@ -914,7 +942,7 @@ ApplicationWindow {
                 }
             }
         }
-        Label { anchors.centerIn: parent; visible: window.overview && window.spaces.length > 0 && window.overviewFiltered && window.overviewMatches === 0; text: window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: 14 }
+        Label { anchors.centerIn: parent; visible: window.overview && window.spaces.length > 0 && window.overviewFiltered && window.overviewMatches === 0; text: window.overviewQuery.trim().length ? "No matching terminals" : window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: 14 }
         Label { anchors.centerIn: parent; visible: window.spaces.length === 0 || (!window.overview && (window.counts[window.workspace] || 0) === 0); text: window.spaces.length ? "An empty workspace" : "No workspaces yet"; color: window.chrome.muted; font.pixelSize: 14 }
     }
     Item {
@@ -966,7 +994,7 @@ ApplicationWindow {
         id: drawer; y: 40; width: 288; height: window.height - 40; edge: Qt.LeftEdge; leftPadding: 44
         background: Rectangle { color: window.chrome.surface; border.color: window.chrome.border }
         contentItem: Item {}
-        onOpened: if (window.navigationSection === "workspaces") navigation.focusWorkspace(window.workspace)
+        onOpened: { if (window.navigationSection === "workspaces") navigation.focusWorkspace(window.workspace); else navigation.focusSearch() }
         onClosed: window.restoreAfterPopup()
     }
     ChromeMenu {
@@ -983,7 +1011,7 @@ ApplicationWindow {
         MenuAction { objectName: "removeWorkspaceMenuItem"; text: "Remove workspace…"; enabled: window.spaces.length > 0 && !studySession.busy; onTriggered: window.requestWorkspaceClose(window.spaceIds[window.workspace]) }
         MenuRule {}
         MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: window.spaces.length > 0 && !window.overview; onTriggered: window.openAppearance() }
-        MenuAction { objectName: "terminalSearchMenuItem"; text: "Find in terminal"; keyHint: studyShortcuts.labels["terminal-search"] || ""; enabled: commandRegistry.find("terminal-search").available; onTriggered: window.openTerminalSearch() }
+        MenuAction { objectName: "terminalSearchMenuItem"; text: window.overview ? "Find in Overview" : "Find in terminal"; keyHint: studyShortcuts.labels["terminal-search"] || ""; enabled: commandRegistry.find("terminal-search").available; onTriggered: window.dispatchCommand("terminal-search") }
         MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; onTriggered: window.openFontSettings() }
         MenuAction { objectName: "configurationMenuItem"; text: "Configuration…"; onTriggered: configurationDialog.open() }
         MenuAction { objectName: "shortcutSettingsMenuItem"; text: "Shortcut settings…"; onTriggered: window.openShortcutSettings() }
@@ -1223,7 +1251,7 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
     function activateShortcut(id) {
         // Boundary navigation still reveals/focuses the selected pane after scrolling.
         if (id === "previous-terminal") navigate(-1)
@@ -1246,7 +1274,7 @@ ApplicationWindow {
             }
         }
     }
-    Shortcut { sequence: "Escape"; enabled: window.overview && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
+    Shortcut { sequence: "Escape"; enabled: window.overview && !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
     Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

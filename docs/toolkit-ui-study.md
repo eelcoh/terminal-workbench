@@ -769,3 +769,35 @@ Create a terminal, exit with Ctrl+D and click Close pane: no second question
 should appear. Repeat through the menu and Commands, then check that closing a
 running terminal still asks for confirmation. Native Mac interaction review
 remains required.
+
+## Find terminals and agents
+
+Overview's Find terminals field matches workspace names, workspace directories,
+reported folders, Git repositories/branches/worktrees and agent identity/state.
+Space-separated terms all need to match; matching ignores case. It searches
+metadata, rather than terminal output or scrollback. Existing All terminals /
+Agents and All states / Needs input filters combine with the query. Clear filters
+resets all three. Queries stay local to the current window and are not saved.
+
+The normal Find shortcut (Super+Alt+S on Linux, Command+Option+S on Mac) focuses
+this field while Overview is open. Up/Down selects a matching preview across
+workspaces; Enter opens the selected match, or the first result if the selection
+is hidden. Enter with no results does nothing. Escape clears a nonempty query;
+another Escape leaves Overview. Typing or composing a query does not send input
+to a terminal or activate application shortcuts.
+
+The Agents navigation panel has its own Find agents field and All states /
+Needs input toggle, with a matched/total count and explicit empty-result text.
+These filters do not change Overview, workspace focus or terminal ownership.
+The panel focuses search when opened. Up/Down enters the results, Home/End moves
+to the first/last row, and Enter focuses its terminal. Up from the first row
+returns to search. Escape in search clears filters, then closes the drawer or
+returns focus to the working view when pinned. Filters follow live metadata;
+unchanged result identities keep their delegates and focus.
+
+Both searches use existing cached observers. Matching runs on query, catalog or
+metadata changes, with an empty-query fast path; it adds no process scans,
+filesystem reads, subscriptions, polling or work in terminal parsing/painting.
+Real X11/Wayland input checks cover matching, empty results, filter isolation,
+live state changes and retained catalog, reader identity and PTY input.
+Native Mac interaction review remains required.

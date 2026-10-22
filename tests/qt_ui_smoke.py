@@ -1173,6 +1173,25 @@ while True:
         assert not data()['overview']
         wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
         capture('navigation-agent-working.png')
+        # Navigation search/state scope is independent from spatial Overview.
+        nav_input=[received(i) for i in range(6)];nav_catalog=workspace_catalog.load(root);nav_objects=[p['instance'] for p in data()['panes']]
+        wait_until(lambda:data()['navigation_search_focus'])
+        typed('no-such-agent-739');wait_until(lambda:not data()['navigation_matches'])
+        key('Return');raw_key('super+alt+Right');time.sleep(.1)
+        assert data()['drawer_open'] and data()['selected']==8 and not data()['overview']
+        key('Escape');wait_until(lambda:data()['navigation_matches']==[8])
+        typed('CoDeX');wait_until(lambda:data()['navigation_matches']==[8])
+        key('Down');key('End');key('Home');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
+        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_search_focus']);time.sleep(.3)
+        key('Escape');wait_until(lambda:data()['navigation_matches']==[8])
+        click(*data()['navigation_needs_filter']);wait_until(lambda:data()['navigation_needs_only'] and not data()['navigation_matches'])
+        hook('PermissionRequest','Needs input');wait_until(lambda:data()['navigation_matches']==[8])
+        hook('UserPromptSubmit','Working');wait_until(lambda:not data()['navigation_matches'])
+        click(*data()['navigation_clear_filters']);wait_until(lambda:not data()['navigation_needs_only'] and data()['navigation_matches']==[8])
+        assert not data()['agents_only'] and not data()['needs_only'] and not data()['overview']
+        assert workspace_catalog.load(root)==nav_catalog and [p['instance'] for p in data()['panes']]==nav_objects
+        assert [received(i) for i in range(6)]==nav_input,'agent search or result navigation typed into terminals'
+        capture('navigation-agent-search.png')
         info_inputs=[received(i) for i in range(6)];info_instances=[p['instance'] for p in data()['panes']];info_sizes=sizes();info_catalog=workspace_catalog.load(root)
         click(*data()['navigation_agent_info']);wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
         assert data()['agent_info_target']==data()['panes'][8]['identity'] and data()['agent_info_details']['heading']=='Working'
@@ -1201,6 +1220,21 @@ while True:
         click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'])
         key('super+alt+o');wait_until(lambda:data()['overview'])
+        search_input=[received(i) for i in range(6)];search_catalog=workspace_catalog.load(root);search_objects=[p['instance'] for p in data()['panes']]
+        key('super+alt+s');wait_until(lambda:data()['overview_search_focus'])
+        typed('CoDeX');wait_until(lambda:data()['overview_matches']==1 and data()['panes'][8]['visible'])
+        raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==8 and data()['overview_search_focus']
+        key('Down');key('Return');wait_until(lambda:not data()['overview'] and data()['panes'][8]['focus'])
+        key('super+alt+o');wait_until(lambda:data()['overview'] and data()['overview_matches']==1)
+        click(*data()['overview_search']);key('ctrl+a');typed('no-such-terminal-739');wait_until(lambda:data()['overview_matches']==0)
+        key('Return');time.sleep(.1);assert data()['overview']
+        key('Escape');wait_until(lambda:data()['overview_matches']==14 and data()['overview_search_focus'])
+        # Match multiple metadata terms across workspace and process fields.
+        typed('Codex '+data()['workspace_names'][data()['panes'][8]['workspace']]);wait_until(lambda:data()['overview_matches']==1)
+        capture('overview-context-search.png')
+        click(*data()['overview_clear_filters']);wait_until(lambda:data()['overview_matches']==14)
+        assert workspace_catalog.load(root)==search_catalog and [p['instance'] for p in data()['panes']]==search_objects
+        assert [received(i) for i in range(6)]==search_input,'Overview search typed into terminals'
         click(*data()['agent_filter_button']);wait_until(lambda:data()['agents_only'] and data()['overview_matches']==1)
         assert [i for i,p in enumerate(data()['panes']) if p['visible']]==[8]
         assert sizes()==metadata_sizes,'metadata/filter presentation resized the PTY'
@@ -1351,7 +1385,9 @@ while True:
             remaining=data()['workspace_count']
             click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
             click(*data()['remove_workspace_0']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
-            click(*data()['confirm_terminal_action']);wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==remaining-1)
+            # Popup visibility precedes its entered animation and final geometry.
+            wait_until(lambda:data()['terminal_action_ready'])
+            click(*settled_point(lambda d:d['confirm_terminal_action']));wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==remaining-1)
             if remaining>1:assert data()['workspace_names'][data()['workspace']]==survivor['name'] and data()['selected']==-1
         assert not data()['panes'] and not data()['error'] and workspace_catalog.load(root)['workspaces']==[]
         capture('workspace-none.png')
