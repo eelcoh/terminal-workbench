@@ -6,10 +6,13 @@ opening a window.** The successful output gives its location and an executable
 command under **Open a window**. Copy and run that command to start it.
 No checkout, Cargo, CMake or `just` is needed to run the resulting preview.
 
-This is a same-machine preview. The Python installation recorded at build time
-and the Qt installation used to build it must remain available. The optional Mac Qt deployment below removes the installed Qt requirement for
-Qt libraries/plugins once native loader review passes. Python remains external.
-The production toolkit has not been selected.
+This is a same-machine preview. Opening a window (the launcher with no
+arguments or `--desktop`, Finder, the app menu) runs only the bundled
+`workbench-session open` and Qt, without Python. Preview management actions
+(`--check`, `--status`, `--activate`, `--paths`, `--install-desktop-entry`) still
+use the Python installation recorded at build time. The Qt installation used to
+build the preview must remain available; the optional Mac Qt deployment below
+removes that requirement for Qt libraries/plugins once native loader review passes.
 
 ## Build and install in one command
 
@@ -22,7 +25,7 @@ just toolkit-install
 This builds the runtime/viewer and installs a new copy in a separate permanent
 directory. No `SOURCE` argument is needed. On Mac it uses the owner-tested
 selective Qt bundle path; Linux uses the same-machine stage with installed Qt.
-Python remains external on both targets. The completed source stage is retained.
+Management actions still need the recorded Python. The completed source stage is retained.
 
 The combined recipe automatically runs the installed copy's `--check`. It saves
 `installation-check.json`, raw output and a log beside the payload, outside the
@@ -170,9 +173,10 @@ wrappers and client. The sibling `terminal-workbench` command works while the ap
 Moving the app alone keeps its payload intact; use the launcher inside the app
 for terminal commands after that move.
 
-The native bootstrap uses the recorded Python path, rather than searching
-Finder's PATH. Python then replaces itself with the Qt viewer, retaining the
-window lease. Locally built bundles are signed ad hoc; this is not a signed,
+With no arguments, the native bootstrap runs the bundled `workbench-session
+open --desktop`, which replaces itself with the Qt viewer, retaining the window
+lease. With management arguments it uses the recorded Python path, rather than
+searching Finder's PATH. Locally built bundles are signed ad hoc; this is not a signed,
 notarized distribution. Native Finder launch/signature acceptance is pending.
 Bundle metadata follows [Apple's application bundle layout](https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html).
 
@@ -392,8 +396,8 @@ The command uses [desktop entry Exec quoting](https://xdg.pages.freedesktop.org/
 Desktop/Finder starts write a private `launch.log` in the preview state directory,
 by default `~/.local/state/terminal-workbench/qt-preview/launch.log`. Both launcher
 and Qt output go there. A new start appends a timestamp; normal terminal launches
-continue to show output in the terminal. If Python itself is missing, the Mac
-bootstrap shows an error asking you to rebuild. Failures after Python starts
+continue to show output in the terminal. If the bundled runtime is missing, the
+Mac bootstrap shows an error asking you to rebuild. Failures after it starts
 are logged; launcher errors also show an alert/notification when available.
 A Qt loader failure can still exit with only details in the log.
 

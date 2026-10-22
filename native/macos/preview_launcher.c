@@ -1,4 +1,5 @@
-// Finder entry point for a same-machine preview. Python and Qt remain external.
+// Finder entry point for a same-machine preview. Opening a window runs the
+// bundled runtime binary; preview management arguments still use Python.
 #include <mach-o/dyld.h>
 #include <limits.h>
 #include <stdint.h>
@@ -31,6 +32,18 @@ int main(int argc, char **argv) {
     *last = '\0';
     if (snprintf(root, sizeof(root), "%s/../Resources/workbench", resolved) >= (int)sizeof(root))
         return failure("Application path is too long.");
+    int extra = 0;
+    for (int i = 1; i < argc; ++i) {
+        if (strncmp(argv[i], "-psn_", 5) != 0) ++extra;
+    }
+    if (extra == 0) {
+        char runtime[PATH_MAX], viewer[PATH_MAX];
+        if (snprintf(runtime, sizeof(runtime), "%s/libexec/workbench-session", root) >= (int)sizeof(runtime) ||
+            snprintf(viewer, sizeof(viewer), "%s/workbench-ui-study", resolved) >= (int)sizeof(viewer))
+            return failure("Application path is too long.");
+        execl(runtime, runtime, "open", "--payload", root, "--viewer", viewer, "--desktop", (char *)NULL);
+        return failure("The preview runtime is missing or not executable. Rebuild with just toolkit-stage.");
+    }
     if (snprintf(path, sizeof(path), "%s/python.path", root) >= (int)sizeof(path))
         return failure("Application path is too long.");
     FILE *file = fopen(path, "r");

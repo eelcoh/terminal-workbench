@@ -71,7 +71,11 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         for name,value in (('plugin.json',manifest),('hooks.json',hooks)):
             (plugin/name).write_text(json.dumps(value,indent=2)+'\n')
         launcher=payload/'terminal-workbench'
-        launcher.write_text('#!/bin/sh\nset -eu\nexport PYTHONDONTWRITEBYTECODE=1\nroot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/toolkit-ui.py" "$root/libexec/workbench-session" "$root/'+relative_viewer+'" --saved --installed "$@"\n')
+        # Opening a window runs only the runtime binary and Qt. Preview
+        # management actions (--check, --status, --activate, ...) still use Python.
+        launcher.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n'
+            'case "$*" in\n    ""|--desktop) exec "$root/libexec/workbench-session" open --payload "$root" --viewer "$root/'+relative_viewer+'" "$@" ;;\nesac\n'
+            'export PYTHONDONTWRITEBYTECODE=1\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/toolkit-ui.py" "$root/libexec/workbench-session" "$root/'+relative_viewer+'" --saved --installed "$@"\n')
         launcher.chmod(0o755)
         notices=payload/'notices';notices.mkdir()
         for name in ('LICENSE','fonts','themes'):

@@ -100,6 +100,9 @@ fn main() {
         }
         return;
     }
+    if socket == "open" {
+        std::process::exit(terminal_workbench_runtime::launch::open(args));
+    }
     if socket == "agent-hook" || socket == "agent" {
         agent_entry(&socket.to_string_lossy(), args);
     }

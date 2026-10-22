@@ -4,9 +4,12 @@
 //! PTY streams remain with independent runtimes. Stopping this service never
 //! stops them. Clients retry only connection establishment, never a sent mutation.
 mod catalog;
+mod client;
 mod lifecycle;
 
+pub(crate) use catalog::{expand_user, resolve};
 use catalog::{fail, find_terminal, id, os, Launch, Result};
+pub use client::initialize;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::fs::{self, DirBuilder};

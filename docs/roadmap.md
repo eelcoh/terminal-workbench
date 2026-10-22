@@ -32,8 +32,7 @@ installed from a release artifact on a machine without Python.
      creation, close, move, recovery, lifecycle, health and shutdown, still on
      protocol 1. The Qt client is unchanged, and the Python tests check the Rust
      server over its socket.
-   - [ ] Launch clients (`session_service.request`, the management CLI) still
-     need Python. They move to the Rust binary and native launch in step 3.
+   - [x] Opening a window starts the service from the Rust binary (step 3).
    - `session_shutdown.py`, `terminal_lifecycle.py`, `window_slots.py`,
      `config_paths.py`: subcommands or library code in the same binary.
 2. [x] **Binary agent integration.** `wb-codex`, `wb-claude`, `wb-copilot`,
@@ -42,9 +41,14 @@ installed from a release artifact on a machine without Python.
    (`workbench-session agent …` / `agent-hook …` also work). Agent hooks no longer
    need `python3`. `agent_status.py` and `agent_watch.py` remain developer
    diagnostics behind `just agent-status` / `just agent-watch`.
-3. **Native launch.** Replace `toolkit-ui.py` and the Mac `preview_launcher.c`
-   bootstrap with startup in the Qt executable (service start, window slot lease,
-   saved-view config). Replace `platform_dialogs` with Qt's native folder dialog.
+3. [x] **Native launch.** `workbench-session open` opens installed windows:
+   user state and preferences (including the macOS migration), the window-slot
+   lease, service startup, the launch config and the desktop log. The payload
+   launcher, Linux desktop entry and Mac bootstrap use it. The Qt client already
+   uses Qt's folder dialog; `folder_picker.py` serves only the frozen viewer.
+   Preview management (`--check`, `--status`, `--activate`, `--paths`,
+   `--install-desktop-entry`) and the development launcher `toolkit-ui.py` still
+   use Python; they are reworked with packaging in step 5.
 4. **Qt parity and spike removal.** Close the parity list, then delete
    `spikes/ghostling`, its patch scripts and spike-only tests.
 5. **Packaging.** An unsigned Mac `.app` with Qt and the runtime inside it, and a

@@ -60,7 +60,7 @@ pub(crate) fn name(value: &Value) -> Result<String> {
     Ok(text.trim().to_owned())
 }
 
-fn expand_user(value: &str) -> PathBuf {
+pub(crate) fn expand_user(value: &str) -> PathBuf {
     let home = || std::env::var_os("HOME").map(PathBuf::from);
     if value == "~" {
         if let Some(home) = home() {
@@ -76,7 +76,7 @@ fn expand_user(value: &str) -> PathBuf {
 
 /// Non-strict resolution: canonicalize the longest existing ancestor and
 /// normalize the remaining components lexically.
-fn resolve(path: &Path) -> PathBuf {
+pub(crate) fn resolve(path: &Path) -> PathBuf {
     if let Ok(resolved) = fs::canonicalize(path) {
         return resolved;
     }

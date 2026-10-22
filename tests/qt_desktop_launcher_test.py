@@ -79,7 +79,7 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
     entry=bundle/'Contents/MacOS'/info['CFBundleExecutable']
     state=root/'mac-state';binary=payload/'libexec/workbench-session';evidence=root/'mac.json'
     context=dict(env,PATH='/usr/bin:/bin',WORKBENCH_STATE_DIR=str(state),WB_DESKTOP_EVIDENCE=str(evidence))
-    # The native launcher must find the recorded Python with a Finder-like PATH.
+    # Management arguments still find the recorded Python with a Finder-like PATH.
     paths=subprocess.run([str(entry),'--paths'],env=context,capture_output=True,text=True,check=True)
     assert json.loads(paths.stdout)['runtime']==str(binary)
     assert not state.exists(),'--paths started a service/log'
@@ -100,7 +100,7 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
             viewer=bundle/'Contents/MacOS/workbench-ui-study'
             viewer.rename(viewer.with_name('hidden-viewer'))
             failed=subprocess.run([str(entry)],env=dict(context,PATH='/nonexistent'),capture_output=True,text=True,timeout=45)
-            assert failed.returncode==1 and 'FileNotFoundError' in (state/'launch.log').read_text()
+            assert failed.returncode==1 and 'No such file or directory' in (state/'launch.log').read_text()
             assert not list((state/'qt').glob('launch-*.json'))
             lease,view=acquire_window_slot(state/'qt');os.close(lease);assert view.name=='1.view'
             assert all(t['state']=='running' for t in request(state,binary,home,'health')['terminals'])

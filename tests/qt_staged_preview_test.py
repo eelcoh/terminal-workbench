@@ -155,6 +155,12 @@ with tempfile.TemporaryDirectory(prefix='wb-stage-',dir='/tmp') as directory:
                     finally:
                         if client.poll() is None:os.killpg(client.pid,signal.SIGTERM)
                         client.wait(timeout=10)
+                        # A launcher's Qt child shares its lease; let the whole group exit.
+                        def group_exited():
+                            try:os.killpg(client.pid,0)
+                            except ProcessLookupError:return True
+                            return False
+                        wait_until(group_exited)
                     log.seek(0);output=log.read()
                     if desktop:output+=(state/'launch.log').read_text()
                     assert 'Qt UI: qrc:' not in output,output

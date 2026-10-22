@@ -14,6 +14,8 @@ mod context;
 #[cfg(unix)]
 mod input_queue;
 #[cfg(unix)]
+pub mod launch;
+#[cfg(unix)]
 mod lifecycle;
 #[cfg(unix)]
 mod platform;
