@@ -6,7 +6,7 @@ import Workbench.Probe
 ApplicationWindow {
     id: window
     width: 1240; height: 760; minimumWidth: 680; minimumHeight: 440
-    visible: true; title: studySession.savedSession ? "Terminal Workbench" : "Terminal Workbench · Qt UI study"; color: chrome.background
+    visible: true; title: studySession.savedSession ? "Band" : "Band · disposable sessions"; color: chrome.background
     property int workspace: 0
     property int selected: 0
     property bool overview: false
@@ -1133,7 +1133,7 @@ ApplicationWindow {
         MenuAction { objectName: "sessionStopMenuItem"; text: "Stop all terminals…"; enabled: terminalModel.count > 0 && !studySession.busy; onTriggered: window.requestSessionStop() }
         MenuAction { text: studySession.savedSession ? "Close window" : "Close UI study"; onTriggered: window.close() }
         MenuRule {}
-        MenuAction { objectName: "aboutMenuItem"; text: "About Terminal Workbench"; onTriggered: about.open() }
+        MenuAction { objectName: "aboutMenuItem"; text: "About Band"; onTriggered: about.open() }
     }
     ChromeMenu {
         tones: window.chrome

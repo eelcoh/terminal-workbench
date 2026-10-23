@@ -93,12 +93,12 @@ while True:
         wait_until(ready_ui,timeout=30)
         if wayland:
             assert data()['platform']=='wayland' and 'DISPLAY' not in env
-            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study'),None))
+            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Band · disposable sessions'),None))
             run('niri','msg','action','focus-window','--id',window)
             run('niri','msg','action','move-window-to-floating');run('niri','msg','action','set-window-width','1240');run('niri','msg','action','set-window-height','760')
             run('niri','msg','action','move-floating-window','--x','70','--y','50');time.sleep(.35)
         else:
-            window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
+            window=cmd('search','--sync','--name','^Band · disposable sessions$').splitlines()[0];cmd('windowfocus',window)
         def display_data():
             try:return json.loads(display_report.read_text())
             except (FileNotFoundError,ValueError):return {}
@@ -272,7 +272,7 @@ while True:
         click(*settled_point(lambda d:d['about_details']));wait_until(lambda:data()['about_details_ready']);time.sleep(.2);capture('about-details.png')
         raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==0,'About leaked navigation shortcut'
         key('Escape');wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
-        key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('About Terminal Workbench')
+        key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('About Band')
         wait_until(lambda:len(data()['command_matches'])==1 and data()['command_matches'][0]['id']=='about');key('Return');wait_until(lambda:data()['about_open'])
         click(*data()['about_close']);wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
         assert [received(i) for i in range(6)]==about_input and sizes()==about_sizes,'About altered input or grids'
@@ -339,11 +339,11 @@ while True:
         client=subprocess.Popen([viewer,str(config),'--test-report',str(report)],env=env,stdout=log,stderr=log);processes.append(client)
         wait_until(ready_ui,timeout=30)
         if wayland:
-            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study'),None))
+            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Band · disposable sessions'),None))
             run('niri','msg','action','focus-window','--id',window);run('niri','msg','action','move-window-to-floating')
             run('niri','msg','action','set-window-width','1240');run('niri','msg','action','set-window-height','760');run('niri','msg','action','move-floating-window','--x','70','--y','50')
         else:
-            window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
+            window=cmd('search','--sync','--name','^Band · disposable sessions$').splitlines()[0];cmd('windowfocus',window)
         wait_until(lambda:data()['navigation_pinned'] and data()['reduced_motion'] and data()['navigation_default'] and data()['motion_default'])
         assert not data()['view_error'] and [received(i) for i in range(6)]==config_inputs
         for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
@@ -613,9 +613,9 @@ while True:
             try:
                 wait_until(lambda:len(peer_data().get('panes',[]))==count and pane(peer_data(),target)['attachment']=='elsewhere',timeout=20)
                 if wayland:
-                    peer_window=next(w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study' and w['id']!=original_window)
+                    peer_window=next(w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Band · disposable sessions' and w['id']!=original_window)
                     run('niri','msg','action','focus-window','--id',peer_window);run('niri','msg','action','move-window-to-floating')
-                else:peer_window=next(w for w in cmd('search','--name','^Terminal Workbench · Qt UI study$').splitlines() if w!=original_window)
+                else:peer_window=next(w for w in cmd('search','--name','^Band · disposable sessions$').splitlines() if w!=original_window)
                 # Show the first workspace/terminal containing the target in the peer.
                 window=peer_window;focus(window)
                 for _ in range(8):key('super+alt+Up')
@@ -951,11 +951,11 @@ while True:
         client=subprocess.Popen([viewer,str(config),'--test-report',str(report)],env=env,stdout=log,stderr=log);processes.append(client)
         wait_until(ready_ui,timeout=30)
         if wayland:
-            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Terminal Workbench · Qt UI study'),None))
+            window=wait_until(lambda:next((w['id'] for w in json.loads(run('niri','msg','-j','windows')) if w['title']=='Band · disposable sessions'),None))
             run('niri','msg','action','focus-window','--id',window);run('niri','msg','action','move-window-to-floating')
             run('niri','msg','action','set-window-width','1240');run('niri','msg','action','set-window-height','760');run('niri','msg','action','move-floating-window','--x','70','--y','50')
         else:
-            window=cmd('search','--sync','--name','^Terminal Workbench · Qt UI study$').splitlines()[0];cmd('windowfocus',window)
+            window=cmd('search','--sync','--name','^Band · disposable sessions$').splitlines()[0];cmd('windowfocus',window)
         wait_until(lambda:data()['overview'] and data()['workspace']==1 and data()['selected']==4 and data()['reduced_motion'] and sizes()==saved_geometry)
         assert data()['navigation_docked'] and not data()['view_error'] and data()['chrome_background']=='#214365'
         folder_index=data()['panes'][3]['theme'];assert theme_state(folder_index,'#214365','#aa1133')

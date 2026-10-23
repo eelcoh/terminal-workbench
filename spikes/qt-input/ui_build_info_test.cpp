@@ -13,13 +13,13 @@ static void require(bool condition,const char *message)
 int main(int argc,char **argv)
 {
     QGuiApplication app(argc,argv);
-    QJsonObject config{{"build_info",QJsonObject{{"kind","installed preview"},{"revision",QString(40,'a')},
+    QJsonObject config{{"build_info",QJsonObject{{"kind","installed"},{"version","0.1.0"},{"revision",QString(40,'a')},
         {"source_dirty",true},{"payload_root","/installed preview"},{"python","/python"},
         {"secret","do not copy"}}},{"runtime","/runtime"},{"viewer","/viewer"},
         {"preferences","/config/config.conf"},{"state","/state"},{"view_state","/view.json"},
         {"catalog",QJsonObject{{"name","private project"}}},{"terminal_output","secret output"}};
     UiBuildInfo info(config);
-    require(info.summary().contains("aaaaaaaaaaaa") && info.summary().contains("local changes"),"revision/dirty summary");
+    require(info.summary().startsWith("0.1.0 · aaaaaaaaaaaa") && info.summary().contains("local changes"),"version/revision/dirty summary");
     const auto bytes=info.diagnostics().toUtf8();const auto report=QJsonDocument::fromJson(bytes).object();
     require(report["configured_runtime"].toString()=="/runtime" && report["payload_root"].toString()=="/installed preview","client paths");
     require(report["qt_version"].toString()==QString::fromLatin1(qVersion()),"actual Qt version");

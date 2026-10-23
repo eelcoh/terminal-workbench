@@ -102,6 +102,9 @@ fn main() {
     if socket == "open" {
         std::process::exit(band_runtime::launch::open(args));
     }
+    if socket == "desktop-entry" {
+        std::process::exit(band_runtime::desktop_entry::command(args));
+    }
     if socket == "config-path" {
         std::process::exit(band_runtime::launch::config_path(args));
     }

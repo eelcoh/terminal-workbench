@@ -231,9 +231,8 @@ on X11 and Wayland for panel/menu/palette access, font/chord updates, invalid
 reload and draft retention without PTY input or reader replacement. Native Mac
 filesystem/interaction review remains pending.
 
-For a Mac review, install/activate/open the new preview, then open Configuration.
-Run `just toolkit-preview open ID` twice (replace `ID` with the installation
-ID) to open two windows. The updated Mac launcher uses `open -n`. Give each
+For a Mac review, install the new `Band.app` ([packaging](packaging.md)), then
+open Configuration. Run `open -n -a Band` twice to open two windows. Give each
 window its own terminal. Change a managed font value or a saved font UI setting;
 both windows should follow. Existing UI overrides win over managed values, so
 use **Use dotfile defaults → Apply** when testing managed font inheritance. A
@@ -335,9 +334,8 @@ home and Unicode folders, invalid-update retention, deferred edits and deletion.
 `just toolkit-ui-test` exercises real X11/Wayland input, folder prefills, retained
 drafts, missing-folder errors, independent new pane widths and preserved readers.
 
-For the installed Mac app, build with `git pull` then `just toolkit-install`.
-Close preview windows, run `just toolkit-preview activate ID` with the new ID,
-then `just toolkit-preview open ID`. Set `directory` to an existing project
+For the installed Mac app, build with `git pull` then `just package`, install
+the new `Band.app` and open it. Set `directory` to an existing project
 folder and `terminal-width = 1/3`; New workspace should prefill the folder and
 new terminals should start at one third. Change the default to `2/3` and add
 another terminal: the earlier pane should retain its size. Leave New workspace
@@ -386,8 +384,7 @@ checks local preview/Cancel, an actual peer-window Apply, stale draft rejection,
 shared default inheritance and unchanged terminal owners, catalog, readers and
 grids. Native Mac interaction acceptance remains manual.
 
-After installing/activating the new Mac preview, run `just toolkit-preview open
-ID` twice. Apply a workspace theme in either window and check the other window.
+After installing the new `Band.app`, run `open -n -a Band` twice. Apply a workspace theme in either window and check the other window.
 Leave Appearance open in window A; apply another theme to the same workspace in
 window B. A should keep its preview, reject Apply, and adopt B's saved theme when
 you Cancel. **Use default → Apply** should return both windows to the configured

@@ -1,4 +1,7 @@
-"""Launch Qt with private disposable sessions or explicitly selected saved sessions."""
+"""Development launcher: Qt with private disposable sessions, or the checkout's saved sessions (--saved).
+
+Releases open windows through `band-session open` instead; see docs/packaging.md.
+"""
 import argparse
 import json
 import os
@@ -12,16 +15,15 @@ from window_slots import acquire_window_slot
 
 ROOT=Path(__file__).resolve().parent.parent
 
-def config_directory(runtime,*,prepare):
+def config_directory(runtime):
     """Preferences directory from the runtime; preparing copies earlier Mac settings once."""
-    command=[str(runtime),'config-path']+(['--prepare'] if prepare else [])
+    command=[str(runtime),'config-path','--prepare']
     return Path(subprocess.run(command,check=True,capture_output=True,text=True).stdout.rstrip('\n')).parent
 
-def configuration(state,runtime,cwd,data,preferences,saved=False,installed=False):
-    from client_build_info import capture
+def configuration(state,runtime,cwd,data,preferences,saved=False):
     platform = 'macos' if sys.platform == 'darwin' else 'linux'
     return dict(state=str(state),runtime=str(runtime),cwd=str(cwd),catalog=data,
-                build_info=capture(ROOT,installed=installed),
+                build_info=dict(kind='development checkout',payload_root=str(ROOT)),
                 preferences=str(preferences/'config.conf'),
                 font_overrides=str(preferences/'ui'/platform/'terminal-font.json'),
                 shortcut_overrides=str(preferences/'ui'/platform/'shortcuts.conf'),
@@ -29,10 +31,9 @@ def configuration(state,runtime,cwd,data,preferences,saved=False,installed=False
                 saved_session=saved,catalog_updates=saved)
 
 
-def saved_window(runtime,viewer,preferences,*,installed=False,desktop=False):
-    from installed_paths import session_directory
-    state=session_directory(os.environ) if installed else Path(os.environ.get('BAND_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
-    cwd=Path.home().resolve() if installed else ROOT
+def saved_window(runtime,viewer,preferences):
+    state=Path(os.environ.get('BAND_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
+    cwd=ROOT
     # Match the working viewer's service configuration; initialization never
     # starts stopped saved terminals or takes ownership from another window.
     prepare_directory(state)
@@ -40,24 +41,9 @@ def saved_window(runtime,viewer,preferences,*,installed=False,desktop=False):
     lease,view=acquire_window_slot(views)
     try:
         data=request(state,runtime,cwd)['data']
-        if desktop:
-            # Replace the launcher with Qt so Finder owns the actual GUI process.
-            # Its inherited lease lives until Qt exits, just as pass_fds does for
-            # the ordinary terminal launcher. Qt removes this private config after
-            # reading it; exec failure cleans it here.
-            with tempfile.NamedTemporaryFile(mode='w',prefix='launch-',suffix='.json',dir=views,delete=False) as file:
-                config=Path(file.name);settings=configuration(state,runtime,cwd,data,preferences,True,installed)
-                settings.update(view_state=str(view.with_suffix('.json')),installed_preview=True,viewer=str(viewer))
-                json.dump(settings,file)
-            try:
-                os.set_inheritable(lease,True)
-                print(f'Opening Qt preview; closing detaches. Session state: {state}',flush=True)
-                os.execv(str(viewer),[str(viewer),str(config),'--remove-launch-config'])
-            finally:config.unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(prefix='wb-qt-window-',dir='/tmp') as directory:
-            config=Path(directory)/'ui.json';settings=configuration(state,runtime,cwd,data,preferences,True,installed)
-            settings['view_state']=str(view.with_suffix('.json'))
-            settings['installed_preview']=installed;settings['viewer']=str(viewer)
+            config=Path(directory)/'ui.json';settings=configuration(state,runtime,cwd,data,preferences,True)
+            settings['view_state']=str(view.with_suffix('.json'));settings['viewer']=str(viewer)
             config.write_text(json.dumps(settings))
             print(f'Qt saved sessions: {state}. Closing detaches; shells and workspaces remain.',flush=True)
             print(f'Qt window view: {settings["view_state"]}',flush=True)
@@ -67,68 +53,12 @@ def saved_window(runtime,viewer,preferences,*,installed=False,desktop=False):
 
 
 
-parser=argparse.ArgumentParser(description='Launch Qt with disposable or saved Workbench sessions.')
+parser=argparse.ArgumentParser(description='Launch Qt from the checkout with disposable or saved development sessions.')
 parser.add_argument('runtime',type=Path);parser.add_argument('viewer',type=Path);parser.add_argument('--saved',action='store_true')
-parser.add_argument('--installed',action='store_true',help='Use user state and home directory for the staged preview')
-parser.add_argument('--paths',action='store_true',help='Print launch paths without opening a window or starting sessions')
-parser.add_argument('--desktop',action='store_true',help='Launch with a private log for Finder or the desktop app menu')
-parser.add_argument('--install-desktop-entry',action='store_true',help='Install this relocated preview in your Linux app menu')
-parser.add_argument('--check',action='store_true',help='Check installed runtime, QML and Mac bundle loading without opening terminals')
-parser.add_argument('--status',action='store_true',help='Inspect preview service status without starting it')
-parser.add_argument('--activate',action='store_true',help='Select this preview service after closing all preview windows; retain shells')
 args=parser.parse_args();runtime=args.runtime.resolve();viewer=args.viewer.resolve()
-if args.installed and not args.saved:parser.error('--installed requires --saved')
-if (args.desktop or args.install_desktop_entry or args.status or args.activate or args.check) and not args.installed:parser.error('Preview actions require --installed')
-if sum((args.paths,args.install_desktop_entry,args.status,args.activate,args.check))>1:parser.error('Select one preview action')
-if args.check:
-    from preview_check import check
-    result=check(ROOT,runtime,viewer)
-    print(json.dumps(result,indent=2))
-    sys.exit(0 if result['ok'] else 1)
-if args.status or args.activate:
-    from installed_paths import session_directory
-    from preview_activation import activate,status
-    try:
-        action=activate if args.activate else status
-        state=session_directory(os.environ);cwd=Path.home().resolve()
-        result=action(state,runtime,viewer,cwd) if args.activate else action(state,runtime,cwd)
-        print(json.dumps(result,indent=2))
-        if args.activate:print('Preview service selected. Retained shells keep their original helpers; keep older preview directories until those shells exit.')
-    except (OSError,ValueError,subprocess.SubprocessError) as error:
-        print(f'Preview: {error}',file=sys.stderr);sys.exit(1)
-    sys.exit(0)
-if args.install_desktop_entry:
-    if not sys.platform.startswith('linux'):parser.error('Desktop entries are only used on Linux')
-    from platform_launchers.linux import install
-    metadata=json.loads((ROOT/'preview.json').read_text())
-    print(f'App menu entry installed: {install(ROOT/"terminal-workbench",os.environ,metadata.get("container",""))}')
-    sys.exit(0)
-if args.paths:
-    from installed_paths import session_directory
-    state=session_directory(os.environ) if args.installed else Path(os.environ.get('BAND_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
-    print(json.dumps(dict(runtime=str(runtime),viewer=str(viewer),state=str(state),configuration=str(config_directory(runtime,prepare=False)),cwd=str(Path.home().resolve() if args.installed else ROOT)),indent=2))
-    sys.exit(0)
-if args.desktop:
-    from desktop_launch import start_log
-    from installed_paths import session_directory
-    from traceback import print_exc
-    log=None
-    try:
-        log=start_log(session_directory(os.environ))
-        preferences=config_directory(runtime,prepare=True)
-        sys.exit(saved_window(runtime,viewer,preferences,installed=True,desktop=True))
-    except (OSError,ValueError,subprocess.SubprocessError):
-        print_exc()
-        message=f'Could not open Terminal Workbench Preview. Details: {log}' if log else 'Could not create the private launch log. Check your preview state directory permissions.'
-        if sys.platform=='darwin':
-            from platform_launchers.macos import show_error
-        else:
-            from platform_launchers.linux import show_error
-        show_error(message)
-        sys.exit(1)
-preferences=config_directory(runtime,prepare=True)
+preferences=config_directory(runtime)
 if args.saved:
-    sys.exit(saved_window(runtime,viewer,preferences,installed=args.installed))
+    sys.exit(saved_window(runtime,viewer,preferences))
 with tempfile.TemporaryDirectory(prefix='wb-ui-',dir='/tmp') as directory:
     state=Path(directory);cwd=Path.home().resolve()
     def call(method='initialize',identity='',title=''):

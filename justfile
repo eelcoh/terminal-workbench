@@ -44,7 +44,7 @@ check: runtime-build
     python3 tests/recovery_test.py target/debug/band-session
     python3 tests/session_service_test.py target/debug/band-session
     python3 tests/service_startup_cleanup_test.py
-    python3 tests/preview_usage_test.py
+    python3 tests/service_startup_cleanup_test.py
     python3 tests/lifecycle_smoke.py target/debug/band-session
     python3 tests/terminal_dismiss_test.py target/debug/band-session
     python3 tests/workspace_directories_test.py target/debug/band-session
@@ -57,6 +57,22 @@ runtime-test: runtime-build
     python3 tests/context_smoke.py target/debug/band-session
     python3 tests/terminal_core_smoke.py target/debug/band-session
     python3 tests/snapshot_attach_smoke.py target/debug/band-session
+
+# Build the Qt client in the checkout (no window).
+toolkit-client: runtime-build
+    python3 scripts/toolkit-probe.py client
+
+# Portable fixtures for the Mac deployment tool wrapper; no native Mac result is implied.
+package-tools-test:
+    python3 tests/macos_packaging_tools_test.py
+
+# Release artifact for this platform in dist/ (Band.app zip or Linux tar.gz).
+package:
+    python3 scripts/package.py
+
+# Relocation, user state, agent launchers and Qt start of the Linux archive.
+package-test: package
+    python3 tests/package_test.py
 
 # Explicitly recover dead session endpoints after a reboot or runtime crash.
 recover-sessions:
@@ -228,92 +244,22 @@ toolkit-fonts-test: runtime-build
 toolkit-shortcuts-test: runtime-build
     python3 scripts/toolkit-probe.py shortcuts-test
 
-# Same-machine preview outside the checkout; still uses installed Python/Qt.
-toolkit-stage: runtime-build
-    python3 scripts/toolkit-probe.py stage
-
-# Relocation, saved-session survival and real staged Qt startup.
-toolkit-stage-test: toolkit-stage
-    python3 tests/qt_staged_preview_test.py target/debug/band-session
-
-# Desktop entry decoding, Finder bootstrap handoff and private launch logs.
-toolkit-desktop-launcher-test: toolkit-stage
-    python3 tests/qt_desktop_launcher_test.py target/debug/band-session
-
-# Explicit preview update with real retained shells and failure isolation.
-toolkit-activation-test: toolkit-stage
-    python3 tests/preview_registration_test.py
-    python3 tests/preview_restoration_test.py
-    python3 tests/service_startup_cleanup_test.py
-    python3 tests/preview_service_check_test.py
-    python3 tests/preview_activation_test.py target/debug/band-session
-
 # Mac/Linux: real zsh login startup under a minimal desktop environment.
 login-shell-test: runtime-build
     python3 tests/login_shell_test.py target/debug/band-session
 
-# Native Mac: optional Qt-deployed preview; Python remains external.
-toolkit-bundle: runtime-build
-    python3 scripts/toolkit-probe.py bundle
-
-# Portable deployment/audit fixtures; no native Mac deployment is implied.
-toolkit-bundle-test:
-    python3 tests/preview_dependencies_test.py
-    python3 tests/preview_check_test.py
-    python3 tests/macos_packaging_tools_test.py
-    python3 tests/qt_bundle_test.py
-
-# Native Mac trial: deploy only scanner-selected QML modules before bundling Qt.
-toolkit-bundle-selective: runtime-build
-    python3 scripts/toolkit-probe.py bundle-selective
-
 # Exercise Qt's real import-deployment API; no native Mac result is implied.
-toolkit-qml-deployment-test: toolkit-stage
+toolkit-qml-deployment-test: toolkit-client
     cmake --build .local/build/qt-input --target workbench-qml-deployment-probe --parallel
     python3 tests/qt_qml_deployment_test.py
 
-# Install an existing local preview into its own permanent directory; no build or activation.
-toolkit-install-preview source:
-    python3 scripts/install-toolkit-preview.py {{quote(source)}}
-
-# Copy isolation, source validation and real installed launcher/state behavior.
-toolkit-install-preview-test: toolkit-stage
-    python3 tests/preview_install_test.py
-
-# Read-only installed-preview inventory; no service startup or removal.
-toolkit-preview-list:
-    python3 scripts/list-toolkit-previews.py
-
-toolkit-preview-list-test: runtime-build
-    python3 tests/preview_inventory_test.py
-
-# Build and install a fresh preview; activation and opening remain explicit.
-toolkit-install: runtime-build
-    python3 scripts/toolkit-probe.py install
-
-# Native command selection and real build/install under a private installation root.
-toolkit-install-test:
-    python3 tests/preview_build_install_test.py
-
 # Client-only About identity, diagnostic allowlist and clipboard contract.
-toolkit-about-test: toolkit-stage
-    python3 tests/client_build_info_test.py
+toolkit-about-test: toolkit-client
     cmake --build .local/build/qt-input --target workbench-build-info-test --parallel
     QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-build-info-test
 
-# Explicit managed-preview action by exact ID or unique prefix; opening never activates.
-toolkit-preview action identity:
-    python3 scripts/manage-toolkit-preview.py {{quote(action)}} {{quote(identity)}}
-
-# Verification receipts, managed selection and complete build/install workflow.
-toolkit-preview-workflow-test: runtime-build
-    python3 tests/preview_install_check_test.py
-    python3 tests/preview_commands_test.py
-    python3 tests/preview_inventory_test.py
-    python3 tests/preview_build_install_test.py
-
 # Transactional settings reload, peer-window propagation and file-replacement watching.
-toolkit-configuration-test: toolkit-stage
+toolkit-configuration-test: toolkit-client
     cmake --build .local/build/qt-input --target workbench-configuration-test --parallel
     QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-configuration-test
 
@@ -322,12 +268,12 @@ toolkit-configuration-ui-test: runtime-build
     python3 scripts/toolkit-probe.py ui-test --configuration-only
 
 # Shared client workspace palettes, concurrent edits and live peer notifications.
-toolkit-workspace-appearance-test: toolkit-stage
+toolkit-workspace-appearance-test: toolkit-client
     cmake --build .local/build/qt-input --target workbench-workspace-appearance-test --parallel
     QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-workspace-appearance-test
 
 # Read-only agent explanations and allowlisted launcher clipboard actions.
-toolkit-agent-info-test: toolkit-stage
+toolkit-agent-info-test: toolkit-client
     cmake --build .local/build/qt-input --target workbench-agent-info-test --parallel
     QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-agent-info-test
 
@@ -344,6 +290,6 @@ terminal-dismiss-test: runtime-build
     python3 tests/terminal_dismiss_test.py target/debug/band-session
 
 # Read-only per-terminal runtime diagnostics, parser bounds and cancellation.
-toolkit-runtime-info-test: toolkit-stage
+toolkit-runtime-info-test: toolkit-client
     cmake --build .local/build/qt-input --target workbench-runtime-info-test --parallel
     QT_QPA_PLATFORM=offscreen .local/build/qt-input/workbench-runtime-info-test

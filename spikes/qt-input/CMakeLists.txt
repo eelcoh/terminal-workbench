@@ -94,8 +94,8 @@ if(BAND_TERMINAL_PROBE)
     file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/workbench-qml-deploy.txt"
         CONTENT "${workbench_qml_deploy_script}\n")
     set_target_properties(band-ui PROPERTIES EXCLUDE_FROM_ALL TRUE MACOSX_BUNDLE TRUE
-        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.eelcoh.band.ui-study"
-        MACOSX_BUNDLE_BUNDLE_NAME "Terminal Workbench UI Study")
+        MACOSX_BUNDLE_GUI_IDENTIFIER "io.github.eelcoh.Band"
+        MACOSX_BUNDLE_BUNDLE_NAME "Band")
     qt_add_executable(workbench-qml-deployment-probe qml_deployment_probe.cpp deployment_check.cpp ${workbench_deployment_images})
     target_include_directories(workbench-qml-deployment-probe PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(workbench-qml-deployment-probe PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2)
@@ -176,11 +176,11 @@ if(BAND_TERMINAL_PROBE)
 endif()
 
 
-# Finder bootstrap has no Qt dependency; it can report a missing Python install.
+# Finder entry point of Band.app; no Qt dependency, so it can report a broken bundle.
 if(APPLE AND BAND_TERMINAL_PROBE)
-    add_executable(workbench-preview-bootstrap EXCLUDE_FROM_ALL ../../native/macos/preview_launcher.c)
-    target_compile_options(workbench-preview-bootstrap PRIVATE -Wall -Wextra -Werror)
-    set_target_properties(workbench-preview-bootstrap PROPERTIES MACOSX_BUNDLE FALSE)
+    add_executable(band-launcher EXCLUDE_FROM_ALL ../../native/macos/launcher.c)
+    target_compile_options(band-launcher PRIVATE -Wall -Wextra -Werror)
+    set_target_properties(band-launcher PROPERTIES MACOSX_BUNDLE FALSE)
 endif()
 
 

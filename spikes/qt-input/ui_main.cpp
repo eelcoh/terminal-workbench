@@ -43,8 +43,8 @@ static QVariantList listProperty(QObject *object,const char *name) {
 }
 int main(int argc,char **argv) {
     QGuiApplication app(argc,argv);
-    app.setApplicationName("Terminal Workbench UI Study");
-    app.setDesktopFileName("terminal-band-ui");
+    app.setApplicationName("Band");
+    app.setDesktopFileName("io.github.eelcoh.Band");
     QQuickStyle::setStyle("Basic");
     const int interfaceFont=QFontDatabase::addApplicationFont(":/fonts/adwaita-sans/AdwaitaSans-Regular.ttf");
     const auto interfaceFamilies=QFontDatabase::applicationFontFamilies(interfaceFont);
@@ -67,10 +67,6 @@ int main(int argc,char **argv) {
         config.setFileName(QString::fromLocal8Bit(argv[1]));if(!config.open(QIODevice::ReadOnly))return 2;
         configuration=QJsonDocument::fromJson(config.readAll()).object();
         if(!configuration["catalog"].isObject() || configuration["state"].toString().isEmpty())return 2;
-    }
-    if(configuration["installed_preview"].toBool()) {
-        app.setApplicationName("Terminal Workbench Preview");
-        app.setDesktopFileName("terminal-workbench-qt-preview");
     }
     if(!checking && args.contains("--remove-launch-config")) {
         config.close();

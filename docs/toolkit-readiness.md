@@ -1,5 +1,9 @@
 # Production toolkit readiness
 
+History. The preview staging, installation and activation tooling described
+below, and its guide, were replaced by release packaging on 2026-10-23; see
+[packaging](packaging.md).
+
 Status: 2026-10-18. Keep the approved minimal chrome and Overview interaction.
 The Raylib viewer remains the working experiment; it is not ready for production
 adoption. Qt Quick is the first candidate to test, not a selected replacement.
@@ -1398,7 +1402,7 @@ This is a same-machine proof using installed Qt and Python, not a standalone
 redistributable or a toolkit adoption decision. Finder launch, desktop integration,
 dependency deployment, signing and installed-version session/service handoff remain
 open. Do not overwrite or relocate a live payload. See
-[staged preview operation and retirement](qt-staged-preview.md).
+[staged preview operation and retirement](packaging.md).
 
 
 ## Native Mac vertical scrolling acceptance
@@ -1435,7 +1439,7 @@ preservation and symlink-log refusal. Linux GLib launches cover reserved path
 characters and Distrobox argv routing; desktop-file validation and unmanaged-file
 protection pass. This does not prove native Finder, codesigning or physical app
 menu behavior. Those reviews, bundled dependencies and installed-version lifecycle
-remain open. See [preview launch and review steps](qt-staged-preview.md).
+remain open. See [preview launch and review steps](packaging.md).
 
 
 ## Explicit staged-preview activation
@@ -1506,7 +1510,7 @@ On 2026-10-19 the owner confirmed the bundle command works on Mac at `164264b`.
 That confirms native deployment, configuration generation, the linkage audit
 and final signing complete. Finder launch of the Qt-deployed app after moving
 it, actual loaded-library paths and QML workflow acceptance remain separate
-checks. See [bundle review instructions](qt-staged-preview.md#mac-optional-qt-deployment).
+checks. See [bundle review instructions](packaging.md).
 
 The preceding native retries identified three packaging defects now addressed:
 forced overwrite caused repeated library deployment, the tool did not generate
@@ -1536,7 +1540,7 @@ value. There is no new PTY parsing, rendering or process-tree polling work.
 The existing service health cache carries the optional origin through handoff.
 Linux `just check` and `just toolkit-activation-test` pass, including retained
 versus new build references with unchanged shell PIDs and saved state. Native Mac
-origin reporting remains pending. See [preview status and activation](qt-staged-preview.md).
+origin reporting remains pending. See [preview status and activation](packaging.md).
 
 
 ## Mac bundle profiling and deployment overhead
@@ -1556,7 +1560,7 @@ The owner measured about 50 seconds for Qt deployment after this change,
 compared with a preceding 65-second run; these are single-run observations.
 The owner also confirmed Mac runtime/helper origin reporting: the new terminal
 appears in both build-reference lists while four older runtimes stay unknown.
-See [packaging measurement](qt-staged-preview.md#packaging-size-and-timing).
+See [packaging measurement](packaging.md).
 
 
 ## Selective QML deployment trial
@@ -1579,7 +1583,7 @@ not prove native Mac loader behavior or native dialog opening.
 
 Native Mac size/time comparison and moved-app launch review remain pending.
 Metrics distinguish QML import copying from subsequent library deployment.
-See [the trial instructions](qt-staged-preview.md#mac-selective-qml-deployment-trial).
+See [the trial instructions](packaging.md).
 
 
 ## Pane chrome focus

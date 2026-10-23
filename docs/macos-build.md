@@ -106,14 +106,15 @@ pinned Ghostty revision over SSH, so the Mac needs a working GitHub SSH key
 another installation, use `ZIG=/absolute/path/to/zig just toolkit-workbench`. An
 explicit override must be valid; it never silently selects another compiler.
 
-To install a preview app outside the checkout:
+To build an installable `Band.app` (zipped in `dist/`):
 
 ```sh
-just toolkit-install
+just package
 ```
 
-Then close preview windows, run the printed `--activate` command and open the
-app it names. See [the staged preview](qt-staged-preview.md).
+Unzip it and move `Band.app` to `/Applications`; the first open needs
+Control-click → Open because it is not notarized. Close older preview windows
+first. See [the packaging guide](packaging.md).
 
 Updating source does not update already running runtime processes. Close the
 window and start new terminals to exercise runtime changes.
@@ -136,7 +137,7 @@ composition, trackpad scrolling, and Close/reopen to the same shell.
 
 ## Diagnostics
 
-Installed previews log to `launch.log` and `service.log` in
+The installed app logs to `launch.log` and `service.log` in
 `~/.local/state/band/`; development runs use
 `.local/sessions`. Shell runtime logs are `TERMINAL-ID.log` in the same
 directory. Do not delete sockets to diagnose a failure: the logs name the

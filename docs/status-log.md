@@ -1665,3 +1665,19 @@ shared with the viewer moved to `spikes/qt-input/core/` with their unit tests
 build wrapper, and the runtime's Ghostty VT checkout now always lives in
 `.local/deps/ghostty-vt`. Design notes that describe the viewer remain as
 history; the README, Mac build guide and Wayland page describe the Qt client.
+
+## Renamed to Band; release packaging replaces previews (2026-10-23)
+
+The product is now Band (`io.github.eelcoh.Band`). Binaries, agent launchers,
+environment variables (`BAND_*`), settings headers and the config/state
+directories were renamed; old headers still load, `~/.config/terminal-workbench`
+is copied once and the preview state directory is adopted in place.
+
+`just package` builds the release artifact: a zipped, ad-hoc signed `Band.app`
+with Qt deployed on macOS, or a tar.gz using the system Qt on Linux. Neither
+needs Python. `band-session desktop-entry` writes the Linux app-menu entry,
+optionally through Distrobox. The preview staging, side-by-side installation,
+activation, inventory and `--check` tooling, its tests and its guide were
+removed; `toolkit-ui.py` remains as the development launcher. `just
+package-test` covers the Linux archive and Band.app's structure on Linux; the
+native Mac app still needs review. See [packaging](packaging.md).

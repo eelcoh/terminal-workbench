@@ -1,4 +1,4 @@
-//! Open an installed preview window on the saved sessions: user state and
+//! Open an installed Band window on the saved sessions: user state and
 //! preferences, a leased window slot, the session service and the Qt viewer.
 //! Closing the window detaches; shells and workspaces remain.
 use crate::service::{expand_user, initialize, prepare_directory, resolve};
@@ -320,14 +320,11 @@ fn platform() -> &'static str {
 /// Client build identity; never inspects terminal or workspace data.
 fn build_info(payload: &Path) -> Value {
     let mut result = Map::new();
-    result.insert("kind".into(), json!("installed preview"));
+    result.insert("kind".into(), json!("installed"));
     result.insert("payload_root".into(), json!(payload.to_string_lossy()));
-    let path = payload.join("preview.json");
+    let path = payload.join("build-info.json");
     if !path.exists() {
-        result.insert(
-            "metadata_error".into(),
-            json!("Preview metadata is missing"),
-        );
+        result.insert("metadata_error".into(), json!("Build metadata is missing"));
         return Value::Object(result);
     }
     let metadata = fs::read_to_string(&path)
@@ -335,7 +332,7 @@ fn build_info(payload: &Path) -> Value {
         .and_then(|text| serde_json::from_str::<Value>(&text).map_err(|error| error.to_string()))
         .and_then(|value| {
             if value["format"].as_i64() != Some(1) {
-                return Err("Unsupported preview metadata".into());
+                return Err("Unsupported build metadata".into());
             }
             let revision = value["source"].as_str().unwrap_or("");
             if revision.len() != 40
@@ -343,13 +340,14 @@ fn build_info(payload: &Path) -> Value {
                     .bytes()
                     .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
             {
-                return Err("Invalid preview source revision".into());
+                return Err("Invalid build source revision".into());
             }
             Ok(value)
         });
     match metadata {
         Ok(value) => {
             result.insert("revision".into(), value["source"].clone());
+            result.insert("version".into(), value["version"].clone());
             for key in ["source_dirty", "qt_bundled", "selective_qml"] {
                 result.insert(key.into(), json!(value[key] == json!(true)));
             }
@@ -436,23 +434,19 @@ fn start_log(state: &Path) -> Result<PathBuf> {
         libc::dup2(log.as_raw_fd(), 1);
         libc::dup2(log.as_raw_fd(), 2);
     }
-    println!("\nTerminal Workbench Preview launch: {}", utc_now());
+    println!("\nBand launch: {}", utc_now());
     Ok(path)
 }
 
 fn show_error(message: &str) {
     if cfg!(target_os = "macos") {
-        let script = "on run argv\n display alert \"Terminal Workbench could not start\" message (item 1 of argv) as critical\nend run";
+        let script = "on run argv\n display alert \"Band could not start\" message (item 1 of argv) as critical\nend run";
         let _ = Command::new("/usr/bin/osascript")
             .args(["-e", script, message])
             .status();
     } else {
         let _ = Command::new("notify-send")
-            .args([
-                "--app-name=Terminal Workbench Preview",
-                "Terminal Workbench could not start",
-                message,
-            ])
+            .args(["--app-name=Band", "Band could not start", message])
             .status();
     }
 }
@@ -485,7 +479,9 @@ fn temporary_file(directory: &Path, prefix: &str, contents: &str) -> Result<Path
 }
 
 fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool) -> Result<i32> {
-    let runtime = fs::canonicalize(payload.join("libexec/band-session")).map_err(os)?;
+    let runtime = payload.join("bin/band-session");
+    let runtime =
+        fs::canonicalize(&runtime).map_err(|error| format!("{}: {error}", runtime.display()))?;
     let cwd = fs::canonicalize(home()).map_err(os)?;
     let state = session_directory()?;
     prepare_directory(&state)?;
@@ -495,13 +491,13 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
         _ => {}
     }
     let (lease, view) = acquire_window_slot(&views)?;
-    let catalog = initialize(&state, &runtime, &cwd, &payload.join(".local/bin"))?["data"].take();
+    let catalog = initialize(&state, &runtime, &cwd, &payload.join("bin"))?["data"].take();
     let mut settings = configuration(&state, &runtime, &cwd, catalog, preferences, payload);
     settings.insert(
         "view_state".into(),
         json!(view.with_extension("json").to_string_lossy()),
     );
-    settings.insert("installed_preview".into(), json!(true));
+    settings.insert("installed".into(), json!(true));
     settings.insert("viewer".into(), json!(viewer.to_string_lossy()));
     let contents = Value::Object(settings).to_string();
     if desktop {
@@ -511,7 +507,7 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
         let config = temporary_file(&views, "launch-", &contents)?;
         inheritable(&lease)?;
         println!(
-            "Opening Qt preview; closing detaches. Session state: {}",
+            "Opening Band; closing detaches. Session state: {}",
             state.display()
         );
         let _ = io::stdout().flush();
@@ -572,7 +568,7 @@ pub fn open(mut args: impl Iterator<Item = OsString>) -> i32 {
         {
             Ok(code) => code,
             Err(error) => {
-                eprintln!("Terminal Workbench: {error}");
+                eprintln!("Band: {error}");
                 1
             }
         };
@@ -585,10 +581,10 @@ pub fn open(mut args: impl Iterator<Item = OsString>) -> i32 {
     match result {
         Ok(code) => code,
         Err(error) => {
-            eprintln!("Terminal Workbench: {error}");
+            eprintln!("Band: {error}");
             show_error(&match &log {
-                Ok(path) => format!("Could not open Terminal Workbench Preview. Details: {}", path.display()),
-                Err(_) => "Could not create the private launch log. Check your preview state directory permissions.".into(),
+                Ok(path) => format!("Could not open Band. Details: {}", path.display()),
+                Err(_) => "Could not create the private launch log. Check your Band state directory permissions.".into(),
             });
             1
         }
@@ -614,20 +610,20 @@ mod tests {
         fs::create_dir_all(&root).unwrap();
         assert_eq!(
             build_info(&root)["metadata_error"],
-            "Preview metadata is missing"
+            "Build metadata is missing"
         );
         fs::write(
-            root.join("preview.json"),
+            root.join("build-info.json"),
             r#"{"format":1,"source":"short"}"#,
         )
         .unwrap();
         assert_eq!(
             build_info(&root)["metadata_error"],
-            "Invalid preview source revision"
+            "Invalid build source revision"
         );
         let revision = "0123456789abcdef0123456789abcdef01234567";
         fs::write(
-            root.join("preview.json"),
+            root.join("build-info.json"),
             json!({"format": 1, "source": revision, "qt_bundled": true}).to_string(),
         )
         .unwrap();

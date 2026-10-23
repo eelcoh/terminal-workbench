@@ -11,7 +11,7 @@ Dialog {
     height: Math.min(expanded ? 450 : 260, parent.height - 64)
     padding: 20; modal: true; focus: true
     closePolicy: Popup.CloseOnEscape
-    title: "Terminal Workbench"
+    title: "Band"
     background: Rectangle { color: popup.tones.raised; radius: 12; border.color: popup.tones.border }
     header: Label { text: popup.title; padding: 20; bottomPadding: 8; color: popup.tones.foreground; font.pixelSize: 22 }
     contentItem: Item {

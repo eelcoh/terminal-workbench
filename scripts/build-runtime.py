@@ -57,14 +57,15 @@ def build_environment(root, environment):
 
 
 def main():
-    if sys.argv[1:]:
-        print("usage: build-runtime.py",file=sys.stderr); return 2
+    release = sys.argv[1:] == ["--release"]
+    if sys.argv[1:] and not release:
+        print("usage: build-runtime.py [--release]",file=sys.stderr); return 2
     try:
         binary, environment = build_environment(ROOT, os.environ)
         print(f"Building with Zig {ZIG_VERSION}: {binary}", flush=True)
         for command in ([sys.executable,str(ROOT / "scripts/prepare-agent-launchers.py")],
                         [sys.executable,str(ROOT / "scripts/prepare-runtime-vt.py")],
-                        ["cargo","build","--locked","--bin","band-session"]):
+                        ["cargo","build","--locked",*(["--release"] if release else []),"--bin","band-session"]):
             subprocess.run(command, cwd=ROOT, env=environment, check=True)
     except subprocess.CalledProcessError as error:
         return error.returncode if error.returncode > 0 else 1

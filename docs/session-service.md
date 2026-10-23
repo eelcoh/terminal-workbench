@@ -127,11 +127,8 @@ shape. An absent service is never started to handle a retirement request. Client
 must advertise-check the new method; they must not replace it with unconditional
 shutdown when the service lacks support.
 
-The staged-preview launcher uses this runtime method for explicit `--activate`,
-with client-owned window lease exclusion. The service does not know about Qt,
-window slots or app bundles. Activation's slot checks/reservations, selected paths
-and update commands live entirely in the installed client layer. See
-[preview updates](qt-staged-preview.md#switch-preview-builds).
+The removed staged-preview launcher used this runtime method for its explicit
+`--activate`. The service does not know about Qt, window slots or app bundles.
 
 ## Remove a stopped terminal
 

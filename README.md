@@ -1,11 +1,11 @@
-# Terminal Workbench
+# Band
 
 A terminal with scrolling workspaces, in the style of the niri window manager,
 for macOS and for Linux desktops that don't run niri.
 
-Being renamed to **Band**: the app, paths and identifiers keep the working name
-until packaging. Pre-release, working toward v0.1: a Qt Quick client in front of
-a Rust runtime that owns the shells.
+Pre-release, working toward v0.1: a Qt Quick client in front of a Rust runtime
+that owns the shells. (Formerly Terminal Workbench; the repository keeps that
+name for now.)
 
 ## What it is
 
@@ -59,8 +59,8 @@ distrobox enter build-machine -- just toolkit-workbench
 
 This builds the runtime and client and opens your saved development workspaces
 from `.local/sessions`. Close detaches; reopening reconnects to the same shells.
-To install a preview outside the checkout, run `just toolkit-install` and follow
-[the staged preview guide](docs/qt-staged-preview.md).
+To build an installable release (`Band.app` or a Linux archive), run
+`just package` and follow [the packaging guide](docs/packaging.md).
 
 On a Mac, follow [the native build guide](docs/macos-build.md).
 
@@ -106,5 +106,5 @@ Linux, Xvfb, xdotool and xclip, and for Wayland niri and wl-clipboard; they neve
 touch the running desktop session.
 
 Source is hosted at [eelcoh/terminal-workbench](https://github.com/eelcoh/terminal-workbench).
-Workbench code uses the [MIT license](LICENSE). Bundled fonts and themes keep
+Band code uses the [MIT license](LICENSE). Bundled fonts and themes keep
 their own licenses beside them in `fonts/` and `themes/`.

@@ -22,10 +22,9 @@ product's focus (owner, 2026-10-23). The history of every slice so far is in the
 - [x] Record the toolkit decision and retire the Raylib viewer.
 - [x] Replace the prose roadmap with this page.
 - [x] Choose the product name (owner, 2026-10-23): **Band**, Dutch for tape or
-  belt, after the scrolling strip. It is hard to search for alone, so public
-  identifiers pair it with "terminal" where needed. The rename of the app,
-  bundle, desktop entry and state/config directories (with migration from
-  `terminal-workbench`) happens with packaging in step 5.
+  belt, after the scrolling strip. Renamed throughout with packaging (step 5):
+  app ID `io.github.eelcoh.Band`, `band-*` binaries, `BAND_*` variables and
+  `~/.config/band` / `~/.local/state/band`, migrated from `terminal-workbench`.
 - [x] Define the v0.1 Qt parity list against `just spike` (step 4 below).
 
 ## v0.1: daily driver on both platforms
@@ -45,8 +44,7 @@ installed from a release artifact on a machine without Python.
      checks are Rust unit tests; the crash-journal, shutdown and recovery tests
      drive the Rust service. `band-session config-path [--prepare | --init]`
      backs `just config-path` and `just config-init`. `window_slots.py` and the
-     development launcher `toolkit-ui.py` remain with preview tooling until
-     packaging (step 5).
+     development launcher `toolkit-ui.py` remain as development tooling.
 2. [x] **Binary agent integration.** `band-codex`, `band-claude`, `band-copilot`,
    `band-pi` and `band-agent-hook` are symlinks to `band-session`, which picks
    the launcher or hook observer from the name it is invoked through
@@ -79,9 +77,12 @@ installed from a release artifact on a machine without Python.
      and workspace Appearance says how many terminals keep their own colors.
    - A terminal scrollbar: not needed (owner, 2026-10-22).
    Selection drags do not autoscroll at the edge.
-5. **Packaging.** An unsigned Mac `.app` with Qt and the runtime inside it, and a
-   Linux archive with a desktop entry (Flatpak or AppImage evaluated afterwards).
-   Simplify preview staging to what these artifacts need.
+5. [x] **Packaging** (2026-10-23, Mac review pending). `just package` builds a
+   zipped, ad-hoc signed `Band.app` with Qt and the runtime inside it, or a
+   Linux tar.gz using the system Qt with `band --install-desktop-entry`
+   (optionally through Distrobox). The rename to Band landed with it. Preview
+   staging, activation and inventory tooling are removed. Flatpak or AppImage,
+   an app icon, signing and notarization come later. See [packaging](packaging.md).
 6. **macOS CI.** Build plus headless tests on a macOS runner; keep a short manual
    checklist for input, IME, displays and trackpad per release.
 7. **Remove the eight-workspace ceiling** or document why it stays.

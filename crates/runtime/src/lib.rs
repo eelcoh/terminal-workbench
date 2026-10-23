@@ -12,6 +12,8 @@ mod attention;
 #[cfg(unix)]
 mod context;
 #[cfg(unix)]
+pub mod desktop_entry;
+#[cfg(unix)]
 mod input_queue;
 #[cfg(unix)]
 pub mod launch;
