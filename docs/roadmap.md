@@ -21,7 +21,11 @@ product's focus (owner, 2026-10-23). The history of every slice so far is in the
 
 - [x] Record the toolkit decision and retire the Raylib viewer.
 - [x] Replace the prose roadmap with this page.
-- [ ] Choose the product name (owner). Needed before packaging identifiers.
+- [x] Choose the product name (owner, 2026-10-23): **Band**, Dutch for tape or
+  belt, after the scrolling strip. It is hard to search for alone, so public
+  identifiers pair it with "terminal" where needed. The rename of the app,
+  bundle, desktop entry and state/config directories (with migration from
+  `terminal-workbench`) happens with packaging in step 5.
 - [x] Define the v0.1 Qt parity list against `just spike` (step 4 below).
 
 ## v0.1: daily driver on both platforms

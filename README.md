@@ -3,8 +3,9 @@
 A terminal with scrolling workspaces, in the style of the niri window manager,
 for macOS and for Linux desktops that don't run niri.
 
-Working name. Pre-release, working toward v0.1: a Qt Quick client in front of a
-Rust runtime that owns the shells.
+Being renamed to **Band**: the app, paths and identifiers keep the working name
+until packaging. Pre-release, working toward v0.1: a Qt Quick client in front of
+a Rust runtime that owns the shells.
 
 ## What it is
 
