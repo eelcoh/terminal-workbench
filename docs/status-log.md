@@ -1653,3 +1653,15 @@ Overview filters and never transfers terminal ownership. Incoming reports leave
 focus unchanged. Pure ordering/model/shortcut and native Linux GUI checks cover
 this slice; native Mac review and real-agent cancellation completeness remain
 open. See [waiting-agent navigation](toolkit-ui-study.md#waiting-agent-navigation).
+
+## Raylib viewer removed (2026-10-23)
+
+With the Qt parity list closed and the owner's Mac review of mouse reporting,
+word/line selection and per-terminal colors passed, `spikes/ghostling`, its
+Raylib patch scripts, the `just spike` launcher, the Noto symbols font and the
+viewer-only tests and recipes were deleted. The pure C headers the Qt client
+shared with the viewer moved to `spikes/qt-input/core/` with their unit tests
+(`tests/core_headers_test.py`). `scripts/build-runtime.py` replaces the spike
+build wrapper, and the runtime's Ghostty VT checkout now always lives in
+`.local/deps/ghostty-vt`. Design notes that describe the viewer remain as
+history; the README, Mac build guide and Wayland page describe the Qt client.

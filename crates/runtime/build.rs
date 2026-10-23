@@ -18,7 +18,7 @@ fn main() {
     let library = ghostty.join("lib/libghostty-vt.a");
     assert!(
         library.is_file(),
-        "prepare pinned libghostty-vt first: run just runtime-build or just spike-build"
+        "prepare pinned libghostty-vt first: run just runtime-build"
     );
     println!("cargo:rerun-if-changed={}", library.display());
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("Cargo output directory"));

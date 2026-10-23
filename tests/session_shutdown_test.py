@@ -92,26 +92,6 @@ def main():
             finally:
                 if peer: peer.close()
                 cleanup(state)
-        # Launch the real session service through main with a short isolated state.
-        # A fixture viewer exits immediately; no graphical desktop is required.
-        app = root / "app"; (app / "target/debug").mkdir(parents=True)
-        (app / "target/debug/workbench-session").symlink_to(runtime)
-        viewer = app / ".local/build/viewer/ghostling"; viewer.parent.mkdir(parents=True)
-        viewer.write_text("#!" + sys.executable + "\nimport os\nfrom pathlib import Path\nPath(os.environ['WORKBENCH_STATE_DIR'],'viewer-state').write_text(os.environ['WORKBENCH_WORKSPACES'])\n")
-        viewer.chmod(0o700)
-        state = root / "review"; alias = root / "review-alias"; alias.symlink_to(state)
-        loader = "import sys,importlib.util;from pathlib import Path;sys.path.insert(0,sys.argv[1]);spec=importlib.util.spec_from_file_location('launcher',Path(sys.argv[1])/'run-spike.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);module.ROOT=Path(sys.argv[2]);sys.exit(module.main())"
-        environment = dict(os.environ, WORKBENCH_STATE_DIR=str(alias), WORKBENCH_CONFIG_DIR=str(root / "config"))
-        for key in ("WORKBENCH_SESSION_SOCKET", "TERM_PROGRAM"): environment.pop(key, None)
-        try:
-            result = subprocess.run([sys.executable, "-c", loader, str(ROOT / "scripts"), str(app)], env=environment, capture_output=True, text=True, timeout=20)
-            assert result.returncode == 0, result.stdout + result.stderr
-            assert not (app / ".local/sessions").exists()
-            assert (state / "viewer-state").read_text() == str(state / "workspaces.tsv")
-            assert len(request(state, runtime, app, "health")["terminals"]) == 4
-            print("PASS: isolated launcher state, canonical paths and default-session preservation")
-        finally:
-            cleanup(state)
         state = root / "interrupted"; state.mkdir(mode=0o700)
         data = {"version": 1, "workspaces": [{"id": "w", "name": "W", "terminals": [
             {"id": i, "name": i} for i in ("a", "b", "c")]}]}

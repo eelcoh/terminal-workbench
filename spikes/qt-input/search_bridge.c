@@ -1,6 +1,6 @@
 /* Reuse the independently tested, bounded literal UTF-8 scanner. */
 #include "search_bridge.h"
-#include "../ghostling/terminal_search_vt.h"
+#include "core/terminal_search_vt.h"
 #include <stdlib.h>
 struct WorkbenchSearch {TerminalSearchScan scan;};
 WorkbenchSearch *workbench_search_new(void){return calloc(1,sizeof(WorkbenchSearch));}

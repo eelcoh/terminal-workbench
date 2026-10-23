@@ -2,7 +2,7 @@
 #include <QGuiApplication>
 #include <QClipboard>
 #include <QSet>
-#include "../ghostling/attention_navigation.h"
+#include "core/attention_navigation.h"
 namespace {
 QString launcher(const QString &agent){
     if(agent=="Codex")return "wb-codex";

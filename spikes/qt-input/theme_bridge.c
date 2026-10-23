@@ -1,6 +1,6 @@
 /* Reuse the original bounded Ghostty parser and attributed offline catalog. */
 #include "theme_bridge.h"
-#include "../ghostling/portable_config.h"
+#include "core/portable_config.h"
 bool workbench_theme_default_source(const char *path,bool apple,char *source,size_t length,char *error,size_t capacity) {
     PortableConfig config;
     if(!portable_read_with_theme_files(path,apple,false,&config,error,capacity))return false;

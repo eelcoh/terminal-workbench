@@ -2,9 +2,8 @@
 
 A desktop terminal workspace for running and overseeing coding agents.
 
-Working name. Pre-release: the Qt client (`just toolkit-workbench`) is the
-production frontend in progress, working toward v0.1. The original Raylib viewer
-(`just spike`, documented below) is frozen as a reference until Qt reaches parity.
+Working name. Pre-release, working toward v0.1: a Qt Quick client in front of a
+Rust runtime that owns the shells.
 
 ## Product direction
 
@@ -22,160 +21,75 @@ See the [roadmap](docs/roadmap.md) for the plan to v0.3 and the
 This project follows an experiment built on Herdr. It has independent Git history
 and contains no copied Herdr code.
 
-## Build on a Mac
+## How it fits together
 
-Clone this repository on your Mac and follow [the native build guide](docs/macos-build.md).
-It covers Apple Silicon/Intel dependencies, the pinned Zig compiler, build/run
-commands and platform validation. The owner has confirmed a native build/run;
-full input, clipboard and interaction acceptance remains open.
+- `workbench-session` (Rust) runs one process per terminal that owns its PTY and
+  Ghostty VT state, plus a session service that keeps the workspace catalog.
+  Shells keep running when windows close.
+- The Qt client renders terminals and the workspace UI. It attaches to runtimes
+  through snapshots and never owns a PTY.
+- `wb-codex`, `wb-claude`, `wb-copilot` and `wb-pi` launch agents with lifecycle
+  hooks, so panes show **Working**, **Needs input** or **Ready**. They are
+  symlinks to `workbench-session`; no Python is needed.
 
-## Try the terminal spike
+See [architecture](docs/architecture.md) for ownership boundaries.
 
-On this workstation:
+## Run it
+
+On this Linux workstation, from the checkout:
 
 ```sh
-cd /var/home/eelco/Code/tools/terminal-workbench
-distrobox enter build-machine -- just spike
+distrobox enter build-machine -- just toolkit-workbench
 ```
 
-The first build downloads pinned Ghostling, Ghostty VT, and Raylib dependencies.
-The first launch starts **Main** and **Scratch**, each with two independent shells.
-Later launches reopen your saved workspaces and terminal names.
-Open Workspaces from the compact left rail, select a workspace, then click a pane
-or its title to focus it. Pin keeps the navigation panel visible; Hide collapses it.
-The blue border marks the selected pane. Drag the gap between panes to resize.
-Copy/Paste targets the selected pane. The Agents rail view lists agents across
-workspaces, with an explicit Needs input filter and a global attention count.
-Gold dots mark output from an unfocused terminal; they are activity indicators, not agent status.
+This builds the runtime and client and opens your saved development workspaces
+from `.local/sessions`. Close detaches; reopening reconnects to the same shells.
+To install a preview outside the checkout, run `just toolkit-install` and follow
+[the staged preview guide](docs/qt-staged-preview.md).
 
-Use the hamburger menu for workspace creation, rename and folder actions, or
-**+ New workspace** in its drawer. The top-bar **+** creates a terminal. Each pane
-has a three-dot menu for rename, themes, widths, moving and Stop. New workspaces
-start with one shell. Pane marks in the top bar show focus and viewport visibility.
-Click a mark to reveal that terminal, or scroll over the header's navigation strip to move between terminals. Horizontal
-trackpad scrolling and vertical mouse-wheel scrolling work there; scrolling inside
-terminals keeps its terminal behavior. Horizontal two-finger gestures over
-terminal content pan the strip continuously; vertical gestures retain terminal
-scrolling. Adjacent pane changes scroll for 270ms; longer jumps scroll through every
-intermediate pane, taking up to 1.25s depending on distance, with immediate
-focus and typing. `WORKBENCH_REDUCED_MOTION=1 just spike` skips motion.
-Names are saved; renaming preserves the process.
+On a Mac, follow [the native build guide](docs/macos-build.md).
 
-Use **Stop terminal** in the pane menu or **Stop workspace** in the hamburger menu.
-The confirmation names the target and shows the number of affected shells.
-Click **Stop** to terminate those shells and their foreground jobs and remove them
-from the saved organization. Escape/Cancel keeps them running. Empty workspaces
-remain available for **New terminal**; closing every workspace leaves **New workspace**.
-Stopped terminals stay removed when reopening. Jobs detached from the terminal
-are outside this stop operation.
-
-Sessions started by earlier spike binaries lack the stop endpoint. Their close
-dialog asks you to exit their shells and reopen before using Stop; rebuilding
-does not replace running servers.
-
-Use **Overview** in the header or **Super+Alt+O** on Linux to see terminals
-across all workspaces. The default **Spatial** view groups live terminal previews
-into workspace rows, with a short zoom transition when entering or leaving.
-**Left/Right** selects a terminal; **Up/Down** selects a
-workspace; **Enter** or a thumbnail click enters it. Scroll vertically through
-workspaces; **Shift+scroll** or the row arrows reveals more terminals horizontally.
-Type to filter names. **List** keeps the compact searchable list available.
-Drag a thumbnail into another workspace or between cards to move it. Empty
-workspaces stay visible as drop targets. Escape cancels a drag; releasing over a
-valid target saves placement while the session keeps running.
-Escape/Done dismisses either view. [Preview details](docs/spatial-overview.md).
-Connection labels and unseen-output dots stay live while the overview is open;
-they do not indicate whether an agent is working or waiting. Recognized agent names
-appear beside workspace labels and in terminal titles. **Agents** filters the list
-to identified foreground agents in either view; search also matches their names. Identification
-updates within roughly one second, including while detached. Older live sessions
-need their shells exited and the launcher reopened to gain identification. The macOS binding
-is Command+Shift+O, pending Mac validation.
-
-In a **new terminal**, use `wb-codex` or `wb-claude` to launch with lifecycle
-hooks. Titles and overview rows show **Working**, **Needs input**, or **Ready**;
-**Needs input** filters the overview to agents waiting for you. Plain `codex` /
-`claude` and other agents keep **Unknown** unless integrated. Codex may require
-reviewing the Workbench hooks in `/hooks`. The launchers add settings for that
-invocation; they do not edit global agent configuration. Existing shells need a
-new terminal for the updated runtime and PATH. See [hook details](docs/agent-attention.md).
-
-Use **Change appearance** in the hamburger menu or **Theme** in the overview to browse palettes.
-Choose a theme for the active workspace; the title names its target and the
-picker surface stays steady during previews. Chrome follows the workspace unless
-dotfiles request fixed colors. **Terminal theme…** in a pane menu keeps optional
-remote-box colors separate; **Use workspace** clears that exception.
-Apply saves all pending changes; Cancel restores the whole dialog. The offline
-gallery includes Dracula and all four Catppuccin variants. Import Ghostty color
-fields with `WORKBENCH_THEME=/path/to/theme just spike` to set terminal defaults.
-See [appearance support and limits](docs/appearance.md).
-
-Choose **Close window** in the hamburger menu to detach all shells, then run the
-command again to reconnect to the same processes. The original spike shell is
-kept as Main / Shell 1. Type `exit` to stop only the selected shell. Closing an
-older single-terminal window before relaunching releases its attachment.
-
-Drag to select text, double-click a word, and use **Copy** / **Paste** in the
-hamburger menu or **Ctrl+Shift+C/V** on Linux. Scroll with the mouse wheel; typing or
-pasting returns to live output. Hold Shift to select inside mouse-enabled apps.
-
-The spike uses Linux X11/XWayland. Automated checks use an isolated Xvfb display.
-Full macOS interaction acceptance and native Wayland remain unverified. This is an integration experiment
-with bounded scrollback and incomplete desktop input support, not a daily terminal.
-See [the spike's usage and limits](spikes/ghostling/README.md).
-
-New runtimes retain VT state and answer terminal queries while detached. The
-`read` and `snapshot` CLI commands inspect this state without opening a viewer;
-see [runtime hardening](docs/runtime-hardening.md). New windows reconnect through
-terminal snapshots, so new runtimes keep accepting attachments beyond 16 MiB of
-output. Older live runtimes use replay fallback and retain their existing limit.
-
-Portable appearance and shortcuts now load from a managed dotfile outside the
-checkout, with Mac/Linux overrides and separate UI saves. Use `just config-path`
-to find it and `just config-init` for an example. Existing preferences migrate
-without moving running sessions. See [dotfiles](docs/dotfiles.md).
+Inside the window: Commands lists every action, and shortcut help shows the
+current bindings ([shortcuts](docs/shortcuts.md)). Overview shows terminals across
+workspaces. Appearance sets a workspace palette, and a pane's menu can give one
+terminal its own colors. Portable settings live in a dotfile outside the
+checkout: `just config-path` finds it, and `just config-init` writes an example
+([dotfiles](docs/dotfiles.md)).
 
 ## Layout
 
 ```text
-crates/runtime/          Shared Rust session runtime and workbench-session executable
-spikes/ghostling/        Viewer adapter for the pinned official Ghostling example
-scripts/                Source preparation and local spike launcher
-tests/                  Real PTY and isolated graphical smoke checks
-docs/architecture.md    Ownership and platform direction
-docs/keyboard.md        Fresh keyboard interaction requirements
-docs/first-spike.md     Milestone acceptance checks
-docs/integration-findings.md  Source investigation, results, and open decisions
+crates/runtime/      Rust runtime, session service, launcher and agent hooks
+spikes/qt-input/     Qt Quick client (C++/QML); core/ holds its pure C contracts
+native/              macOS and Linux platform adapters
+scripts/             Build, staging, preview management and diagnostics (Python)
+tests/               Real PTY, service and isolated graphical checks
+docs/                Design notes, platform guides and the roadmap
 ```
 
 ## Development
 
-Use a stable Rust toolchain, `just`, Python, Git, a C compiler and Zig 0.16.0.
-The shell-startup checks also require zsh (provided by macOS; install it in the
-Linux build environment).
-`just runtime-build` builds the runtime without graphics dependencies; `just check`
-prepares its pinned VT library before validation. Renderer builds additionally
-need CMake, Ninja, a C++ compiler and platform graphics development dependencies.
-On this workstation those tools live in the `build-machine` Distrobox.
-`just spike-build` automatically discovers Zig 0.16.0 in `.local/tools` or PATH.
-Use `ZIG=/absolute/path/to/zig just spike` to select another installation; the
-wrapper sets the build environment without changing your shell settings.
+Use stable Rust, `just`, Python 3.11+, Git, CMake, Ninja, a C/C++ compiler,
+Qt 6.8+ and Zig 0.16.0. The shell-startup checks also need zsh. On this
+workstation those tools live in the `build-machine` Distrobox, and Rust is
+intentionally absent from the host.
 
-From the project directory:
+`just runtime-build` prepares the pinned libghostty-vt and builds the runtime.
+It finds Zig 0.16.0 in `.local/tools` or PATH; `ZIG=/absolute/path/to/zig`
+selects another. Dependency fetches use SSH.
 
 ```sh
 distrobox enter build-machine -- just check
-distrobox enter build-machine -- just spike-gui-test
-distrobox enter build-machine -- just workspace-gui-test
-distrobox enter build-machine -- just navigation-gui-test
-distrobox enter build-machine -- just management-gui-test
-distrobox enter build-machine -- just theme-gui-test
+distrobox enter build-machine -- just toolkit-ui-test
+distrobox enter build-machine -- just toolkit-terminal-test
+distrobox enter build-machine -- just toolkit-terminal-wayland-test
 ```
 
-`just check` runs Rust formatting, Clippy, unit tests, real PTY/stop smoke checks, and catalog persistence/identity/recovery checks.
-The graphical check additionally requires Linux, Xvfb, xdotool, xclip, and vi.
+`just check` runs Rust formatting, Clippy and unit tests, real PTY, service and
+agent-hook checks, and the client's C core contracts. The graphical tests need
+Linux, Xvfb, xdotool and xclip, and for Wayland niri and wl-clipboard; they never
+touch the running desktop session.
 
 Source is hosted at [eelcoh/terminal-workbench](https://github.com/eelcoh/terminal-workbench).
-Workbench code uses the [MIT license](LICENSE). Upstream components retain their
-own licenses; the source preparation script preserves Ghostling and font notices;
-[the viewer notes](spikes/ghostling/README.md) record dependency revisions.
+Workbench code uses the [MIT license](LICENSE). Bundled fonts and themes keep
+their own licenses beside them in `fonts/` and `themes/`.

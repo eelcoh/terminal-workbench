@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 from session_smoke import attach,send,wait_until
-from gui_smoke import close_window
+from x11_window import close_window
 from snapshot_attach_smoke import snapshot_attach,collect,revoked
 
 runtime,viewer=[str(Path(value).resolve()) for value in sys.argv[1:3]]

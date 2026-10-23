@@ -10,8 +10,9 @@ default:
 fmt:
     cargo fmt --all
 
+# Finds Zig 0.16.0 locally/on PATH, or uses an explicit ZIG executable.
 runtime-build:
-    python3 scripts/build-spike.py --runtime-only
+    python3 scripts/build-runtime.py
 
 check: runtime-build
     cargo fmt --all -- --check
@@ -38,14 +39,10 @@ check: runtime-build
     python3 tests/agent_watch_test.py target/debug/workbench-session
     python3 tests/copilot_observer_test.py target/debug/workbench-session
     python3 scripts/prepare-theme-catalog.py --check
-    python3 tests/overview_animation_test.py
+    python3 tests/core_headers_test.py
     python3 tests/terminal_search_vt_test.py
-    python3 tests/snapshot_stage_test.py
-    python3 tests/macos_metadata_test.py
     python3 tests/config_paths_test.py
     python3 tests/build_env_test.py
-    python3 tests/wayland_display_test.py
-    python3 tests/font_assets_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
     python3 tests/service_startup_cleanup_test.py
@@ -55,77 +52,23 @@ check: runtime-build
     python3 tests/lifecycle_smoke.py target/debug/workbench-session
     python3 tests/terminal_dismiss_test.py target/debug/workbench-session
     python3 tests/workspace_directories_test.py target/debug/workbench-session
-    python3 tests/folder_picker_test.py
     python3 tests/window_slots_test.py
-    python3 tests/launch_diagnostics_test.py
 
-# Finds Zig 0.16.0 locally/on PATH, or uses an explicit ZIG executable.
-spike-build:
-    python3 scripts/build-spike.py
-
-spike-run socket:
-    WORKBENCH_SOCKET="{{socket}}" .local/build/viewer/ghostling
-
-spike-test: runtime-build
+# Runtime PTY, context, VT core and snapshot smoke tests without a display.
+runtime-test: runtime-build
     cargo build --locked --bin workbench-session
     python3 tests/session_smoke.py target/debug/workbench-session
     python3 tests/context_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
     python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
 
-launch-gui-test: spike-build
-    python3 tests/launch_diagnostics_test.py .local/build/viewer/ghostling
-
-spike-gui-test: spike-build
-    python3 tests/gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-workspace-gui-test: spike-build
-    python3 tests/mouse_edges_test.py .local/build/viewer/_deps/raylib-src
-    python3 tests/workspace_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-management-gui-test: spike-build
-    python3 tests/management_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-expose-gui-test: spike-build
-    python3 tests/expose_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-    WORKBENCH_REDUCED_MOTION=1 python3 tests/expose_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-move-gui-test: spike-build
-    python3 tests/move_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-theme-gui-test: spike-build
-    python3 tests/theme_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
-    python3 tests/theme_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
-
-# Start/reuse the workspace sessions and attach a desktop window.
-spike: spike-build
-    python3 scripts/run-spike.py
-
 # Explicitly recover dead session endpoints after a reboot or runtime crash.
 recover-sessions:
     python3 scripts/workspace_catalog.py --state-dir .local/sessions --runtime target/debug/workbench-session --cwd . --command session.recover
 
-# Working-view navigation, populated cardinality and reduced motion.
-navigation-gui-test: spike-build
-    python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
-    python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
-    WORKBENCH_REDUCED_MOTION=1 python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
-
 # Runtime VT parsing cardinality, detached, fixed geometry (Linux diagnostic only).
 runtime-core-scale: runtime-build
     python3 tests/runtime_core_scale.py target/debug/workbench-session
-
-# Real snapshot restoration and legacy negotiation fallback.
-snapshot-gui-test: spike-build
-    python3 tests/snapshot_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Maximum populated catalog through overview scrolling and navigation.
-overview-scale-gui-test: spike-build
-    WORKBENCH_TEST_OVERVIEW_WORKSPACES=8 WORKBENCH_TEST_OVERVIEW_PANES=8 python3 tests/expose_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Shared catalog projection and runtime ownership transfer across two windows.
-multiwindow-gui-test: spike-build
-    python3 tests/multiwindow_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
 
 # Inspect runtime health without attaching to or restarting terminals.
 session-status:
@@ -147,121 +90,9 @@ recover-terminal id:
 service-stop:
     python3 scripts/session_service.py stop --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
 
-# Independent client view restoration across close, crash and catalog changes.
-window-state-gui-test: spike-build
-    python3 tests/window_state_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Action palette routing and modal isolation with real live shells.
-commands-gui-test: spike-build
-    python3 tests/command_palette_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Real Unicode glyph rendering, independent of the system's installed fonts.
-font-gui-test: spike-build
-    python3 tests/font_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Copilot labels and Needs input filtering through the existing GUI workflows.
-copilot-gui-test: spike-build
-    WORKBENCH_TEST_AGENT=copilot python3 tests/management_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Current shortcut help, slash recording and overlay input ownership.
-shortcuts-gui-test: spike-build
-    python3 tests/shortcut_help_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-    WORKBENCH_REDUCED_MOTION=1 python3 tests/shortcut_help_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Fixed window geometry, populated runtime cardinality and equal terminal estate.
-shortcuts-scale-gui-test: spike-build
-    python3 tests/shortcut_help_scale.py target/debug/workbench-session .local/build/viewer/ghostling 1
-    python3 tests/shortcut_help_scale.py target/debug/workbench-session .local/build/viewer/ghostling 15
-
-# Keyboard focus traversal, explicit confirmations and overlay restoration.
-focus-gui-test: spike-build
-    python3 tests/ui_focus_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Backing-texture/atlas fidelity and logical PTY/input contracts at simulated 2x.
-retina-gui-test: spike-build
-    python3 tests/retina_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-    WORKBENCH_RENDER_SCALE=2 python3 tests/navigation_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
-
-# Minimal native chrome, menus, panel geometry and live ownership.
-chrome-gui-test: spike-build
-    python3 tests/minimal_chrome_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Pinned renderer callbacks and dynamic backing-density changes.
-display-gui-test: spike-build
-    python3 tests/display_callback_test.py .local/build/viewer/_deps/raylib-src
-    python3 tests/display_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
-    python3 tests/display_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
-
-# Portable settings and UI overrides with same-process reopen.
-font-settings-gui-test: spike-build
-    python3 tests/font_settings_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
-    python3 tests/font_settings_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
-
-dotfiles-gui-test: spike-build
-    python3 tests/dotfiles_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Live Overview context and search with real shells and independent runtime metadata.
-context-gui-test: spike-build
-    python3 tests/context_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Native cursor/selection editing and clipboard isolation with real live shells.
-text-edit-gui-test: spike-build
-    python3 tests/text_edit_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Focused-terminal output/scrollback search with live shell and grid continuity.
-search-gui-test: spike-build
-    python3 tests/terminal_search_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
-    python3 tests/terminal_search_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 15
-
-# Exit reason presentation and explicit replacement-shell confirmation.
-lifecycle-gui-test: spike-build
-    python3 tests/lifecycle_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Explicit session shutdown, confirmed selection and surviving peer windows.
-shutdown-gui-test: spike-build
-    python3 tests/shutdown_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
 # Sustained runtime/ownership/service checks in disposable sessions (no GUI).
 session-soak seconds="300" terminals="15": runtime-build
     python3 tests/session_soak.py target/debug/workbench-session --seconds "{{seconds}}" --terminals "{{terminals}}"
-
-# Uses the actual Linux desktop folder chooser in an isolated Xvfb display.
-folder-picker-gui-test: spike-build
-    python3 tests/folder_picker_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Slow snapshot transport and interactive UI at one/fifteen-terminal cardinality.
-attachment-gui-test: spike-build
-    python3 tests/attachment_progress_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-    WORKBENCH_TEST_PANES=15 python3 tests/attachment_progress_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling
-
-# Ordered native keyboard input with actual Ghostty legacy/Kitty encoders.
-keyboard-gui-test: spike-build
-    python3 tests/keyboard_input_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 12
-    python3 tests/keyboard_input_gui_smoke.py target/debug/workbench-session .local/build/viewer/ghostling 1
-
-# Opt-in Linux native Wayland viewer; default spike remains X11.
-wayland-build:
-    python3 scripts/build-spike.py --wayland
-
-wayland-spike: wayland-build
-    python3 scripts/run-spike.py --wayland
-
-# Requires niri, Xvfb, wl-clipboard and Wayland/xkbcommon development tools; uses no existing desktop/session.
-wayland-gui-test: wayland-build
-    python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
-
-# Non-US text and modified-key routing in a disposable native Wayland seat.
-keyboard-layout-gui-test: wayland-build
-    WORKBENCH_TEST_LAYOUTS=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
-
-# Actual compositor scale transitions in the private nested Wayland session.
-wayland-display-gui-test: wayland-build
-    WORKBENCH_TEST_DISPLAY=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
-
-# Native selection/copy at 1x, fractional scale and startup at fractional scale.
-wayland-pointer-gui-test: wayland-build
-    python3 tests/wayland_pointer_callback_test.py .local/build/viewer-wayland/_deps/raylib-src
-    WORKBENCH_TEST_POINTER=1 python3 tests/wayland_gui_smoke.py target/debug/workbench-session .local/build/viewer-wayland/ghostling
 
 # Isolated Qt Quick text/semantic API probe; does not launch Workbench sessions.
 toolkit-probe-build:
@@ -425,7 +256,6 @@ toolkit-activation-test: toolkit-stage
 login-shell-test: runtime-build
     python3 tests/login_shell_test.py target/debug/workbench-session
 
-
 # Native Mac: optional Qt-deployed preview; Python remains external.
 toolkit-bundle: runtime-build
     python3 scripts/toolkit-probe.py bundle
@@ -436,7 +266,6 @@ toolkit-bundle-test:
     python3 tests/preview_check_test.py
     python3 tests/macos_packaging_tools_test.py
     python3 tests/qt_bundle_test.py
-
 
 # Native Mac trial: deploy only scanner-selected QML modules before bundling Qt.
 toolkit-bundle-selective: runtime-build

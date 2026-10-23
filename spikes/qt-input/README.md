@@ -48,7 +48,7 @@ The automated test is Linux-only (Xvfb, xdotool and xclip); `toolkit-terminal`
 also has a Mac app-bundle launch path: the owner confirmed launch and basic
 command input. Other Mac interactions and display acceptance remain open.
 
-The host uses Qt QPainter text on a QQuickPaintedItem, rather than Raylib font
+The host uses Qt QPainter text on a QQuickPaintedItem, rather than the earlier viewer's font
 textures. It restores a pinned Ghostty binary snapshot, then applies live output
 to a client presentation replica. The existing Rust process owns the PTY, VT and
 resize authority. The client never creates a second PTY or writes catalog state.

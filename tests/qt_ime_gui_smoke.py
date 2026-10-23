@@ -10,7 +10,7 @@ import sys
 import tempfile
 import time
 from session_smoke import attach,send,wait_until
-from gui_smoke import close_window
+from x11_window import close_window
 
 ROOT=Path(__file__).resolve().parent.parent
 ARTIFACTS=ROOT/".local/artifacts/qt-ime"

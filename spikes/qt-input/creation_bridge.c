@@ -1,5 +1,5 @@
 #include "creation_bridge.h"
-#include "../ghostling/portable_config.h"
+#include "core/portable_config.h"
 bool workbench_creation_defaults(const char *path,bool apple,char *directory,size_t length,double *width,char *error,size_t capacity)
 {
     PortableConfig config;

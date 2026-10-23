@@ -1,5 +1,5 @@
 //! Persistent workspace organization: validation, journaled mutations and the
-//! TSV projections read by the frozen Raylib viewer.
+//! TSV projections, which no current client reads (removal pending).
 use serde_json::{json, Map, Value};
 use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::{self, Read, Write};

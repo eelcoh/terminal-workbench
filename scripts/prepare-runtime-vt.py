@@ -9,7 +9,7 @@ import sys
 ROOT=Path(__file__).resolve().parent.parent
 REVISION='f64f4aca2c29b554d111b36c3d946a9bddd159ff'
 REPOSITORY='git@github.com:ghostty-org/ghostty.git'
-spec=importlib.util.spec_from_file_location('workbench_build',ROOT/'scripts/build-spike.py')
+spec=importlib.util.spec_from_file_location('workbench_build',ROOT/'scripts/build-runtime.py')
 build=importlib.util.module_from_spec(spec); spec.loader.exec_module(build)
 
 def pinned(source):
@@ -20,18 +20,15 @@ def pinned(source):
 def main():
     try:
         compiler,environment=build.build_environment(ROOT,os.environ)
-        # Reuse the viewer's clean pinned checkout when available, not its renderer.
-        source=ROOT/'.local/build/viewer/_deps/ghostty-src'
+        source=ROOT/'.local/deps/ghostty-vt'
+        if not source.exists():
+            source.parent.mkdir(parents=True,exist_ok=True)
+            subprocess.run(['git','clone',REPOSITORY,str(source)],check=True)
+        subprocess.run(['git','-C',str(source),'remote','set-url','origin',REPOSITORY],check=True)
         if not pinned(source):
-            source=ROOT/'.local/deps/ghostty-vt'
-            if not source.exists():
-                source.parent.mkdir(parents=True,exist_ok=True)
-                subprocess.run(['git','clone',REPOSITORY,str(source)],check=True)
-            subprocess.run(['git','-C',str(source),'remote','set-url','origin',REPOSITORY],check=True)
-            if not pinned(source):
-                if subprocess.check_output(['git','-C',str(source),'status','--porcelain','--untracked-files=no']).strip():
-                    raise RuntimeError('Runtime Ghostty checkout has local changes; preserve them before updating it')
-                subprocess.run(['git','-C',str(source),'checkout','--detach',REVISION],check=True)
+            if subprocess.check_output(['git','-C',str(source),'status','--porcelain','--untracked-files=no']).strip():
+                raise RuntimeError('Runtime Ghostty checkout has local changes; preserve them before updating it')
+            subprocess.run(['git','-C',str(source),'checkout','--detach',REVISION],check=True)
         subprocess.run(['git','-C',str(source),'remote','set-url','origin',REPOSITORY],check=True)
         destination=ROOT/'.local/runtime-vt'
         subprocess.run([str(compiler),'build','-Demit-lib-vt','-Doptimize=ReleaseFast','--prefix',str(destination)],cwd=source,env=environment,check=True)

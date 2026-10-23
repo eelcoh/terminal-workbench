@@ -7,8 +7,8 @@ coding agents on macOS and Linux. The history of every slice so far is in the
 ## Decisions (2026-10-22)
 
 - **Qt Quick is the production client.** It renders better than the Raylib viewer
-  on Mac and on external displays. The Raylib/Ghostling viewer (`just spike`) is
-  frozen as a reference: no new features, removal once Qt reaches parity.
+  on Mac and on external displays. The Raylib/Ghostling viewer was removed once
+  Qt reached parity (2026-10-23).
 - **Shipped runtime code is binaries only.** Users must not need Python. Python
   may remain for development, tests and build tooling.
 - **New non-UI code is Rust.** The Qt client stays C++/QML and should stay thin:
@@ -17,7 +17,7 @@ coding agents on macOS and Linux. The history of every slice so far is in the
 
 ## Now: consolidate
 
-- [x] Record the toolkit decision and freeze the Raylib viewer.
+- [x] Record the toolkit decision and retire the Raylib viewer.
 - [x] Replace the prose roadmap with this page.
 - [ ] Choose the product name (owner). Needed before packaging identifiers.
 - [x] Define the v0.1 Qt parity list against `just spike` (step 4 below).
@@ -45,25 +45,28 @@ installed from a release artifact on a machine without Python.
    user state and preferences (including the macOS migration), the window-slot
    lease, service startup, the launch config and the desktop log. The payload
    launcher, Linux desktop entry and Mac bootstrap use it. The Qt client already
-   uses Qt's folder dialog; `folder_picker.py` serves only the frozen viewer.
+   uses Qt's folder dialog.
    Preview management (`--check`, `--status`, `--activate`, `--paths`,
    `--install-desktop-entry`) and the development launcher `toolkit-ui.py` still
    use Python; they are reworked with packaging in step 5.
-4. **Qt parity and spike removal.** Close the parity list, then delete
-   `spikes/ghostling`, its patch scripts and spike-only tests. Gaps found in the
-   Qt client against the Raylib viewer (2026-10-22):
+4. [x] **Qt parity and spike removal.** `spikes/ghostling`, its Raylib patches,
+   launcher and spike-only tests are deleted (2026-10-23). The C headers the Qt
+   client shared with it moved to `spikes/qt-input/core/`, and the runtime build
+   no longer goes through the spike (`scripts/build-runtime.py`). Remaining
+   cleanup: the service's TSV projection, which no client reads, and design
+   notes that still describe the viewer. Parity gaps closed first (2026-10-22):
    - [x] Mouse reporting to terminal applications (press/release/motion/wheel),
      with Shift to select locally.
    - [x] Double-click word and triple-click line selection, using VT gestures.
    - Unseen-output marks on unfocused terminals: not needed (owner, 2026-10-22).
    - Drag a pane edge to resize: not needed; Qt keeps presets, cycle and full
      width (owner, 2026-10-22).
-   - [x] Per-terminal colors with "Use workspace" (trial; owner wants UX review).
+   - [x] Per-terminal colors with "Use workspace" (Mac review passed 2026-10-23).
      They change only that terminal's content; the pane frame keeps the workspace
      palette. A swatch after the title marks the terminal and reopens the picker,
      and workspace Appearance says how many terminals keep their own colors.
    - A terminal scrollbar: not needed (owner, 2026-10-22).
-   Neither client autoscrolls when a selection drag reaches the edge.
+   Selection drags do not autoscroll at the edge.
 5. **Packaging.** An unsigned Mac `.app` with Qt and the runtime inside it, and a
    Linux archive with a desktop entry (Flatpak or AppImage evaluated afterwards).
    Simplify preview staging to what these artifacts need.

@@ -1,5 +1,5 @@
 #include "view_bridge.h"
-#include "../ghostling/portable_config.h"
+#include "core/portable_config.h"
 bool workbench_view_defaults(const char *path,bool apple,bool *pinned,bool *motion,char *error,size_t capacity)
 {
     PortableConfig config;

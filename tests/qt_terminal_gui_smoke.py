@@ -10,7 +10,7 @@ import sys
 import tempfile
 import time
 from session_smoke import attach, send, wait_until, read_frame
-from gui_smoke import close_window
+from x11_window import close_window
 
 runtime, viewer = [Path(arg).resolve() for arg in sys.argv[1:3]]
 artifacts = Path(__file__).resolve().parent.parent / ".local/artifacts/qt-terminal"

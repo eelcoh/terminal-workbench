@@ -1,5 +1,8 @@
 # Terminal fonts and sizing
 
+Sections about the Ghostling spike and `just spike` are history: that viewer was
+removed on 2026-10-23. The Qt sections describe the current client.
+
 The Ghostling spike previously loaded Raylib's default ASCII glyph set from its
 bundled JetBrains Mono font. That replaced Unicode block art, arrows and other
 symbols with question marks even though terminal text and clipboard bytes were
@@ -10,8 +13,8 @@ font and adds unmodified Noto Sans Symbols 2 Regular 2.008 for characters missin
 from the primary font. This covers Claude's logo and prompt/status symbols,
 including `▐▛███▛█`, `▝▜██████▀`, `←`, `❯`, `⏵`, `◐`, `✻` and the package icon `📦`.
 Both fonts are embedded; neither platform needs a system font installation.
-The Noto font is monochrome. Its license, digest and source are recorded under
-[fonts/noto-symbols](../fonts/noto-symbols/README.md).
+The Noto font was removed with the Raylib viewer (2026-10-23); the Qt client
+relies on system font fallback for glyphs missing from its bundled faces.
 
 Font atlases are loaded once per window. Terminal glyph lookup keeps a direct
 ASCII path and binary search for Unicode, avoiding Raylib's linear scan through

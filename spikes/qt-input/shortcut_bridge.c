@@ -1,5 +1,5 @@
 #include "shortcut_bridge.h"
-#include "../ghostling/portable_config.h"
+#include "core/portable_config.h"
 int workbench_shortcuts_read(const char *path,bool apple,WorkbenchShortcut *out,size_t count,char *error,size_t capacity)
 {
     PortableConfig config;

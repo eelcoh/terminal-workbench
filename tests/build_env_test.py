@@ -8,7 +8,7 @@ import tempfile
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
-spec = importlib.util.spec_from_file_location('build_spike', ROOT/'scripts/build-spike.py')
+spec = importlib.util.spec_from_file_location('build_runtime', ROOT/'scripts/build-runtime.py')
 build = importlib.util.module_from_spec(spec); spec.loader.exec_module(build)
 
 
@@ -46,23 +46,13 @@ def main():
             fixture(system_zig, '0.16.0')
             compiler, _ = build.build_environment(Path(empty),environment)
             assert compiler == system_zig
-    for args, system, expected in [([], 'Linux', 'viewer'), (['--wayland'], 'Linux', 'viewer-wayland')]:
-        with patch.object(sys,'argv',['build-spike.py',*args]), patch.object(build.platform,'system',return_value=system), patch.object(build,'build_environment',return_value=(Path('/zig'),{})), patch.object(build.subprocess,'run') as run:
-            assert build.main()==0
-            commands=[call.args[0] for call in run.call_args_list]
-            configure=next(c for c in commands if c[0]=='cmake' and '-S' in c)
-            assert str(build.ROOT/'.local/build'/expected) in configure
-            assert ('-DGLFW_BUILD_WAYLAND=ON' in configure)==bool(args)
-            assert ('-DGLFW_BUILD_X11=OFF' in configure)==bool(args)
-    # Qt/runtime-only builds must prepare launchers even on a clean checkout.
-    # Do not depend on the older full spike having generated helpers first.
-    with patch.object(sys,'argv',['build-spike.py','--runtime-only']), patch.object(build,'build_environment',return_value=(Path('/zig'),{})), patch.object(build.subprocess,'run') as run:
+    # Runtime builds must prepare launchers even on a clean checkout.
+    with patch.object(sys,'argv',['build-runtime.py']), patch.object(build,'build_environment',return_value=(Path('/zig'),{})), patch.object(build.subprocess,'run') as run:
         assert build.main()==0
         commands=[call.args[0] for call in run.call_args_list]
         assert commands[0]==[sys.executable,str(build.ROOT/'scripts/prepare-agent-launchers.py')]
         assert commands[-1]==['cargo','build','--locked','--bin','workbench-session']
-        assert not any(c[0]=='cmake' for c in commands)
-    with patch.object(sys,'argv',['build-spike.py','--wayland']), patch.object(build.platform,'system',return_value='Darwin'), patch.object(build.subprocess,'run') as run:
+    with patch.object(sys,'argv',['build-runtime.py','--runtime-only']), patch.object(build.subprocess,'run') as run:
         assert build.main()==2 and not run.called
     print('PASS: Apple Silicon/Intel/Linux local discovery, PATH fallback, explicit compiler override, version rejection, paths with spaces and child-only environment')
 

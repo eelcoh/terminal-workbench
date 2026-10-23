@@ -22,8 +22,8 @@ VT parsing alone does not provide fonts, rendering, selection, or native input.
 Reference: <https://ghostty.org/docs/about>
 
 Qt Quick is the production client toolkit on both platforms (decided
-2026-10-22; see the [roadmap](roadmap.md)). The Raylib/Ghostling viewer is frozen
-as a reference. The [readiness audit](toolkit-readiness.md) records the evidence
+2026-10-22; see the [roadmap](roadmap.md)). The earlier Raylib/Ghostling viewer
+was removed on 2026-10-23; sections below that mention it are history. The [readiness audit](toolkit-readiness.md) records the evidence
 and the platform gates still to close.
 The workspace layout remains experimental pending the remaining platform gates.
 
@@ -64,13 +64,14 @@ replaces this viewer as the production frontend.
 
 ## Workspace layout experiment
 
-The spike launcher bootstraps independent runtime processes under stable socket
+Launchers bootstrap independent runtime processes under stable socket
 identities. An automatically started organization service (`workbench-session
 service`, in Rust) owns saved workspace and terminal names, identities, startup and explicit
 recovery. All launcher/management CLI requests reuse that authority. It preserves
 `spike.sock` as Main's first shell
 when migrating the old fixed catalog. The shared organization is stored in
-`.local/sessions/workspaces.json`; a versioned TSV projection feeds the C viewer.
+`.local/sessions/workspaces.json`, which the Qt client reads. The service still
+writes a versioned TSV projection that only the removed viewer used.
 New runtimes now retain their own VT state and support detached queries plus
 text/binary state reads.
 New viewers negotiate a pinned snapshot attachment on the control endpoint.
