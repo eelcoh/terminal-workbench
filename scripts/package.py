@@ -10,12 +10,12 @@ import json
 import os
 import platform
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
-import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -37,7 +37,11 @@ esac
 
 
 def version():
-    return tomllib.loads((ROOT / 'Cargo.toml').read_text())['workspace']['package']['version']
+    # A plain match rather than tomllib, which needs Python 3.11 (macOS ships 3.9).
+    match = re.search(r'^\[workspace\.package\][^\[]*?^version = "([^"]+)"', (ROOT / 'Cargo.toml').read_text(), re.M | re.S)
+    if not match:
+        raise ValueError('Cargo.toml has no [workspace.package] version')
+    return match.group(1)
 
 
 def architecture():
