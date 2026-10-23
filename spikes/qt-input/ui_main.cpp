@@ -94,6 +94,7 @@ int main(int argc,char **argv) {
     UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance,apple);
     UiAgentInfo agentInfo;
     UiWorkspaceAppearance workspaceAppearance(QDir(configuration["state"].toString()).filePath("qt/workspace-appearance"),!checking);
+    UiWorkspaceAppearance terminalAppearance(QDir(configuration["state"].toString()).filePath("qt/terminal-appearance"),!checking,nullptr,true);
     qmlRegisterType<TerminalItem>("Workbench.Probe",1,0,"TerminalItem");installTerminalAccessibility();
     QStringList startupWarnings;
     QQmlApplicationEngine engine;
@@ -109,6 +110,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
+    engine.rootContext()->setContextProperty("studyTerminalAppearance",&terminalAppearance);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
     engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
@@ -160,6 +162,8 @@ int main(int argc,char **argv) {
                     {"identity",item->property("stableIdentity").toString()},{"layout_button",QJsonArray{layoutPoint.x(),layoutPoint.y()}},
                     {"workspace",item->property("workspaceIndex").toInt()},{"ordinal",item->property("orderInWorkspace").toInt()},
                     {"theme",item->themeIndex()},{"background",item->backgroundColor().name()},
+                    {"own_colors",[&]{const auto *mark=item->parentItem()->findChild<QQuickItem *>("terminalOwnColors"+item->property("stableIdentity").toString());
+                        if(!mark || !mark->isVisible())return QJsonValue(false);const auto p=mark->mapToScene(QPointF(mark->width()/2,mark->height()/2));return QJsonValue(QJsonArray{p.x(),p.y()});}()},
                     {"sample_green",item->cellForeground(1,2).name()},{"sample_red",item->cellForeground(1,0).name()},{"sample_rgb",item->cellForeground(1,1).name()},
                     {"font",QJsonObject::fromVariantMap(item->textFont())},{"columns",size.width()},{"rows",size.height()},{"geometry_ready",size==geometry},{"focus",item->hasActiveFocus()},
                     {"left",bounds.left()},{"top",bounds.top()},{"right",bounds.right()},{"bottom",bounds.bottom()},
@@ -191,7 +195,7 @@ int main(int argc,char **argv) {
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
             }
             const QJsonObject data{{"configuration_open",window->property("configurationOpen").toBool()},
-                {"creation_directory",settings.workspaceDirectory()},{"creation_width",settings.terminalWidth()},{"pane_widths",QJsonArray::fromVariantList(listProperty(window,"widths"))},{"workspace_appearance_error",workspaceAppearance.error()},{"workspace_appearance_directory",workspaceAppearance.directory()},{"configuration_error",settings.error()},{"configuration_status",settings.status()},
+                {"creation_directory",settings.workspaceDirectory()},{"creation_width",settings.terminalWidth()},{"pane_widths",QJsonArray::fromVariantList(listProperty(window,"widths"))},{"workspace_appearance_error",workspaceAppearance.error()},{"terminal_appearance_error",terminalAppearance.error()},{"appearance_terminal",window->property("appearanceTerminal").toString()},{"appearance_note",window->property("appearanceNote").toString()},{"workspace_appearance_directory",workspaceAppearance.directory()},{"configuration_error",settings.error()},{"configuration_status",settings.status()},
                 {"configuration_menu",center("configurationMenuItem")},{"configuration_reload",center("configurationReload")},{"configuration_close",center("configurationClose")},
                 {"runtime_info_open",window->property("runtimeInfoOpen").toBool()},{"runtime_info_target",window->property("runtimeInfoTarget").toString()},
                 {"runtime_info_report",QJsonObject::fromVariantMap(runtimeInfo.report())},
@@ -262,7 +266,7 @@ int main(int argc,char **argv) {
                 {"theme_matches",window->property("themeMatchCount").toInt()},
                 {"theme_directory",themes.themesPath()},{"theme_directory_status",themes.directoryStatus()},{"theme_catalog_count",themes.catalog().size()},
                 {"chrome_background",window->color().name()},
-                {"application_menu_button",center("applicationMenuButton")},{"appearance_menu_item",center("appearanceMenuItem")},
+                {"application_menu_button",center("applicationMenuButton")},{"appearance_menu_item",center("appearanceMenuItem")},{"terminal_colors_menu",center("terminalColorsMenuItem")},
                 {"rename_workspace_item",center("renameWorkspaceMenuItem")},{"workspace_folder_item",center("workspaceFolderMenuItem")},
                 {"workspace_form_mode",window->property("workspaceFormMode").toString()},
                 {"workspace_names",QJsonArray::fromVariantList(listProperty(window,"spaces"))},

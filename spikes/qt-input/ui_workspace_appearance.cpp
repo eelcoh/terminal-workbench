@@ -25,14 +25,19 @@ Read readChoice(const QString &path){
     result.value=document.object().toVariantMap();return result;
 }
 }
-UiWorkspaceAppearance::UiWorkspaceAppearance(const QString &directory,bool watch,QObject *parent)
-    :QObject(parent),directory_(directory),watching_(watch){
+UiWorkspaceAppearance::UiWorkspaceAppearance(const QString &directory,bool watch,QObject *parent,bool terminals)
+    :QObject(parent),directory_(directory),watching_(watch),terminals_(terminals){
     debounce_.setSingleShot(true);debounce_.setInterval(150);
     connect(&watcher_,&QFileSystemWatcher::fileChanged,this,[this]{debounce_.start();});
     connect(&watcher_,&QFileSystemWatcher::directoryChanged,this,[this]{debounce_.start();});
     connect(&debounce_,&QTimer::timeout,this,&UiWorkspaceAppearance::reload);
 }
-QString UiWorkspaceAppearance::error() const{return editError_.isEmpty()?QStringList(errors_.values()).join(" "):editError_;}
+QString UiWorkspaceAppearance::worded(QString message) const{
+    if(!terminals_)return message;
+    return message.replace("reopen Appearance","reopen Terminal colors").replace("Workspace appearance","Terminal colors")
+        .replace("workspace appearance","terminal colors").replace("Workspace colors","Terminal colors").replace("Workspace changed","Terminal changed");
+}
+QString UiWorkspaceAppearance::error() const{return worded(editError_.isEmpty()?QStringList(errors_.values()).join(" "):editError_);}
 bool UiWorkspaceAppearance::validChoice(const QVariantMap &value){
     const auto root=QJsonObject::fromVariantMap(value);
     if(root["version"].toDouble(-1)!=1 || !root["default"].isBool())return false;
@@ -45,7 +50,7 @@ bool UiWorkspaceAppearance::validChoice(const QVariantMap &value){
     return UiThemes::parse(theme["colors"].toString().toUtf8(),colors,ignored,error) && !ignored;
 }
 void UiWorkspaceAppearance::setWorkspaces(const QStringList &ids){
-    if(ids.size()>8)return;
+    if(ids.size()>(terminals_?64:8))return;
     QStringList seen;for(const auto &id:ids){if(!identity(id) || seen.contains(id))return;seen.append(id);}
     if(ids_==ids)return;
     ids_=ids;for(const auto &id:choices_.keys())if(!ids_.contains(id))choices_.remove(id);

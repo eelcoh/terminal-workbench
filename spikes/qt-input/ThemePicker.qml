@@ -10,6 +10,12 @@ Dialog {
     property string defaultName: ""
     signal defaultRequested()
     property string workspaceName: ""
+    // Workspace colors by default; the terminal mode changes only these texts.
+    property string heading: "Appearance"
+    property string scope: "all terminals in this workspace"
+    property string useDefaultText: "Use default"
+    property string usingDefaultText: "Using default"
+    property string note: ""
     property int mode: 0
     property bool preparing: false
     property var retainedTheme: ({})
@@ -21,7 +27,7 @@ Dialog {
     signal previewSelected(int index)
     signal applySelected()
     readonly property var matches: catalog.filter(theme => theme.name.toLowerCase().includes(search.text.toLowerCase()) && (mode === 0 || theme.light === (mode === 2)))
-    title: "Appearance · " + workspaceName
+    title: heading + " · " + workspaceName
     implicitWidth: 540; implicitHeight: 600
     modal: true; width: Math.min(implicitWidth, parent.width - 64); height: Math.min(implicitHeight, parent.height - 64)
     padding: 20; closePolicy: Popup.CloseOnEscape
@@ -74,7 +80,7 @@ Dialog {
         }
         Label { id: folderStatus; width: parent.width; visible: picker.directoryStatus.length > 0; text: picker.directoryStatus; textFormat: Text.PlainText; elide: Text.ElideRight; color: "#9caabd"; font.pixelSize: 11 }
         ListView {
-            id: list; objectName: "themeList"; width: parent.width; height: Math.max(80, parent.height - search.height - modes.height - previewLabel.implicitHeight - sourceLabel.implicitHeight - (folderStatus.visible ? folderStatus.implicitHeight + parent.spacing : 0) - (saveErrorLabel.visible ? saveErrorLabel.implicitHeight + parent.spacing : 0) - parent.spacing * 4)
+            id: list; objectName: "themeList"; width: parent.width; height: Math.max(80, parent.height - search.height - modes.height - previewLabel.implicitHeight - sourceLabel.implicitHeight - (folderStatus.visible ? folderStatus.implicitHeight + parent.spacing : 0) - (saveErrorLabel.visible ? saveErrorLabel.implicitHeight + parent.spacing : 0) - (noteLabel.visible ? noteLabel.implicitHeight + parent.spacing : 0) - parent.spacing * 4)
             clip: true; spacing: 8; model: picker.matches; currentIndex: -1
             ScrollBar.vertical: ScrollBar {}
             onCurrentIndexChanged: if (picker.visible && !picker.preparing && activeFocus && currentIndex >= 0 && currentIndex < count) picker.previewSelected(picker.matches[currentIndex].index)
@@ -112,7 +118,8 @@ Dialog {
             Label { anchors.centerIn: parent; visible: list.count === 0; text: "No matching themes"; color: "#9caabd" }
         }
         Label { id: saveErrorLabel; objectName: "workspaceAppearanceError"; width: parent.width; visible: picker.saveError.length > 0; text: picker.saveError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#e6c689"; font.pixelSize: 12 }
-        Label { id: previewLabel; width: parent.width; textFormat: Text.PlainText; text: "Previewing " + ((picker.catalog.find(theme => theme.index === picker.themeIndex) || picker.retainedTheme)?.name || "Current workspace theme") + " · all terminals in this workspace"; color: "#9caabd"; font.pixelSize: 12; elide: Text.ElideRight }
+        Label { id: previewLabel; width: parent.width; textFormat: Text.PlainText; text: "Previewing " + ((picker.catalog.find(theme => theme.index === picker.themeIndex) || picker.retainedTheme)?.name || "Current workspace theme") + " · " + picker.scope; color: "#9caabd"; font.pixelSize: 12; elide: Text.ElideRight }
+        Label { id: noteLabel; objectName: "appearanceNote"; width: parent.width; visible: picker.note.length > 0; text: picker.note; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#9caabd"; font.pixelSize: 11 }
         Label {
             id: sourceLabel; width: parent.width; color: "#9caabd"; font.pixelSize: 11; textFormat: Text.PlainText; elide: Text.ElideMiddle
             readonly property var theme: picker.catalog.find(value => value.index === picker.themeIndex) || picker.retainedTheme
@@ -152,8 +159,8 @@ Dialog {
     }
     footer: Item {
         implicitHeight: 92
-        ActionButton { objectName: "workspaceThemeDefault"; x: 20; y: 0; text: picker.followsDefault ? "Using default" : "Use default"; enabled: !picker.followsDefault; onClicked: picker.defaultRequested() }
-        Label { x: 132; y: 10; width: parent.width - 152; text: picker.defaultName; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: "#9caabd" }
+        ActionButton { id: defaultButton; objectName: "workspaceThemeDefault"; x: 20; y: 0; implicitWidth: Math.max(100, contentItem.implicitWidth + 28); text: picker.followsDefault ? picker.usingDefaultText : picker.useDefaultText; enabled: !picker.followsDefault; onClicked: picker.defaultRequested() }
+        Label { x: defaultButton.x + defaultButton.width + 12; y: 10; width: parent.width - x - 20; text: picker.defaultName; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: "#9caabd" }
         Row {
             anchors.right: parent.right; anchors.rightMargin: 20; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; spacing: 8
             ActionButton { text: "Cancel"; onClicked: picker.close() }

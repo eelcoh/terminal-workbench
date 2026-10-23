@@ -905,6 +905,32 @@ while True:
         wait_until(lambda:not data()['appearance_open'] and theme_state(folder_index,'#214365','#aa1133'))
         assert drop_file.read_bytes()==drop_bytes and not theme_store.exists() and sizes()==theme_sizes
         drop_file.unlink()
+        # One terminal's own colors change only its content; frames, siblings and
+        # the workspace keep their palette. "Use workspace" removes the override.
+        own_id=data()['panes'][4]['identity'];own_file=root/'qt/terminal-appearance'/(own_id+'.json')
+        # Compare palettes: reloading the theme folder can renumber the restored workspace theme.
+        def own_state(background):
+            value=data()
+            return (value['panes'][4]['background']==background and value['chrome_background']=='#214365'
+                and all(value['panes'][i]['background']=='#214365' for i in (3,5)))
+        def terminal_colors():
+            click(*data()['panes'][4]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+            click(*data()['terminal_colors_menu']);wait_until(lambda:data()['appearance_open'] and data()['appearance_terminal']==own_id and data()['theme_search_focus'])
+        terminal_colors();assert 'frame keeps the workspace colors' in data()['appearance_note']
+        typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down')
+        wait_until(lambda:own_state('#282a36') and data()['panes'][4]['own_colors']);capture('terminal-colors-preview.png')
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and own_state('#214365') and not data()['panes'][4]['own_colors'])
+        assert not own_file.exists(),'cancelled terminal colors were saved'
+        terminal_colors();typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down');key('Return')
+        wait_until(lambda:not data()['appearance_open'] and own_state('#282a36') and data()['panes'][4]['own_colors'] and data()['appearance_terminal']=='')
+        assert json.loads(own_file.read_text())['default'] is False and not data()['terminal_appearance_error']
+        appearance();wait_until(lambda:data()['appearance_note']=='1 terminal here keeps its own colors.');capture('workspace-with-terminal-colors.png')
+        key('Escape');wait_until(lambda:not data()['appearance_open'] and own_state('#282a36'))
+        click(*data()['panes'][4]['own_colors']);wait_until(lambda:data()['appearance_open'] and data()['appearance_terminal']==own_id)
+        click(*data()['theme_default_button']);wait_until(lambda:own_state('#214365') and not data()['panes'][4]['own_colors'])
+        click(*data()['theme_apply_button']);wait_until(lambda:not data()['appearance_open'] and own_state('#214365'))
+        assert json.loads(own_file.read_text())=={'version':1,'default':True} and sizes()==theme_sizes
+        assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'terminal colors mutated runtime organization'
         # Save pin preference with the existing layout/theme view profile.
         click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*data()['navigation_pin']);wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'])

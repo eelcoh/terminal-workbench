@@ -20,7 +20,7 @@ coding agents on macOS and Linux. The history of every slice so far is in the
 - [x] Record the toolkit decision and freeze the Raylib viewer.
 - [x] Replace the prose roadmap with this page.
 - [ ] Choose the product name (owner). Needed before packaging identifiers.
-- [ ] Define the v0.1 Qt parity list against `just spike` and close the gaps.
+- [x] Define the v0.1 Qt parity list against `just spike` (step 4 below).
 
 ## v0.1: daily driver on both platforms
 
@@ -50,7 +50,20 @@ installed from a release artifact on a machine without Python.
    `--install-desktop-entry`) and the development launcher `toolkit-ui.py` still
    use Python; they are reworked with packaging in step 5.
 4. **Qt parity and spike removal.** Close the parity list, then delete
-   `spikes/ghostling`, its patch scripts and spike-only tests.
+   `spikes/ghostling`, its patch scripts and spike-only tests. Gaps found in the
+   Qt client against the Raylib viewer (2026-10-22):
+   - [x] Mouse reporting to terminal applications (press/release/motion/wheel),
+     with Shift to select locally.
+   - [x] Double-click word and triple-click line selection, using VT gestures.
+   - Unseen-output marks on unfocused terminals: not needed (owner, 2026-10-22).
+   - Drag a pane edge to resize: not needed; Qt keeps presets, cycle and full
+     width (owner, 2026-10-22).
+   - [x] Per-terminal colors with "Use workspace" (trial; owner wants UX review).
+     They change only that terminal's content; the pane frame keeps the workspace
+     palette. A swatch after the title marks the terminal and reopens the picker,
+     and workspace Appearance says how many terminals keep their own colors.
+   - A terminal scrollbar: not needed (owner, 2026-10-22).
+   Neither client autoscrolls when a selection drag reaches the edge.
 5. **Packaging.** An unsigned Mac `.app` with Qt and the runtime inside it, and a
    Linux archive with a desktop entry (Flatpak or AppImage evaluated afterwards).
    Simplify preview staging to what these artifacts need.

@@ -45,7 +45,14 @@ ApplicationWindow {
             if (index >= 0 || choice.default === true) themes[w] = index
         }
         workspaceThemes = themes
+        let own = {}
+        for (let i = 0; i < terminalModel.count; ++i) {
+            const identity = terminalModel.get(i).terminalId, choice = studyTerminalAppearance.choice(identity)
+            if (choice.version === 1 && choice.default !== true) { const index = studyThemes.restoreSnapshot(choice.theme); if (index >= 0) own[identity] = index }
+        }
+        terminalThemes = own
     }
+    Connections { target: studyTerminalAppearance; function onChanged() { if (window.viewReady) Qt.callLater(window.applySharedAppearance) } function onReloadFailed() { window.fontWarningDismissed = false } }
     Connections { target: studyWorkspaceAppearance; function onChanged() { if (window.viewReady) Qt.callLater(window.applySharedAppearance) } function onReloadFailed() { window.fontWarningDismissed = false } }
     function persistView() { if (viewReady && studyView.enabled) studyView.save(captureView()) }
     function restoreView(saved) {
@@ -357,6 +364,10 @@ ApplicationWindow {
     property bool pendingAppearance: false
     property var workspaceThemes: []
     property string appearanceWorkspace: ""
+    // Non-empty while the picker edits one terminal's own colors.
+    property string appearanceTerminal: ""
+    property bool pendingTerminalColors: false
+    property var terminalThemes: ({})
     property int previewTheme: 0
     property bool previewDefault: true
     readonly property bool appearanceOpen: appearance.visible
@@ -367,7 +378,40 @@ ApplicationWindow {
     readonly property int themeMatchCount: appearance.matches.length
     readonly property var chrome: studyThemes.theme(themeIndexFor(workspace))
     function effectiveTheme(space) { const index = workspaceThemes[space] ?? -1; return index < 0 ? studyConfiguration.themeIndex : index }
-    function themeIndexFor(space) { return appearance.visible && spaceIds[space] === appearanceWorkspace ? previewTheme : effectiveTheme(space) }
+    function themeIndexFor(space) { return appearance.visible && appearanceTerminal === "" && spaceIds[space] === appearanceWorkspace ? previewTheme : effectiveTheme(space) }
+    function ownTheme(identity) { return terminalThemes[identity] ?? -1 }
+    // Terminal content colors: a terminal's own palette, else its workspace's.
+    // Pane frames and headers always follow the workspace.
+    function terminalThemeIndex(identity, space) {
+        if (appearance.visible && appearanceTerminal !== "" && identity === appearanceTerminal) return previewDefault ? themeIndexFor(space) : previewTheme
+        const own = ownTheme(identity)
+        return own >= 0 ? own : themeIndexFor(space)
+    }
+    readonly property string appearanceNote: {
+        if (appearanceTerminal !== "") return "The pane frame keeps the workspace colors. Use workspace removes this terminal's own colors."
+        const space = spaceIds.indexOf(appearanceWorkspace)
+        let own = 0
+        for (let i = 0; i < terminalModel.count; ++i) { const item = terminalModel.get(i); if (item.spaceIndex === space && ownTheme(item.terminalId) >= 0) ++own }
+        return own === 0 ? "" : own === 1 ? "1 terminal here keeps its own colors." : own + " terminals here keep their own colors."
+    }
+    function openTerminalColors(identity) {
+        if (identityIndex(identity) < 0 || terminalInformation.visible || terminalAction.visible || createDialog.visible || appearance.visible || fontSettings.visible || shortcutSettings.visible || configurationDialog.visible || about.visible || help.visible) return
+        appearanceTerminal = identity; pendingTerminalColors = true
+        if (paneMenu.visible) paneMenu.close()
+        else if (appMenu.visible) appMenu.close()
+        else restoreAfterPopup()
+    }
+    function showTerminalColors() {
+        const index = identityIndex(appearanceTerminal)
+        if (index < 0) { appearanceTerminal = ""; return }
+        studyThemes.reloadDirectory()
+        const space = terminalModel.get(index).spaceIndex
+        appearanceWorkspace = spaceIds[space]
+        if (!studyTerminalAppearance.begin(appearanceTerminal)) { appearanceTerminal = ""; return }
+        applySharedAppearance()
+        const own = ownTheme(appearanceTerminal)
+        previewDefault = own < 0; previewTheme = own < 0 ? effectiveTheme(space) : own; appearance.open()
+    }
     function openAppearance() {
         if (spaces.length === 0 || terminalAction.visible || overview || createDialog.visible || appearance.visible) return
         if (appMenu.visible) { pendingAppearance = true; appMenu.close() }
@@ -376,7 +420,7 @@ ApplicationWindow {
     function showAppearance() {
         if (spaces.length === 0) return
         studyThemes.reloadDirectory()
-        appearanceWorkspace = spaceIds[workspace]
+        appearanceTerminal = ""; appearanceWorkspace = spaceIds[workspace]
         if (!studyWorkspaceAppearance.begin(appearanceWorkspace)) return
         applySharedAppearance()
         previewTheme = effectiveTheme(workspace); previewDefault = (workspaceThemes[workspace] ?? -1) < 0; appearance.open()
@@ -442,6 +486,9 @@ ApplicationWindow {
         }
         spaces = names; spaceIds = ids; directories = folders; counts = totals; workspaceThemes = themes
         studyWorkspaceAppearance.setWorkspaces(ids)
+        let terminalIds = []
+        for (let i = 0; i < terminalModel.count; ++i) terminalIds.push(terminalModel.get(i).terminalId)
+        studyTerminalAppearance.setWorkspaces(terminalIds)
         ++catalogRevision
         Qt.callLater(rebuildOverview)
         for (let w = 0; w < names.length; ++w) {
@@ -461,7 +508,7 @@ ApplicationWindow {
         }
         if (terminalAction.visible && !actionExists()) terminalAction.close()
         if (createDialog.visible && workspaceFormMode !== "create" && spaceIds.indexOf(editingWorkspace) < 0) createDialog.close()
-        if (appearance.visible && spaceIds.indexOf(appearanceWorkspace) < 0) appearance.close()
+        if (appearance.visible && (spaceIds.indexOf(appearanceWorkspace) < 0 || (appearanceTerminal !== "" && identityIndex(appearanceTerminal) < 0))) appearance.close()
         if (method === "workspace.create_at") { createDialog.close(); chooseWorkspace(spaces.length - 1); if (overview) toggleOverview() }
         if (method === "terminal.move" && followMove && selected >= 0) {
             followMove = false
@@ -559,6 +606,8 @@ ApplicationWindow {
             pendingCommands = false; Qt.callLater(showCommands)
         } else if (pendingAppearance) {
             pendingAppearance = false; Qt.callLater(showAppearance)
+        } else if (pendingTerminalColors) {
+            pendingTerminalColors = false; Qt.callLater(showTerminalColors)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
         } else if (!overview && selected >= 0 && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
@@ -878,7 +927,23 @@ ApplicationWindow {
                     anchors.fill: parent; enabled: !window.overview
                     onClicked: window.focusPane(pane.index)
                 }
-                Text { x: 14; y: 10; width: parent.width - 65 - headerState.width - (headerState.width > 0 ? 12 : 0); elide: Text.ElideMiddle; text: pane.facts.title; textFormat: Text.PlainText; font.pixelSize: 12; color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground }
+                Text { id: paneTitle; x: 14; y: 10; width: Math.min(implicitWidth, parent.width - 65 - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)); elide: Text.ElideMiddle; text: pane.facts.title; textFormat: Text.PlainText; font.pixelSize: 12; color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground }
+                // A swatch of the terminal's own palette; the frame keeps workspace colors.
+                Rectangle {
+                    id: ownColors; objectName: "terminalOwnColors" + pane.terminalId
+                    readonly property int own: appearance.visible && window.appearanceTerminal === pane.terminalId ? (window.previewDefault ? -1 : window.previewTheme) : window.ownTheme(pane.terminalId)
+                    visible: own >= 0
+                    x: paneTitle.x + paneTitle.width + 8; y: 12; width: 12; height: 12; radius: 6
+                    color: visible ? studyThemes.theme(own).background : "transparent"
+                    border.width: 2; border.color: visible ? studyThemes.theme(own).accent : "transparent"
+                    Accessible.role: Accessible.Button; Accessible.name: "Terminal colors: " + (visible ? studyThemes.theme(own).name : "")
+                    MouseArea {
+                        id: ownColorsArea; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; enabled: !window.overview
+                        cursorShape: Qt.PointingHandCursor; onClicked: window.openTerminalColors(pane.terminalId)
+                    }
+                    ToolTip.visible: ownColorsArea.containsMouse; ToolTip.delay: 400
+                    ToolTip.text: "Own colors: " + (visible ? studyThemes.theme(own).name : "") + " · click to change"
+                }
                 Text {
                     id: headerState; x: parent.width - 48 - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
                     text: pane.facts.agent ? pane.facts.agent + " · " + pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
@@ -894,7 +959,7 @@ ApplicationWindow {
                     x: 4; y: 36; width: parent.width - 8; height: parent.height - 40
                     enabled: !window.overview
                     textFont: studyFonts.current
-                    themeIndex: window.themeIndexFor(pane.spaceIndex)
+                    themeIndex: window.terminalThemeIndex(pane.terminalId, pane.spaceIndex)
                     presentationEnabled: pane.visible && pane.x + pane.width * pane.scale > deck.contentX && pane.x < deck.contentX + deck.width && pane.y + pane.height * pane.scale > deck.contentY && pane.y < deck.contentY + deck.height
                     opacity: presentationEnabled ? 1 : 0
                     Accessible.role: Accessible.Terminal; Accessible.name: pane.facts.title + " in " + window.spaces[pane.spaceIndex]
@@ -1075,6 +1140,7 @@ ApplicationWindow {
         id: paneMenu
         onClosed: window.restoreAfterPopup()
         MenuAction { objectName: "terminalInfoMenuItem"; text: "Terminal details…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0; onTriggered: window.openRuntimeInfo(window.paneMenuTarget) }
+        MenuAction { objectName: "terminalColorsMenuItem"; text: "Terminal colors…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0 && !window.overview; onTriggered: window.openTerminalColors(window.paneMenuTarget) }
         MenuAction { objectName: "agentInfoMenuItem"; text: "Agent details…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0; onTriggered: window.openAgentInfo(window.paneMenuTarget) }
         MenuRule {}
         MenuAction { objectName: "terminalCloseMenuItem"; text: window.exitedTerminal(window.paneMenuTarget) ? "Close pane" : "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.closePane(window.paneMenuTarget) }
@@ -1105,22 +1171,36 @@ ApplicationWindow {
     }
     ThemePicker {
         id: appearance; anchors.centerIn: parent
-        saveError: studyWorkspaceAppearance.error
+        readonly property bool terminalMode: window.appearanceTerminal !== ""
+        readonly property int terminalIndex: window.identityIndex(window.appearanceTerminal)
+        readonly property int targetSpace: window.spaceIds.indexOf(window.appearanceWorkspace)
+        saveError: terminalMode ? studyTerminalAppearance.error : studyWorkspaceAppearance.error
+        heading: terminalMode ? "Terminal colors" : "Appearance"
+        scope: terminalMode ? "this terminal only" : "all terminals in this workspace"
+        useDefaultText: terminalMode ? "Use workspace" : "Use default"
+        usingDefaultText: terminalMode ? "Using workspace" : "Using default"
+        note: window.appearanceNote
         retainedTheme: studyThemes.theme(window.previewTheme)
         directoryPath: studyThemes.themesPath; directoryStatus: studyThemes.directoryStatus
         onFolderRequested: studyThemes.openThemesDirectory()
         catalog: studyThemes.catalog; themeIndex: window.previewTheme
-        workspaceName: window.spaces[window.spaceIds.indexOf(window.appearanceWorkspace)] || ""
+        workspaceName: terminalMode ? (terminalIndex >= 0 && window.panel(terminalIndex) ? window.panel(terminalIndex).facts.title : "") : window.spaces[targetSpace] || ""
         onPreviewSelected: index => { window.previewTheme = index; window.previewDefault = false }
         followsDefault: window.previewDefault
-        defaultName: studyThemes.theme(studyConfiguration.themeIndex).name
-        onDefaultRequested: { window.previewTheme = studyConfiguration.themeIndex; window.previewDefault = true }
+        defaultName: studyThemes.theme(terminalMode ? (targetSpace >= 0 ? window.effectiveTheme(targetSpace) : 0) : studyConfiguration.themeIndex).name
+        onDefaultRequested: { window.previewTheme = terminalMode && targetSpace >= 0 ? window.effectiveTheme(targetSpace) : studyConfiguration.themeIndex; window.previewDefault = true }
         onApplySelected: {
-            const space = window.spaceIds.indexOf(window.appearanceWorkspace)
-            if (space < 0 || !studyWorkspaceAppearance.apply(window.appearanceWorkspace, window.previewDefault, window.previewDefault ? ({}) : studyThemes.snapshot(window.previewTheme))) return
+            const theme = window.previewDefault ? ({}) : studyThemes.snapshot(window.previewTheme)
+            if (terminalMode) {
+                if (terminalIndex < 0 || !studyTerminalAppearance.apply(window.appearanceTerminal, window.previewDefault, theme)) return
+            } else if (targetSpace < 0 || !studyWorkspaceAppearance.apply(window.appearanceWorkspace, window.previewDefault, theme)) return
             window.applySharedAppearance(); close()
         }
-        onClosed: { studyWorkspaceAppearance.end(); if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus() }
+        onClosed: {
+            if (terminalMode) studyTerminalAppearance.end(); else studyWorkspaceAppearance.end()
+            window.appearanceTerminal = ""
+            if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
+        }
     }
     FontSettings {
         id: fontSettings; anchors.centerIn: parent; tones: window.chrome; preferences: studyFonts
