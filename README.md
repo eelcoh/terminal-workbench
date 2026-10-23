@@ -1,21 +1,35 @@
 # Terminal Workbench
 
-A desktop terminal workspace for running and overseeing coding agents.
+A terminal with scrolling workspaces, in the style of the niri window manager,
+for macOS and for Linux desktops that don't run niri.
 
 Working name. Pre-release, working toward v0.1: a Qt Quick client in front of a
 Rust runtime that owns the shells.
 
-## Product direction
+## What it is
 
-- macOS and Linux are first-class targets.
-- A restrained interface inspired by Foot, with visual and interaction quality approaching Dank Linux.
-- Ghostty-compatible terminal themes with matching application colors.
-- Workspaces, horizontally scrolling terminal panes, and an overview of agents across workspaces.
-- Clear indicators for agents working or awaiting input, with direct navigation to their terminal.
-- Persistent sessions owned by a background runtime, independent of open windows.
-- A fresh, configurable keyboard model with platform conventions and explicit terminal input routing.
+- Workspaces of terminal panes laid out side by side in a horizontally scrolling
+  strip. Panes keep their width; new ones extend the strip instead of shrinking
+  the others.
+- Sessions that outlive windows. A background runtime owns every shell, so
+  closing or crashing the window detaches, and reopening reconnects.
+- An overview of every terminal across workspaces, with search.
+- A fresh, configurable keyboard model that follows each platform's conventions
+  and routes input explicitly to the terminal.
+- A restrained interface inspired by Foot, Ghostty-compatible themes, and
+  per-workspace and per-terminal colours.
+- Status for coding agents launched through it (working, needs input, ready),
+  with navigation to the terminal that is waiting.
 
-See the [roadmap](docs/roadmap.md) for the plan to v0.3 and the
+## Where it is going
+
+- **Apps:** start TUIs such as lazygit or btop from the command palette and keep
+  them in a side panel next to the strip.
+- **SSH:** remote panes that remember their host and reconnect.
+- **Git worktrees:** open a workspace on a new or existing worktree.
+- Possibly, later, deeper support for running agents.
+
+See the [roadmap](docs/roadmap.md) for the plan and the
 [status log](docs/status-log.md) for the development record.
 
 This project follows an experiment built on Herdr. It has independent Git history
@@ -28,9 +42,9 @@ and contains no copied Herdr code.
   Shells keep running when windows close.
 - The Qt client renders terminals and the workspace UI. It attaches to runtimes
   through snapshots and never owns a PTY.
-- `wb-codex`, `wb-claude`, `wb-copilot` and `wb-pi` launch agents with lifecycle
-  hooks, so panes show **Working**, **Needs input** or **Ready**. They are
-  symlinks to `workbench-session`; no Python is needed.
+- Optional agent launchers (`wb-codex`, `wb-claude`, `wb-copilot`, `wb-pi`)
+  report lifecycle hooks, so panes show **Working**, **Needs input** or
+  **Ready**. They are symlinks to `workbench-session`; no Python is needed.
 
 See [architecture](docs/architecture.md) for ownership boundaries.
 
@@ -59,7 +73,7 @@ checkout: `just config-path` finds it, and `just config-init` writes an example
 ## Layout
 
 ```text
-crates/runtime/      Rust runtime, session service, launcher and agent hooks
+crates/runtime/      Rust runtime, session service, window launcher and agent hooks
 spikes/qt-input/     Qt Quick client (C++/QML); core/ holds its pure C contracts
 native/              macOS and Linux platform adapters
 scripts/             Build, staging, preview management and diagnostics (Python)

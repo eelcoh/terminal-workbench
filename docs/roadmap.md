@@ -1,7 +1,8 @@
 # Roadmap
 
-Terminal Workbench is a desktop terminal workspace for running and overseeing
-coding agents on macOS and Linux. The history of every slice so far is in the
+Terminal Workbench is a terminal with niri-style scrolling workspaces for macOS
+and for Linux desktops that don't run niri. Agent status is one feature, not the
+product's focus (owner, 2026-10-23). The history of every slice so far is in the
 [status log](status-log.md); this page is the plan.
 
 ## Decisions (2026-10-22)
@@ -13,7 +14,8 @@ coding agents on macOS and Linux. The history of every slice so far is in the
   may remain for development, tests and build tooling.
 - **New non-UI code is Rust.** The Qt client stays C++/QML and should stay thin:
   presentation and input, with runtime facts coming from the Rust side.
-- **Release numbering:** v0.1 daily driver, v0.2 agent oversight, v0.3 reach.
+- **Release numbering:** v0.1 daily driver, v0.2 apps and the sidebar, v0.3
+  SSH hosts and worktrees (revised 2026-10-23).
 
 ## Now: consolidate
 
@@ -78,26 +80,53 @@ Exit criteria: release artifacts for both platforms, no Python on the user path,
 detach/reattach and agent status working from an installed build, and a week of
 daily use with no lost sessions.
 
-## v0.2: agent oversight
+## v0.2: apps and the sidebar
 
-- Generic signals for agents without hooks: bell, OSC 9/777 notifications,
-  title changes and output idleness. Hooks stay the precise layer on top, behind
-  a small per-agent adapter interface. Unknown remains the honest fallback.
-- Desktop notifications when an agent needs input, and a "next waiting agent" key.
-- Time in each state and a short per-agent timeline.
-- Worktree-aware work: changed-file counts per worktree, and "new agent in a new
-  worktree" as one action.
-- Close the open lifecycle edges: Claude cancellation, Copilot exit/cancel/permission.
+Goal: TUIs such as lazygit and btop live next to the strip and are one key away.
 
-## v0.3: reach
+- **One panel per rail icon.** The drawer's Workspaces/Agents switch goes away.
+  Each icon on the left rail owns one panel; clicking it opens that panel, and
+  clicking the active icon closes it. Pinning keeps working as now. Fixed icons,
+  top to bottom: Workspaces, Apps, Hosts (v0.3) and Agents, which appears only
+  once an agent has been seen and keeps its waiting badge.
+- **App definitions** in the dotfile: name, command, arguments and a working
+  directory that defaults to the workspace folder.
+- **Apps panel.** Lists the configured apps; choosing one starts it. A running
+  app is shown in the side panel as a live terminal with its own width, beside
+  the strip rather than in it.
+- **The rail as a dock.** Each running app gets a small icon under the fixed
+  ones. Clicking it brings that app into the side panel; clicking again hides it
+  while it keeps running. Command-P / Super-P lists apps and does the same.
+- An app pane is an ordinary runtime terminal, so it survives detach and
+  restart. Its placement and visibility are client state. When the program
+  exits, its pane closes instead of dropping to a shell.
+- Open: whether running apps belong to a workspace or to the window.
 
-- Remote runtime over SSH: the daemon on a development machine, the client local.
-- App profiles: lazygit, file managers, monitors and agents as named pane types,
-  with explicit new-instance versus focus and restart after exit. See
-  [the status log](status-log.md#apps-workbench-as-a-tui-window-manager).
+## v0.3: SSH hosts and worktrees
+
+- **Hosts panel.** Saved SSH hosts. A host pane is a runtime terminal running
+  `ssh`, remembered so it reconnects after a restart.
+- **A colour theme per host.** A host can be pinned to a terminal theme, so every
+  pane on that host is recognisable at a glance. It uses the existing
+  per-terminal colours; an explicit per-terminal choice still wins.
+- **Worktrees** in the Workspaces panel: create or pick a Git worktree and open a
+  workspace on it, with the worktree shown per workspace.
+- **Uncommitted changes.** Mark a pane's caption and its workspace in the
+  Workspaces panel when the working tree has changes that are not committed.
+  Today the runtime reads only small Git metadata files (HEAD, gitfile,
+  commondir) and never starts `git`. Dirty state needs either a rate-limited,
+  off-thread `git status --porcelain` per repository (shared by panes in the
+  same worktree, run on directory change and after commands) or reading the
+  index itself; the first is the likely choice.
+- A remote runtime (the daemon on the remote machine, the client local) is
+  evaluated after plain SSH panes.
 
 ## Later
 
+- Agent oversight, if it still earns its place: generic signals for agents
+  without hooks (bell, OSC 9/777, title changes, idleness) behind a small adapter
+  interface, desktop notifications, time in each state, "new agent in a new
+  worktree", and the open Claude/Copilot lifecycle edges.
 - Plugins with versioned capabilities and crash isolation
   ([notes](status-log.md#plugins-long-horizon)).
 - Signing, notarization and updates.
