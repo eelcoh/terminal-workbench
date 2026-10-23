@@ -153,16 +153,11 @@ def socket_path(directory, terminal):
         raise ValueError(f"Session socket path exceeds 103 bytes or contains a tab/newline: {path}. Use a shorter checkout path")
     return path
 
-def snapshot(directory, data):
-    version4=any("directory" in workspace for workspace in data["workspaces"])
-    lines = ["workbench-catalog-v4" if version4 else "workbench-catalog-v3"]
+def check_sockets(directory, data):
+    """Every saved terminal's socket path must fit the platform limit."""
     for workspace in data["workspaces"]:
-        lines.append("\t".join(["W", workspace["id"], workspace["name"]]))
-        if "directory" in workspace:
-            lines.append("\t".join(["D",workspace["id"],workspace["directory"]]))
         for terminal in workspace["terminals"]:
-            lines.append("\t".join(["T", workspace["id"], terminal["id"], terminal["name"], str(socket_path(directory, terminal))]))
-    return "\n".join(lines) + "\n"
+            socket_path(directory, terminal)
 
 def endpoint_alive(path):
     """Probe without sending input. Only absence/refusal establishes a dead endpoint."""
@@ -317,27 +312,10 @@ def mutate(data, method, identity, title, destination='', position=-1):
         raise ValueError("Unknown management action")
     validate(data)
 
-def custom_terminal_name(terminal):
-    value = terminal.get('custom_name')
-    if value is not None:
-        if not isinstance(value, bool):
-            raise ValueError('Invalid custom terminal name flag')
-        return value
-    title = terminal['name']
-    return not any(title.startswith(prefix) and title[len(prefix):].isascii() and title[len(prefix):].isdigit()
-                   for prefix in ('Shell ', 'Terminal '))
-
-def terminal_labels(data):
-    return 'workbench-terminal-labels-v1\n' + ''.join(
-        f"{terminal['id']}\t{int(custom_terminal_name(terminal))}\n"
-        for workspace in data['workspaces'] for terminal in workspace['terminals'])
-
 def save(directory, data):
     validate(data)
-    labels = terminal_labels(data)
+    check_sockets(directory, data)
     atomic_write(directory / "workspaces.json", json.dumps(data, ensure_ascii=False, indent=2) + "\n")
-    atomic_write(directory / "terminal-labels.tsv", labels)
-    atomic_write(directory / "workspaces.tsv", snapshot(directory, data))
 
 def finish_create(directory, data):
     """Reconcile durable creation intent without starting or stopping a shell."""
@@ -427,7 +405,7 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
             method="initialize-new"
         if method not in {"initialize","initialize-new"}:
             mutate(data, method, identity, title, destination, position)
-        snapshot(directory, data)  # Validate all socket paths before committing intent.
+        check_sockets(directory, data)  # Before committing intent.
         startup = data if method == "initialize" else {"workspaces": [
             {**workspace, "terminals": [terminal for terminal in workspace["terminals"] if terminal["id"] not in old_ids]}
             for workspace in data["workspaces"]
@@ -437,8 +415,7 @@ def manage(directory, runtime, cwd, method="initialize", identity="", title="", 
             launch = False
         launch_ids = [t["id"] for w in startup["workspaces"] for t in w["terminals"]] if launch else []
         if launch_ids:
-            # Commit identities BEFORE spawning. The TSV projection is published
-            # after launch, or repaired on the next initialization after a crash.
+            # Commit identities BEFORE spawning; a crash leaves recoverable intent.
             # A partial launch must not kill successful independent shells.
             for workspace in startup["workspaces"]:
                 if workspace["terminals"]:
@@ -494,7 +471,7 @@ def main():
             return 0
         data = request(args.state_dir, args.runtime, args.cwd, args.command, args.id, args.name, args.to, args.position, project_directory=args.directory, terminal_ids=args.terminals.split(",") if args.terminals else None)["data"]
         # Return the identity from this operation's locked result, never infer
-        # it from a later projection that another window may have changed.
+        # it from a later catalog that another window may have changed.
         if args.command in {"workspace.create", "workspace.create_at", "terminal.create"}:
             workspace = data["workspaces"][-1] if args.command in {"workspace.create","workspace.create_at"} else next(
                 item for item in data["workspaces"] if item["id"] == args.id)

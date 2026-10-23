@@ -5,9 +5,8 @@ runtime. The existing locked `workspaces.json` remains the authority; optional
 `pending_create` contains the launch identities. No new service or dependency is
 introduced. UI selection, focus and layout remain per-window presentation state.
 
-Successful creation publishes the same JSON and TSV projections as before. If
-the writer dies before all shells start, the next initialization or management
-operation clears the intent and repairs the projections. Listening runtimes keep
+Successful creation publishes `workspaces.json`. If the writer dies before all
+shells start, the next initialization or management operation clears the intent. Listening runtimes keep
 their PID, terminal state and stable identity. Missing runtimes remain stopped;
 **Start new shell** still requires explicit confirmation. Failed partial launches
 retain their successful shells. A creation error can therefore leave a saved
@@ -29,8 +28,8 @@ are harmless to stop again. Closing a window still only detaches its terminals.
 
 Atomic replacements flush file data and sync the parent directory where supported.
 This slice verifies process loss, not storage failure or power-loss guarantees.
-JSON/projection replacements are separate writes; initialization repairs stale
-TSV/label projections from JSON. Intent is bounded by the existing eight-workspace,
+The TSV and label projections the Raylib viewer read are no longer written
+(2026-10-23). Intent is bounded by the existing eight-workspace,
 eight-terminal limits. No journaling or filesystem work enters rendering, terminal
 parsing or PTY byte handling.
 
@@ -40,8 +39,8 @@ service-only shutdown/adoption flow. It leaves existing shell runtimes alive;
 the terminal transport and legacy method response contracts are unchanged.
 
 `just check` includes real process-kill tests before launch, after partial launch,
-after JSON commit before projection, and before/partway through workspace stop.
-Tests verify identity/projection repair, repeated initialization, explicit recovery,
+after JSON commit, and before/partway through workspace stop.
+Tests verify identity repair, repeated initialization, explicit recovery,
 same-PID live adoption, sibling shell variables/socket identity and appearance.
 They also cover normal launch errors, failed intent writes and malformed intent.
 All tests use disposable states and shells. The owner confirmed this automated

@@ -45,7 +45,7 @@ def main():
             data=call('workspace.create_at',title='Remote box',folder=str(second))['data']
             workspace=data['workspaces'][-1];other=workspace['terminals'][0]['id']
             assert inspect(other,'first-shell')[1]==str(second)
-            assert (state/'workspaces.tsv').read_text().startswith('workbench-catalog-v4\n')
+            assert data['workspaces'][-1]['directory']==str(second)
             before=(state/'workspaces.json').read_bytes()
             file=root/'file';file.write_text('not a folder')
             for folder in (str(root/'missing'),str(file),'bad\npath','x'*1024,None,[],123):

@@ -34,8 +34,8 @@ def worker(runtime, state, cwd, method, identity, boundary):
                 pause()
             if boundary == "committed" and "pending_create" not in data:
                 pause()
-        if boundary == "close-intent" and path.name == "workspaces.tsv":
-            pause()
+            if boundary == "close-intent" and "pending_close" in data:
+                pause()
     def stop_boundary(*args, **kwargs):
         result = run(*args, **kwargs)
         if boundary == "first-stop" and result.returncode == 0:
@@ -56,7 +56,7 @@ def main():
         # The service canonicalizes state paths (Mac /tmp -> /private/tmp).
         root = Path(temporary).resolve()
         # Initial partial seed, new terminal before/after launch, workspace and
-        # metadata committed before projection: all retain stable identities.
+        # committed metadata: all retain stable identities.
         cases = [("initialize", "first-spawn"), ("terminal.create", "intent"),
                  ("terminal.create", "first-spawn"), ("workspace.create", "first-spawn"),
                  ("terminal.create", "committed"), ("workspace.close", "close-intent"),
@@ -96,8 +96,6 @@ def main():
                 os.kill(process.pid, signal.SIGKILL); process.wait(timeout=5)
                 recovered = request(state, runtime, cwd)["data"]
                 assert "pending_create" not in recovered and "pending_close" not in recovered
-                assert (state / "workspaces.tsv").read_text() == catalog.snapshot(state, recovered)
-                assert (state / "terminal-labels.tsv").read_text() == catalog.terminal_labels(recovered)
                 assert request(state, runtime, cwd)["data"] == recovered
                 if method == "workspace.close":
                     assert {w["id"] for w in recovered["workspaces"]} == {"sibling"}

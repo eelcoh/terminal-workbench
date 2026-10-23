@@ -32,8 +32,6 @@ def main():
                 assert (state / 'workspaces.json').read_bytes() == before
             spawn.assert_not_called(); runtime.assert_not_called()
         assert catalog.load(state) == moved
-        projection = (state / 'workspaces.tsv').read_text()
-        assert str(state / 'one.sock') in projection and str(state / 'two.sock') in projection
         # Same-workspace reorder in a full workspace still succeeds.
         catalog.move_terminal(moved, 'f0', 'c', 7)
         assert moved['workspaces'][2]['terminals'][-1]['id'] == 'f0'

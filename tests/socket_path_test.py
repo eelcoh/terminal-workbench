@@ -71,18 +71,18 @@ def main():
             old= root/'legacy'; old.mkdir()
             legacy={'version':1,'workspaces':[{'id':'original','name':'Legacy','terminals':[{'id':'a'*32,'name':'Shell'}]}]}
             catalog.save(old,legacy)
-            assert catalog.load(old)==legacy and str(old/('a'*32+'.sock')) in (old/'workspaces.tsv').read_text()
+            assert catalog.load(old)==legacy
             # At the hard byte limit, creation fails before any runtime or file mutation.
             long=sized_directory(root,82)
             with patch.object(catalog,'ensure_sessions',return_value=[]) as spawn:
                 catalog.manage(long,runtime,root)
-                saved=(long/'workspaces.json').read_bytes(); projection=(long/'workspaces.tsv').read_bytes(); spawn.reset_mock()
+                saved=(long/'workspaces.json').read_bytes(); spawn.reset_mock()
                 for method,identity in [('workspace.create',''),('terminal.create','workspace-0')]:
                     try: catalog.manage(long,runtime,root,method,identity,'Too long')
                     except ValueError as error: assert '103 bytes' in str(error) and 'shorter checkout' in str(error)
                     else: raise AssertionError('overlong socket accepted')
                     spawn.assert_not_called()
-                    assert (long/'workspaces.json').read_bytes()==saved and (long/'workspaces.tsv').read_bytes()==projection
+                    assert (long/'workspaces.json').read_bytes()==saved
         finally:
             if data:
                 for workspace in data['workspaces']:

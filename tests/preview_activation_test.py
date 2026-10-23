@@ -72,7 +72,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         original_proof=proof.read_text();assert original_proof.endswith(str(payload(0)/'.local/bin'))
         config.mkdir();(config/'config.conf').write_text('managed preferences')
         view=state/'qt/windows/1.json';view.write_text('{"theme":"kept"}')
-        saved=[state/'workspaces.json',state/'workspaces.tsv',view,config/'config.conf']
+        saved=[state/'workspaces.json',view,config/'config.conf']
         snapshots={path:(path.read_bytes(),path.stat().st_mtime_ns) for path in saved}
         inodes={path:path.stat().st_ino for path in state.glob('*.sock')}
         first=health()

@@ -52,9 +52,9 @@ installed from a release artifact on a machine without Python.
 4. [x] **Qt parity and spike removal.** `spikes/ghostling`, its Raylib patches,
    launcher and spike-only tests are deleted (2026-10-23). The C headers the Qt
    client shared with it moved to `spikes/qt-input/core/`, and the runtime build
-   no longer goes through the spike (`scripts/build-runtime.py`). Remaining
-   cleanup: the service's TSV projection, which no client reads, and design
-   notes that still describe the viewer. Parity gaps closed first (2026-10-22):
+   no longer goes through the spike (`scripts/build-runtime.py`). The
+   viewer-only TSV projections are no longer written. Design notes that still
+   describe the viewer remain as history. Parity gaps closed first (2026-10-22):
    - [x] Mouse reporting to terminal applications (press/release/motion/wheel),
      with Shift to select locally.
    - [x] Double-click word and triple-click line selection, using VT gestures.

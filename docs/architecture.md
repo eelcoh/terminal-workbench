@@ -70,8 +70,7 @@ service`, in Rust) owns saved workspace and terminal names, identities, startup 
 recovery. All launcher/management CLI requests reuse that authority. It preserves
 `spike.sock` as Main's first shell
 when migrating the old fixed catalog. The shared organization is stored in
-`.local/sessions/workspaces.json`, which the Qt client reads. The service still
-writes a versioned TSV projection that only the removed viewer used.
+`.local/sessions/workspaces.json`, which the Qt client reads.
 New runtimes now retain their own VT state and support detached queries plus
 text/binary state reads.
 New viewers negotiate a pinned snapshot attachment on the control endpoint.
@@ -108,9 +107,8 @@ viewer's CLI until that viewer is removed. It exposes neutral `workspace.create`
 `workspace.close` commands. The viewer
 starts this CLI with structured arguments and polls its completion; shell output
 continues parsing while a name dialog is open. The helper serializes updates with
-an advisory lock, validates identities and names, and atomically replaces each
-metadata/projection file. JSON is authoritative; initialization regenerates the
-projection if a crash interrupted the second write. Unsupported or corrupt JSON
+an advisory lock, validates identities and names, and atomically replaces the
+JSON catalog. Unsupported or corrupt JSON
 is reported and preserved instead of being replaced with defaults.
 
 Renaming updates metadata without starting or replacing any session. Creation
@@ -142,9 +140,8 @@ silently recreated. All old-runtime endpoints are checked before recording inten
 or stopping any session; missing control endpoints produce a migration notice.
 An operational failure may leave a partially stopped workspace with pending intent;
 reopening retries the remaining stops. Empty workspaces and empty catalogs are valid.
-The version-3 projection has W records for workspace ID/name and T records for
-workspace ID, terminal ID/name, and socket path. Version-2 and old fixed projections
-remain readable for diagnostic clients.
+The TSV projections described above were removed with the viewer
+(2026-10-23); a legacy `workspaces.tsv` is still migrated when no JSON exists.
 
 ## Client overview
 
@@ -195,10 +192,8 @@ short presses and text when new typing completes a closing transition early.
 Spatial dragging is client presentation state. The neutral `terminal.move` catalog
 operation takes the stable terminal ID, destination workspace ID and final insertion
 index. Validation precedes mutation; a cross-workspace destination must have room.
-The helper saves JSON and then its TSV projection under the catalog lock, without
-starting or stopping a runtime. These two files are not a single atomic transaction:
-if projection writing fails after JSON succeeds, reopening regenerates the projection
-from canonical JSON. The viewer changes placement only after helper success.
+The helper saves JSON under the catalog lock, without starting or stopping a
+runtime. The viewer changes placement only after helper success.
 
 Catalog reconciliation searches every workspace for a terminal ID, preserving its
 heap address and all live resources when ownership changes. Focus stays on a

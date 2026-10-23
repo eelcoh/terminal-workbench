@@ -1,5 +1,5 @@
-//! Persistent workspace organization: validation, journaled mutations and the
-//! TSV projections, which no current client reads (removal pending).
+//! Persistent workspace organization: validation and journaled mutations of
+//! `workspaces.json`. A legacy `workspaces.tsv` is read once for migration.
 use serde_json::{json, Map, Value};
 use std::fs::{self, DirBuilder, File, OpenOptions};
 use std::io::{self, Read, Write};
@@ -442,34 +442,12 @@ pub(crate) fn socket_path(directory: &Path, identity: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-pub(crate) fn snapshot(directory: &Path, data: &Value) -> Result<String> {
-    let version4 = workspaces(data)
-        .iter()
-        .any(|w| w.get("directory").is_some());
-    let mut lines = vec![if version4 {
-        "workbench-catalog-v4"
-    } else {
-        "workbench-catalog-v3"
+/// Every saved terminal's socket path must fit the platform limit.
+pub(crate) fn check_sockets(directory: &Path, data: &Value) -> Result<()> {
+    for terminal in workspaces(data).iter().flat_map(terminals) {
+        socket_path(directory, id(terminal))?;
     }
-    .to_owned()];
-    for workspace in workspaces(data) {
-        let name = workspace["name"].as_str().unwrap_or("");
-        lines.push(format!("W\t{}\t{name}", id(workspace)));
-        if let Some(folder) = workspace.get("directory").and_then(Value::as_str) {
-            lines.push(format!("D\t{}\t{folder}", id(workspace)));
-        }
-        for terminal in terminals(workspace) {
-            let path = socket_path(directory, id(terminal))?;
-            lines.push(format!(
-                "T\t{}\t{}\t{}\t{}",
-                id(workspace),
-                id(terminal),
-                terminal["name"].as_str().unwrap_or(""),
-                path.display()
-            ));
-        }
-    }
-    Ok(lines.join("\n") + "\n")
+    Ok(())
 }
 
 /// Probe without sending input. Only absence/refusal establishes a dead endpoint.
@@ -810,43 +788,14 @@ fn mutate(
     validate(data)
 }
 
-fn custom_terminal_name(terminal: &Value) -> bool {
-    if let Some(flag) = terminal.get("custom_name").and_then(Value::as_bool) {
-        return flag;
-    }
-    let title = terminal["name"].as_str().unwrap_or("");
-    !["Shell ", "Terminal "].iter().any(|prefix| {
-        title
-            .strip_prefix(prefix)
-            .is_some_and(|rest| !rest.is_empty() && rest.bytes().all(|byte| byte.is_ascii_digit()))
-    })
-}
-
-fn terminal_labels(data: &Value) -> String {
-    let mut text = String::from("workbench-terminal-labels-v1\n");
-    for terminal in workspaces(data).iter().flat_map(terminals) {
-        text.push_str(&format!(
-            "{}\t{}\n",
-            id(terminal),
-            u8::from(custom_terminal_name(terminal))
-        ));
-    }
-    text
-}
-
 fn catalog_json(data: &Value) -> String {
     serde_json::to_string_pretty(data).expect("JSON values serialize") + "\n"
 }
 
 pub(crate) fn save(directory: &Path, data: &Value) -> Result<()> {
     validate(data)?;
-    let labels = terminal_labels(data);
-    atomic_write(&directory.join("workspaces.json"), &catalog_json(data))?;
-    atomic_write(&directory.join("terminal-labels.tsv"), &labels)?;
-    atomic_write(
-        &directory.join("workspaces.tsv"),
-        &snapshot(directory, data)?,
-    )
+    check_sockets(directory, data)?;
+    atomic_write(&directory.join("workspaces.json"), &catalog_json(data))
 }
 
 /// Reconcile durable creation intent without starting or stopping a shell.
@@ -1092,7 +1041,7 @@ pub(crate) fn manage(
     if method != "initialize" && method != "initialize-new" {
         mutate(&mut data, &method, identity, title, destination, position)?;
     }
-    snapshot(directory, &data)?; // Validate all socket paths before committing intent.
+    check_sockets(directory, &data)?; // Before committing intent.
     let startup = if method == "initialize" {
         data.clone()
     } else {
@@ -1113,8 +1062,7 @@ pub(crate) fn manage(
         vec![]
     };
     if !launch_ids.is_empty() {
-        // Commit identities BEFORE spawning. The TSV projection is published
-        // after launch, or repaired on the next initialization after a crash.
+        // Commit identities BEFORE spawning; a crash leaves recoverable intent.
         // A partial launch must not kill successful independent shells.
         for workspace in workspaces(&startup) {
             if !terminals(workspace).is_empty() {
@@ -1216,20 +1164,6 @@ mod tests {
     }
 
     #[test]
-    fn default_names_are_not_custom_labels() {
-        assert!(!custom_terminal_name(&json!({"name": "Shell 12"})));
-        assert!(!custom_terminal_name(&json!({"name": "Terminal 3"})));
-        assert!(custom_terminal_name(&json!({"name": "Shell "})));
-        assert!(custom_terminal_name(
-            &json!({"name": "Shell 1", "custom_name": true})
-        ));
-        assert_eq!(
-            terminal_labels(&sample()),
-            "workbench-terminal-labels-v1\na\t0\nb\t1\n"
-        );
-    }
-
-    #[test]
     fn save_round_trips_order_and_unknown_fields() {
         let root = temporary("save");
         let mut data = sample();
@@ -1238,9 +1172,7 @@ mod tests {
         let text = fs::read_to_string(root.join("workspaces.json")).unwrap();
         assert!(text.starts_with("{\n  \"version\": 1,\n  \"extra\": \"kept\","));
         assert_eq!(load(&root).unwrap(), data);
-        let projection = fs::read_to_string(root.join("workspaces.tsv")).unwrap();
-        assert!(projection
-            .starts_with("workbench-catalog-v4\nW\tw1\tOne\nD\tw1\t/tmp\nT\tw1\ta\tShell 1\t"));
+        assert!(!root.join("workspaces.tsv").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

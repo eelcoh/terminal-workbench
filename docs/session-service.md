@@ -57,7 +57,7 @@ and reply per connection. Protocol 1 exposes catalog operations, `health`,
 optional `catalog.read` (readonly), `terminal.status` (readonly),
 optional `terminal.lifecycle` (readonly), optional
 `session.stop` (explicit terminal IDs, organization retained), `terminal.recover`, `session.recover` and service shutdown. Requests are serialized
-and catalog writes retain the existing lock and JSON/TSV projection semantics.
+and catalog writes retain the existing lock and atomic JSON replacement.
 PTY input, snapshots and rendering do not travel through this service. Focus,
 selection and layout remain local to each window. There is no frame-time polling.
 
