@@ -31,6 +31,11 @@ def toolchain(path):
     options=[]
     if re.search(r'(?m)^\s*-no-codesign(?:\s|$)',help_text):options.append('-no-codesign')
     if re.search(r'(?m)^\s*-exclude-plugin-types=',help_text):options.append('-exclude-plugin-types=qmltooling')
+    # Homebrew splits Qt into packages (qtsvg, ...). Plugins from the shared plugin
+    # directory need frameworks the viewer never links; their rpaths resolve only
+    # through the linked library directory.
+    libraries=values.get('QT_INSTALL_LIBS','')
+    if libraries and Path(libraries).is_absolute() and Path(libraries).is_dir():options.append('-libpath='+libraries)
     return dict(version=values['QT_VERSION'],prefix=values['QT_INSTALL_PREFIX'],docs=values.get('QT_INSTALL_DOCS',''),tool=str(deploy),deployment_options=options)
 
 

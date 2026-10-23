@@ -149,8 +149,12 @@ def main():
             sys.path.insert(0, str(ROOT / 'scripts'))
             from platform_launchers.macos_deploy import toolchain, deploy
             info = toolchain(BUILD / 'workbench-qt-tools.txt')
+            # Copy only the QML modules Qt's scanner finds in our sources, not every
+            # installed module; the frameworks they need are then deployed as usual.
+            imports = Path((BUILD / 'workbench-qml-deploy.txt').read_text().strip())
             bundle = assemble_macos(parent, runtime, BUILD / 'band-ui.app/Contents/MacOS/band-ui', BUILD / 'band-launcher',
-                                    deploy=lambda bundle, payload: deploy(bundle, payload, info, ROOT / 'native/macos/qt-deployment'))
+                                    deploy=lambda bundle, payload: deploy(bundle, payload, info, ROOT / 'native/macos/qt-deployment',
+                                                                          qml_deploy_script=imports))
             destination = DIST / f'Band-{version()}-macos-{architecture()}.zip'
             destination.unlink(missing_ok=True)
             archive_macos(bundle, destination)

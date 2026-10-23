@@ -12,6 +12,7 @@ from unittest.mock import patch
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT/'scripts'))
 from platform_launchers import macos_tools as tools
+from platform_launchers import macos_deploy
 
 
 class ToolTest(unittest.TestCase):
@@ -78,6 +79,23 @@ class ToolTest(unittest.TestCase):
         messages=[]
         with self.assertRaises(subprocess.CalledProcessError):self.invoke('raise SystemExit(23)\n',report=messages.append)
         self.assertFalse(any('finished' in message for message in messages))
+
+
+class ToolchainTest(unittest.TestCase):
+    def test_options_follow_the_tool_and_include_the_qt_library_directory(self):
+        with tempfile.TemporaryDirectory(prefix='wb qt tools ') as directory:
+            root=Path(directory);bins=root/'bin';libs=root/'lib';bins.mkdir();libs.mkdir()
+            qtpaths=bins/'qtpaths'
+            qtpaths.write_text('#!/bin/sh\nprintf "QT_VERSION:6.9.1\\nQT_INSTALL_BINS:%s\\nQT_INSTALL_PREFIX:%s\\nQT_INSTALL_LIBS:%s\\n" '
+                f'"{bins}" "{root}" "{libs}"\n');qtpaths.chmod(0o755)
+            deploy=bins/'macdeployqt'
+            deploy.write_text('#!/bin/sh\necho "   -no-codesign  : skip"\necho "   -exclude-plugin-types=<list>"\nexit 1\n');deploy.chmod(0o755)
+            information=root/'tools.txt';information.write_text(f'{qtpaths}\n6.9.1\n')
+            info=macos_deploy.toolchain(information)
+            self.assertEqual(info['tool'],str(deploy))
+            self.assertEqual(info['deployment_options'],['-no-codesign','-exclude-plugin-types=qmltooling','-libpath='+str(libs)])
+            libs.rmdir()
+            self.assertNotIn('-libpath='+str(libs),macos_deploy.toolchain(information)['deployment_options'])
 
 
 if __name__=='__main__':unittest.main()
