@@ -101,13 +101,10 @@ historical replay; it does not classify an agent as working or blocked.
 ## Catalog management
 
 The Rust service in `crates/runtime/src/service/` implements these rules for all
-clients. `scripts/workspace_catalog.py` is the Python original, kept as the frozen
-viewer's CLI until that viewer is removed. It exposes neutral `workspace.create`,
+clients; it is the only implementation. Clients send neutral `workspace.create`,
 `workspace.rename`, `terminal.create`, `terminal.rename`, `terminal.close`, and
-`workspace.close` commands. The viewer
-starts this CLI with structured arguments and polls its completion; shell output
-continues parsing while a name dialog is open. The helper serializes updates with
-an advisory lock, validates identities and names, and atomically replaces the
+`workspace.close` requests. The service serializes updates with an advisory
+lock, validates identities and names, and atomically replaces the
 JSON catalog. Unsupported or corrupt JSON
 is reported and preserved instead of being replaced with defaults.
 

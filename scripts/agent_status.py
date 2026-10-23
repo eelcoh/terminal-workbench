@@ -10,7 +10,7 @@ import stat
 import struct
 import subprocess
 from datetime import datetime
-from workspace_catalog import validate, socket_path
+from catalog_files import check_identities, socket_path
 
 LIMIT = 4096
 
@@ -63,7 +63,7 @@ def main():
     args = parser.parse_args()
     # Read the existing catalog directly: no seed, lock file, startup or recovery.
     data = json.loads((args.state_dir/'workspaces.json').read_text())
-    validate(data)
+    check_identities(data)
     runtime = root/'target/debug/workbench-session'
     if runtime.exists():
         print('Built runtime modified: '+datetime.fromtimestamp(runtime.stat().st_mtime).astimezone().isoformat())

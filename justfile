@@ -1,8 +1,8 @@
-config-path:
-    python3 scripts/config_paths.py
+config-path: runtime-build
+    target/debug/workbench-session config-path
 
-config-init:
-    python3 scripts/config_paths.py --init
+config-init: runtime-build
+    target/debug/workbench-session config-path --init
 
 default:
     @just --list
@@ -25,13 +25,11 @@ check: runtime-build
     python3 tests/context_smoke.py target/debug/workbench-session
     python3 tests/terminal_core_smoke.py target/debug/workbench-session
     python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
-    python3 tests/catalog_test.py
     python3 tests/catalog_journal_test.py target/debug/workbench-session
     python3 tests/session_shutdown_test.py target/debug/workbench-session
     python3 tests/session_soak.py target/debug/workbench-session --seconds 3 --terminals 1 --report .local/test-results/session-soak-check.json
     python3 tests/session_soak_interrupt_test.py target/debug/workbench-session
     python3 tests/socket_path_test.py target/debug/workbench-session
-    python3 tests/move_test.py
     python3 tests/close_smoke.py target/debug/workbench-session
     python3 tests/agent_smoke.py target/debug/workbench-session
     python3 tests/attention_smoke.py target/debug/workbench-session
@@ -41,14 +39,12 @@ check: runtime-build
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/core_headers_test.py
     python3 tests/terminal_search_vt_test.py
-    python3 tests/config_paths_test.py
+    python3 tests/config_path_test.py target/debug/workbench-session
     python3 tests/build_env_test.py
     python3 tests/recovery_test.py target/debug/workbench-session
     python3 tests/session_service_test.py target/debug/workbench-session
     python3 tests/service_startup_cleanup_test.py
-    python3 tests/terminal_status_cli_test.py
     python3 tests/preview_usage_test.py
-    python3 tests/lifecycle_record_test.py
     python3 tests/lifecycle_smoke.py target/debug/workbench-session
     python3 tests/terminal_dismiss_test.py target/debug/workbench-session
     python3 tests/workspace_directories_test.py target/debug/workbench-session
@@ -64,7 +60,7 @@ runtime-test: runtime-build
 
 # Explicitly recover dead session endpoints after a reboot or runtime crash.
 recover-sessions:
-    python3 scripts/workspace_catalog.py --state-dir .local/sessions --runtime target/debug/workbench-session --cwd . --command session.recover
+    python3 scripts/session_service.py recover-all --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
 
 # Runtime VT parsing cardinality, detached, fixed geometry (Linux diagnostic only).
 runtime-core-scale: runtime-build
@@ -288,7 +284,7 @@ toolkit-install-preview-test: toolkit-stage
 toolkit-preview-list:
     python3 scripts/list-toolkit-previews.py
 
-toolkit-preview-list-test:
+toolkit-preview-list-test: runtime-build
     python3 tests/preview_inventory_test.py
 
 # Build and install a fresh preview; activation and opening remain explicit.

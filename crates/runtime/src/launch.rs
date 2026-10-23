@@ -145,12 +145,17 @@ pub fn prepare_config_directory() -> Result<PathBuf> {
     {
         return Ok(directory);
     }
-    let legacy = home().join("Library/Application Support/Terminal Workbench");
+    migrate_macos_config(&home(), &directory)?;
+    Ok(directory)
+}
+
+fn migrate_macos_config(home: &Path, directory: &Path) -> Result<()> {
+    let legacy = home.join("Library/Application Support/Terminal Workbench");
     let marker = directory.join(".migrated-macos-config-v1");
-    if marker.exists() || !legacy.is_dir() || resolve(&directory) == resolve(&legacy) {
-        return Ok(directory);
+    if marker.exists() || !legacy.is_dir() || resolve(directory) == resolve(&legacy) {
+        return Ok(());
     }
-    create_private(&directory)?;
+    create_private(directory)?;
     copy_missing(&legacy.join("config.conf"), &directory.join("config.conf"))?;
     copy_missing(&legacy.join("themes"), &directory.join("themes"))?;
     for name in [
@@ -168,8 +173,62 @@ pub fn prepare_config_directory() -> Result<PathBuf> {
     publish_once(
         &marker,
         b"Application Support preferences copied; original files retained.\n",
-    )?;
-    Ok(directory)
+    )
+}
+
+const CONFIG_EXAMPLE: &str = include_str!("config-example.conf");
+
+/// Write the example only when no config file (or symlink to one) exists.
+fn init_config(path: &Path) -> Result<bool> {
+    create_private(path.parent().unwrap_or(Path::new(".")))?;
+    match OpenOptions::new().write(true).create_new(true).open(path) {
+        Ok(mut file) => file.write_all(CONFIG_EXAMPLE.as_bytes()).map_err(os)?,
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => return Ok(false),
+        Err(error) => return Err(os(error)),
+    }
+    Ok(true)
+}
+
+/// `workbench-session config-path [--prepare | --init]`: print the portable
+/// config file. `--prepare` first copies earlier macOS preferences once;
+/// `--init` also writes the example when no config file exists.
+pub fn config_path(mut args: impl Iterator<Item = OsString>) -> i32 {
+    let (prepare, init) = match (args.next(), args.next()) {
+        (None, _) => (false, false),
+        (Some(flag), None) if flag == "--prepare" => (true, false),
+        (Some(flag), None) if flag == "--init" => (true, true),
+        _ => {
+            eprintln!("usage: workbench-session config-path [--prepare | --init]");
+            return 2;
+        }
+    };
+    let directory = if prepare {
+        match prepare_config_directory() {
+            Ok(directory) => directory,
+            Err(error) => {
+                eprintln!("Configuration: {error}");
+                return 1;
+            }
+        }
+    } else {
+        config_directory()
+    };
+    let path = directory.join("config.conf");
+    if init {
+        match init_config(&path) {
+            Ok(true) => {}
+            Ok(false) => {
+                println!("Existing configuration preserved: {}", path.display());
+                return 0;
+            }
+            Err(error) => {
+                eprintln!("Configuration: {error}");
+                return 1;
+            }
+        }
+    }
+    println!("{}", path.display());
+    0
 }
 
 fn private_regular(file: &File, message: &str, mask: u32) -> Result<()> {
@@ -539,6 +598,78 @@ mod tests {
         assert_eq!(info["revision"], revision);
         assert_eq!(info["qt_bundled"], true);
         assert_eq!(info["source_dirty"], false);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn macos_migration_copies_preferences_once_without_sessions() {
+        let root = std::env::temp_dir().join(format!("wb-migrate-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let home = root.join("home");
+        let legacy = home.join("Library/Application Support/Terminal Workbench");
+        fs::create_dir_all(legacy.join("themes/imports")).unwrap();
+        fs::create_dir_all(legacy.join("ui/macos")).unwrap();
+        fs::write(legacy.join("config.conf"), "managed Mac settings").unwrap();
+        fs::write(legacy.join("themes/miasma"), "background = #222222\n").unwrap();
+        fs::write(legacy.join("themes/imports/imports.json"), "{}").unwrap();
+        fs::write(legacy.join("themes/imports/imports.lock"), "stale").unwrap();
+        fs::write(legacy.join("ui/macos/terminal-font.json"), "{}").unwrap();
+        fs::write(legacy.join("workspaces.json"), "never copy sessions").unwrap();
+        let theme = root.join("managed-theme");
+        fs::write(&theme, "background = #111111\n").unwrap();
+        std::os::unix::fs::symlink(&theme, legacy.join("themes/linked")).unwrap();
+        let target = home.join(".config/terminal-workbench");
+        migrate_macos_config(&home, &target).unwrap();
+        assert_eq!(
+            fs::read_to_string(target.join("config.conf")).unwrap(),
+            "managed Mac settings"
+        );
+        assert!(target.join("themes/miasma").exists());
+        assert!(target.join("ui/macos/terminal-font.json").exists());
+        assert!(target.join("themes/linked").is_symlink());
+        assert!(!target.join("workspaces.json").exists());
+        assert!(!target.join("themes/imports/imports.lock").exists());
+        // Deleted choices never remigrate; the original folder stays untouched.
+        fs::remove_file(target.join("themes/miasma")).unwrap();
+        migrate_macos_config(&home, &target).unwrap();
+        assert!(!target.join("themes/miasma").exists());
+        assert!(legacy.join("themes/miasma").exists());
+        // Existing choices and symlinked folders are never overwritten.
+        let merged = root.join("merged");
+        let existing = root.join("existing-themes");
+        fs::create_dir_all(&merged).unwrap();
+        fs::create_dir_all(&existing).unwrap();
+        fs::write(merged.join("config.conf"), "new choice").unwrap();
+        std::os::unix::fs::symlink(&existing, merged.join("themes")).unwrap();
+        migrate_macos_config(&home, &merged).unwrap();
+        assert_eq!(
+            fs::read_to_string(merged.join("config.conf")).unwrap(),
+            "new choice"
+        );
+        assert_eq!(fs::read_dir(&existing).unwrap().count(), 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn config_init_preserves_existing_files_and_symlinks() {
+        let root = std::env::temp_dir().join(format!("wb-config-init-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let fresh = root.join("fresh/config.conf");
+        assert!(init_config(&fresh).unwrap());
+        assert!(fs::read_to_string(&fresh)
+            .unwrap()
+            .starts_with("workbench-config-v1\n"));
+        fs::write(&fresh, "# managed\n").unwrap();
+        assert!(!init_config(&fresh).unwrap());
+        assert_eq!(fs::read_to_string(&fresh).unwrap(), "# managed\n");
+        let tracked = root.join("tracked");
+        fs::write(&tracked, "# tracked\n").unwrap();
+        let linked = root.join("linked/config.conf");
+        fs::create_dir_all(linked.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&tracked, &linked).unwrap();
+        assert!(!init_config(&linked).unwrap());
+        assert!(linked.is_symlink());
+        assert_eq!(fs::read_to_string(&tracked).unwrap(), "# tracked\n");
         fs::remove_dir_all(root).unwrap();
     }
 }

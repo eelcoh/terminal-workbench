@@ -6,7 +6,7 @@ from session_smoke import read_frame,send,wait_until
 from snapshot_attach_smoke import snapshot_attach,collect
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT/'scripts'))
-import workspace_catalog as catalog
+import catalog_files
 from session_service import request,exchange,Unavailable,ReplyClosed
 
 
@@ -98,7 +98,7 @@ def main():
             try:exchange(state,dict(protocol=1,method='health'));return False
             except (Unavailable,ReplyClosed,ConnectionResetError,BrokenPipeError):return True
         try:
-            catalog.save(state,data);catalog.ensure_sessions(state,data,runtime,root);service=call()['service_pid']
+            catalog_files.save(state,data);call('session.recover');service=call()['service_pid']
             saved=(state/'workspaces.json').read_bytes();(state/'appearance.state').write_bytes(b'soak preferences')
             for identity in ids:
                 client=clients[identity]=attach(identity)
@@ -180,7 +180,7 @@ def main():
             try:call('service.shutdown')
             except (ValueError,OSError) as error:cleanup_errors.append(str(error))
             if cleanup_errors:summary.update(passed=False,cleanup_errors=cleanup_errors)
-            args.report.parent.mkdir(parents=True,exist_ok=True);catalog.atomic_write(args.report,json.dumps(summary)+'\n')
+            args.report.parent.mkdir(parents=True,exist_ok=True);catalog_files.atomic_write(args.report,json.dumps(summary)+'\n')
             print('Report: '+str(args.report),flush=True)
             if cleanup_errors:raise AssertionError('Disposable cleanup failed: '+str(cleanup_errors))
             if summary['passed']:

@@ -29,7 +29,7 @@ sys.exit(int(os.environ['WB_UI_EXIT']))
 ''');viewer.chmod(0o700)
     # A private import directory supplies existing test helpers to this fake viewer.
     imports=Path(str(viewer)+'.scripts');imports.mkdir()
-    for name,path in [('session_service.py',ROOT/'scripts/session_service.py'),('workspace_catalog.py',ROOT/'scripts/workspace_catalog.py'),('session_smoke.py',ROOT/'tests/session_smoke.py')]:
+    for name,path in [('session_service.py',ROOT/'scripts/session_service.py'),('catalog_files.py',ROOT/'scripts/catalog_files.py'),('session_smoke.py',ROOT/'tests/session_smoke.py')]:
         (imports/name).symlink_to(path)
     for exit_code in (0,42):
         evidence=root/'evidence.json';env=dict(os.environ,WORKBENCH_CONFIG_DIR=str(root/"config"),SHELL='/bin/sh',WB_UI_EVIDENCE=str(evidence),WB_UI_EXIT=str(exit_code))

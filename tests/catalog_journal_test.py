@@ -1,103 +1,99 @@
 #!/usr/bin/env python3
-"""Kill the catalog writer at transaction boundaries, then use the real service."""
+"""Recover catalogs interrupted at each transaction boundary through the real service.
+
+Each case writes the journal a crashed writer would leave (identities committed
+before launch, close intent before stops) with the matching live runtimes.
+"""
 from pathlib import Path
 import copy
 import json
 import os
-import signal
 import subprocess
 import sys
 import tempfile
-import time
-from unittest.mock import patch
 from session_smoke import attach, send, wait_until
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-import workspace_catalog as catalog
+import catalog_files
 from session_service import request
 
+BASE = {"version": 1, "workspaces": [
+    {"id": "target", "name": "Target", "terminals": [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}]},
+    {"id": "sibling", "name": "Sibling", "terminals": [{"id": "c", "name": "C"}]}]}
+SEED = {"version": 1, "workspaces": [
+    {"id": "workspace-0", "name": "Main", "terminals": [{"id": "spike", "name": "Shell 1"}, {"id": "main-2", "name": "Shell 2"}]},
+    {"id": "workspace-1", "name": "Scratch", "terminals": [{"id": "scratch-1", "name": "Shell 1"}, {"id": "scratch-2", "name": "Shell 2"}]}]}
 
-def worker(runtime, state, cwd, method, identity, boundary):
-    # Test-only interception: no crash controls or environment hooks in production.
-    write = catalog.atomic_write
-    run = catalog.subprocess.run
-    def pause():
-        (cwd / "paused").write_text("ready")
-        while True:
-            time.sleep(0.1)
-    def write_boundary(path, value):
-        write(path, value)
-        if path.name == "workspaces.json":
-            data = json.loads(value)
-            if boundary == "intent" and "pending_create" in data:
-                pause()
-            if boundary == "committed" and "pending_create" not in data:
-                pause()
-            if boundary == "close-intent" and "pending_close" in data:
-                pause()
-    def stop_boundary(*args, **kwargs):
-        result = run(*args, **kwargs)
-        if boundary == "first-stop" and result.returncode == 0:
-            pause()
-        return result
-    def spawned(identity, process):
-        if boundary == "first-spawn":
-            pause()
-    with patch.object(catalog, "atomic_write", side_effect=write_boundary), patch.object(catalog.subprocess, "run", side_effect=stop_boundary):
-        catalog.manage(state, runtime, cwd, method, identity, "Interrupted", on_spawn=spawned)
-    raise AssertionError("missed crash boundary")
+
+def with_terminal(data):
+    data = copy.deepcopy(data); data["workspaces"][0]["terminals"].append({"id": "n", "name": "Interrupted"}); return data
+
+
+def with_workspace(data):
+    data = copy.deepcopy(data)
+    data["workspaces"].append({"id": "new", "name": "Interrupted", "terminals": [{"id": "n", "name": "Shell 1"}]})
+    return data
+
+
+def cases():
+    """(label, catalog left on disk, terminals running, terminals stopped after the crash)."""
+    close = dict(copy.deepcopy(BASE), pending_close={"terminals": ["a", "b"], "workspaces": ["target"]})
+    return [
+        ("initialize first-spawn", dict(copy.deepcopy(SEED), pending_create=["spike", "main-2", "scratch-1", "scratch-2"]), ["spike"], []),
+        ("terminal.create intent", dict(with_terminal(BASE), pending_create=["n"]), ["a", "b", "c"], []),
+        ("terminal.create first-spawn", dict(with_terminal(BASE), pending_create=["n"]), ["a", "b", "c", "n"], []),
+        ("workspace.create first-spawn", dict(with_workspace(BASE), pending_create=["n"]), ["a", "b", "c", "n"], []),
+        ("terminal.create committed", with_terminal(BASE), ["a", "b", "c", "n"], []),
+        ("workspace.close close-intent", close, ["a", "b", "c"], []),
+        ("workspace.close first-stop", close, ["a", "b", "c"], ["a"]),
+    ]
 
 
 def main():
     runtime = Path(sys.argv[1]).resolve()
     os.environ["SHELL"] = "/bin/sh"
+
+    def spawn(state, cwd, identities):
+        for identity in identities:
+            with (state / "fixture.log").open("ab") as log:
+                subprocess.Popen([str(runtime), str(state / (identity + ".sock")), "/bin/sh"], cwd=cwd,
+                                 stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+        for identity in identities:
+            receipt = state / (identity + ".lifecycle")
+            wait_until(lambda: receipt.exists() and json.loads(receipt.read_text()).get("event") == "running")
+
+    def cleanup(state, cwd):
+        for path in state.glob("*.sock"):
+            subprocess.run([str(runtime), "stop", str(path)], capture_output=True, timeout=15)
+        try: request(state, runtime, cwd, "service.shutdown")
+        except (ValueError, OSError): pass
+
     with tempfile.TemporaryDirectory(prefix="wb-journal-") as temporary:
         # The service canonicalizes state paths (Mac /tmp -> /private/tmp).
         root = Path(temporary).resolve()
-        # Initial partial seed, new terminal before/after launch, workspace and
-        # committed metadata: all retain stable identities.
-        cases = [("initialize", "first-spawn"), ("terminal.create", "intent"),
-                 ("terminal.create", "first-spawn"), ("workspace.create", "first-spawn"),
-                 ("terminal.create", "committed"), ("workspace.close", "close-intent"),
-                 ("workspace.close", "first-stop")]
-        for index, (method, boundary) in enumerate(cases):
+        for index, (label, intent, running, stopped_first) in enumerate(cases()):
             cwd = root / str(index); cwd.mkdir()
             state = cwd / "s"; state.mkdir(mode=0o700)
             peer = None
-            process = None
             try:
-                if method != "initialize":
-                    # A populated target and independent sibling, all real shells.
-                    data = {"version": 1, "workspaces": [
-                        {"id": "target", "name": "Target", "terminals": [
-                            {"id": "a", "name": "A"}, {"id": "b", "name": "B"}]},
-                        {"id": "sibling", "name": "Sibling", "terminals": [{"id": "c", "name": "C"}]}]}
-                    catalog.save(state, data)
-                    catalog.ensure_sessions(state, data, runtime, cwd)
+                catalog_files.save(state, intent)
+                spawn(state, cwd, running)
+                for identity in stopped_first:
+                    subprocess.run([str(runtime), "stop", str(state / (identity + ".sock"))], check=True, capture_output=True, timeout=15)
+                if "c" in running:
                     peer, _, _ = attach(state / "c.sock")
                     send(peer, 16, b'keep=survives; echo $$ > before.pid\n')
                     wait_until(lambda: (cwd / "before.pid").exists())
                     pid = (cwd / "before.pid").read_text().strip()
                     inode = (state / "c.sock").stat().st_ino
                     (state / "appearance.state").write_text("unchanged")
-                process = subprocess.Popen([sys.executable, __file__, "--worker", str(runtime), str(state), str(cwd), method,
-                                            "target" if method in {"terminal.create", "workspace.close"} else "", boundary])
-                wait_until(lambda: (cwd / "paused").exists())
-                intent = catalog.load(state)
-                live_ids = [t["id"] for w in intent["workspaces"] for t in w["terminals"]
-                            if (state / (t["id"] + ".sock")).exists()]
-                for live_id in live_ids:
-                    receipt = state / (live_id + ".lifecycle")
-                    wait_until(lambda: receipt.exists() and json.loads(receipt.read_text()).get("event") == "running")
-                before = {t["id"]: json.loads((state / (t["id"] + ".lifecycle")).read_text())["runtime_pid"]
-                          for w in intent["workspaces"] for t in w["terminals"]
-                          if (state / (t["id"] + ".sock")).exists()}
-                os.kill(process.pid, signal.SIGKILL); process.wait(timeout=5)
+                before = {i: json.loads((state / (i + ".lifecycle")).read_text())["runtime_pid"]
+                          for i in running if i not in stopped_first}
                 recovered = request(state, runtime, cwd)["data"]
                 assert "pending_create" not in recovered and "pending_close" not in recovered
                 assert request(state, runtime, cwd)["data"] == recovered
-                if method == "workspace.close":
+                if "pending_close" in intent:
                     assert {w["id"] for w in recovered["workspaces"]} == {"sibling"}
                     assert not (state / "a.sock").exists() and not (state / "b.sock").exists()
                 else:
@@ -117,67 +113,44 @@ def main():
                     assert (cwd / "after.pid").read_text() == pid + ":survives"
                     assert (state / "c.sock").stat().st_ino == inode
                     assert (state / "appearance.state").read_text() == "unchanged"
-                print("PASS:", method, boundary, flush=True)
+                print("PASS:", label, flush=True)
             finally:
-                if process and process.poll() is None:
-                    process.kill(); process.wait(timeout=5)
                 if peer: peer.close()
-                for path in state.glob("*.sock"):
-                    subprocess.run([str(runtime), "stop", str(path)], capture_output=True, timeout=15)
-                try: request(state, runtime, cwd, "service.shutdown")
-                except (ValueError, OSError): pass
-        # Ordinary launch errors also retain successful shells and saved intent.
-        state = root / "partial"; state.mkdir(mode=0o700)
-        def interrupted(identity, process):
-            raise ValueError("injected post-launch error")
-        try:
-            try: catalog.manage(state, runtime, root, on_spawn=interrupted)
-            except ValueError as error: assert str(error) == "injected post-launch error"
-            else: raise AssertionError("error was swallowed")
-            assert "pending_create" in catalog.load(state)
-            receipt = state / "spike.lifecycle"
-            wait_until(lambda: receipt.exists() and json.loads(receipt.read_text()).get("event") == "running")
-            live = json.loads(receipt.read_text())["runtime_pid"]
-            request(state, runtime, root)
-            health = request(state, runtime, root, "health")
-            assert [t["id"] for t in health["terminals"] if t["state"] == "running"] == ["spike"]
-            assert json.loads((state / "spike.lifecycle").read_text())["runtime_pid"] == live
-        finally:
-            for path in state.glob("*.sock"):
-                subprocess.run([str(runtime), "stop", str(path)], capture_output=True, timeout=15)
-            request(state, runtime, root, "service.shutdown")
+                cleanup(state, cwd)
         # A failed intent write cannot start any process or alter existing data.
-        state = root / "write-error"; state.mkdir()
-        catalog.save(state, {"version": 1, "workspaces": []})
-        before = (state / "workspaces.json").read_bytes()
-        with patch.object(catalog, "atomic_write", side_effect=OSError("disk error")), patch.object(catalog, "ensure_sessions") as start:
-            try: catalog.manage(state, runtime, root, "workspace.create", title="Unwritten")
-            except OSError: pass
+        state = root / "write-error"; state.mkdir(mode=0o700)
+        catalog_files.save(state, {"version": 1, "workspaces": []})
+        try:
+            request(state, runtime, root)
+            before = (state / "workspaces.json").read_bytes()
+            state.chmod(0o500)
+            try: request(state, runtime, root, "workspace.create", title="Unwritten")
+            except ValueError: pass
             else: raise AssertionError("failed intent write succeeded")
-            start.assert_not_called()
-            assert (state / "workspaces.json").read_bytes() == before
-        print("PASS: partial launch-error preservation and failed-intent isolation")
+            finally: state.chmod(0o700)
+            assert (state / "workspaces.json").read_bytes() == before and not list(state.glob("*.sock"))
+            print("PASS: failed-intent isolation")
+        finally:
+            cleanup(state, root)
         # Malformed intents must fail before any process or filesystem mutation.
-        state = root / "bad"; state.mkdir()
+        state = root / "bad"; state.mkdir(mode=0o700)
         base = {"version": 1, "workspaces": [{"id": "w", "name": "W", "terminals": [{"id": "t", "name": "T"}]}]}
-        for fields in ({"pending_create": ["missing"]}, {"pending_create": ["t", "t"]}, {"pending_create": []},
-                       {"pending_create": [None]}, {"pending_close": {"terminals": [], "workspaces": ["w"]}},
-                       {"pending_close": {"terminals": ["t", "t"], "workspaces": []}},
-                       {"pending_close": {"terminals": [], "workspaces": []}},
-                       {"pending_close": {"terminals": ["t"], "workspaces": []}, "pending_create": ["t"]}):
-            data = copy.deepcopy(base); data.update(fields)
-            text = json.dumps(data); (state / "workspaces.json").write_text(text)
-            with patch.object(catalog, "ensure_sessions") as start, patch.object(catalog.subprocess, "run") as stop:
-                try: catalog.manage(state, runtime, root)
+        try:
+            for fields in ({"pending_create": ["missing"]}, {"pending_create": ["t", "t"]}, {"pending_create": []},
+                           {"pending_create": [None]}, {"pending_close": {"terminals": [], "workspaces": ["w"]}},
+                           {"pending_close": {"terminals": ["t", "t"], "workspaces": []}},
+                           {"pending_close": {"terminals": [], "workspaces": []}},
+                           {"pending_close": {"terminals": ["t"], "workspaces": []}, "pending_create": ["t"]}):
+                data = copy.deepcopy(base); data.update(fields)
+                text = json.dumps(data); (state / "workspaces.json").write_text(text)
+                try: request(state, runtime, root)
                 except ValueError: pass
                 else: raise AssertionError("invalid intent accepted")
-                start.assert_not_called(); stop.assert_not_called()
-                assert (state / "workspaces.json").read_text() == text
-        print("PASS: invalid intent isolation and complete workspace-close validation")
+                assert (state / "workspaces.json").read_text() == text and not list(state.glob("*.sock"))
+            print("PASS: invalid intent isolation and complete workspace-close validation")
+        finally:
+            cleanup(state, root)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "--worker":
-        worker(*[Path(v) for v in sys.argv[2:5]], *sys.argv[5:8])
-    else:
-        main()
+    main()

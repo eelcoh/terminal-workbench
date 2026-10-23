@@ -6,9 +6,11 @@ from session_smoke import attach,send,wait_until
 ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT/'scripts'))
 from session_service import request
-from terminal_lifecycle import detail,read_record
-import workspace_catalog
 runtime=Path(sys.argv[1]).resolve()
+def read_record(socket):
+    # Field validation is covered by the service's unit tests; this reads raw evidence.
+    try:return json.loads(socket.with_suffix('.lifecycle').read_text())
+    except (OSError,ValueError):return None
 with tempfile.TemporaryDirectory(prefix='wb-life-') as directory:
     root=Path(directory);state=root/'sessions';os.environ['SHELL']='/bin/sh';connection=None
     def call(method='initialize',identity=''):return request(state,runtime,root,method,identity)
@@ -40,20 +42,27 @@ with tempfile.TemporaryDirectory(prefix='wb-life-') as directory:
         assert read_record(state/'main-2.sock')['shell_pid']==sibling and call('terminal.status','main-2')['state']=='running'
         # The new runtime resets evidence even when shell startup fails.
         failed=root/'failed.sock';result=subprocess.run([str(runtime),str(failed),'/no-such-shell'],capture_output=True,timeout=5)
-        assert result.returncode!=0 and detail(failed,'stopped')['reason']=='startup_failed'
+        assert result.returncode!=0 and read_record(failed)['event']=='startup_failed'
         # An older runtime launched through the catalog cannot inherit a prior exit.
         legacy=root/'legacy';legacy.mkdir();fake=root/'older-runtime'
-        fake.write_text('#!'+sys.executable+'\nimport socket,sys,time\ns=socket.socket(socket.AF_UNIX)\ns.bind(sys.argv[1]);s.listen();time.sleep(30)\n');fake.chmod(0o700)
         path=legacy/'old.sock';record=dict(initial,event='exited',exit_code=42,signal=None)
         path.with_suffix('.lifecycle').write_text(json.dumps(record));path.with_suffix('.lifecycle').chmod(0o600)
-        processes=[]
+        catalog={'version':1,'workspaces':[{'id':'legacy','name':'Legacy','terminals':[{'id':'old','name':'Old'}]}]}
+        (legacy/'workspaces.json').write_text(json.dumps(catalog))
+        fake.write_text('#!'+sys.executable+'\nimport os,socket,sys,time\nopen(sys.argv[1]+".pid","w").write(str(os.getpid()))\ns=socket.socket(socket.AF_UNIX)\ns.bind(sys.argv[1]);s.listen();time.sleep(30)\n');fake.chmod(0o700)
+        # The service records the launch before starting a runtime that writes no evidence.
+        service=subprocess.Popen([str(runtime),'service','--state-dir',str(legacy),'--runtime',str(fake),'--cwd',str(root)],
+            stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         try:
-            workspace_catalog.ensure_sessions(legacy,{'workspaces':[{'id':'legacy','name':'Legacy','terminals':[{'id':'old','name':'Old'}]}]},fake,root,on_spawn=lambda identity,child:processes.append(child))
-            processes[0].terminate();processes[0].wait(timeout=5)
-            assert detail(path,'stopped')['reason']=='unknown' and read_record(path)['event']=='launching'
+            wait_until(lambda:(legacy/'service.rpc').exists())
+            request(legacy,fake,root,'session.recover')
+            older=int(wait_until(lambda:Path(str(path)+'.pid').exists() and Path(str(path)+'.pid').read_text()))
+            os.kill(older,signal.SIGTERM);wait_until(lambda:request(legacy,fake,root,'terminal.status','old')['state']=='stopped')
+            # The launch marker replaced the earlier exit record before the older runtime started.
+            assert read_record(path)['event']=='launching'
+            assert request(legacy,fake,root,'terminal.lifecycle','old')['lifecycle']['reason']=='unknown'
         finally:
-            for child in processes:
-                if child.poll() is None:child.terminate();child.wait(timeout=5)
+            request(legacy,fake,root,'service.shutdown');service.wait(timeout=5)
         # Unsafe sidecars cannot redirect writes into unrelated files.
         guarded=root/'guarded.sock';target=root/'keep';target.write_text('untouched');guarded.with_suffix('.lifecycle').symlink_to(target)
         failed=subprocess.run([str(runtime),str(guarded),'/bin/sh'],capture_output=True,timeout=5)

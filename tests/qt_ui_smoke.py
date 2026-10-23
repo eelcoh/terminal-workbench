@@ -24,7 +24,7 @@ report=artifacts/'report.json';report.unlink(missing_ok=True)
 (artifacts/'chrome-menu.png').unlink(missing_ok=True)
 sys.path.insert(0,str(ROOT/'scripts'))
 from session_service import request
-import workspace_catalog
+import catalog_files as workspace_catalog
 os.environ['SHELL']='/bin/sh'
 processes=[];sockets=[];client=None;xdisplay=None
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:

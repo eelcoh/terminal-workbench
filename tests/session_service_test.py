@@ -66,10 +66,6 @@ def main():
             # One-terminal status is readonly, including with a live attachment.
             assert call("terminal.status","spike")["state"]=="running"
             assert request(state,runtime,root/'other',"terminal.status","spike")["state"]=="running"
-            cli=[sys.executable,str(ROOT/'scripts/workspace_catalog.py'),'--state-dir',str(state),
-                '--runtime',str(runtime),'--cwd',str(root),'--command','terminal.status','--id','spike']
-            checked=subprocess.run(cli,capture_output=True,text=True,timeout=10)
-            assert checked.returncode==0 and checked.stdout=='STATE\tspike\trunning\n'
             assert path.stat().st_ino==inode
             try:call("terminal.status","missing")
             except ValueError as error:assert "no longer exists" in str(error)
@@ -85,8 +81,11 @@ def main():
             # Lifecycle requests do not seize input ownership or lose process state.
             request(state, runtime, root / "other", "service.shutdown")
             wait_until(stopped)
-            checked=subprocess.run(cli,capture_output=True,text=True,timeout=10)
-            assert checked.returncode==1 and not endpoint(state).exists()
+            # A status read never restarts a stopped service.
+            try: exchange(state, dict(protocol=1, method="terminal.status", identity="spike"))
+            except Unavailable: pass
+            else: raise AssertionError("status read reached a stopped service")
+            assert not endpoint(state).exists()
             send(connection, 16, b'printf "%s:%s" "$$" "$keep" > service-stopped\n')
             assert marker("service-stopped") == pid + ":retained"
             adopted = call()
@@ -161,20 +160,26 @@ def main():
             assert endpoint(state).is_symlink() and appearance.read_bytes() == b"saved colors"
             endpoint(state).unlink()
             # An unadvertised live endpoint stays unadvertised, not guessed current.
-            legacy = state / "legacy.ctl"
+            probe = root / "capability"; probe.mkdir(mode=0o700)
+            (probe / "workspaces.json").write_text(json.dumps({"version": 1, "workspaces": [
+                {"id": "w", "name": "W", "terminals": [{"id": "legacy", "name": "Legacy"}]}]}))
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
-                listener.bind(str(legacy)); listener.listen()
+                listener.bind(str(probe / "legacy.ctl")); listener.listen()
                 import threading
                 def reject():
-                    peer, _ = listener.accept()
-                    with peer: peer.recv(128)
+                    listener.settimeout(5)
+                    try:
+                        while True:
+                            peer, _ = listener.accept()
+                            with peer: peer.recv(128)
+                    except OSError: pass
                 thread = threading.Thread(target=reject, daemon=True); thread.start()
-                from session_service import Authority
-                authority = Authority(state, runtime, root)
-                assert authority.runtime_capabilities(state / "legacy.sock")["compatibility"] == "unadvertised"
-                assert authority.runtime_capabilities(state / "absent.sock")["compatibility"] == "legacy-replay"
-                thread.join(timeout=2)
-                assert not thread.is_alive(), "capability fixture did not complete"
+                try:
+                    health = request(probe, runtime, root, "health")
+                    legacy = next(t for t in health["terminals"] if t["id"] == "legacy")
+                    assert legacy["runtime"]["compatibility"] == "unadvertised", legacy
+                finally:
+                    request(probe, runtime, root, "service.shutdown")
             # A lost reply never replays a possibly committed mutation.
             lost = root / "lost-reply"; lost.mkdir()
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:

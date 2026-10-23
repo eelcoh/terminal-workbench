@@ -104,7 +104,8 @@ class PreviewInventoryTest(unittest.TestCase):
         marker=self.root/'runtime must not start'
         runtime.write_text('#!/bin/sh\ntouch '+str(marker)+'\n');runtime.chmod(0o755)
         self.state.mkdir(mode=0o700)
-        child=subprocess.Popen([sys.executable,str(ROOT/'scripts/session_service.py'),'serve','--state-dir',str(self.state),
+        # The development runtime serves the authority; the payload's runtime must never start.
+        child=subprocess.Popen([str(ROOT/'target/debug/workbench-session'),'service','--state-dir',str(self.state),
             '--runtime',str(runtime),'--cwd',str(self.root)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         try:
             deadline=time.monotonic()+5

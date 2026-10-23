@@ -1210,4 +1210,226 @@ mod tests {
             "Workspace no longer exists"
         );
     }
+
+    fn manage_saved(root: &Path, method: &str, identity: &str, title: &str) -> Result<Value> {
+        // A missing runtime proves these transactions never launch a shell.
+        let launch = Launch {
+            runtime: root.join("no-runtime"),
+            cwd: root.to_owned(),
+            agent_bin: None,
+        };
+        manage(
+            root,
+            &launch,
+            method,
+            identity,
+            title,
+            "",
+            -1,
+            None,
+            &mut Vec::new(),
+        )
+    }
+
+    fn move_saved(root: &Path, identity: &str, destination: &str, position: i64) -> Result<Value> {
+        let launch = Launch {
+            runtime: root.join("no-runtime"),
+            cwd: root.to_owned(),
+            agent_bin: None,
+        };
+        let mut children = Vec::new();
+        let result = manage(
+            root,
+            &launch,
+            "terminal.move",
+            identity,
+            "",
+            destination,
+            position,
+            None,
+            &mut children,
+        );
+        assert!(children.is_empty());
+        result
+    }
+
+    #[test]
+    fn legacy_tsv_seeds_stable_identities() {
+        let root = temporary("seed");
+        let base = resolve(&root);
+        fs::write(
+            root.join("workspaces.tsv"),
+            format!(
+                "Main\t{0}/spike.sock\t{0}/main-2.sock\nScratch\t{0}/scratch-1.sock\t{0}/scratch-2.sock\n",
+                base.display()
+            ),
+        )
+        .unwrap();
+        let data = seed(&root).unwrap();
+        assert_eq!(
+            terminal_ids(&data),
+            ["spike", "main-2", "scratch-1", "scratch-2"]
+        );
+        assert_eq!(workspaces(&data)[1]["name"], "Scratch");
+        fs::write(
+            root.join("workspaces.tsv"),
+            "Main\t/elsewhere/a.sock\t/elsewhere/b.sock\n",
+        )
+        .unwrap();
+        assert_eq!(
+            seed(&root).unwrap_err(),
+            "Old catalog paths must belong to this session directory"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renames_persist_and_invalid_actions_leave_the_catalog_unchanged() {
+        let root = temporary("rename");
+        save(&root, &sample()).unwrap();
+        manage_saved(&root, "workspace.rename", "w1", "Projects").unwrap();
+        let renamed = manage_saved(&root, "terminal.rename", "a", "Builder").unwrap();
+        assert_eq!(workspaces(&renamed)[0]["name"], "Projects");
+        assert_eq!(find_terminal(&renamed, "a").unwrap().1["custom_name"], true);
+        assert_eq!(load(&root).unwrap(), renamed);
+        // Choosing a generic name explicitly still marks it custom.
+        let generic = manage_saved(&root, "terminal.rename", "b", "Shell 1").unwrap();
+        assert_eq!(find_terminal(&generic, "b").unwrap().1["custom_name"], true);
+        let before = fs::read(root.join("workspaces.json")).unwrap();
+        for (method, identity, title) in [
+            ("terminal.rename", "missing", "Name"),
+            ("workspace.rename", "w1", ""),
+            ("workspace.create", "", "bad\nname"),
+            ("terminal.close", "missing", ""),
+            ("workspace.close", "missing", ""),
+        ] {
+            assert!(manage_saved(&root, method, identity, title).is_err());
+            assert_eq!(fs::read(root.join("workspaces.json")).unwrap(), before);
+        }
+        // Newer or corrupt metadata is preserved, never reseeded.
+        fs::write(root.join("workspaces.json"), r#"{"version": 99}"#).unwrap();
+        assert_eq!(
+            manage_saved(&root, "initialize", "", "").unwrap_err(),
+            "Unsupported workspace metadata version"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("workspaces.json")).unwrap(),
+            r#"{"version": 99}"#
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn earlier_runtime_endpoints_are_rejected_before_close_intent() {
+        let root = temporary("legacy-close");
+        save(&root, &sample()).unwrap();
+        fs::write(root.join("a.sock"), "").unwrap();
+        let before = fs::read(root.join("workspaces.json")).unwrap();
+        assert!(manage_saved(&root, "workspace.close", "w1", "")
+            .unwrap_err()
+            .starts_with("Earlier spike session"));
+        assert_eq!(fs::read(root.join("workspaces.json")).unwrap(), before);
+        fs::remove_file(root.join("a.sock")).unwrap();
+        // A failed stop keeps the close intent; the next transaction finishes it
+        // before anything else and never resurrects the closed shells.
+        assert!(manage_saved(&root, "workspace.close", "w1", "")
+            .unwrap_err()
+            .starts_with("Close pending"));
+        assert_eq!(
+            load(&root).unwrap()["pending_close"]["terminals"],
+            json!(["a", "b"])
+        );
+        let launch = Launch {
+            runtime: PathBuf::from("/bin/true"),
+            cwd: root.clone(),
+            agent_bin: None,
+        };
+        let mut children = Vec::new();
+        let recovered = manage(
+            &root,
+            &launch,
+            "initialize",
+            "",
+            "",
+            "",
+            -1,
+            None,
+            &mut children,
+        )
+        .unwrap();
+        assert!(children.is_empty());
+        assert!(recovered.get("pending_close").is_none());
+        assert_eq!(workspaces(&recovered).len(), 1);
+        assert_eq!(load(&root).unwrap(), recovered);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn moves_keep_identities_and_reject_invalid_targets_without_saving() {
+        let root = temporary("move");
+        let full: Vec<Value> = (0..8)
+            .map(|i| json!({"id": format!("f{i}"), "name": format!("Full {i}")}))
+            .collect();
+        save(
+            &root,
+            &json!({"version": 1, "workspaces": [
+                {"id": "a", "name": "Source", "terminals": [{"id": "one", "name": "One"}, {"id": "two", "name": "Two"}]},
+                {"id": "b", "name": "Empty", "terminals": []},
+                {"id": "c", "name": "Full", "terminals": full}]}),
+        )
+        .unwrap();
+        let moved = move_saved(&root, "one", "b", 0).unwrap();
+        assert_eq!(
+            terminals(&workspaces(&moved)[1]),
+            [json!({"id": "one", "name": "One"})]
+        );
+        move_saved(&root, "two", "b", 0).unwrap();
+        let moved = move_saved(&root, "two", "b", -1).unwrap();
+        assert!(terminals(&workspaces(&moved)[0]).is_empty());
+        let order: Vec<&str> = terminals(&workspaces(&moved)[1]).iter().map(id).collect();
+        assert_eq!(order, ["one", "two"]);
+        let before = fs::read(root.join("workspaces.json")).unwrap();
+        for (identity, destination, position) in [
+            ("missing", "a", 0),
+            ("one", "missing", 0),
+            ("one", "c", 0),
+            ("one", "a", 1),
+            ("one", "a", -2),
+        ] {
+            assert!(move_saved(&root, identity, destination, position).is_err());
+            assert_eq!(fs::read(root.join("workspaces.json")).unwrap(), before);
+        }
+        // Reordering inside a full workspace still succeeds.
+        let moved = move_saved(&root, "f0", "c", 7).unwrap();
+        assert_eq!(id(terminals(&workspaces(&moved)[2]).last().unwrap()), "f0");
+        let moved = move_saved(&root, "f0", "c", 0).unwrap();
+        assert_eq!(id(&terminals(&workspaces(&moved)[2])[0]), "f0");
+        assert_eq!(load(&root).unwrap(), moved);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn capacity_identities_and_pending_intents_are_validated() {
+        let mut data = sample();
+        while terminals(&workspaces(&data)[0]).len() < MAX_TERMINALS {
+            mutate(&mut data, "terminal.create", "w1", "Terminal", "", -1).unwrap();
+        }
+        assert!(mutate(&mut data, "terminal.create", "w1", "Too many", "", -1).is_err());
+        let mut legacy = sample();
+        legacy["workspaces"][0]["terminals"][0]["id"] = json!("a".repeat(32));
+        assert!(
+            validate(&legacy).is_ok(),
+            "older 32-character IDs stay valid"
+        );
+        for value in [
+            json!([]),
+            json!(["missing"]),
+            json!(["a", "a"]),
+            json!([null]),
+        ] {
+            let mut invalid = sample();
+            invalid["pending_stop"] = value;
+            assert!(validate(&invalid).is_err());
+        }
+    }
 }

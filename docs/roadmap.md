@@ -39,8 +39,14 @@ installed from a release artifact on a machine without Python.
      protocol 1. The Qt client is unchanged, and the Python tests check the Rust
      server over its socket.
    - [x] Opening a window starts the service from the Rust binary (step 3).
-   - `session_shutdown.py`, `terminal_lifecycle.py`, `window_slots.py`,
-     `config_paths.py`: subcommands or library code in the same binary.
+   - [x] The Python copies are retired (2026-10-23): the old Python server and
+     catalog, `session_shutdown.py`, `terminal_lifecycle.py` and
+     `config_paths.py` are deleted. Their catalog, lifecycle and preference
+     checks are Rust unit tests; the crash-journal, shutdown and recovery tests
+     drive the Rust service. `workbench-session config-path [--prepare | --init]`
+     backs `just config-path` and `just config-init`. `window_slots.py` and the
+     development launcher `toolkit-ui.py` remain with preview tooling until
+     packaging (step 5).
 2. [x] **Binary agent integration.** `wb-codex`, `wb-claude`, `wb-copilot`,
    `wb-pi` and `wb-agent-hook` are symlinks to `workbench-session`, which picks
    the launcher or hook observer from the name it is invoked through

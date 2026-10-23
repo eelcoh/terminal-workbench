@@ -103,6 +103,9 @@ fn main() {
     if socket == "open" {
         std::process::exit(terminal_workbench_runtime::launch::open(args));
     }
+    if socket == "config-path" {
+        std::process::exit(terminal_workbench_runtime::launch::config_path(args));
+    }
     if socket == "agent-hook" || socket == "agent" {
         agent_entry(&socket.to_string_lossy(), args);
     }

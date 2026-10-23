@@ -2,33 +2,17 @@
 """Explicit selected shutdown retains organization, peers and restart guards."""
 from pathlib import Path
 import copy
-import json
 import os
-import signal
 import socket
 import subprocess
 import sys
 import tempfile
 import time
-from unittest.mock import patch
 from session_smoke import attach, send, wait_until
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-import workspace_catalog as catalog
-import session_shutdown
+import catalog_files
 from session_service import request
-
-
-def worker(runtime, state, root):
-    save = catalog.save
-    def pause(directory, data):
-        save(directory, data)
-        if "pending_stop" in data:
-            (root / "paused").write_text("ready")
-            while True: time.sleep(.1)
-    with catalog.locked(state), patch.object(catalog, "save", side_effect=pause):
-        data = catalog.load(state)
-        session_shutdown.begin(state, runtime, data, ["a", "b"])
 
 
 def main():
@@ -52,8 +36,7 @@ def main():
                 for start in range(0, len(ids), 8)]}
             peer = None
             try:
-                catalog.save(state, data); catalog.ensure_sessions(state, data, runtime, root)
-                call(state)
+                catalog_files.save(state, data); call(state, "session.recover")
                 selected = ids[:-1]  # Snapshot of a confirmation; later IDs are excluded.
                 sibling = ids[-1]; peer, _, _ = attach(state / (sibling + ".sock"))
                 marker = root / ("pid" + str(count))
@@ -95,14 +78,11 @@ def main():
         state = root / "interrupted"; state.mkdir(mode=0o700)
         data = {"version": 1, "workspaces": [{"id": "w", "name": "W", "terminals": [
             {"id": i, "name": i} for i in ("a", "b", "c")]}]}
-        process = None
         try:
-            catalog.save(state, data); catalog.ensure_sessions(state, data, runtime, root)
-            process = subprocess.Popen([sys.executable, __file__, "--worker", str(runtime), str(state), str(root)])
-            wait_until(lambda: (root / "paused").exists())
+            # The state a crash leaves after recording intent and stopping one target.
+            catalog_files.save(state, data); call(state, "session.recover"); call(state, "service.shutdown")
             subprocess.run([str(runtime), "stop", str(state / "a.sock")], check=True, timeout=15)
-            os.kill(process.pid, signal.SIGKILL); process.wait(timeout=5)
-            assert catalog.load(state)["pending_stop"] == ["a", "b"]
+            catalog_files.save(state, dict(copy.deepcopy(data), pending_stop=["a", "b"]))
             assert call(state)["data"] == data
             assert call(state, "terminal.status", "a")["state"] == "stopped"
             assert call(state, "terminal.status", "b")["state"] == "stopped"
@@ -123,31 +103,23 @@ def main():
                 except ValueError as error: assert "cannot be stopped" in str(error)
                 else: raise AssertionError("legacy runtime accepted")
                 assert call(state, "terminal.status", "a")["state"] == "running"
-                assert "pending_stop" not in catalog.load(state)
-            (state / "b.sock").unlink()
-            # An individual failed stop retains intent; recovery first finishes it.
-            pending = copy.deepcopy(data); pending["pending_stop"] = ["a", "b"]
-            catalog.save(state, pending)
-            with patch.object(session_shutdown.subprocess, "run", side_effect=subprocess.TimeoutExpired("stop", 15)):
-                try: session_shutdown.finish(state, runtime, pending)
-                except ValueError: pass
+                assert "pending_stop" not in catalog_files.load(state)
+                # An individual failed stop retains intent; the next transaction finishes it.
+                catalog_files.save(state, dict(copy.deepcopy(data), pending_stop=["a", "b"]))
+                try: call(state)
+                except ValueError as error: assert "shutdown pending" in str(error)
                 else: raise AssertionError("stop failure lost")
-            assert catalog.load(state)["pending_stop"] == ["a", "b"]
+                assert catalog_files.load(state)["pending_stop"] == ["a", "b"]
+            (state / "b.sock").unlink()
+            assert call(state)["data"] == data
             call(state, "terminal.recover", "b")
             assert call(state, "terminal.status", "a")["state"] == "stopped"
             assert call(state, "terminal.status", "b")["state"] == "running"
             assert call(state, "terminal.status", "c")["state"] == "running"
-            for value in ([], ["missing"], ["a", "a"], [None]):
-                invalid = copy.deepcopy(data); invalid["pending_stop"] = value
-                try: catalog.validate(invalid)
-                except ValueError: pass
-                else: raise AssertionError("invalid shutdown intent accepted")
             print("PASS: interrupted and failed shutdown retained/reconciled, no resurrection, unsafe-plan isolation")
         finally:
-            if process and process.poll() is None: process.kill(); process.wait(timeout=5)
             cleanup(state)
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "--worker": worker(*[Path(value) for value in sys.argv[2:5]])
-    else: main()
+    main()

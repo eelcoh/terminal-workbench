@@ -11,7 +11,7 @@ import socket
 import stat
 import struct
 import time
-from workspace_catalog import validate, socket_path
+from catalog_files import check_identities, socket_path
 
 AGENTS = {0: None, 1: 'codex', 2: 'claude', 3: 'gemini', 4: 'opencode', 5: 'aider', 6: 'copilot', 7: 'pi', 255: None}
 STATES = {0: 'unknown', 1: 'working', 2: 'waiting', 3: 'ready'}
@@ -23,7 +23,7 @@ def entries(directory):
     if len(raw) > CATALOG_LIMIT:
         raise ValueError('Catalog is too large')
     data = json.loads(raw)
-    validate(data)
+    check_identities(data)
     return [(dict(workspace_id=w['id'], workspace=w['name'], terminal_id=t['id'], terminal=t['name']),
              socket_path(directory, t).with_suffix('.ctl'))
             for w in data['workspaces'] for t in w['terminals']]

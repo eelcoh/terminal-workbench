@@ -16,9 +16,8 @@ import time
 from preview_dependencies import python_record
 
 ROOT=Path(__file__).resolve().parent.parent
-MODULES=('toolkit-ui.py','client_build_info.py','installed_paths.py','config_paths.py','window_slots.py',
-         'session_service.py','workspace_catalog.py','session_shutdown.py',
-         'terminal_lifecycle.py','preview_check.py','preview_dependencies.py','preview_service_check.py','desktop_launch.py','preview_activation.py')
+MODULES=('toolkit-ui.py','client_build_info.py','installed_paths.py','window_slots.py',
+         'session_service.py','catalog_files.py','preview_check.py','preview_dependencies.py','preview_service_check.py','desktop_launch.py','preview_activation.py')
 
 
 def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_tools=None,qt_notices=None,selective_qml=False,qml_deploy_script=None):

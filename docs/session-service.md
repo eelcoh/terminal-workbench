@@ -3,12 +3,12 @@
 The launcher and management CLI now share one background organization service per
 state directory. It starts automatically and concurrent launches reuse it. The
 service is `workbench-session service` (`crates/runtime/src/service/`), a Rust port
-of the earlier Python server with the same protocol, catalog files and locks.
-Separate runtime processes still own individual PTYs, terminal state, attachment
-and agent signals. `scripts/session_service.py` remains the client used by the
-launchers and CLI. Its `serve` action is kept only so older staged previews can be
-restored, and `scripts/workspace_catalog.py` remains as the frozen Raylib viewer's
-CLI. This is not yet the final installed daemon.
+of the earlier Python server with the same protocol, catalog files and locks. The
+Python server and catalog were removed (2026-10-23); the service is the only
+implementation. Separate runtime processes still own individual PTYs, terminal
+state, attachment and agent signals. `scripts/session_service.py` is a client
+for development tools and tests (`just session-status`, `recover-sessions`,
+`recover-terminal`, `service-stop`). This is not yet the final installed daemon.
 
 Closing a window detaches its terminals. Stopping or crashing the organization
 service leaves their shells running. The next request starts a replacement service

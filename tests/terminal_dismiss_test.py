@@ -2,11 +2,10 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import json,os,socket,subprocess,sys,tempfile
-from unittest.mock import patch
 ROOT=Path(__file__).resolve().parent.parent
 sys.path[:0]=[str(ROOT/'scripts'),str(ROOT/'tests')]
-import workspace_catalog as catalog
-from session_service import request,Authority
+import catalog_files as catalog
+from session_service import PROTOCOL,exchange,request
 from session_smoke import attach,send,wait_until,expect
 runtime=Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory(prefix='wb-dismiss-',dir='/tmp') as temporary:
@@ -50,34 +49,30 @@ with tempfile.TemporaryDirectory(prefix='wb-dismiss-',dir='/tmp') as temporary:
             current=call('catalog.read')['data'];remaining=[t['id'] for w in current['workspaces'] for t in w['terminals']]
             if remaining:request(state,runtime,root,'session.stop',terminal_ids=remaining)
             call('service.shutdown')
-# Direct authority cases assert no runtime command, journal reconciliation or
-# endpoint cleanup occurs, including uncertain/unsafe path evidence.
+# Unsafe or uncertain endpoint evidence and pending journals refuse removal
+# without journal reconciliation, endpoint cleanup or a seeded catalog.
 with tempfile.TemporaryDirectory(prefix='wb-dismiss-evidence-',dir='/tmp') as temporary:
-    root=Path(temporary);data={'version':1,'workspaces':[{'id':'w','name':'Workspace','terminals':[{'id':'t','name':'Exited'}]}]};catalog.save(root,data)
-    authority=Authority(root,runtime,root);message=dict(protocol=1,method='terminal.dismiss',identity='t',runtime=str(runtime),cwd=str(root))
-    endpoint=root/'t.ctl';endpoint.write_text('preserved')
-    for unsafe in ('regular','symlink','unavailable','journal'):
-        if unsafe=='symlink':endpoint.unlink();endpoint.symlink_to(root/'missing')
-        if unsafe=='unavailable':endpoint.unlink()
-        if unsafe=='journal':catalog.save(root,dict(data,pending_create=['t']))
-        before=(root/'workspaces.json').read_bytes()
-        with patch.object(catalog.subprocess,'run',side_effect=AssertionError('dismiss ran a runtime command')),patch.object(catalog,'finish_close',side_effect=AssertionError('dismiss reconciled a close')):
-            try:
-                if unsafe=='unavailable':
-                    with patch.object(catalog,'endpoint_alive',side_effect=ValueError('uncertain endpoint')):authority.dispatch(message)
-                else:authority.dispatch(message)
+    root=Path(temporary).resolve();data={'version':1,'workspaces':[{'id':'w','name':'Workspace','terminals':[{'id':'t','name':'Exited'}]}]};catalog.save(root,data)
+    request(root,runtime,root,'health')
+    def dismiss():return exchange(root,dict(protocol=PROTOCOL,method='terminal.dismiss',identity='t',runtime=str(runtime),cwd=str(root)))
+    try:
+        endpoint=root/'t.ctl';endpoint.write_text('preserved')
+        for unsafe in ('regular','symlink','journal'):
+            if unsafe=='symlink':endpoint.unlink();endpoint.symlink_to(root/'missing')
+            if unsafe=='journal':endpoint.unlink();catalog.save(root,dict(data,pending_create=['t']))
+            before=(root/'workspaces.json').read_bytes()
+            try:dismiss()
             except ValueError:pass
             else:raise AssertionError('uncertain/pending terminal was dismissed')
-        assert (root/'workspaces.json').read_bytes()==before
-    catalog.save(root,data)
-    with patch.object(catalog.subprocess,'run',side_effect=AssertionError('dismiss ran a runtime command')):
-        value=authority.dispatch(message)
-    assert value['data']['workspaces'][0]['terminals']==[]
-    (root/'workspaces.json').unlink()
-    with patch.object(catalog,'seed',side_effect=AssertionError('dismiss seeded a catalog')):
-        try:authority.dispatch(message)
+            assert (root/'workspaces.json').read_bytes()==before
+            assert unsafe=='journal' or endpoint.is_symlink() or endpoint.read_text()=='preserved'
+        catalog.save(root,data)
+        assert dismiss()['data']['workspaces'][0]['terminals']==[]
+        (root/'workspaces.json').unlink()
+        try:dismiss()
         except ValueError:pass
         else:raise AssertionError('dismiss created an absent catalog')
-    assert not (root/'workspaces.json').exists()
+        assert not (root/'workspaces.json').exists()
+    finally:request(root,runtime,root,'service.shutdown')
 
-print('PASS: immediate stopped-only removal, retained sibling input/evidence/workspaces, recovery race, unsafe/uncertain endpoint and pending-journal isolation; no runtime commands')
+print('PASS: immediate stopped-only removal, retained sibling input/evidence/workspaces, recovery race, unsafe endpoint and pending-journal isolation')

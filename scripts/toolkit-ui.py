@@ -2,16 +2,20 @@
 import argparse
 import json
 import os
-from config_paths import prepare_config_directory
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from catalog_files import load
 from session_service import prepare_directory,request
-from workspace_catalog import load
 from window_slots import acquire_window_slot
 
 ROOT=Path(__file__).resolve().parent.parent
+
+def config_directory(runtime,*,prepare):
+    """Preferences directory from the runtime; preparing copies earlier Mac settings once."""
+    command=[str(runtime),'config-path']+(['--prepare'] if prepare else [])
+    return Path(subprocess.run(command,check=True,capture_output=True,text=True).stdout.rstrip('\n')).parent
 
 def configuration(state,runtime,cwd,data,preferences,saved=False,installed=False):
     from client_build_info import capture
@@ -100,10 +104,9 @@ if args.install_desktop_entry:
     print(f'App menu entry installed: {install(ROOT/"terminal-workbench",os.environ,metadata.get("container",""))}')
     sys.exit(0)
 if args.paths:
-    from config_paths import config_directory
     from installed_paths import session_directory
     state=session_directory(os.environ) if args.installed else Path(os.environ.get('WORKBENCH_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
-    print(json.dumps(dict(runtime=str(runtime),viewer=str(viewer),state=str(state),configuration=str(config_directory(os.environ,sys.platform)),cwd=str(Path.home().resolve() if args.installed else ROOT)),indent=2))
+    print(json.dumps(dict(runtime=str(runtime),viewer=str(viewer),state=str(state),configuration=str(config_directory(runtime,prepare=False)),cwd=str(Path.home().resolve() if args.installed else ROOT)),indent=2))
     sys.exit(0)
 if args.desktop:
     from desktop_launch import start_log
@@ -112,7 +115,7 @@ if args.desktop:
     log=None
     try:
         log=start_log(session_directory(os.environ))
-        preferences=prepare_config_directory(os.environ,sys.platform)
+        preferences=config_directory(runtime,prepare=True)
         sys.exit(saved_window(runtime,viewer,preferences,installed=True,desktop=True))
     except (OSError,ValueError,subprocess.SubprocessError):
         print_exc()
@@ -123,7 +126,7 @@ if args.desktop:
             from platform_launchers.linux import show_error
         show_error(message)
         sys.exit(1)
-preferences=prepare_config_directory(os.environ,sys.platform)
+preferences=config_directory(runtime,prepare=True)
 if args.saved:
     sys.exit(saved_window(runtime,viewer,preferences,installed=args.installed))
 with tempfile.TemporaryDirectory(prefix='wb-ui-',dir='/tmp') as directory:
