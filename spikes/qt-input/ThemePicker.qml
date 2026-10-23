@@ -100,7 +100,7 @@ Dialog {
                             Text {
                                 width: parent.width; textFormat: Text.PlainText; elide: Text.ElideRight
                                 text: "~/project  $ git status"; color: option.modelData.foreground
-                                font.family: "monospace"; font.pixelSize: 14; renderType: Text.NativeRendering
+                                font.family: "JetBrains Mono"; font.pixelSize: 14; renderType: Text.NativeRendering
                             }
                             Grid {
                                 width: parent.width; columns: 8; spacing: 3

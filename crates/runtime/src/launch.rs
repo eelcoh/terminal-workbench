@@ -1,7 +1,7 @@
 //! Open an installed Band window on the saved sessions: user state and
 //! preferences, a leased window slot, the session service and the Qt viewer.
 //! Closing the window detaches; shells and workspaces remain.
-use crate::service::{expand_user, initialize, prepare_directory, resolve};
+use crate::service::{expand_user, initialize, prepare_directory, resolve, retire};
 use serde_json::{json, Map, Value};
 use std::ffi::OsString;
 use std::fs::{self, DirBuilder, File, OpenOptions};
@@ -309,6 +309,41 @@ fn acquire_window_slot(views: &Path) -> Result<(File, PathBuf)> {
     Err("All 64 window slots are in use".into())
 }
 
+/// Hold every other window slot, proving no other window (from any install) is
+/// open and keeping new ones out while the session service is replaced.
+fn reserve_other_slots(views: &Path, own: &Path) -> Result<Vec<File>> {
+    let directory = views.join("windows");
+    let mut held = Vec::new();
+    for slot in 1..=64 {
+        if own == directory.join(format!("{slot}.view")) {
+            continue;
+        }
+        let lock = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .mode(0o600)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(directory.join(format!("{slot}.lock")))
+            .map_err(os)?;
+        private_regular(&lock, "Unsafe window slot lock", 0)?;
+        // SAFETY: the descriptor is open for the lifetime of `lock`.
+        if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            let error = io::Error::last_os_error();
+            if error.raw_os_error() == Some(libc::EWOULDBLOCK) {
+                return Err(
+                    "Another Band window, or one from an earlier install, is open. \
+                    Close every window, then open Band again; shells keep running."
+                        .into(),
+                );
+            }
+            return Err(os(error));
+        }
+        held.push(lock);
+    }
+    Ok(held)
+}
+
 fn platform() -> &'static str {
     if cfg!(target_os = "macos") {
         "macos"
@@ -491,7 +526,18 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
         _ => {}
     }
     let (lease, view) = acquire_window_slot(&views)?;
-    let catalog = initialize(&state, &runtime, &cwd, &payload.join("bin"))?["data"].take();
+    let agent_bin = payload.join("bin");
+    let catalog = match initialize(&state, &runtime, &cwd, &agent_bin) {
+        // A service started by another install (an earlier Band or preview).
+        // With no other window open, hand over; its shells keep running.
+        Err(error) if error.contains("configuration differs") => {
+            let _others = reserve_other_slots(&views, &view)?;
+            retire(&state)?;
+            initialize(&state, &runtime, &cwd, &agent_bin)?
+        }
+        other => other?,
+    }["data"]
+        .take();
     let mut settings = configuration(&state, &runtime, &cwd, catalog, preferences, payload);
     settings.insert(
         "view_state".into(),

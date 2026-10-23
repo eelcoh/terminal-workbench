@@ -9,7 +9,7 @@ mod lifecycle;
 
 pub(crate) use catalog::{expand_user, resolve};
 use catalog::{fail, find_terminal, id, os, Launch, Result};
-pub use client::initialize;
+pub use client::{initialize, retire};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::fs::{self, DirBuilder};

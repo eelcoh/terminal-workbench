@@ -88,12 +88,32 @@ def check_linux(root):
 
     payload = files(band)
     try:
+        # A service from another install (here the checkout's debug runtime) is
+        # still running. With another window open Band refuses; once it closes,
+        # Band hands over and the earlier shell keeps running.
+        earlier = request(state, ROOT / 'target/debug/band-session', home)['data']
+        first = earlier['workspaces'][0]['terminals'][0]['id']
+        earlier_pid = json.loads((state / (first + '.lifecycle')).read_text())['shell_pid']
+        earlier_service = request(state, ROOT / 'target/debug/band-session', home, 'health')['service_pid']
+        import fcntl
+        (state / 'qt/windows').mkdir(parents=True, exist_ok=True)
+        with (state / 'qt/windows/7.lock').open('a') as window:
+            fcntl.flock(window, fcntl.LOCK_EX)
+            refused = launch(exit_code=1)
+            assert 'Close every window' in refused.stderr, refused.stderr
+        assert request(state, ROOT / 'target/debug/band-session', home, 'health')['service_pid'] == earlier_service
         launch()
+        assert request(state, runtime, home, 'health')['service_pid'] != earlier_service
+        os.kill(earlier_pid, 0)
         config = json.loads(evidence.read_text())['config']
+        assert config['catalog'] == earlier
         assert config['state'] == str(state) and config['cwd'] == str(home) and config['saved_session'] and config['installed']
         assert config['build_info']['version'] == package.version() and config['build_info']['kind'] == 'installed'
         assert config['preferences'] == str(home / '.config/band/config.conf')
-        terminal = config['catalog']['workspaces'][0]['terminals'][0]['id']
+        # Shells from the earlier install keep its helpers; new ones get this install's.
+        workspace = config['catalog']['workspaces'][0]['id']
+        created = request(state, runtime, home, 'terminal.create', workspace, 'Fresh')['data']
+        terminal = next(w for w in created['workspaces'] if w['id'] == workspace)['terminals'][-1]['id']
         connection, _, _ = attach(state / (terminal + '.sock'))
         try:
             proof = root / 'shell-proof'

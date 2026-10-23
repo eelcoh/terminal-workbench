@@ -154,6 +154,37 @@ fn finish(result: std::result::Result<Value, Failure>) -> Result<Value> {
     }
 }
 
+/// Retire the running service so a different install can start its own. Shells
+/// keep running and the next service adopts them. Only the instance observed
+/// here is retired, never a replacement that started meanwhile.
+pub fn retire(directory: &Path) -> Result<()> {
+    let health = finish(send(
+        directory,
+        &json!({"protocol": PROTOCOL, "method": "health"}),
+    ))?;
+    let Some(instance) = health["service_instance"].as_str() else {
+        return fail("Session service did not report its instance; stop it before opening Band");
+    };
+    finish(send(
+        directory,
+        &json!({"protocol": PROTOCOL, "method": "service.retire", "expected_instance": instance}),
+    ))?;
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match exchange(
+            directory,
+            &json!({"protocol": PROTOCOL, "method": "health"}),
+            Duration::from_secs(2),
+        ) {
+            Err(Failure::Unavailable) => return Ok(()),
+            _ if Instant::now() >= deadline => {
+                return fail("Previous session service did not stop")
+            }
+            _ => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+}
+
 /// Open the saved organization for a window, starting the service if needed.
 /// Initialization never starts stopped saved terminals or takes ownership.
 pub fn initialize(directory: &Path, runtime: &Path, cwd: &Path, agent_bin: &Path) -> Result<Value> {
