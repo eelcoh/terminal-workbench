@@ -37,7 +37,7 @@ The default grid remains 7×16 at ordinary and doubled raster resolution.
 Overview thumbnails intentionally retain their bounded 384×240 preview cache;
 they are miniature views rather than a terminal's reading surface.
 
-`WORKBENCH_RENDER_SCALE=2` is a diagnostic override for exercising doubled
+`BAND_RENDER_SCALE=2` is a diagnostic override for exercising doubled
 backing textures on a 1x Linux display. `just retina-gui-test` runs the same
 focus/workspace/stop/recovery flows at 1x and 2x, compares logical PTY geometry,
 checks actual backing allocations and font loading, then exercises 15-terminal
@@ -118,7 +118,7 @@ terminal bounds, padding, input coordinates or the 4px corner shape.
 mocks and exercises live 1→2→1 atlas/help/canvas changes with one and fifteen terminals in Linux Xvfb. Image checks protect
 all four pane edges; PID/socket/grid checks protect live shell continuity.
 `just check` covers the pure monitor-fitting and density geometry contracts.
-`WORKBENCH_RENDER_SCALE_FILE=/path/to/file` is a diagnostic-only density override:
+`BAND_RENDER_SCALE_FILE=/path/to/file` is a diagnostic-only density override:
 write a number from 1 to 4 to that file to exercise transitions. It is not a UI
 setting and does not emulate actual Cocoa display hardware.
 

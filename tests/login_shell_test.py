@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='wb-login-',dir='/tmp') as directory:
         (dot/'.zprofile').write_text('print -r -- profile >> '+shlex.quote(str(trace))+'\nexport PATH='+shlex.quote(str(tools))+':"$PATH"\n')
         (dot/'.zshrc').write_text("PROMPT='WB-READY> '\n"+'print -r -- rc >> '+shlex.quote(str(trace))+'\nfor tool in pyenv atuin zoxide; do\n print -r -- "$tool=$(whence -p "$tool")" >> '+shlex.quote(str(lookups))+'\ndone\n')
         (dot/'.zlogin').write_text('print -r -- login >> '+shlex.quote(str(trace))+'\n')
-        env={key:value for key,value in os.environ.items() if key not in ('ZDOTDIR','ENV','BASH_ENV') and not key.startswith(('WORKBENCH_','PYENV_','ATUIN_','ZOXIDE_','XDG_'))}
+        env={key:value for key,value in os.environ.items() if key not in ('ZDOTDIR','ENV','BASH_ENV') and not key.startswith(('BAND_','PYENV_','ATUIN_','ZOXIDE_','XDG_'))}
         env.update(HOME=str(home),ZDOTDIR=str(dot),PATH='/usr/bin:/bin',SHELL=zsh)
         path=case/'session.sock'
         with (case/'runtime.log').open('w+') as log:
@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix='wb-login-',dir='/tmp') as directory:
                 command="printf '%s:%s:%s:%s\\n' \"$$\" \"$TERM_PROGRAM\" \"${options[login]}\" \"${options[interactive]}\" > "+shlex.quote(str(proof))+'\n'
                 send(connection,16,command.encode());wait_until(lambda:proof.exists() and len(proof.read_text().strip().split(':'))==4)
                 pid,program,is_login,is_interactive=proof.read_text().strip().split(':')
-                assert program=='terminal-workbench' and is_interactive=='on'
+                assert program=='band' and is_interactive=='on'
                 assert is_login==('on' if login else 'off'),(name,proof.read_text())
                 assert trace.read_text().splitlines()==(['profile','rc','login'] if login else ['rc'])
                 resolved=dict(line.split('=',1) for line in lookups.read_text().splitlines())

@@ -58,7 +58,7 @@ text queues are preserved. The Enter, Escape or click that exited Overview stays
 consumed by the modal. Output parsing and status updates continue throughout.
 Window resizing settles an active transition to avoid stretching an old card crop.
 
-To disable animations, launch with `WORKBENCH_REDUCED_MOTION=1 just spike`.
+To disable animations, launch with `BAND_REDUCED_MOTION=1 just spike`.
 This also avoids allocating the extra full-window transition texture. The compact
 List view changes immediately in either mode. Native OS reduced-motion preference
 integration remains open; macOS animation/input behavior is not yet verified.

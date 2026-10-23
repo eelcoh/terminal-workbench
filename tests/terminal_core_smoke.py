@@ -45,7 +45,7 @@ while True: time.sleep(1)
                 assert (root/'cursor.reply').read_bytes()==b'\x1b[4;7R'
                 assert (root/'size.reply').read_bytes()==b'\x1b[8;24;80t'
                 assert (root/'attributes.reply').read_bytes().endswith(b'c')
-                assert b'terminal-workbench' in (root/'version.reply').read_bytes()
+                assert b'band' in (root/'version.reply').read_bytes()
                 def read(): return subprocess.check_output([binary,'read',str(path)],timeout=5)
                 wait_until(lambda:b'ALTERNATE' in read())
                 export=root/'terminal.snapshot'

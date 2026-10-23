@@ -15,7 +15,7 @@ from x11_window import close_window
 runtime, viewer = [Path(arg).resolve() for arg in sys.argv[1:3]]
 artifacts = Path(__file__).resolve().parent.parent / ".local/artifacts/qt-terminal"
 artifacts.mkdir(parents=True, exist_ok=True)
-accessibility = os.environ.get("WORKBENCH_TEST_ACCESSIBILITY") == "1"
+accessibility = os.environ.get("BAND_TEST_ACCESSIBILITY") == "1"
 processes = []
 with tempfile.TemporaryDirectory(prefix="wb-qt-test-") as directory:
     root = Path(directory)

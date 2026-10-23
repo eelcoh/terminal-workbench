@@ -33,7 +33,7 @@ def main():
                 wait_until(lambda: snapshot(runtime, path)['agent'] == agent)
                 group = os.getpgid(int((root / 'agent.pid').read_text()))
                 token = uuid.uuid4().hex
-                environment = dict(os.environ, WORKBENCH_SESSION_SOCKET=str(path), WORKBENCH_AGENT_GROUP=str(group), WORKBENCH_AGENT_RUN=token)
+                environment = dict(os.environ, BAND_SESSION_SOCKET=str(path), BAND_AGENT_GROUP=str(group), BAND_AGENT_RUN=token)
                 for version in ('legacy', 'watch'):
                     connection = socket.socket(socket.AF_UNIX)
                     connection.settimeout(5)
@@ -95,9 +95,9 @@ def main():
         root = Path(directory)
         for agent in ('codex', 'claude'):
             fake = root / agent
-            fake.write_text('#!/usr/bin/env python3\nimport json,os,sys\nprint(json.dumps({"args":sys.argv[1:],"group":os.environ["WORKBENCH_AGENT_GROUP"],"run":os.environ["WORKBENCH_AGENT_RUN"]}))\n')
+            fake.write_text('#!/usr/bin/env python3\nimport json,os,sys\nprint(json.dumps({"args":sys.argv[1:],"group":os.environ["BAND_AGENT_GROUP"],"run":os.environ["BAND_AGENT_RUN"]}))\n')
             fake.chmod(0o700)
-            environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'], WORKBENCH_SESSION_SOCKET='/tmp/fixture.sock')
+            environment = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'], BAND_SESSION_SOCKET='/tmp/fixture.sock')
             result = subprocess.run([runtime, 'agent', agent, '--resume', 'a spaced argument'], env=environment, capture_output=True, text=True, check=True)
             capture = json.loads(result.stdout)
             assert capture['args'][-2:] == ['--resume', 'a spaced argument']

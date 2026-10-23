@@ -12,7 +12,7 @@ int main(int argc,char **argv){
     value=help.describe({{"agent_available",true},{"agent",""}});require(value["heading"]=="No agent detected","ordinary foreground process is distinct from unavailable feed");
     for(const auto *agent:{"Codex","Claude","Copilot","Pi"}){
         value=help.describe({{"agent_available",true},{"agent",agent},{"state","Status unknown"}});
-        require(value["heading"]=="Status unknown" && value["launcher"].toString().startsWith("wb-"),"recognition does not establish lifecycle status");
+        require(value["heading"]=="Status unknown" && value["launcher"].toString().startsWith("band-"),"recognition does not establish lifecycle status");
         require(help.copyLauncher(agent) && QGuiApplication::clipboard()->text()==value["launcher"].toString(),"only an allowlisted launcher is copied");
     }
     const auto previous=QGuiApplication::clipboard()->text();

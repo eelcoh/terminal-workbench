@@ -74,7 +74,7 @@ def expect(connection, pattern):
 
 def main():
     binary = Path(sys.argv[1]).resolve()
-    with tempfile.TemporaryDirectory(prefix="workbench-session-test-") as directory:
+    with tempfile.TemporaryDirectory(prefix="band-session-test-") as directory:
         path = Path(directory) / "session.sock"
         with (Path(directory) / "server.log").open("w+") as log:
             server = subprocess.Popen([str(binary), str(path), "/bin/sh"], stderr=log, env=dict(os.environ, HERDR_WORKSPACE_ID="inherited-test-workspace", HERDR_SOCKET_PATH="inherited.sock"))

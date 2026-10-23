@@ -32,7 +32,7 @@ if os.environ.get('WB_SAVED_CREATE'):
 Path(os.environ['WB_SAVED_EVIDENCE']).write_text(json.dumps(dict(config_path=str(path),catalog=data,pid=pid,terminal=terminal,view=config['view_state'],saved=config['saved_session'],state=config['state'],cwd=config['cwd'])))
 sys.exit(int(os.environ.get('WB_SAVED_EXIT','0')))
 """);viewer.chmod(0o700)
-    env=dict(os.environ,SHELL='/bin/sh',WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(root/'config'),WB_SAVED_EVIDENCE=str(evidence))
+    env=dict(os.environ,SHELL='/bin/sh',BAND_STATE_DIR=str(state),BAND_CONFIG_DIR=str(root/'config'),WB_SAVED_EVIDENCE=str(evidence))
     def launch(**extra):
         result=subprocess.run([sys.executable,str(ROOT/'scripts/toolkit-ui.py'),str(runtime),str(viewer),'--saved'],env=dict(env,**extra),capture_output=True,text=True,timeout=90)
         assert result.returncode==int(extra.get('WB_SAVED_EXIT','0')),(result.stdout,result.stderr)

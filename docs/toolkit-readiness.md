@@ -1264,7 +1264,7 @@ acceptance remains open; see [the directory workflow](theme-directory.md).
 ## Qt shortcut editor
 
 The recorder/editor adds client-only sparse UI shortcut persistence using the
-existing `workbench-shortcuts-v1` layer. It reuses the bounded parser/validator,
+existing `band-shortcuts-v1` layer. It reuses the bounded parser/validator,
 reserves native clipboard and shell controls, and keeps live bindings separate
 from drafts. Apply uses a short lock and existing atomic writer, refuses stale
 managed/UI bytes and refreshes registry hints. Model coverage includes both Mac

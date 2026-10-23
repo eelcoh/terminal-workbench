@@ -111,11 +111,11 @@ Source cloning uses SSH and can reuse the viewer's clean pinned Ghostty checkout
 `just spike-build` also prepares it before compiling the runtime.
 
 For a newly created terminal, its shell exposes its socket path in
-`WORKBENCH_SESSION_SOCKET`. From another terminal, using that absolute path:
+`BAND_SESSION_SOCKET`. From another terminal, using that absolute path:
 
 ```sh
-target/debug/workbench-session read /absolute/path/to/terminal.sock
-target/debug/workbench-session snapshot /absolute/path/to/terminal.sock terminal.snapshot
+target/debug/band-session read /absolute/path/to/terminal.sock
+target/debug/band-session snapshot /absolute/path/to/terminal.sock terminal.snapshot
 ```
 
 Text is the active terminal screen's plain representation, including retained

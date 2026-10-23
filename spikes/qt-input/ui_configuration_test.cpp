@@ -13,7 +13,7 @@
 
 static void require(bool value,const char *message){if(!value){std::fprintf(stderr,"FAIL: %s\n",message);std::exit(1);}}
 static void write(const QString &path,const QByteArray &data){QSaveFile file(path);require(file.open(QIODevice::WriteOnly) && file.write(data)==data.size() && file.commit(),"atomic fixture write");}
-static QByteArray managed(int size,const char *chord="F10") {return QByteArray("workbench-config-v1\n# preserve managed comments\n[appearance]\nterminal-theme = missing-unused-theme\n[font]\nfamily = Fira Code\nsize = ")+QByteArray::number(size)+"\n[shortcuts]\ncommands = "+chord+"\n";}
+static QByteArray managed(int size,const char *chord="F10") {return QByteArray("band-config-v1\n# preserve managed comments\n[appearance]\nterminal-theme = missing-unused-theme\n[font]\nfamily = Fira Code\nsize = ")+QByteArray::number(size)+"\n[shortcuts]\ncommands = "+chord+"\n";}
 static bool wait(const std::function<bool()> &predicate){QElapsedTimer time;time.start();while(time.elapsed()<4000){QCoreApplication::processEvents();if(predicate())return true;QThread::msleep(10);}return false;}
 static int size(const UiFonts &fonts){return fonts.current()["size"].toInt();}
 int main(int argc,char **argv){
@@ -50,7 +50,7 @@ int main(int argc,char **argv){
     // outside the config directory. Legacy global chrome fields are unused.
     QDir().mkpath(root.filePath("settings"));
     const auto appearancePath=root.filePath("settings/appearance.conf"),themePath=root.filePath("theme.default");
-    const auto appearanceConfig=[](const char *theme,int size=17){return QByteArray("workbench-config-v1\n[appearance]\napplication-theme = missing-unused-app\nfollow-workspace = false\nterminal-theme = ")+theme+"\n[font]\nsize = "+QByteArray::number(size)+"\n";};
+    const auto appearanceConfig=[](const char *theme,int size=17){return QByteArray("band-config-v1\n[appearance]\napplication-theme = missing-unused-app\nfollow-workspace = false\nterminal-theme = ")+theme+"\n[font]\nsize = "+QByteArray::number(size)+"\n";};
     write(appearancePath,appearanceConfig("Workbench Dawn"));
     UiThemes themes("");UiAppearance appearance(appearancePath,false,themes);
     UiFonts appearanceFonts(appearancePath,false);UiShortcuts appearanceKeys(appearancePath,false);
@@ -80,43 +80,43 @@ int main(int argc,char **argv){
     require(wait([&]{return themes.theme(colors.themeIndex())["background"]=="#abcdef";}),"external symlink target remains watched");
     write(appearancePath,appearanceConfig("Workbench Night"));
     require(wait([&]{return colors.error().isEmpty() && colors.themeIndex()==0;}),"return to builtin drops missing file dependency");
-    write(appearancePath,"workbench-config-v1\n[macos.appearance]\nterminal-theme = Dracula\n[linux.appearance]\nterminal-theme = Workbench Dawn\n[appearance]\nterminal-theme = Workbench Night\n");
+    write(appearancePath,"band-config-v1\n[macos.appearance]\nterminal-theme = Dracula\n[linux.appearance]\nterminal-theme = Workbench Dawn\n[appearance]\nterminal-theme = Workbench Night\n");
     UiAppearance mac(appearancePath,true,themes),linuxAppearance(appearancePath,false,themes);
     require(mac.themeIndex()==2 && linuxAppearance.themeIndex()==1,"platform appearance override wins regardless of section order");
     // Creation preferences never probe project folders during reload; the
     // existing session-service Create boundary checks availability explicitly.
     const auto creationPath=root.filePath("settings/creation.conf");
-    write(creationPath,"workbench-config-v1\n[workspace]\ndirectory = ../Project café\nterminal-width = 1/3\n[macos.workspace]\nterminal-width = 2/3\n");
+    write(creationPath,"band-config-v1\n[workspace]\ndirectory = ../Project café\nterminal-width = 1/3\n[macos.workspace]\nterminal-width = 2/3\n");
     const auto shared=CreationDefaults::read(creationPath,false),appleDefaults=CreationDefaults::read(creationPath,true);
     require(shared.error.isEmpty() && shared.directory==root.filePath("Project café") && shared.terminalWidth==1.0/3.0,"relative Unicode project folder resolved beside managed config");
     require(appleDefaults.error.isEmpty() && appleDefaults.directory==shared.directory && appleDefaults.terminalWidth==2.0/3.0,"platform width inherits shared directory independently");
     UiFonts creationFonts(creationPath,false);UiShortcuts creationKeys(creationPath,false);
     UiConfiguration creationSettings(creationFonts,creationKeys);
-    write(creationPath,"workbench-config-v1\n[workspace]\ndirectory = ~/Workbench projects\nterminal-width = 2/3\n[font]\nsize = 21\n");
+    write(creationPath,"band-config-v1\n[workspace]\ndirectory = ~/Workbench projects\nterminal-width = 2/3\n[font]\nsize = 21\n");
     require(wait([&]{return creationSettings.terminalWidth()==2.0/3.0 && size(creationFonts)==21;}),"creation and font defaults follow managed changes");
     require(creationSettings.workspaceDirectory()==QDir::home().filePath("Workbench projects"),"home-relative folder expanded without requiring directory availability");
     const auto oldDirectory=creationSettings.workspaceDirectory();
-    write(creationPath,"workbench-config-v1\n[workspace]\nterminal-width = 0.4\n[font]\nsize = 22\n");
+    write(creationPath,"band-config-v1\n[workspace]\nterminal-width = 0.4\n[font]\nsize = 22\n");
     require(wait([&]{return !creationSettings.error().isEmpty();}) && size(creationFonts)==21 && creationSettings.terminalWidth()==2.0/3.0 && creationSettings.workspaceDirectory()==oldDirectory,"invalid creation preference retains entire live transaction");
-    creationSettings.setEditing(true);write(creationPath,"workbench-config-v1\n[workspace]\ndirectory = ~\nterminal-width = 1/2\n");
+    creationSettings.setEditing(true);write(creationPath,"band-config-v1\n[workspace]\ndirectory = ~\nterminal-width = 1/2\n");
     require(!creationSettings.reload() && creationSettings.workspaceDirectory()==oldDirectory,"creation editor defers external defaults");
     creationSettings.setEditing(false);require(wait([&]{return creationSettings.error().isEmpty() && creationSettings.workspaceDirectory()==QDir::homePath();}),"deferred creation defaults accepted after dialog closes");
     QFile::remove(creationPath);require(wait([&]{return creationSettings.workspaceDirectory().isEmpty() && creationSettings.terminalWidth()==0.5;}),"managed file removal restores inherited folder and half width");
     for(const auto *width:{"1/1","3/3"}){
-        write(creationPath,QByteArray("workbench-config-v1\n[workspace]\nterminal-width = ")+width+"\n");
+        write(creationPath,QByteArray("band-config-v1\n[workspace]\nterminal-width = ")+width+"\n");
         require(creationSettings.reload() && creationSettings.terminalWidth()==1.0,"full-width aliases survive managed reload");
     }
     // View defaults join the atomic reload, but contain no saved-window state.
-    write(creationPath,"workbench-config-v1\n[view]\nnavigation-pinned = true\nreduced-motion = true\n[macos.view]\nreduced-motion = false\n");
+    write(creationPath,"band-config-v1\n[view]\nnavigation-pinned = true\nreduced-motion = true\n[macos.view]\nreduced-motion = false\n");
     require(creationSettings.reload() && creationSettings.navigationPinned() && creationSettings.reducedMotion(),"managed view defaults join live reload");
     const auto appleView=ViewDefaults::read(creationPath,true);
     require(appleView.error.isEmpty() && appleView.navigationPinned && !appleView.reducedMotion,"platform view fields inherit independently");
     bool atomicView=true;QObject::connect(&creationFonts,&UiFonts::changed,&app,[&]{if(size(creationFonts)==20)atomicView=!creationSettings.navigationPinned() && creationSettings.reducedMotion();});
-    write(creationPath,"workbench-config-v1\n[font]\nsize = 20\n[view]\nnavigation-pinned = false\nreduced-motion = true\n");
+    write(creationPath,"band-config-v1\n[font]\nsize = 20\n[view]\nnavigation-pinned = false\nreduced-motion = true\n");
     require(creationSettings.reload() && atomicView && size(creationFonts)==20,"view defaults installed before font notifications");
-    write(creationPath,"workbench-config-v1\n[font]\nsize = 21\n[view]\nreduced-motion = maybe\n");
+    write(creationPath,"band-config-v1\n[font]\nsize = 21\n[view]\nreduced-motion = maybe\n");
     require(!creationSettings.reload() && size(creationFonts)==20 && creationSettings.reducedMotion(),"invalid view preference keeps entire live transaction");
-    creationSettings.setEditing(true);write(creationPath,"workbench-config-v1\n[view]\nnavigation-pinned = true\n");
+    creationSettings.setEditing(true);write(creationPath,"band-config-v1\n[view]\nnavigation-pinned = true\n");
     require(!creationSettings.reload() && !creationSettings.navigationPinned() && creationSettings.reducedMotion(),"open editor defers view changes too");
     creationSettings.setEditing(false);require(wait([&]{return creationSettings.navigationPinned() && !creationSettings.reducedMotion();}),"view defaults accepted after draft closes");
     QFile::remove(creationPath);require(wait([&]{return !creationSettings.navigationPinned() && !creationSettings.reducedMotion();}),"removed managed file restores built-in view defaults");

@@ -38,8 +38,8 @@ int main(int argc, char **argv) {
     }
     if (extra == 0) {
         char runtime[PATH_MAX], viewer[PATH_MAX];
-        if (snprintf(runtime, sizeof(runtime), "%s/libexec/workbench-session", root) >= (int)sizeof(runtime) ||
-            snprintf(viewer, sizeof(viewer), "%s/workbench-ui-study", resolved) >= (int)sizeof(viewer))
+        if (snprintf(runtime, sizeof(runtime), "%s/libexec/band-session", root) >= (int)sizeof(runtime) ||
+            snprintf(viewer, sizeof(viewer), "%s/band-ui", resolved) >= (int)sizeof(viewer))
             return failure("Application path is too long.");
         execl(runtime, runtime, "open", "--payload", root, "--viewer", viewer, "--desktop", (char *)NULL);
         return failure("The preview runtime is missing or not executable. Rebuild with just toolkit-stage.");
@@ -59,8 +59,8 @@ int main(int argc, char **argv) {
     if (!valid) return failure("The recorded Python path is invalid. Rebuild with just toolkit-stage.");
     char script[PATH_MAX], runtime[PATH_MAX], viewer[PATH_MAX];
     if (snprintf(script, sizeof(script), "%s/scripts/toolkit-ui.py", root) >= (int)sizeof(script) ||
-        snprintf(runtime, sizeof(runtime), "%s/libexec/workbench-session", root) >= (int)sizeof(runtime) ||
-        snprintf(viewer, sizeof(viewer), "%s/workbench-ui-study", resolved) >= (int)sizeof(viewer))
+        snprintf(runtime, sizeof(runtime), "%s/libexec/band-session", root) >= (int)sizeof(runtime) ||
+        snprintf(viewer, sizeof(viewer), "%s/band-ui", resolved) >= (int)sizeof(viewer))
         return failure("Application path is too long.");
     char **arguments = calloc((size_t)argc + 10, sizeof(char *));
     if (!arguments) return failure("Cannot allocate launcher arguments.");

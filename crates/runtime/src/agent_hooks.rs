@@ -168,9 +168,9 @@ fn report_status(agent: &str, configured: Option<&str>) -> Option<()> {
     } else {
         hook_state(&event)
     }?;
-    let socket = PathBuf::from(std::env::var_os("WORKBENCH_SESSION_SOCKET")?);
-    let group: i32 = std::env::var("WORKBENCH_AGENT_GROUP").ok()?.parse().ok()?;
-    let token = decode_hex(&std::env::var("WORKBENCH_AGENT_RUN").ok()?)?;
+    let socket = PathBuf::from(std::env::var_os("BAND_SESSION_SOCKET")?);
+    let group: i32 = std::env::var("BAND_AGENT_GROUP").ok()?.parse().ok()?;
+    let token = decode_hex(&std::env::var("BAND_AGENT_RUN").ok()?)?;
     if token.len() != 16 || group <= 0 {
         return None;
     }
@@ -210,7 +210,7 @@ fn shell_quote(text: &str) -> String {
 }
 
 fn integrations() -> Option<PathBuf> {
-    let bin = PathBuf::from(std::env::var_os("WORKBENCH_AGENT_BIN")?);
+    let bin = PathBuf::from(std::env::var_os("BAND_AGENT_BIN")?);
     Some(bin.parent()?.join("integrations"))
 }
 
@@ -291,10 +291,10 @@ fn arguments(agent: &str, tail: Vec<String>, executable: &Path) -> Result<Vec<St
 /// Returns only on failure, with the message to report.
 pub fn launch(agent: &str, tail: Vec<String>) -> String {
     if !AGENTS.contains(&agent) {
-        return "Usage: wb-codex|wb-claude|wb-copilot|wb-pi [agent arguments...]".into();
+        return "Usage: band-codex|band-claude|band-copilot|band-pi [agent arguments...]".into();
     }
-    if std::env::var_os("WORKBENCH_SESSION_SOCKET").is_none_or(|value| value.is_empty()) {
-        return "Run wb-codex, wb-claude, wb-copilot or wb-pi inside a newly created Workbench terminal.".into();
+    if std::env::var_os("BAND_SESSION_SOCKET").is_none_or(|value| value.is_empty()) {
+        return "Run band-codex, band-claude, band-copilot or band-pi inside a newly created Workbench terminal.".into();
     }
     let executable = match std::env::current_exe() {
         Ok(path) => path,
@@ -318,9 +318,9 @@ pub fn launch(agent: &str, tail: Vec<String>) -> String {
     let group = unsafe { libc::getpgrp() };
     let error = std::process::Command::new(&args[0])
         .args(&args[1..])
-        .env("WORKBENCH_AGENT_GROUP", group.to_string())
-        .env("WORKBENCH_AGENT_RUN", run)
-        .env("WORKBENCH_AGENT_PID", std::process::id().to_string())
+        .env("BAND_AGENT_GROUP", group.to_string())
+        .env("BAND_AGENT_RUN", run)
+        .env("BAND_AGENT_PID", std::process::id().to_string())
         .exec();
     format!("Could not launch {}: {error}", args[0])
 }
@@ -434,13 +434,13 @@ mod tests {
     #[test]
     fn launch_arguments_keep_user_arguments_last() {
         let tail = vec!["--resume".to_owned(), "a spaced argument".to_owned()];
-        let executable = Path::new("/opt/work bench/workbench-session");
+        let executable = Path::new("/opt/work bench/band-session");
         let claude = arguments("claude", tail.clone(), executable).unwrap();
         assert_eq!(claude[..2], ["claude", "--settings"]);
         let settings: Value = serde_json::from_str(&claude[2]).unwrap();
         assert_eq!(
             settings["hooks"]["PermissionRequest"][0]["hooks"][0]["command"],
-            "'/opt/work bench/workbench-session' agent-hook claude"
+            "'/opt/work bench/band-session' agent-hook claude"
         );
         assert_eq!(claude[3..], tail);
         let codex = arguments("codex", tail.clone(), executable).unwrap();

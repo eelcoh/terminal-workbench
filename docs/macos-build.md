@@ -95,7 +95,7 @@ consistently; do not mix Rosetta and native build caches.
 just toolkit-workbench
 ```
 
-This prepares the pinned libghostty-vt with Zig, builds `workbench-session` and
+This prepares the pinned libghostty-vt with Zig, builds `band-session` and
 the Qt client, and opens your saved development workspaces from `.local/sessions`.
 Closing the window detaches; shells keep running. The first build clones the
 pinned Ghostty revision over SSH, so the Mac needs a working GitHub SSH key
@@ -137,7 +137,7 @@ composition, trackpad scrolling, and Close/reopen to the same shell.
 ## Diagnostics
 
 Installed previews log to `launch.log` and `service.log` in
-`~/.local/state/terminal-workbench/qt-preview/`; development runs use
+`~/.local/state/band/`; development runs use
 `.local/sessions`. Shell runtime logs are `TERMINAL-ID.log` in the same
 directory. Do not delete sockets to diagnose a failure: the logs name the
 failing socket, and existing sessions are preserved.

@@ -143,9 +143,9 @@ def payload_usage(selected_runtime,health):
         if identity is None:row[kind]=True
         else:row[kind].append(identity)
         return True
-    reference(payload(str(selected_runtime),('libexec','workbench-session')),'selected')
+    reference(payload(str(selected_runtime),('libexec','band-session')),'selected')
     if health:
-        reference(payload(health.get('runtime_binary'),('libexec','workbench-session')),'service')
+        reference(payload(health.get('runtime_binary'),('libexec','band-session')),'service')
         for terminal in health.get('terminals',[]):
             if terminal.get('state')=='stopped':continue
             identity=terminal.get('id')
@@ -153,7 +153,7 @@ def payload_usage(selected_runtime,health):
             origin=runtime_info.get('origin') if isinstance(runtime_info,dict) else None
             if terminal.get('state')!='running' or not isinstance(origin,dict) or type(origin.get('version')) is not int or origin['version']!=1:
                 unknown.append(dict(id=identity,reason='Runtime origin unavailable'));continue
-            runtime=payload(origin.get('runtime_binary'),('libexec','workbench-session'))
+            runtime=payload(origin.get('runtime_binary'),('libexec','band-session'))
             helpers=payload(origin.get('agent_bin'),('.local','bin'))
             reference(runtime,'runtime_terminals',identity)
             reference(helpers,'helper_terminals',identity)

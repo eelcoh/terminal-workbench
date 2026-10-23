@@ -23,7 +23,7 @@ API. Oversized or unavailable arguments leave script recognition unavailable.
 Native macOS agent recognition remains unverified. Other Unix targets return
 unavailable. No system process arguments or prompts are exposed by the API.
 
-The JSON snapshot is available through `workbench-session inspect SOCKET`:
+The JSON snapshot is available through `band-session inspect SOCKET`:
 
 ```json
 {"agent":"codex","available":true,"source":"foreground-process","status":"unknown","status_source":"unavailable"}

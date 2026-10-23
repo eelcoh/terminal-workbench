@@ -124,7 +124,7 @@ def watch(directory, seconds):
 def main():
     root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--state-dir', type=Path, default=Path(os.environ.get('WORKBENCH_STATE_DIR', root / '.local/sessions')))
+    parser.add_argument('--state-dir', type=Path, default=Path(os.environ.get('BAND_STATE_DIR', root / '.local/sessions')))
     parser.add_argument('--seconds', type=float, default=120)
     args = parser.parse_args()
     if not 1 <= args.seconds <= 3600:

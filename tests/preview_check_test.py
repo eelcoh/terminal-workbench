@@ -28,7 +28,7 @@ class PreviewCheckTest(unittest.TestCase):
     def invoke(self,*,runtime_code=2,viewer_report=None,viewer_code=0,signature=True):
         def run(arguments,**kwargs):
             if arguments==['runtime']:
-                return subprocess.CompletedProcess(arguments,runtime_code,'','usage: workbench-session SOCKET [SHELL]')
+                return subprocess.CompletedProcess(arguments,runtime_code,'','usage: band-session SOCKET [SHELL]')
             self.assertEqual(arguments[:2],['viewer','--check-deployment'])
             if len(arguments)>2:self.assertEqual(arguments[2:],[str(self.qml)])
             return subprocess.CompletedProcess(arguments,viewer_code,json.dumps(self.report if viewer_report is None else viewer_report),'fixture failure' if viewer_code else '')

@@ -599,12 +599,12 @@ pub(crate) fn ensure_sessions(
                 .stdout(log.try_clone().map_err(os)?)
                 .stderr(log);
             for (key, _) in std::env::vars_os() {
-                if key.as_bytes().starts_with(b"WORKBENCH_") {
+                if key.as_bytes().starts_with(b"BAND_") {
                     command.env_remove(key);
                 }
             }
             if let Some(bin) = &launch.agent_bin {
-                command.env("WORKBENCH_AGENT_BIN", bin);
+                command.env("BAND_AGENT_BIN", bin);
             }
             // SAFETY: setsid is async-signal-safe and runs in the forked child.
             unsafe {

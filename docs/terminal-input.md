@@ -50,7 +50,7 @@ character-only Unicode commits, invalid scalar rejection and the overflow bound.
 The owner confirmed normal native Mac typing after rebuilding on 2026-10-14.
 The automated evidence remains Linux X11/software rendering. For repeat Mac
 checks, rebuild/launch with
-`just spike`; ordinary shell typing and `wb-copilot` should receive fast text and
+`just spike`; ordinary shell typing and `band-copilot` should receive fast text and
 repeated letters exactly once. Check `/exit`, shifted punctuation, arrows, held
 key repeat, Ctrl-C, clipboard paste and application shortcuts. Separately check
 Option/dead-key composition, IME and focus changes with a native keyboard. The

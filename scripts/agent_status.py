@@ -64,7 +64,7 @@ def main():
     # Read the existing catalog directly: no seed, lock file, startup or recovery.
     data = json.loads((args.state_dir/'workspaces.json').read_text())
     check_identities(data)
-    runtime = root/'target/debug/workbench-session'
+    runtime = root/'target/debug/band-session'
     if runtime.exists():
         print('Built runtime modified: '+datetime.fromtimestamp(runtime.stat().st_mtime).astimezone().isoformat())
     entries = [(w,t,args.state_dir) for w in data['workspaces'] for t in w['terminals']]

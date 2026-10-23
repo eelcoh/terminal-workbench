@@ -32,7 +32,7 @@ sys.exit(int(os.environ['WB_UI_EXIT']))
     for name,path in [('session_service.py',ROOT/'scripts/session_service.py'),('catalog_files.py',ROOT/'scripts/catalog_files.py'),('session_smoke.py',ROOT/'tests/session_smoke.py')]:
         (imports/name).symlink_to(path)
     for exit_code in (0,42):
-        evidence=root/'evidence.json';env=dict(os.environ,WORKBENCH_CONFIG_DIR=str(root/"config"),SHELL='/bin/sh',WB_UI_EVIDENCE=str(evidence),WB_UI_EXIT=str(exit_code))
+        evidence=root/'evidence.json';env=dict(os.environ,BAND_CONFIG_DIR=str(root/"config"),SHELL='/bin/sh',WB_UI_EVIDENCE=str(evidence),WB_UI_EXIT=str(exit_code))
         result=subprocess.run([sys.executable,str(ROOT/'scripts/toolkit-ui.py'),str(runtime),str(viewer)],env=env,capture_output=True,text=True,timeout=90)
         assert (result.returncode==0)==(exit_code==0),(result.stdout,result.stderr)
         data=json.loads(evidence.read_text());assert data['count']==8

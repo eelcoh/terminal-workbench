@@ -30,12 +30,12 @@ def main():
         parser.error("live-perf-test uses private Linux Xvfb; use live-perf for native Mac measurements")
     performance=args.mode in ("perf","scene-perf","scene-perf-test","live-perf","live-perf-test")
     build=ROOT/".local/build/qt-performance" if performance else BUILD
-    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DWORKBENCH_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("search-test","scroll-test","workbench","stage","bundle","bundle-selective","install","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
+    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DBAND_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("search-test","scroll-test","workbench","stage","bundle","bundle-selective","install","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
     if performance:configure.append("-DCMAKE_BUILD_TYPE=Release")
     subprocess.run(configure,check=True)
     command=["cmake","--build",str(build),"--parallel"]
     if performance:command.extend(["--target","workbench-live-bench" if args.mode in ("live-perf","live-perf-test") else "workbench-text-bench" if args.mode=="perf" else "workbench-scene-bench"])
-    if args.mode in ("workbench","stage","bundle","bundle-selective","install","ui","ui-test"):command.extend(["--target","workbench-ui-study"])
+    if args.mode in ("workbench","stage","bundle","bundle-selective","install","ui","ui-test"):command.extend(["--target","band-ui"])
     if args.mode in ("stage","bundle","bundle-selective","install") and sys.platform=="darwin":command.append("workbench-preview-bootstrap")
     if args.mode=="search-test":command.extend(["--target","workbench-search-test"])
     if args.mode=="scroll-test":command.extend(["--target","workbench-scroll-test"])
@@ -80,9 +80,9 @@ def main():
         subprocess.run([sys.executable,str(ROOT/"scripts/stage-toolkit.py"),*(["--bundle-qt"] if bundle else []),*(["--selective-qml"] if selective else []),*(["--install"] if args.mode=="install" else [])],check=True)
         return
     if args.mode in ("workbench","ui","ui-test"):
-        name="workbench-ui-study"
+        name="band-ui"
         binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name
-        command=[sys.executable,str(ROOT/"tests/qt_ui_smoke.py"),str(ROOT/"target/debug/workbench-session"),str(binary)] if args.mode=="ui-test" else [sys.executable,str(ROOT/"scripts/toolkit-ui.py"),str(ROOT/"target/debug/workbench-session"),str(binary)]
+        command=[sys.executable,str(ROOT/"tests/qt_ui_smoke.py"),str(ROOT/"target/debug/band-session"),str(binary)] if args.mode=="ui-test" else [sys.executable,str(ROOT/"scripts/toolkit-ui.py"),str(ROOT/"target/debug/band-session"),str(binary)]
         if args.shutdown_only:command.append("--shutdown-only")
         if args.search_only:command.append("--search-only")
         if args.configuration_only:command.append("--configuration-only")
@@ -90,12 +90,12 @@ def main():
         subprocess.run(command,check=True)
         if args.mode=="ui-test":
             subprocess.run([*command,"--wayland"],check=True)
-            subprocess.run([sys.executable,str(ROOT/"tests/qt_ui_launcher_test.py"),str(ROOT/"target/debug/workbench-session")],check=True)
+            subprocess.run([sys.executable,str(ROOT/"tests/qt_ui_launcher_test.py"),str(ROOT/"target/debug/band-session")],check=True)
         return
     if args.mode in ("live-perf","live-perf-test"):
         name="workbench-live-bench"
         binary=build/(name+".app/Contents/MacOS")/name if sys.platform=="darwin" else build/name
-        command=[sys.executable,str(ROOT/"tests/qt_live_bench.py"),str(ROOT/"target/debug/workbench-session"),str(binary)]
+        command=[sys.executable,str(ROOT/"tests/qt_live_bench.py"),str(ROOT/"target/debug/band-session"),str(binary)]
         if args.mode=="live-perf-test":command=["xvfb-run","-a","-s","-screen 0 1400x900x24",*command,"--headless"]
         subprocess.run(command,check=True)
         return
@@ -138,7 +138,7 @@ def main():
         return
     if args.mode=="terminal-key-test":
         subprocess.run([sys.executable,str(ROOT/"tests/qt_terminal_key_smoke.py"),
-                        str(ROOT/"target/debug/workbench-session"),str(binary)],check=True)
+                        str(ROOT/"target/debug/band-session"),str(binary)],check=True)
         return
     if args.mode in ("terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test"):
         test = {"terminal-test":"qt_terminal_gui_smoke.py",
@@ -147,14 +147,14 @@ def main():
                 "terminal-ime-transfer-test":"qt_ime_gui_smoke.py",
                 "terminal-ime-pane-test":"qt_ime_gui_smoke.py"}[args.mode]
         subprocess.run([sys.executable, str(ROOT / "tests" / test),
-                        str(ROOT / "target/debug/workbench-session"), str(binary),
+                        str(ROOT / "target/debug/band-session"), str(binary),
                         *(["--same-window"] if args.mode=="terminal-ime-pane-test" else ["--two-terminals"] if args.mode=="terminal-ime-transfer-test" else [])], check=True)
         return
     if args.mode in ("terminal","terminal-pair"):
         # Disposable shells only: no catalog, ownership transfer or saved sessions.
         with tempfile.TemporaryDirectory(prefix="wb-qt-",dir="/tmp") as directory:
             sockets=[Path(directory)/f"terminal-{i}.sock" for i in range(2 if args.mode=="terminal-pair" else 1)]
-            runtime=ROOT/"target/debug/workbench-session";servers=[]
+            runtime=ROOT/"target/debug/band-session";servers=[]
             with (Path(directory)/"runtime.log").open("w") as log:
                 try:
                     for socket in sockets:

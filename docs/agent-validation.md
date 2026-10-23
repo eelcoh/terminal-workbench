@@ -8,7 +8,7 @@ Claude or Codex installation there. Additional Linux candidates include Pi,
 Gemini CLI, OpenCode and Hermes. Installation availability is not compatibility
 evidence. They are follow-up targets, not prerequisites for the first slice.
 
-Copilot now has native/npm foreground identification and an optional `wb-copilot`
+Copilot now has native/npm foreground identification and an optional `band-copilot`
 invocation-local plugin for lifecycle events. Runtime/socket and GUI fixtures
 validate the integration contracts; complete native macOS lifecycle acceptance
 remains pending.
@@ -21,7 +21,7 @@ shape applies. Company policies may restrict hooks as well as CLI installation.
 ## Linux observations — 2026-10-11
 
 Runtime tested: `8359202`, using disposable empty directories and real installed
-CLI executables. Launchers are invocation-local observers built into `workbench-session`.
+CLI executables. Launchers are invocation-local observers built into `band-session`.
 The agent ran interactively in a Workbench PTY; the test attached a protocol
 client and inspected runtime metadata and retained terminal text. This is live
 CLI/runtime evidence, not graphical or native input acceptance.
@@ -102,7 +102,7 @@ plain Claude and Codex labels on Linux; their labels do not require `wb-*`.
 ## Manual acceptance sequence
 
 1. Build with `just spike`; create a new terminal so it has current launchers.
-2. Run `wb-codex`, `wb-claude` or `wb-copilot` in an empty test workspace. Review normal trust
+2. Run `band-codex`, `band-claude` or `band-copilot` in an empty test workspace. Review normal trust
    prompts; check Unknown before lifecycle evidence arrives.
 3. Ask for a simple no-tool reply. Check Working while processing and Ready
    after the turn completes. Ready does not claim the task succeeded.
@@ -117,7 +117,7 @@ plain Claude and Codex labels on Linux; their labels do not require `wb-*`.
 8. Test disabled or untrusted hooks: ordinary input still works, lifecycle stays
    Unknown. Do not enable hooks against user or administrator policy.
 
-Mac follow-up uses `wb-copilot` ([instructions](copilot.md)), records its exact
+Mac follow-up uses `band-copilot` ([instructions](copilot.md)), records its exact
 version and repeats the relevant sequence on native macOS. Permission behavior,
 resume/interrupt/error paths, child-agent isolation, stale/missing signals and
 native input/GUI behavior remain part of the milestone; the table above does not
@@ -182,7 +182,7 @@ or catalog refresh occurs: create terminals before starting the watcher, and
 restart it after adding terminals or restarting runtimes. Legacy endpoints may
 lack the subscription and retain normal terminal use.
 
-`WORKBENCH_STATE_DIR` selects an isolated/custom session directory. Direct use is
+`BAND_STATE_DIR` selects an isolated/custom session directory. Direct use is
 `python3 scripts/agent_watch.py --state-dir PATH --seconds 120`. Durations are
 bounded to 1–3600 seconds; the validated catalog allows at most 64 subscriptions,
 with four bounded connection attempts at a time and fixed-size metadata frames.
@@ -206,7 +206,7 @@ directly; transcript spelling alone was not used as compatibility evidence.
 
 ## macOS Copilot lifecycle trace — 2026-10-14
 
-The owner confirmed `wb-copilot` and `just agent-watch 180` on native Mac.
+The owner confirmed `band-copilot` and `just agent-watch 180` on native Mac.
 The supplied trace shows a single terminal changing from ordinary shell/Unknown
 to Copilot/Unknown, then Working → Ready → Needs input → Working → Ready.
 The first Working interval lasted about 67 ms, so it can be hard to see in the
@@ -231,7 +231,7 @@ Linux with ordered native events and batched Ghostty input. See
 
 Pi **1.3.0**, installed under `~/.pi/agent/install/releases/1.3.0`, passed a
 real no-tool turn through a disposable Workbench runtime based on `325afda` with
-this batch's changes. The invocation-local `wb-pi` observer produced Unknown →
+this batch's changes. The invocation-local `band-pi` observer produced Unknown →
 Working → Ready and the expected reply; foreground exit cleared identity.
 The test used an ephemeral session, disabled tools/MCP and automatic extension/
 context discovery, and explicitly loaded only the Workbench observer. It did not
@@ -245,7 +245,7 @@ not establish identity. Plain `pi` can be recognized independently of lifecycle
 observers; older saved runtimes still require a newly created terminal for Pi
 recognition. Rebuilding a viewer does not upgrade a retained runtime.
 
-`wb-pi` adds one explicit `--extension` file for this invocation. The observer
+`band-pi` adds one explicit `--extension` file for this invocation. The observer
 reports Working on `agent_start`, Ready on `agent_settled`, and Unknown on
 `session_shutdown`. It creates no resources at extension factory time, returns no
 decisions, changes no tools/permissions, and reads no prompt/tool/transcript data.
@@ -268,16 +268,16 @@ or malformed reply. CLI tracing selects WAT3 by advertised capability. These are
 read-only subscriptions and never attach, recover, transfer or send PTY input.
 
 To review on Linux, install/open the current preview and create a new terminal.
-Run plain `pi` to check identity-only recognition, or `wb-pi` for lifecycle reports.
+Run plain `pi` to check identity-only recognition, or `band-pi` for lifecycle reports.
 After a no-tool reply, check Working/Ready in its header, Agents and Agent details.
 If the wrapper is missing, the shell still has older launch helpers. Normal trust
 and policy settings remain in effect; no bypass is required. Use `just agent-watch`
 with the matching session directory for a content-free trace.
 
-The owner's first `wb-pi` trial on 2026-10-21 used a retained terminal whose shell
+The owner's first `band-pi` trial on 2026-10-21 used a retained terminal whose shell
 and runtime started on 10 October. Read-only inspection confirmed that runtime
 had neither the new metadata endpoint nor Pi identity support. Starting Pi today
 inside a retained pane does not upgrade the runtime. Use New terminal
-(Super+Alt+T on Linux), then launch `wb-pi`; existing work can stay running.
+(Super+Alt+T on Linux), then launch `band-pi`; existing work can stay running.
 Qt/runtime-only builds now prepare invocation-local helpers too, removing the
 previous dependency on a full spike build or manual helper generation.

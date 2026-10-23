@@ -33,8 +33,8 @@ product's focus (owner, 2026-10-23). The history of every slice so far is in the
 Goal: the owner uses Workbench as their only terminal for a week on Linux and Mac,
 installed from a release artifact on a machine without Python.
 
-1. **One Rust daemon.** Move the session authority into `workbench-session`:
-   - [x] `workbench-session service` replaces the Python server: catalog,
+1. **One Rust daemon.** Move the session authority into `band-session`:
+   - [x] `band-session service` replaces the Python server: catalog,
      creation, close, move, recovery, lifecycle, health and shutdown, still on
      protocol 1. The Qt client is unchanged, and the Python tests check the Rust
      server over its socket.
@@ -43,17 +43,17 @@ installed from a release artifact on a machine without Python.
      catalog, `session_shutdown.py`, `terminal_lifecycle.py` and
      `config_paths.py` are deleted. Their catalog, lifecycle and preference
      checks are Rust unit tests; the crash-journal, shutdown and recovery tests
-     drive the Rust service. `workbench-session config-path [--prepare | --init]`
+     drive the Rust service. `band-session config-path [--prepare | --init]`
      backs `just config-path` and `just config-init`. `window_slots.py` and the
      development launcher `toolkit-ui.py` remain with preview tooling until
      packaging (step 5).
-2. [x] **Binary agent integration.** `wb-codex`, `wb-claude`, `wb-copilot`,
-   `wb-pi` and `wb-agent-hook` are symlinks to `workbench-session`, which picks
+2. [x] **Binary agent integration.** `band-codex`, `band-claude`, `band-copilot`,
+   `band-pi` and `band-agent-hook` are symlinks to `band-session`, which picks
    the launcher or hook observer from the name it is invoked through
-   (`workbench-session agent …` / `agent-hook …` also work). Agent hooks no longer
+   (`band-session agent …` / `agent-hook …` also work). Agent hooks no longer
    need `python3`. `agent_status.py` and `agent_watch.py` remain developer
    diagnostics behind `just agent-status` / `just agent-watch`.
-3. [x] **Native launch.** `workbench-session open` opens installed windows:
+3. [x] **Native launch.** `band-session open` opens installed windows:
    user state and preferences (including the macOS migration), the window-slot
    lease, service startup, the launch config and the desktop log. The payload
    launcher, Linux desktop entry and Mac bootstrap use it. The Qt client already

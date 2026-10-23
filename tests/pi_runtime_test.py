@@ -4,7 +4,7 @@ from pathlib import Path
 from session_smoke import attach,send,read_frame,wait_until,expect
 from agent_smoke import snapshot
 runtime=str(Path(sys.argv[1]).resolve())
-with tempfile.TemporaryDirectory(prefix='wb-pi-wire-') as temporary:
+with tempfile.TemporaryDirectory(prefix='band-pi-wire-') as temporary:
     root=Path(temporary);path=root/'pi.sock';fixture=root/'pi';shutil.copyfile(shutil.which('sleep'),fixture);fixture.chmod(0o700)
     with (root/'runtime.log').open('w') as log:
         server=subprocess.Popen([runtime,str(path),'/bin/sh'],cwd=root,stdout=log,stderr=log)

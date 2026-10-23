@@ -38,14 +38,14 @@ and contains no copied Herdr code.
 
 ## How it fits together
 
-- `workbench-session` (Rust) runs one process per terminal that owns its PTY and
+- `band-session` (Rust) runs one process per terminal that owns its PTY and
   Ghostty VT state, plus a session service that keeps the workspace catalog.
   Shells keep running when windows close.
 - The Qt client renders terminals and the workspace UI. It attaches to runtimes
   through snapshots and never owns a PTY.
-- Optional agent launchers (`wb-codex`, `wb-claude`, `wb-copilot`, `wb-pi`)
+- Optional agent launchers (`band-codex`, `band-claude`, `band-copilot`, `band-pi`)
   report lifecycle hooks, so panes show **Working**, **Needs input** or
-  **Ready**. They are symlinks to `workbench-session`; no Python is needed.
+  **Ready**. They are symlinks to `band-session`; no Python is needed.
 
 See [architecture](docs/architecture.md) for ownership boundaries.
 

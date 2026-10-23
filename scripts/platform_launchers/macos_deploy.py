@@ -150,7 +150,7 @@ def configure_paths(bundle):
 
 
 def deploy(bundle,payload,info,qml_directory,*,notice_directory=None,qml_deploy_script=None):
-    viewer=bundle/'Contents/MacOS/workbench-ui-study'
+    viewer=bundle/'Contents/MacOS/band-ui'
     phases={};qml_report=dict(mode='macdeployqt-recursive');phase_started=time.monotonic()
     descriptor,log=tempfile.mkstemp(prefix='qt-deploy-',suffix='.log',dir=bundle.parent.parent)
     try:

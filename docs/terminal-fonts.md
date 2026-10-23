@@ -126,7 +126,7 @@ these bindings; interface text retains its independent bundled Adwaita Sans
 font.
 
 The launcher uses the existing config directory, including
-`WORKBENCH_CONFIG_DIR`, and reads `config.conf` once. Shared `[font]` and
+`BAND_CONFIG_DIR`, and reads `config.conf` once. Shared `[font]` and
 `[macos.font]` / `[linux.font]` resolve through the same versioned parser as
 `just spike`. Platform fields override shared fields regardless of order.
 Missing files use JetBrains Mono at 16 pt; invalid files fall back
@@ -160,7 +160,7 @@ viewer is still `just spike`.
 
 Terminal text **Apply** writes sparse overrides to
 `ui/linux/terminal-font.json` or `ui/macos/terminal-font.json` under the normal
-configuration directory. `WORKBENCH_CONFIG_DIR` still selects that directory.
+configuration directory. `BAND_CONFIG_DIR` still selects that directory.
 Only fields different from managed font defaults are stored; **Use dotfile
 defaults → Apply** removes those field overrides. Managed settings, comments
 and symlinks stay untouched. The JSON file has `version: 1` and optional `family`

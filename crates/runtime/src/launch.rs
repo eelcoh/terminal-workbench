@@ -40,9 +40,9 @@ fn random_suffix() -> Result<String> {
     Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
-/// User-owned state for the installed preview, separate from checkout sessions.
+/// User-owned state for installed windows, separate from checkout sessions.
 pub fn session_directory() -> Result<PathBuf> {
-    if let Some(explicit) = env("WORKBENCH_STATE_DIR").filter(|value| !value.is_empty()) {
+    if let Some(explicit) = env("BAND_STATE_DIR").filter(|value| !value.is_empty()) {
         return Ok(resolve(&expand_user(&explicit)));
     }
     let base = match std::env::var_os("XDG_STATE_HOME") {
@@ -52,11 +52,26 @@ pub fn session_directory() -> Result<PathBuf> {
     if !base.is_absolute() {
         return Err("XDG_STATE_HOME must be an absolute path".into());
     }
-    Ok(resolve(&base.join("terminal-workbench/qt-preview")))
+    let directory = base.join("band");
+    adopt_previous_state(&base.join("terminal-workbench/qt-preview"), &directory)?;
+    Ok(resolve(&directory))
+}
+
+/// Running shells keep their sockets under the state directory used before the
+/// rename to Band, so the new name points there instead of moving anything.
+fn adopt_previous_state(previous: &Path, directory: &Path) -> Result<()> {
+    if directory.symlink_metadata().is_ok() || !previous.is_dir() {
+        return Ok(());
+    }
+    create_private(directory.parent().unwrap_or(Path::new(".")))?;
+    match std::os::unix::fs::symlink(previous, directory) {
+        Err(error) if error.kind() != io::ErrorKind::AlreadyExists => Err(os(error)),
+        _ => Ok(()),
+    }
 }
 
 pub fn config_directory() -> PathBuf {
-    if let Some(explicit) = env("WORKBENCH_CONFIG_DIR").filter(|value| !value.is_empty()) {
+    if let Some(explicit) = env("BAND_CONFIG_DIR").filter(|value| !value.is_empty()) {
         let path = expand_user(&explicit);
         return if path.is_absolute() {
             path
@@ -64,10 +79,13 @@ pub fn config_directory() -> PathBuf {
             std::env::current_dir().unwrap_or_default().join(path)
         };
     }
-    let base = env("XDG_CONFIG_HOME")
+    config_base().join("band")
+}
+
+fn config_base() -> PathBuf {
+    env("XDG_CONFIG_HOME")
         .filter(|value| !value.is_empty())
-        .map_or_else(|| home().join(".config"), PathBuf::from);
-    base.join("terminal-workbench")
+        .map_or_else(|| home().join(".config"), PathBuf::from)
 }
 
 fn create_private(directory: &Path) -> Result<()> {
@@ -137,16 +155,35 @@ fn copy_missing(source: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Preferences directory; on macOS, copy earlier Application Support settings once.
+/// Preferences directory. Settings from before the rename to Band, and on macOS
+/// from Application Support, are copied once; the originals stay untouched.
 pub fn prepare_config_directory() -> Result<PathBuf> {
     let directory = config_directory();
-    if !cfg!(target_os = "macos")
-        || env("WORKBENCH_CONFIG_DIR").is_some_and(|value| !value.is_empty())
-    {
+    if env("BAND_CONFIG_DIR").is_some_and(|value| !value.is_empty()) {
         return Ok(directory);
     }
-    migrate_macos_config(&home(), &directory)?;
+    migrate_previous_config(&config_base().join("terminal-workbench"), &directory)?;
+    if cfg!(target_os = "macos") {
+        migrate_macos_config(&home(), &directory)?;
+    }
     Ok(directory)
+}
+
+fn migrate_previous_config(previous: &Path, directory: &Path) -> Result<()> {
+    if directory.symlink_metadata().is_ok() || !previous.is_dir() {
+        return Ok(());
+    }
+    copy_missing(previous, directory)?;
+    // Hidden markers record earlier one-time migrations; keep them so those
+    // never repeat. Lock files are transient and stay behind.
+    for marker in [
+        ".migrated-macos-config-v1",
+        "ui/linux/.migrated-v1",
+        "ui/macos/.migrated-v1",
+    ] {
+        copy_missing(&previous.join(marker), &directory.join(marker))?;
+    }
+    Ok(())
 }
 
 fn migrate_macos_config(home: &Path, directory: &Path) -> Result<()> {
@@ -189,7 +226,7 @@ fn init_config(path: &Path) -> Result<bool> {
     Ok(true)
 }
 
-/// `workbench-session config-path [--prepare | --init]`: print the portable
+/// `band-session config-path [--prepare | --init]`: print the portable
 /// config file. `--prepare` first copies earlier macOS preferences once;
 /// `--init` also writes the example when no config file exists.
 pub fn config_path(mut args: impl Iterator<Item = OsString>) -> i32 {
@@ -198,7 +235,7 @@ pub fn config_path(mut args: impl Iterator<Item = OsString>) -> i32 {
         (Some(flag), None) if flag == "--prepare" => (true, false),
         (Some(flag), None) if flag == "--init" => (true, true),
         _ => {
-            eprintln!("usage: workbench-session config-path [--prepare | --init]");
+            eprintln!("usage: band-session config-path [--prepare | --init]");
             return 2;
         }
     };
@@ -448,7 +485,7 @@ fn temporary_file(directory: &Path, prefix: &str, contents: &str) -> Result<Path
 }
 
 fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool) -> Result<i32> {
-    let runtime = fs::canonicalize(payload.join("libexec/workbench-session")).map_err(os)?;
+    let runtime = fs::canonicalize(payload.join("libexec/band-session")).map_err(os)?;
     let cwd = fs::canonicalize(home()).map_err(os)?;
     let state = session_directory()?;
     prepare_directory(&state)?;
@@ -508,9 +545,9 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
     result
 }
 
-/// `workbench-session open --payload DIR --viewer PATH [--desktop]`.
+/// `band-session open --payload DIR --viewer PATH [--desktop]`.
 pub fn open(mut args: impl Iterator<Item = OsString>) -> i32 {
-    const USAGE: &str = "usage: workbench-session open --payload DIR --viewer PATH [--desktop]";
+    const USAGE: &str = "usage: band-session open --payload DIR --viewer PATH [--desktop]";
     let (mut payload, mut viewer, mut desktop) = (None, None, false);
     while let Some(flag) = args.next() {
         match flag.to_str() {
@@ -618,7 +655,7 @@ mod tests {
         let theme = root.join("managed-theme");
         fs::write(&theme, "background = #111111\n").unwrap();
         std::os::unix::fs::symlink(&theme, legacy.join("themes/linked")).unwrap();
-        let target = home.join(".config/terminal-workbench");
+        let target = home.join(".config/band");
         migrate_macos_config(&home, &target).unwrap();
         assert_eq!(
             fs::read_to_string(target.join("config.conf")).unwrap(),
@@ -658,7 +695,7 @@ mod tests {
         assert!(init_config(&fresh).unwrap());
         assert!(fs::read_to_string(&fresh)
             .unwrap()
-            .starts_with("workbench-config-v1\n"));
+            .starts_with("band-config-v1\n"));
         fs::write(&fresh, "# managed\n").unwrap();
         assert!(!init_config(&fresh).unwrap());
         assert_eq!(fs::read_to_string(&fresh).unwrap(), "# managed\n");
@@ -670,6 +707,43 @@ mod tests {
         assert!(!init_config(&linked).unwrap());
         assert!(linked.is_symlink());
         assert_eq!(fs::read_to_string(&tracked).unwrap(), "# tracked\n");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn previous_names_are_adopted_without_moving_anything() {
+        let root = std::env::temp_dir().join(format!("wb-rename-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let previous = root.join("config/terminal-workbench");
+        fs::create_dir_all(previous.join("ui/linux")).unwrap();
+        fs::create_dir_all(previous.join("themes")).unwrap();
+        fs::write(previous.join("config.conf"), "workbench-config-v1\n").unwrap();
+        fs::write(previous.join("themes/mine"), "background = #000000\n").unwrap();
+        fs::write(previous.join("ui/linux/.migrated-v1"), "").unwrap();
+        fs::write(previous.join("ui/linux/shortcuts.lock"), "").unwrap();
+        let directory = root.join("config/band");
+        migrate_previous_config(&previous, &directory).unwrap();
+        assert_eq!(
+            fs::read_to_string(directory.join("config.conf")).unwrap(),
+            "workbench-config-v1\n"
+        );
+        assert!(directory.join("themes/mine").exists());
+        assert!(directory.join("ui/linux/.migrated-v1").exists());
+        assert!(!directory.join("ui/linux/shortcuts.lock").exists());
+        assert!(previous.join("config.conf").exists());
+        // An existing Band directory is never refilled.
+        fs::remove_file(directory.join("themes/mine")).unwrap();
+        migrate_previous_config(&previous, &directory).unwrap();
+        assert!(!directory.join("themes/mine").exists());
+        // State is adopted in place so live sockets keep their paths.
+        let state = root.join("state/terminal-workbench/qt-preview");
+        fs::create_dir_all(&state).unwrap();
+        let adopted = root.join("state/band");
+        adopt_previous_state(&state, &adopted).unwrap();
+        assert_eq!(resolve(&adopted), resolve(&state));
+        let fresh = root.join("fresh/band");
+        adopt_previous_state(&root.join("fresh/missing"), &fresh).unwrap();
+        assert!(fresh.symlink_metadata().is_err());
         fs::remove_dir_all(root).unwrap();
     }
 }

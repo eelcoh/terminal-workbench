@@ -4,16 +4,16 @@ Build with `just spike`, then create a new terminal. Run:
 
 ```sh
 copilot --version
-wb-copilot
+band-copilot
 ```
 
 Existing terminals retain their running runtime version. Creating a new terminal
 obtains the updated runtime and generated launchers; rebuilding the viewer does
 not replace existing agent processes. Plain `copilot` tests identity only, with
-Unknown lifecycle status. Plain `claude` behaves the same; use `wb-claude` for
+Unknown lifecycle status. Plain `claude` behaves the same; use `band-claude` for
 its hook-driven lifecycle.
 
-`wb-copilot` forwards normal arguments and adds a local observer plugin using
+`band-copilot` forwards normal arguments and adds a local observer plugin using
 `--plugin-dir`. It does not install plugins, edit Copilot settings, enable disabled
 hooks or bypass folder trust and approvals. Review normal prompts as usual.
 If your version does not support the flag, use plain `copilot` and report the
@@ -55,7 +55,7 @@ recognized by the current detector; they do not establish which runtime is activ
 
 
 To repeat the confirmed Mac Working/Ready check, run `just agent-watch 180` from a
-second terminal after creating your test Workbench terminal. Then run `wb-copilot`
+second terminal after creating your test Workbench terminal. Then run `band-copilot`
 and ask for a no-tool reply, a built-in question, and another reply after answering.
 Look for JSON `working`, `ready`, `waiting`, then `working`/`ready` for the Copilot
 terminal ID. Move to another workspace while waiting and check Agents/Overview's

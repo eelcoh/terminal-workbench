@@ -80,11 +80,11 @@ print('Load command 2\ncmd LC_LOAD_DYLIB\ncmdsize 120\nname '+link+' (offset 24)
 if (binary.parent/'external-other').exists():
     print('Load command 3\ncmd LC_LOAD_DYLIB\ncmdsize 120\nname /opt/local/lib/libfixture.dylib (offset 24)')
 ''')
-        self.source=self.root/'source/workbench-ui-study.app'
-        self.viewer=self.source/'Contents/MacOS/workbench-ui-study'
+        self.source=self.root/'source/band-ui.app'
+        self.viewer=self.source/'Contents/MacOS/band-ui'
         self.viewer.parent.mkdir(parents=True);self.viewer.write_bytes(bytes.fromhex('cffaedfe'))
         self.plist=self.source/'Contents/Info.plist'
-        self.plist.write_bytes(plistlib.dumps({'CFBundleExecutable':'workbench-ui-study'}));self.plist.chmod(0o444)
+        self.plist.write_bytes(plistlib.dumps({'CFBundleExecutable':'band-ui'}));self.plist.chmod(0o444)
         self.runtime=executable(self.root/'runtime',"print('fixture')\n")
         self.bootstrap=self.root/'bootstrap';self.bootstrap.write_bytes(bytes.fromhex('cffaedfe'))
         self.parent=self.root/'staged'
@@ -189,7 +189,7 @@ if (binary.parent/'external-other').exists():
 
     def test_audit_rejects_external_and_unresolved_qt_reports_other_libraries(self):
         directory=self.build(bundle_qt=True,sign=False);bundle=directory/macos.NAME
-        viewer=bundle/'Contents/MacOS/workbench-ui-study'
+        viewer=bundle/'Contents/MacOS/band-ui'
         marker=viewer.parent/'external-other';marker.touch()
         report=REAL_AUDIT(bundle,viewer,otool=self.otool)
         self.assertEqual(report['external_non_qt'],['/opt/local/lib/libfixture.dylib']);marker.unlink()
@@ -203,7 +203,7 @@ if (binary.parent/'external-other').exists():
 
     def test_install_id_is_metadata_but_matching_real_import_is_checked(self):
         directory=self.build(bundle_qt=True,sign=False);bundle=directory/macos.NAME
-        viewer=bundle/'Contents/MacOS/workbench-ui-study'
+        viewer=bundle/'Contents/MacOS/band-ui'
         report=REAL_AUDIT(bundle,viewer,otool=self.otool)
         core=next(row for row in report['binaries'] if row['path'].endswith('/QtCore'))
         self.assertTrue(core['install_ids'][0].startswith('/opt/homebrew/'))
@@ -221,7 +221,7 @@ if (binary.parent/'external-other').exists():
             with self.assertRaises(ValueError):deploy.load_commands(text)
 
     def qml_fixture(self,script,prefix,output,log):
-        contents=prefix/'workbench-ui-study.app/Contents'
+        contents=prefix/'band-ui.app/Contents'
         plugin=contents/'PlugIns/libselectedqml.dylib';plugin.parent.mkdir(parents=True)
         plugin.write_bytes(bytes.fromhex('cffaedfe'))
         for name in ('QtQuick','QtQuick/Controls/Basic','QtQuick/Dialogs'):
@@ -253,7 +253,7 @@ if (binary.parent/'external-other').exists():
         external=self.root/'installed-plugin.dylib';external.write_bytes(b'original')
         def unsafe(*args):
             self.qml_fixture(*args)
-            (args[1]/'workbench-ui-study.app/Contents/PlugIns/external.dylib').symlink_to(external)
+            (args[1]/'band-ui.app/Contents/PlugIns/external.dylib').symlink_to(external)
         with patch.object(macos_qml,'run_import_deployment',unsafe):
             with self.assertRaisesRegex(ValueError,'external symlink'):
                 self.build(bundle_qt=True,sign=False,selective_qml=True,qml_deploy_script=script)

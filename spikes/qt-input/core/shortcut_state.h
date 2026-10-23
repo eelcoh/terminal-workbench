@@ -110,7 +110,7 @@ static bool shortcut_read_layer(const char *path, bool apple, const ShortcutStat
     bool migrated=false;
     if (!fgets(line,sizeof(line),file)) valid=false;
     else if (!strcmp(line,"workbench-shortcuts-migrated-v1\n")) {migrated=true;next=shortcut_defaults(apple);}
-    else if (strcmp(line,"workbench-shortcuts-v1\n")) valid=false;
+    else if (strcmp(line,"band-shortcuts-v1\n") && strcmp(line,"workbench-shortcuts-v1\n")) valid=false;
     int lines=0;
     while (valid && fgets(line,sizeof(line),file)) {
         if (++lines>64 || !strchr(line,'\n')) { valid=false; break; }
@@ -146,7 +146,7 @@ static bool shortcut_write_layer(const char *path, const ShortcutState *state, c
     char temporary[1200];if (snprintf(temporary,sizeof(temporary),"%s.tmp-XXXXXX",path)>=(int)sizeof(temporary)) return false;
     int fd=mkstemp(temporary);if (fd<0) { snprintf(error,capacity,"Cannot save shortcuts: %s",strerror(errno));return false; }
     FILE *file=fdopen(fd,"w");if (!file) { close(fd);unlink(temporary);return false; }
-    bool success=fputs("workbench-shortcuts-v1\n",file)!=EOF;
+    bool success=fputs("band-shortcuts-v1\n",file)!=EOF;
     for (int i=0;i<COMMAND_COUNT;i++) {
         if (base && state->bindings[i].key==base->bindings[i].key && state->bindings[i].mods==base->bindings[i].mods) continue;
         char label[96];shortcut_label(state->bindings[i],false,label,sizeof(label));

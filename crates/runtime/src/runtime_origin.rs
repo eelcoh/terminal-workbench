@@ -11,7 +11,7 @@ fn path_json(path: Option<&Path>) -> String {
 
 pub(crate) fn capture() -> String {
     let runtime = std::env::current_exe().ok();
-    let helpers = std::env::var_os("WORKBENCH_AGENT_BIN").map(std::path::PathBuf::from);
+    let helpers = std::env::var_os("BAND_AGENT_BIN").map(std::path::PathBuf::from);
     format!(
         "{{\"version\":1,\"runtime_binary\":{},\"agent_bin\":{}}}",
         path_json(runtime.as_deref()),

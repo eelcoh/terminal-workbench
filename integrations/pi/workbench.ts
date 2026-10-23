@@ -6,10 +6,10 @@ export default function (pi: any) {
     function report(state: number) {
         const env = process.env;
         // A descendant Pi cannot reuse its parent's reporting identity.
-        if (env.WORKBENCH_AGENT_PID !== String(process.pid)) return;
-        const group = Number(env.WORKBENCH_AGENT_GROUP);
-        const token = env.WORKBENCH_AGENT_RUN || "";
-        const path = (env.WORKBENCH_SESSION_SOCKET || "").replace(/\.sock$/, ".ctl");
+        if (env.BAND_AGENT_PID !== String(process.pid)) return;
+        const group = Number(env.BAND_AGENT_GROUP);
+        const token = env.BAND_AGENT_RUN || "";
+        const path = (env.BAND_SESSION_SOCKET || "").replace(/\.sock$/, ".ctl");
         if (!Number.isInteger(group) || group <= 0 || group > 2147483647 || !/^[0-9a-f]{32}$/.test(token) || !path.endsWith(".ctl")) return;
         try {
             const file = lstatSync(path);

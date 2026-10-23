@@ -41,28 +41,30 @@ int main(void)
     ShortcutState collision=linux_state;collision.bindings[COMMAND_WORKSPACE_NEXT]=collision.bindings[COMMAND_TERMINAL_NEXT];
     assert(!shortcut_write(path,&collision,error,sizeof(error)));assert(strstr(error,"Next terminal"));
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && !memcmp(&loaded,&linux_state,sizeof(loaded)));
-    const char *invalid[]={"workbench-shortcuts-v99\n", "workbench-shortcuts-v1\ncopy=Ctrl+C\n", "workbench-shortcuts-v1\nunknown=F8\n", "workbench-shortcuts-v1\ncopy=F8\ncopy=F9\n", "workbench-shortcuts-v1\nterminal.next=Super+Alt+P\ncommands=Super+Alt+P\n", "workbench-shortcuts-v1\ncopy=F8"};
+    const char *invalid[]={"workbench-shortcuts-v99\n", "band-shortcuts-v1\ncopy=Ctrl+C\n", "band-shortcuts-v1\nunknown=F8\n", "band-shortcuts-v1\ncopy=F8\ncopy=F9\n", "band-shortcuts-v1\nterminal.next=Super+Alt+P\ncommands=Super+Alt+P\n", "band-shortcuts-v1\ncopy=F8"};
     for (size_t i=0;i<sizeof(invalid)/sizeof(invalid[0]);i++) { FILE *file=fopen(path,"w");assert(file);fputs(invalid[i],file);fclose(file);assert(!shortcut_read(path,false,&loaded,error,sizeof(error)));assert(!memcmp(&loaded,&linux_state,sizeof(loaded))); }
-    FILE *file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\n# partial overrides\ncommands=none\ncopy=Ctrl+Shift+P\n",file);fclose(file);
+    FILE *file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\n# partial overrides\ncommands=none\ncopy=Ctrl+Shift+P\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)));assert(!loaded.bindings[COMMAND_PALETTE].key && loaded.bindings[COMMAND_COPY].key=='P');
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncopy=Super+Alt+R\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncommands=none\n",file);fclose(file);
+    assert(shortcut_read(path,false,&loaded,error,sizeof(error)));assert(!loaded.bindings[COMMAND_PALETTE].key);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\ncopy=Super+Alt+R\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)));
     assert(loaded.bindings[COMMAND_COPY].key=='R' && !loaded.bindings[COMMAND_WIDTH_CYCLE].key);
     assert(loaded.bindings[COMMAND_WIDTH_FULL].key=='F');
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncopy=Super+Alt+/\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\ncopy=Super+Alt+/\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && !loaded.bindings[COMMAND_HELP].key);
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncommands=Command+Shift+P\noverview=Command+Shift+O\nterminal.new=Command+T\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\ncommands=Command+Shift+P\noverview=Command+Shift+O\nterminal.new=Command+T\n",file);fclose(file);
     assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_PALETTE].mods==(SHORTCUT_SUPER|SHORTCUT_SHIFT));
     assert(loaded.bindings[COMMAND_OVERVIEW].mods==(SHORTCUT_SUPER|SHORTCUT_SHIFT) && loaded.bindings[COMMAND_TERMINAL_CREATE].mods==SHORTCUT_SUPER);
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncopy=Command+Option+P\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\ncopy=Command+Option+P\n",file);fclose(file);
     assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && !loaded.bindings[COMMAND_PALETTE].key);
     assert(loaded.bindings[COMMAND_COPY].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
     assert(!shortcut_read(getenv("WB_TEST_DIRECTORY"),false,&loaded,error,sizeof(error)));
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\nterminal.new=Super+Alt+S\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\nterminal.new=Super+Alt+S\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_TERMINAL_CREATE].key=='S' && !loaded.bindings[COMMAND_SEARCH].key);
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\nterminal.new=Command+Option+S\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\nterminal.new=Command+Option+S\n",file);fclose(file);
     assert(shortcut_read(path,true,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_TERMINAL_CREATE].key=='S' && !loaded.bindings[COMMAND_SEARCH].key);
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncommands=Super+Alt+J\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\ncommands=Super+Alt+J\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && loaded.bindings[COMMAND_PALETTE].key=='J' && !loaded.bindings[COMMAND_AGENT_INPUT_NEXT].key);
     /* A full saved old Linux map retains every key, and loading never rewrites it. */
     ShortcutState old_linux=linux_state;
@@ -72,12 +74,12 @@ int main(void)
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)) && !memcmp(&loaded,&old_linux,sizeof(loaded)));
     assert(!stat(path,&statbuf) && saved_stat.st_ino==statbuf.st_ino && saved_stat.st_size==statbuf.st_size);
     /* Explicit old defaults, custom keys and unbindings remain authoritative. */
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\ncommands=Ctrl+Shift+P\nterminal.next=Ctrl+Shift+J\noverview=none\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\ncommands=Ctrl+Shift+P\nterminal.next=Ctrl+Shift+J\noverview=none\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)));
     assert(loaded.bindings[COMMAND_PALETTE].mods==3 && loaded.bindings[COMMAND_TERMINAL_NEXT].key=='J');
     assert(!loaded.bindings[COMMAND_OVERVIEW].key && loaded.bindings[COMMAND_WORKSPACE_NEXT].mods==12);
     /* New Linux defaults yield to explicit old-file customizations. */
-    file=fopen(path,"w");assert(file);fputs("workbench-shortcuts-v1\nforward=Super+Alt+Left\ncopy=Super+Alt+P\n",file);fclose(file);
+    file=fopen(path,"w");assert(file);fputs("band-shortcuts-v1\nforward=Super+Alt+Left\ncopy=Super+Alt+P\n",file);fclose(file);
     assert(shortcut_read(path,false,&loaded,error,sizeof(error)));
     assert(!loaded.bindings[COMMAND_TERMINAL_PREVIOUS].key && !loaded.bindings[COMMAND_PALETTE].key);
     assert(loaded.bindings[COMMAND_FORWARD].mods==12 && loaded.bindings[COMMAND_COPY].key=='P');

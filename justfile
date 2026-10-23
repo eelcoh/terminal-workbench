@@ -1,8 +1,8 @@
 config-path: runtime-build
-    target/debug/workbench-session config-path
+    target/debug/band-session config-path
 
 config-init: runtime-build
-    target/debug/workbench-session config-path --init
+    target/debug/band-session config-path --init
 
 default:
     @just --list
@@ -18,57 +18,57 @@ check: runtime-build
     cargo fmt --all -- --check
     cargo clippy --workspace --all-targets -- -D warnings
     cargo test --workspace
-    cargo build --locked --bin workbench-session
-    python3 tests/session_smoke.py target/debug/workbench-session
-    python3 tests/login_shell_test.py target/debug/workbench-session
-    python3 tests/input_burst_test.py target/debug/workbench-session
-    python3 tests/context_smoke.py target/debug/workbench-session
-    python3 tests/terminal_core_smoke.py target/debug/workbench-session
-    python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
-    python3 tests/catalog_journal_test.py target/debug/workbench-session
-    python3 tests/session_shutdown_test.py target/debug/workbench-session
-    python3 tests/session_soak.py target/debug/workbench-session --seconds 3 --terminals 1 --report .local/test-results/session-soak-check.json
-    python3 tests/session_soak_interrupt_test.py target/debug/workbench-session
-    python3 tests/socket_path_test.py target/debug/workbench-session
-    python3 tests/close_smoke.py target/debug/workbench-session
-    python3 tests/agent_smoke.py target/debug/workbench-session
-    python3 tests/attention_smoke.py target/debug/workbench-session
-    python3 tests/pi_runtime_test.py target/debug/workbench-session
-    python3 tests/agent_watch_test.py target/debug/workbench-session
-    python3 tests/copilot_observer_test.py target/debug/workbench-session
+    cargo build --locked --bin band-session
+    python3 tests/session_smoke.py target/debug/band-session
+    python3 tests/login_shell_test.py target/debug/band-session
+    python3 tests/input_burst_test.py target/debug/band-session
+    python3 tests/context_smoke.py target/debug/band-session
+    python3 tests/terminal_core_smoke.py target/debug/band-session
+    python3 tests/snapshot_attach_smoke.py target/debug/band-session
+    python3 tests/catalog_journal_test.py target/debug/band-session
+    python3 tests/session_shutdown_test.py target/debug/band-session
+    python3 tests/session_soak.py target/debug/band-session --seconds 3 --terminals 1 --report .local/test-results/session-soak-check.json
+    python3 tests/session_soak_interrupt_test.py target/debug/band-session
+    python3 tests/socket_path_test.py target/debug/band-session
+    python3 tests/close_smoke.py target/debug/band-session
+    python3 tests/agent_smoke.py target/debug/band-session
+    python3 tests/attention_smoke.py target/debug/band-session
+    python3 tests/pi_runtime_test.py target/debug/band-session
+    python3 tests/agent_watch_test.py target/debug/band-session
+    python3 tests/copilot_observer_test.py target/debug/band-session
     python3 scripts/prepare-theme-catalog.py --check
     python3 tests/core_headers_test.py
     python3 tests/terminal_search_vt_test.py
-    python3 tests/config_path_test.py target/debug/workbench-session
+    python3 tests/config_path_test.py target/debug/band-session
     python3 tests/build_env_test.py
-    python3 tests/recovery_test.py target/debug/workbench-session
-    python3 tests/session_service_test.py target/debug/workbench-session
+    python3 tests/recovery_test.py target/debug/band-session
+    python3 tests/session_service_test.py target/debug/band-session
     python3 tests/service_startup_cleanup_test.py
     python3 tests/preview_usage_test.py
-    python3 tests/lifecycle_smoke.py target/debug/workbench-session
-    python3 tests/terminal_dismiss_test.py target/debug/workbench-session
-    python3 tests/workspace_directories_test.py target/debug/workbench-session
+    python3 tests/lifecycle_smoke.py target/debug/band-session
+    python3 tests/terminal_dismiss_test.py target/debug/band-session
+    python3 tests/workspace_directories_test.py target/debug/band-session
     python3 tests/window_slots_test.py
 
 # Runtime PTY, context, VT core and snapshot smoke tests without a display.
 runtime-test: runtime-build
-    cargo build --locked --bin workbench-session
-    python3 tests/session_smoke.py target/debug/workbench-session
-    python3 tests/context_smoke.py target/debug/workbench-session
-    python3 tests/terminal_core_smoke.py target/debug/workbench-session
-    python3 tests/snapshot_attach_smoke.py target/debug/workbench-session
+    cargo build --locked --bin band-session
+    python3 tests/session_smoke.py target/debug/band-session
+    python3 tests/context_smoke.py target/debug/band-session
+    python3 tests/terminal_core_smoke.py target/debug/band-session
+    python3 tests/snapshot_attach_smoke.py target/debug/band-session
 
 # Explicitly recover dead session endpoints after a reboot or runtime crash.
 recover-sessions:
-    python3 scripts/session_service.py recover-all --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
+    python3 scripts/session_service.py recover-all --state-dir .local/sessions --runtime target/debug/band-session --cwd .
 
 # Runtime VT parsing cardinality, detached, fixed geometry (Linux diagnostic only).
 runtime-core-scale: runtime-build
-    python3 tests/runtime_core_scale.py target/debug/workbench-session
+    python3 tests/runtime_core_scale.py target/debug/band-session
 
 # Inspect runtime health without attaching to or restarting terminals.
 session-status:
-    python3 scripts/session_service.py status --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
+    python3 scripts/session_service.py status --state-dir .local/sessions --runtime target/debug/band-session --cwd .
 
 # Read agent identity/status and viewer metadata; never restart or attach terminals.
 agent-status:
@@ -80,15 +80,15 @@ agent-watch seconds="120":
 
 # Restart only an explicitly selected stopped terminal; preserves identity/themes.
 recover-terminal id:
-    python3 scripts/session_service.py recover --state-dir .local/sessions --runtime target/debug/workbench-session --cwd . --id "{{id}}"
+    python3 scripts/session_service.py recover --state-dir .local/sessions --runtime target/debug/band-session --cwd . --id "{{id}}"
 
 # Stops the organization service only. Live terminals and windows continue.
 service-stop:
-    python3 scripts/session_service.py stop --state-dir .local/sessions --runtime target/debug/workbench-session --cwd .
+    python3 scripts/session_service.py stop --state-dir .local/sessions --runtime target/debug/band-session --cwd .
 
 # Sustained runtime/ownership/service checks in disposable sessions (no GUI).
 session-soak seconds="300" terminals="15": runtime-build
-    python3 tests/session_soak.py target/debug/workbench-session --seconds "{{seconds}}" --terminals "{{terminals}}"
+    python3 tests/session_soak.py target/debug/band-session --seconds "{{seconds}}" --terminals "{{terminals}}"
 
 # Isolated Qt Quick text/semantic API probe; does not launch Workbench sessions.
 toolkit-probe-build:
@@ -174,7 +174,7 @@ toolkit-workbench: runtime-build
 
 # Opt-in font/display metadata for a controlled native screen comparison.
 toolkit-display-report: runtime-build
-    WORKBENCH_DISPLAY_REPORT="{{justfile_directory()}}/.local/artifacts/qt-display/report.json" python3 scripts/toolkit-probe.py workbench
+    BAND_DISPLAY_REPORT="{{justfile_directory()}}/.local/artifacts/qt-display/report.json" python3 scripts/toolkit-probe.py workbench
 
 # Linux: confirmed stop-all and peer status with real disposable terminals.
 toolkit-shutdown-gui-test: runtime-build
@@ -202,7 +202,7 @@ toolkit-view-state-test: runtime-build
 
 # Mac/Linux: saved launcher lifecycle/reattachment without a display.
 toolkit-saved-session-test: runtime-build
-    python3 tests/qt_saved_launcher_test.py target/debug/workbench-session
+    python3 tests/qt_saved_launcher_test.py target/debug/band-session
 
 # Linux: native input/focus and stable PTY geometry across UI transitions.
 toolkit-ui-test: runtime-build
@@ -234,11 +234,11 @@ toolkit-stage: runtime-build
 
 # Relocation, saved-session survival and real staged Qt startup.
 toolkit-stage-test: toolkit-stage
-    python3 tests/qt_staged_preview_test.py target/debug/workbench-session
+    python3 tests/qt_staged_preview_test.py target/debug/band-session
 
 # Desktop entry decoding, Finder bootstrap handoff and private launch logs.
 toolkit-desktop-launcher-test: toolkit-stage
-    python3 tests/qt_desktop_launcher_test.py target/debug/workbench-session
+    python3 tests/qt_desktop_launcher_test.py target/debug/band-session
 
 # Explicit preview update with real retained shells and failure isolation.
 toolkit-activation-test: toolkit-stage
@@ -246,11 +246,11 @@ toolkit-activation-test: toolkit-stage
     python3 tests/preview_restoration_test.py
     python3 tests/service_startup_cleanup_test.py
     python3 tests/preview_service_check_test.py
-    python3 tests/preview_activation_test.py target/debug/workbench-session
+    python3 tests/preview_activation_test.py target/debug/band-session
 
 # Mac/Linux: real zsh login startup under a minimal desktop environment.
 login-shell-test: runtime-build
-    python3 tests/login_shell_test.py target/debug/workbench-session
+    python3 tests/login_shell_test.py target/debug/band-session
 
 # Native Mac: optional Qt-deployed preview; Python remains external.
 toolkit-bundle: runtime-build
@@ -333,7 +333,7 @@ toolkit-agent-info-test: toolkit-stage
 
 # Runtime contracts for Pi and older metadata clients.
 pi-runtime-test: runtime-build
-    python3 tests/pi_runtime_test.py target/debug/workbench-session
+    python3 tests/pi_runtime_test.py target/debug/band-session
 
 # Optional integration check: Node 22+ TypeScript loader, no Pi/account needed.
 pi-observer-test:
@@ -341,7 +341,7 @@ pi-observer-test:
 
 # Metadata-only exited-pane removal and live/recovery race protection.
 terminal-dismiss-test: runtime-build
-    python3 tests/terminal_dismiss_test.py target/debug/workbench-session
+    python3 tests/terminal_dismiss_test.py target/debug/band-session
 
 # Read-only per-terminal runtime diagnostics, parser bounds and cancellation.
 toolkit-runtime-info-test: toolkit-stage

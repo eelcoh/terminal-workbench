@@ -28,14 +28,14 @@ class BuildInstallTest(unittest.TestCase):
 
     def test_mac_builds_bootstrap_and_selective_bundle_before_install(self):
         calls=self.commands('darwin')
-        self.assertIn('-DWORKBENCH_TERMINAL_PROBE=ON',calls[0])
-        self.assertIn('workbench-ui-study',calls[1]);self.assertIn('workbench-preview-bootstrap',calls[1])
+        self.assertIn('-DBAND_TERMINAL_PROBE=ON',calls[0])
+        self.assertIn('band-ui',calls[1]);self.assertIn('workbench-preview-bootstrap',calls[1])
         self.assertEqual(calls[2][2:],['--bundle-qt','--selective-qml','--install'])
         self.assertEqual(len(calls),3,'unexpected launch/activation command')
 
     def test_linux_builds_staged_qt_and_installs_without_mac_flags(self):
         calls=self.commands('linux')
-        self.assertIn('workbench-ui-study',calls[1]);self.assertNotIn('workbench-preview-bootstrap',calls[1])
+        self.assertIn('band-ui',calls[1]);self.assertNotIn('workbench-preview-bootstrap',calls[1])
         self.assertEqual(calls[2][2:],['--install'])
         self.assertEqual(len(calls),3)
 
@@ -52,7 +52,7 @@ class BuildInstallTest(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='wb-install-rejected-',dir='/tmp') as directory:
             root=Path(directory);viewer=root/'broken-viewer';viewer.write_text('#!/bin/sh\nexit 42\n');viewer.chmod(0o755)
             state=root/'state';config=root/'config';data=root/'data'
-            environment=dict(os.environ,XDG_DATA_HOME=str(data),WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(config),QT_QPA_PLATFORM='offscreen')
+            environment=dict(os.environ,XDG_DATA_HOME=str(data),BAND_STATE_DIR=str(state),BAND_CONFIG_DIR=str(config),QT_QPA_PLATFORM='offscreen')
             result=subprocess.run([sys.executable,str(ROOT/'scripts/stage-toolkit.py'),'--install','--parent',str(root/'stages'),'--viewer',str(viewer)],
                 cwd=ROOT,env=environment,capture_output=True,text=True,timeout=60)
             self.assertNotEqual(result.returncode,0);self.assertIn('installed verification failed',result.stderr)
@@ -66,8 +66,8 @@ class BuildInstallTest(unittest.TestCase):
     def test_real_just_recipe_installs_into_private_root_without_source_argument(self):
         with tempfile.TemporaryDirectory(prefix='wb-build-install-',dir='/tmp') as directory:
             root=Path(directory);state=root/'state';preferences=root/'config'
-            environment=dict(os.environ,XDG_DATA_HOME=str(root/'data'),WORKBENCH_STATE_DIR=str(state),
-                WORKBENCH_CONFIG_DIR=str(preferences),QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software')
+            environment=dict(os.environ,XDG_DATA_HOME=str(root/'data'),BAND_STATE_DIR=str(state),
+                BAND_CONFIG_DIR=str(preferences),QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software')
             result=subprocess.run(['just','--justfile',str(ROOT/'justfile'),'--working-directory',str(ROOT),'toolkit-install'],
                 cwd=ROOT,env=environment,capture_output=True,text=True,timeout=180)
             self.assertEqual(result.returncode,0,(result.stdout,result.stderr))

@@ -786,7 +786,7 @@ void TerminalItem::wheelEvent(QWheelEvent *event)
     // X11 pixel deltas are driver-specific; Qt recommends angle deltas there.
     const auto result=wheel_.consume(event->pixelDelta(),event->angleDelta(),cellHeight_,
         QGuiApplication::styleHints()->wheelScrollLines(),QGuiApplication::platformName()!=QStringLiteral("xcb"),event->phase());
-    if(qEnvironmentVariableIsSet("WORKBENCH_SCROLL_DEBUG"))
+    if(qEnvironmentVariableIsSet("BAND_SCROLL_DEBUG"))
         qInfo("Qt scroll platform=%s pixel=(%d,%d) angle=(%d,%d) inverted=%d phase=%d rows=%d handled=%d",
             qPrintable(QGuiApplication::platformName()),event->pixelDelta().x(),event->pixelDelta().y(),event->angleDelta().x(),event->angleDelta().y(),event->inverted(),int(event->phase()),result.rows,result.handled);
     if(!result.handled){event->ignore();return;}

@@ -33,7 +33,7 @@ def main():
                 for name in ("DBUS_SESSION_BUS_ADDRESS","IBUS_ADDRESS","IBUS_ADDRESS_FILE","IBUS_USE_PORTAL",
                              "DISPLAY","WAYLAND_DISPLAY","NIRI_SOCKET","AT_SPI_BUS_ADDRESS",
                              "QT_SCALE_FACTOR","QT_SCREEN_SCALE_FACTORS","QT_FONT_DPI",
-                             "WORKBENCH_TEST_KEYBOARD_LAYOUT","WORKBENCH_TEST_KEYBOARD_VARIANT"):
+                             "BAND_TEST_KEYBOARD_LAYOUT","BAND_TEST_KEYBOARD_VARIANT"):
                     env.pop(name,None)
                 env["IBUS_ADDRESS"]="unix:path="+str(root/"ibus.sock")
                 env["IBUS_ADDRESS_FILE"]=str(root/"ibus.address")

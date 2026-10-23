@@ -38,7 +38,7 @@ def main():
             send(viewer,16,f"sh -c 'echo $$ > agent.pid; exec {fixture} 60'\n".encode())
             wait_until(lambda:snapshot(runtime,path)['agent']=='codex')
             group=os.getpgid(int((root/'agent.pid').read_text()))
-            env=dict(os.environ,WORKBENCH_SESSION_SOCKET=str(path),WORKBENCH_AGENT_GROUP=str(group),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
+            env=dict(os.environ,BAND_SESSION_SOCKET=str(path),BAND_AGENT_GROUP=str(group),BAND_AGENT_RUN=uuid.uuid4().hex)
             output=root/'events'
             with output.open('w') as log:
                 watcher=subprocess.Popen([sys.executable,str(WATCH),'--state-dir',str(root),'--seconds','5'],stdout=log,stderr=subprocess.PIPE,text=True)

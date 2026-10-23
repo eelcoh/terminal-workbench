@@ -16,7 +16,7 @@ class RestorationTest(unittest.TestCase):
     def setUp(self):
         self.directory=tempfile.TemporaryDirectory(prefix='wb-restore-',dir='/tmp');self.addCleanup(self.directory.cleanup)
         self.root=Path(self.directory.name);self.state=self.root/'state';self.state.mkdir(mode=0o700)
-        self.payload=self.root/'previous';self.runtime=self.payload/'libexec/workbench-session'
+        self.payload=self.root/'previous';self.runtime=self.payload/'libexec/band-session'
         self.runtime.parent.mkdir(parents=True);self.runtime.touch();self.runtime.chmod(0o755)
         (self.payload/'preview.json').write_text(json.dumps(dict(format=1)))
         self.script=self.payload/'scripts/session_service.py';self.script.parent.mkdir()

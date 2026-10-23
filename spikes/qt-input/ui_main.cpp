@@ -44,7 +44,7 @@ static QVariantList listProperty(QObject *object,const char *name) {
 int main(int argc,char **argv) {
     QGuiApplication app(argc,argv);
     app.setApplicationName("Terminal Workbench UI Study");
-    app.setDesktopFileName("terminal-workbench-ui-study");
+    app.setDesktopFileName("terminal-band-ui");
     QQuickStyle::setStyle("Basic");
     const int interfaceFont=QFontDatabase::addApplicationFont(":/fonts/adwaita-sans/AdwaitaSans-Regular.ttf");
     const auto interfaceFamilies=QFontDatabase::applicationFontFamilies(interfaceFont);
@@ -122,7 +122,7 @@ int main(int argc,char **argv) {
     }
     if(engine.rootObjects().isEmpty()){std::fputs("Qt UI: no root window was created\n",stderr);return 1;}
     auto *window=qobject_cast<QQuickWindow *>(engine.rootObjects().first());if(!window){std::fputs("Qt UI: root object is not a window\n",stderr);return 1;}
-    const auto displayReport=qEnvironmentVariable("WORKBENCH_DISPLAY_REPORT");
+    const auto displayReport=qEnvironmentVariable("BAND_DISPLAY_REPORT");
     if(!displayReport.isEmpty()) {
         new UiDisplayReport(window,displayReport);
         std::fprintf(stderr,"Qt display report: %s\n",qPrintable(QFileInfo(displayReport).absoluteFilePath()));
@@ -206,7 +206,7 @@ int main(int argc,char **argv) {
                 {"agent_info_open",window->property("agentInfoOpen").toBool()},{"agent_info_target",window->property("agentInfoTarget").toString()},
                 {"agent_info_details",window->findChild<QObject *>("agentInformation") ? QJsonObject::fromVariantMap(window->findChild<QObject *>("agentInformation")->property("information").toMap()):QJsonObject()},
                 {"agent_info_copy",center("agentInfoCopy")},{"agent_info_menu",center("agentInfoMenuItem")},{"navigation_agent_info",center("navigationAgentInfo0")},
-                {"agent_launcher_clipboard_matches",QStringList{"wb-codex","wb-claude","wb-copilot","wb-pi"}.contains(QGuiApplication::clipboard()->text())},
+                {"agent_launcher_clipboard_matches",QStringList{"band-codex","band-claude","band-copilot","band-pi"}.contains(QGuiApplication::clipboard()->text())},
                 {"about_open",window->property("aboutOpen").toBool()},
                 {"about_menu",center("aboutMenuItem")},{"about_copy",center("aboutCopy")},{"about_details",center("aboutDetails")},{"about_close",center("aboutClose")},
                 {"about_clipboard_matches",window->property("aboutOpen").toBool() && QGuiApplication::clipboard()->text()==buildInfo.diagnostics()},

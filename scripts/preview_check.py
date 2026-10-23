@@ -49,7 +49,7 @@ def check(payload,runtime,viewer,*,platform=None):
     try:
         # The no-argument usage path exits before opening sockets or PTYs.
         reply=subprocess.run([str(runtime)],capture_output=True,text=True,timeout=15)
-        record('runtime_startup',reply.returncode==2 and 'usage: workbench-session ' in reply.stderr,
+        record('runtime_startup',reply.returncode==2 and 'usage: band-session ' in reply.stderr,
                exit_code=reply.returncode,stderr=reply.stderr)
     except (OSError,subprocess.SubprocessError) as error:record('runtime_startup',False,error=str(error))
     report=None

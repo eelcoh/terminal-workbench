@@ -23,7 +23,7 @@ enable context. Native Mac testing of this slice remains pending.
 To inspect a terminal without attaching or moving it:
 
 ```sh
-target/debug/workbench-session context .local/sessions/TERMINAL_ID.sock
+target/debug/band-session context .local/sessions/TERMINAL_ID.sock
 ```
 
 The JSON reports `available`, `source`, `cwd`, `repository`, `branch`, `worktree`

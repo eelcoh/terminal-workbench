@@ -21,7 +21,7 @@ class DependencyTest(unittest.TestCase):
         audit.write_text(json.dumps(dict(schema=1,external_non_qt=['@rpath/liboptional.dylib'],secret='do not report')))
         before=audit.read_bytes()
         value=summarize(self.payload,dict(qt_bundled=True,python=dict(executable='/build/python',version='3.13.1',secret='hidden')),
-            dict(loaded_images=[str(self.bundle/'Contents/MacOS/workbench-ui-study'),
+            dict(loaded_images=[str(self.bundle/'Contents/MacOS/band-ui'),
                 str(self.bundle/'Contents/Frameworks/QtCore.framework/Versions/A/QtCore'),
                 '/usr/lib/libSystem.B.dylib','/System/Library/Frameworks/AppKit.framework/AppKit',
                 '/opt/homebrew/lib/libicuuc.dylib','/opt/homebrew/lib/libicuuc.dylib']),platform='darwin')

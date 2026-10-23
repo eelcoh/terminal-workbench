@@ -64,7 +64,7 @@ def main():
         print(f"Building with Zig {ZIG_VERSION}: {binary}", flush=True)
         for command in ([sys.executable,str(ROOT / "scripts/prepare-agent-launchers.py")],
                         [sys.executable,str(ROOT / "scripts/prepare-runtime-vt.py")],
-                        ["cargo","build","--locked","--bin","workbench-session"]):
+                        ["cargo","build","--locked","--bin","band-session"]):
             subprocess.run(command, cwd=ROOT, env=environment, check=True)
     except subprocess.CalledProcessError as error:
         return error.returncode if error.returncode > 0 else 1

@@ -1,6 +1,6 @@
 # Agent lifecycle status
 
-Run `just spike`, create a new terminal, and use `wb-codex`, `wb-claude` or `wb-copilot` with
+Run `just spike`, create a new terminal, and use `band-codex`, `band-claude` or `band-copilot` with
 normal agent arguments. The generated commands live under .local/bin, added to
 PATH only in new Workbench runtime shells. Previously running servers are not
 replaced by a build. Create a new terminal to obtain the integration.

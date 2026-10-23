@@ -65,10 +65,10 @@ at launch. TerminalColors inspired the browsing flow; its images were not copied
 Import a local theme when launching:
 
 ```sh
-WORKBENCH_THEME=/absolute/path/to/theme just spike
+BAND_THEME=/absolute/path/to/theme just spike
 ```
 
-`WORKBENCH_THEME` overrides default terminal colors on each launch; explicit
+`BAND_THEME` overrides default terminal colors on each launch; explicit
 workspace/terminal palettes retain priority, and application appearance stays
 independent. A non-bundled imported palette is available as **Imported colors**
 in the workspace or terminal picker. A target's existing custom palette appears as **Custom

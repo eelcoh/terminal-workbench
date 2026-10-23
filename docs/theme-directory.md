@@ -8,10 +8,10 @@ foreground and palette; the live workspace preview is not dimmed. The directory 
 
 | Platform | Default folder |
 | --- | --- |
-| Linux | `~/.config/terminal-workbench/themes/` |
-| macOS | `~/.config/terminal-workbench/themes/` |
+| Linux | `~/.config/band/themes/` |
+| macOS | `~/.config/band/themes/` |
 
-Both platforms honor `XDG_CONFIG_HOME`. On either platform, `WORKBENCH_CONFIG_DIR` selects
+Both platforms honor `XDG_CONFIG_HOME`. On either platform, `BAND_CONFIG_DIR` selects
 a different configuration root; themes then live in its `themes/` directory.
 This can point to a shared dotfiles checkout. File and directory symlinks work.
 
@@ -50,5 +50,5 @@ On macOS, startup copies existing preferences from the previous
 `~/Library/Application Support/Terminal Workbench` location once. Managed config,
 themes and Mac UI settings are copied only where a destination does not already
 exist; existing destination symlinks are left alone. Original files stay intact,
-and session/runtime data is never copied. Explicit `WORKBENCH_CONFIG_DIR` overrides
+and session/runtime data is never copied. Explicit `BAND_CONFIG_DIR` overrides
 skip this migration. A marker prevents removed settings/themes from reappearing.

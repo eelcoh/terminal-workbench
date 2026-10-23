@@ -31,7 +31,7 @@ server, not a viewer. A shell exit ends the server and removes its socket.
 
 Each new runtime also binds a mode-0600 Unix control socket obtained by replacing
 the session socket's extension with `.ctl`. The neutral CLI is
-`workbench-session stop SOCKET`. It sends exactly `STOP\n`; the server responds
+`band-session stop SOCKET`. It sends exactly `STOP\n`; the server responds
 `OK\n` after terminating/reaping the shell and removing both socket paths.
 Malformed requests are discarded and reads time out after one second. This control
 endpoint is independent of viewer attachment and terminal replay. Stop kills the

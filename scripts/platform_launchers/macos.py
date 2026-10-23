@@ -13,14 +13,14 @@ NAME='Terminal Workbench Preview.app'
 
 def prepare(directory,viewer):
     app=viewer.parents[2]
-    if app.suffix!='.app' or viewer.name!='workbench-ui-study':
-        raise ValueError('Expected the workbench-ui-study macOS application bundle')
+    if app.suffix!='.app' or viewer.name!='band-ui':
+        raise ValueError('Expected the band-ui macOS application bundle')
     bundle=directory/NAME
     progress(f'Copying Mac application into {bundle}')
     shutil.copytree(app,bundle,symlinks=True)
     payload=bundle/'Contents/Resources/workbench'
     payload.mkdir(parents=True)
-    return payload,'../../MacOS/workbench-ui-study'
+    return payload,'../../MacOS/band-ui'
 
 
 def finalize(directory,payload,bootstrap,python,*,sign=True,qt_deployment=None,stage_started=None):

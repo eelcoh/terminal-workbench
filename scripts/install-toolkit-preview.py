@@ -35,10 +35,10 @@ def source_payload(source,platform):
     revision=metadata.get('source')
     if not isinstance(revision,str) or len(revision)!=40 or any(c not in '0123456789abcdef' for c in revision):
         raise ValueError('Preview source revision is missing or invalid')
-    for relative in ('terminal-workbench','libexec/workbench-session','scripts/toolkit-ui.py'):
+    for relative in ('terminal-workbench','libexec/band-session','scripts/toolkit-ui.py'):
         if not (payload/relative).is_file():raise ValueError('Preview is incomplete: '+relative)
-    viewer=source/'Contents/MacOS/workbench-ui-study' if platform=='darwin' else payload/'libexec/workbench-ui-study'
-    executables=[payload/'terminal-workbench',payload/'libexec/workbench-session',viewer]
+    viewer=source/'Contents/MacOS/band-ui' if platform=='darwin' else payload/'libexec/band-ui'
+    executables=[payload/'terminal-workbench',payload/'libexec/band-session',viewer]
     if platform=='darwin':
         executables.append(source/'Contents/MacOS/workbench-preview')
         if not (source/'Contents/Info.plist').is_file() or not (payload/'python.path').is_file():

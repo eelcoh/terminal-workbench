@@ -16,17 +16,17 @@ from window_slots import acquire_window_slot,reserve_window_slots
 spec=importlib.util.spec_from_file_location('stage_toolkit',ROOT/'scripts/stage-toolkit.py')
 staging=importlib.util.module_from_spec(spec);spec.loader.exec_module(staging)
 runtime=Path(sys.argv[1]).resolve()
-built=ROOT/'.local/build/qt-input/workbench-ui-study'
-if sys.platform=='darwin':built=built.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
+built=ROOT/'.local/build/qt-input/band-ui'
+if sys.platform=='darwin':built=built.with_suffix('.app')/'Contents/MacOS/band-ui'
 
 with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
-    root=Path(directory).resolve();home=root/'home';home.mkdir();state=home/'.local/state/terminal-workbench/qt-preview';config=root/'preferences'
-    env={k:v for k,v in os.environ.items() if not k.startswith(('WORKBENCH_','XDG_'))}
-    env.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',HOME=str(home),SHELL='/bin/sh',WORKBENCH_STATE_DIR=str(state),WORKBENCH_CONFIG_DIR=str(config),PYTHONDONTWRITEBYTECODE='1')
+    root=Path(directory).resolve();home=root/'home';home.mkdir();state=home/'.local/state/band';config=root/'preferences'
+    env={k:v for k,v in os.environ.items() if not k.startswith(('BAND_','XDG_'))}
+    env.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',HOME=str(home),SHELL='/bin/sh',BAND_STATE_DIR=str(state),BAND_CONFIG_DIR=str(config),PYTHONDONTWRITEBYTECODE='1')
     stages=[staging.stage(root/f'build-{i}',runtime,built,ROOT/'.local/build/qt-input/workbench-preview-bootstrap',sign=sys.platform=='darwin') for i in range(3)]
     def payload(index):
         return stages[index]/'Terminal Workbench Preview.app/Contents/Resources/workbench' if sys.platform=='darwin' else stages[index]
-    binaries=[payload(i)/'libexec/workbench-session' for i in range(3)]
+    binaries=[payload(i)/'libexec/band-session' for i in range(3)]
     def resign(index):
         if sys.platform=='darwin':subprocess.run(['/usr/bin/codesign','--force','--deep','--sign','-',str(stages[index]/'Terminal Workbench Preview.app')],check=True,capture_output=True,timeout=30)
     def cli(index,action,code=0,**environment):
@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
     except Unavailable:pass
     else:raise AssertionError('retirement of absent service started an authority')
     assert not state.exists()
-    candidate=payload(1)/'../../MacOS/workbench-ui-study' if sys.platform=='darwin' else payload(1)/'libexec/workbench-ui-study'
+    candidate=payload(1)/'../../MacOS/band-ui' if sys.platform=='darwin' else payload(1)/'libexec/band-ui'
     original_viewer=candidate.read_bytes()
     try:
         candidate.write_text('#!/bin/sh\nexit 42\n')
@@ -67,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         request(state,binaries[0],home,'session.stop',terminal_ids=[stopped])
         wait_until(lambda:next(t['state'] for t in health()['terminals'] if t['id']==stopped)=='stopped')
         connection,_,_=attach(state/(terminal+'.sock'))
-        proof=home/'before';send(connection,16,('retained=kept; printf "%s:%s:%s" "$$" "$retained" "$WORKBENCH_AGENT_BIN" > '+shlex.quote(str(proof))+'\n').encode())
+        proof=home/'before';send(connection,16,('retained=kept; printf "%s:%s:%s" "$$" "$retained" "$BAND_AGENT_BIN" > '+shlex.quote(str(proof))+'\n').encode())
         wait_until(lambda:proof.exists() and proof.read_text().count(':')==2)
         original_proof=proof.read_text();assert original_proof.endswith(str(payload(0)/'.local/bin'))
         config.mkdir();(config/'config.conf').write_text('managed preferences')
@@ -126,7 +126,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         assert next(t['state'] for t in second['terminals'] if t['id']==stopped)=='stopped'
         for path,(contents,stamp) in snapshots.items():assert path.read_bytes()==contents and path.stat().st_mtime_ns==stamp,path
         assert all(path.stat().st_ino==inode for path,inode in inodes.items())
-        after=home/'after';send(connection,16,('printf "%s:%s:%s" "$$" "$retained" "$WORKBENCH_AGENT_BIN" > '+shlex.quote(str(after))+'\n').encode())
+        after=home/'after';send(connection,16,('printf "%s:%s:%s" "$$" "$retained" "$BAND_AGENT_BIN" > '+shlex.quote(str(after))+'\n').encode())
         wait_until(lambda:after.exists() and after.read_text()==original_proof)
         # A stale retirement request cannot shut down the new service.
         for instance in (None,'',first['service_instance']):
@@ -148,7 +148,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         data=request(state,binaries[1],home,'terminal.create',workspace,'New shell')['data']
         fresh=data['workspaces'][0]['terminals'][-1]['id'];reader,_,_=attach(state/(fresh+'.sock'))
         try:
-            new=home/'new';send(reader,16,('printf "%s" "$WORKBENCH_AGENT_BIN" > '+shlex.quote(str(new))+'\n').encode())
+            new=home/'new';send(reader,16,('printf "%s" "$BAND_AGENT_BIN" > '+shlex.quote(str(new))+'\n').encode())
             wait_until(lambda:new.exists() and new.read_text()==str(payload(1)/'.local/bin'))
         finally:reader.close()
         usage=json.loads(cli(1,'--status').stdout)['payload_usage']
@@ -158,7 +158,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         # A failed daemon is rejected in the private startup rehearsal before
         # the healthy service is retired. Retained shells need no recovery.
         # The runtime binary serves the authority; wrap it so only `service` fails.
-        real=binaries[2].with_name('workbench-session.real');binaries[2].rename(real)
+        real=binaries[2].with_name('band-session.real');binaries[2].rename(real)
         def fail_service(condition):
             binaries[2].write_text('#!/bin/sh\nif [ "$1" = service ]; then\n'+condition+'fi\nexec '+shlex.quote(str(real))+' "$@"\n')
             binaries[2].chmod(0o755);resign(2)
@@ -184,7 +184,7 @@ with tempfile.TemporaryDirectory(prefix='wb-update-',dir='/tmp') as directory:
         assert all(path.stat().st_ino==inode for path,inode in late_inodes.items())
         cli(1,'--activate')
         assert next(t['state'] for t in health()['terminals'] if t['id']==stopped)=='stopped'
-        resumed=home/'resumed';send(connection,16,('printf "%s:%s:%s" "$$" "$retained" "$WORKBENCH_AGENT_BIN" > '+shlex.quote(str(resumed))+'\n').encode())
+        resumed=home/'resumed';send(connection,16,('printf "%s:%s:%s" "$$" "$retained" "$BAND_AGENT_BIN" > '+shlex.quote(str(resumed))+'\n').encode())
         wait_until(lambda:resumed.exists() and resumed.read_text()==original_proof)
         lease,slot=acquire_window_slot(state/'qt');os.close(lease);assert slot.name=='1.view','activation leaked a window reservation'
         # A non-preview namespace must not be retired by preview activation.
@@ -218,7 +218,7 @@ c.sendall((json.dumps(dict(protocol=1,ok=True,runtime_binary=sys.argv[3],directo
     process=subprocess.Popen([sys.executable,str(server),str(legacy),str(observed),str(binaries[0]),str(home)])
     try:
         wait_until((legacy/'service.rpc').exists)
-        result=cli(1,'--activate',1,WORKBENCH_STATE_DIR=str(legacy));assert 'older preview service' in result.stderr
+        result=cli(1,'--activate',1,BAND_STATE_DIR=str(legacy));assert 'older preview service' in result.stderr
         process.wait(timeout=5);assert json.loads(observed.read_text())['method']=='health'
     finally:
         if process.poll() is None:process.kill();process.wait()

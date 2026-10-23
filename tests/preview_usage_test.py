@@ -5,7 +5,7 @@ import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'scripts'))
 from preview_activation import payload_usage
 
-SELECTED='/chosen/libexec/workbench-session'
+SELECTED='/chosen/libexec/band-session'
 
 
 def terminal(identity='retained',state='running',origin=None):
@@ -18,7 +18,7 @@ def health(*terminals):
 
 class UsageTest(unittest.TestCase):
     def test_retained_and_split_paths_without_filesystem_access(self):
-        origin=dict(version=1,runtime_binary='/old build é/libexec/workbench-session',agent_bin='/other helpers/.local/bin')
+        origin=dict(version=1,runtime_binary='/old build é/libexec/band-session',agent_bin='/other helpers/.local/bin')
         result=payload_usage(SELECTED,health(terminal(origin=origin)))
         rows={row['directory']:row for row in result['builds']}
         self.assertTrue(rows['/chosen']['selected'] and rows['/chosen']['service'])
@@ -29,7 +29,7 @@ class UsageTest(unittest.TestCase):
         self.assertIn('other state directories',result['scope'])
 
     def test_legacy_unavailable_and_incomplete_origins_are_explicit(self):
-        for origin in (None,{},[],False,dict(version=True),dict(version=2),dict(version=1),dict(version=1,runtime_binary='relative/libexec/workbench-session',agent_bin='/custom/bin')):
+        for origin in (None,{},[],False,dict(version=True),dict(version=2),dict(version=1),dict(version=1,runtime_binary='relative/libexec/band-session',agent_bin='/custom/bin')):
             result=payload_usage(SELECTED,health(terminal(origin=origin)))
             self.assertEqual([row['id'] for row in result['unknown_terminals']],['retained'])
             self.assertEqual(len(result['builds']),1)
@@ -41,7 +41,7 @@ class UsageTest(unittest.TestCase):
         self.assertEqual(len(payload_usage(SELECTED,health(malformed))['unknown_terminals']),1)
 
     def test_stopped_origins_do_not_keep_observed_runtime_references(self):
-        result=payload_usage(SELECTED,health(terminal(state='stopped',origin=dict(version=1,runtime_binary='/old/libexec/workbench-session',agent_bin='/old/.local/bin'))))
+        result=payload_usage(SELECTED,health(terminal(state='stopped',origin=dict(version=1,runtime_binary='/old/libexec/band-session',agent_bin='/old/.local/bin'))))
         self.assertEqual([row['directory'] for row in result['builds']],['/chosen'])
         self.assertEqual(result['unknown_terminals'],[])
 

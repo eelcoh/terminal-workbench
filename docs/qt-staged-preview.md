@@ -8,7 +8,7 @@ No checkout, Cargo, CMake or `just` is needed to run the resulting preview.
 
 This is a same-machine preview. Opening a window (the launcher with no
 arguments or `--desktop`, Finder, the app menu) runs only the bundled
-`workbench-session open` and Qt, without Python. Preview management actions
+`band-session open` and Qt, without Python. Preview management actions
 (`--check`, `--status`, `--activate`, `--paths`, `--install-desktop-entry`) still
 use the Python installation recorded at build time. The Qt installation used to
 build the preview must remain available; the optional Mac Qt deployment below
@@ -173,7 +173,7 @@ wrappers and client. The sibling `terminal-workbench` command works while the ap
 Moving the app alone keeps its payload intact; use the launcher inside the app
 for terminal commands after that move.
 
-With no arguments, the native bootstrap runs the bundled `workbench-session
+With no arguments, the native bootstrap runs the bundled `band-session
 open --desktop`, which replaces itself with the Qt viewer, retaining the window
 lease. With management arguments it uses the recorded Python path, rather than
 searching Finder's PATH. Locally built bundles are signed ad hoc; this is not a signed,
@@ -412,7 +412,7 @@ zoxide initialization. Workbench does not read or rewrite those files itself.
 See [zsh's startup-file order](https://zsh.sourceforge.io/Doc/Release/Files.html).
 Linux keeps its existing non-login default; explicit runtime commands keep their
 existing behavior. The runtime additionally supports explicit login opt-in:
-`workbench-session SOCKET --login-shell /bin/zsh`.
+`band-session SOCKET --login-shell /bin/zsh`.
 
 Rebuild and activate the new preview, then create a **new terminal** to review:
 
@@ -432,10 +432,10 @@ window, creating files or starting sessions. On Mac the launcher inside the
 moved app is `Contents/Resources/workbench/terminal-workbench`.
 
 - Preferences and themes use `~/.config/terminal-workbench` on both platforms.
-  `XDG_CONFIG_HOME` and `WORKBENCH_CONFIG_DIR` keep their existing behavior.
+  `XDG_CONFIG_HOME` and `BAND_CONFIG_DIR` keep their existing behavior.
 - Preview sessions and window views use
   `~/.local/state/terminal-workbench/qt-preview`. `XDG_STATE_HOME` changes the
-  base; `WORKBENCH_STATE_DIR` explicitly chooses a different session directory.
+  base; `BAND_STATE_DIR` explicitly chooses a different session directory.
 - New workspaces start in your home directory. Launching from a different
   current directory does not change the service's initial directory.
 - Checkout sessions are not automatically imported. Existing stopped terminals
@@ -575,7 +575,7 @@ payload directory (the preview root on Linux, or
 ```sh
 python3 ./scripts/session_service.py stop \
   --state-dir "$HOME/.local/state/terminal-workbench/qt-preview" \
-  --runtime "$PWD/libexec/workbench-session" --cwd "$HOME"
+  --runtime "$PWD/libexec/band-session" --cwd "$HOME"
 ```
 
 Use your actual state path if overridden. Stopping the service alone leaves

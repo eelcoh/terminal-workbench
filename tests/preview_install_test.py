@@ -31,9 +31,9 @@ class PreviewInstallTest(unittest.TestCase):
         payload=app/'Contents/Resources/workbench' if platform=='darwin' else app
         payload.mkdir(parents=True)
         (payload/'preview.json').write_text(json.dumps(dict(format=1,source='a'*40,source_dirty=True,platform=platform)))
-        for name in ('terminal-workbench','libexec/workbench-session','scripts/toolkit-ui.py'):
+        for name in ('terminal-workbench','libexec/band-session','scripts/toolkit-ui.py'):
             path=payload/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text('fixture executable');path.chmod(0o755)
-        viewer=app/'Contents/MacOS/workbench-ui-study' if platform=='darwin' else payload/'libexec/workbench-ui-study'
+        viewer=app/'Contents/MacOS/band-ui' if platform=='darwin' else payload/'libexec/band-ui'
         viewer.parent.mkdir(parents=True,exist_ok=True);viewer.write_text('fixture viewer');viewer.chmod(0o755)
         if platform=='darwin':
             bootstrap=app/'Contents/MacOS/workbench-preview';bootstrap.write_text('fixture bootstrap');bootstrap.chmod(0o755)
@@ -82,7 +82,7 @@ class PreviewInstallTest(unittest.TestCase):
         value=json.loads(original);value['platform']='darwin';metadata.write_text(json.dumps(value))
         with self.assertRaisesRegex(ValueError,'platform'):installer.install(source,target,platform='linux')
         metadata.write_text(original)
-        (payload/'libexec/workbench-ui-study').unlink()
+        (payload/'libexec/band-ui').unlink()
         with self.assertRaisesRegex(ValueError,'executable'):installer.install(source,target,platform='linux')
         self.assertFalse(target.exists())
 
@@ -129,12 +129,12 @@ class PreviewInstallTest(unittest.TestCase):
         sys.path.insert(0,str(ROOT/'scripts'))
         stage_spec=importlib.util.spec_from_file_location('stage',ROOT/'scripts/stage-toolkit.py')
         staging=importlib.util.module_from_spec(stage_spec);stage_spec.loader.exec_module(staging)
-        source=staging.stage(self.root/'build',ROOT/'target/debug/workbench-session',ROOT/'.local/build/qt-input/workbench-ui-study')
+        source=staging.stage(self.root/'build',ROOT/'target/debug/band-session',ROOT/'.local/build/qt-input/band-ui')
         installed,launcher=installer.install(source,self.root/'installed',platform='linux')
         shutil.rmtree(source)
         state=self.root/'state';home=self.root/'home';home.mkdir()
-        environment={key:value for key,value in os.environ.items() if not key.startswith(('WORKBENCH_','XDG_'))}
-        environment.update(HOME=str(home),WORKBENCH_STATE_DIR=str(state),QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',PYTHONDONTWRITEBYTECODE='1')
+        environment={key:value for key,value in os.environ.items() if not key.startswith(('BAND_','XDG_'))}
+        environment.update(HOME=str(home),BAND_STATE_DIR=str(state),QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',PYTHONDONTWRITEBYTECODE='1')
         def run(action):
             result=subprocess.run([str(launcher),action],env=environment,cwd=self.root,capture_output=True,text=True,timeout=40)
             self.assertEqual(result.returncode,0,(result.stdout,result.stderr));return json.loads(result.stdout)

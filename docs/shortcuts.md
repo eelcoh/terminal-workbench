@@ -86,7 +86,7 @@ shortcut preferences. UI saves record only differences from the managed baseline
 Default restores the configured binding. See [dotfiles](dotfiles.md) for paths,
 precedence, reset and migration behavior.
 
-Set `WORKBENCH_SHORTCUTS` before `just spike` to retain standalone-file behavior.
+Set `BAND_SHORTCUTS` before `just spike` to retain standalone-file behavior.
 That explicit file uses full-map saves. Files use private atomic saves and apply
 immediately in the editing window. Other open windows load UI changes when
 opening Shortcut settings; new windows load them at startup. Managed dotfile
@@ -106,7 +106,7 @@ shortcut to an existing action, that new width action starts unbound rather than
 invalidating the existing customization. Use `none` to unbind an action:
 
 ```text
-workbench-shortcuts-v1
+band-shortcuts-v1
 terminal.next=Ctrl+Shift+J
 terminal.previous=Ctrl+Shift+K
 forward=F8
@@ -216,7 +216,7 @@ active bindings rather than fixed defaults. Restart the study after file edits.
 For example, these bindings open Commands, help and workspace rename:
 
 ```text
-workbench-config-v1
+band-config-v1
 
 [shortcuts]
 commands = F10

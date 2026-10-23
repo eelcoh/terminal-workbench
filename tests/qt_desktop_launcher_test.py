@@ -24,7 +24,7 @@ runtime=Path(sys.argv[1]).resolve()
 
 with tempfile.TemporaryDirectory(prefix='wb-desk-',dir='/tmp') as directory:
     root=Path(directory);home=root/'home';home.mkdir()
-    env={k:v for k,v in os.environ.items() if not k.startswith(('WORKBENCH_','XDG_'))}
+    env={k:v for k,v in os.environ.items() if not k.startswith(('BAND_','XDG_'))}
     env.update(HOME=str(home),SHELL='/bin/sh',PYTHONDONTWRITEBYTECODE='1')
     fake=root/'viewer'
     fake.write_text('#!'+sys.executable+'\n'+'''import json,os,sys
@@ -57,11 +57,11 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
         bootstrap=root/'bootstrap'
         subprocess.run(['cc','-Wall','-Wextra','-Werror','-I',str(headers.parent),str(ROOT/'native/macos/preview_launcher.c'),'-o',str(bootstrap)],check=True)
     else:bootstrap=ROOT/'.local/build/qt-input/workbench-preview-bootstrap'
-    source_app=root/'source.app/Contents/MacOS/workbench-ui-study'
+    source_app=root/'source.app/Contents/MacOS/band-ui'
     source_app.parent.mkdir(parents=True);shutil.copy2(fake,source_app)
     # CMake's real Mac Info.plist can be read-only; copytree preserves its mode.
     source_info=source_app.parent.parent/'Info.plist'
-    original_info=plistlib.dumps(dict(CFBundleExecutable='workbench-ui-study',WorkbenchFixture='preserved'))
+    original_info=plistlib.dumps(dict(CFBundleExecutable='band-ui',WorkbenchFixture='preserved'))
     source_info.write_bytes(original_info);source_info.chmod(0o444)
     original=staging.sys
     try:
@@ -77,8 +77,8 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
     assert source_info.read_bytes()==original_info and source_info.stat().st_mode&0o777==0o444,'staging modified the source bundle metadata'
     assert not list((bundle/'Contents').glob('.workbench-info-*')),'staging left temporary bundle metadata'
     entry=bundle/'Contents/MacOS'/info['CFBundleExecutable']
-    state=root/'mac-state';binary=payload/'libexec/workbench-session';evidence=root/'mac.json'
-    context=dict(env,PATH='/usr/bin:/bin',WORKBENCH_STATE_DIR=str(state),WB_DESKTOP_EVIDENCE=str(evidence))
+    state=root/'mac-state';binary=payload/'libexec/band-session';evidence=root/'mac.json'
+    context=dict(env,PATH='/usr/bin:/bin',BAND_STATE_DIR=str(state),WB_DESKTOP_EVIDENCE=str(evidence))
     # Management arguments still find the recorded Python with a Finder-like PATH.
     paths=subprocess.run([str(entry),'--paths'],env=context,capture_output=True,text=True,check=True)
     assert json.loads(paths.stdout)['runtime']==str(binary)
@@ -97,7 +97,7 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
         assert all(t['state']=='running' for t in request(state,binary,home,'health')['terminals'])
         if sys.platform.startswith('linux'):
             # Failure coverage without triggering a real desktop notification.
-            viewer=bundle/'Contents/MacOS/workbench-ui-study'
+            viewer=bundle/'Contents/MacOS/band-ui'
             viewer.rename(viewer.with_name('hidden-viewer'))
             failed=subprocess.run([str(entry)],env=dict(context,PATH='/nonexistent'),capture_output=True,text=True,timeout=45)
             assert failed.returncode==1 and 'No such file or directory' in (state/'launch.log').read_text()
@@ -106,7 +106,7 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
             assert all(t['state']=='running' for t in request(state,binary,home,'health')['terminals'])
             victim=root/'victim';victim.write_text('retained')
             bad_state=root/'bad-state';bad_state.mkdir();(bad_state/'launch.log').symlink_to(victim)
-            failed=subprocess.run([str(entry)],env=dict(context,PATH='/nonexistent',WORKBENCH_STATE_DIR=str(bad_state)),capture_output=True,text=True,timeout=15)
+            failed=subprocess.run([str(entry)],env=dict(context,PATH='/nonexistent',BAND_STATE_DIR=str(bad_state)),capture_output=True,text=True,timeout=15)
             assert failed.returncode==1 and victim.read_text()=='retained'
             assert not (bad_state/'workspaces.json').exists(),'log failure started sessions'
     finally:cleanup(state,binary)

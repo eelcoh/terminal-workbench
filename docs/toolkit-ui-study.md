@@ -33,7 +33,7 @@ without applying `inverted` a second time.
 path, checking history/live movement, diagonal isolation and unchanged PTY
 input/readers/grids on X11 and Wayland. Physical Mac trackpad and Linux device
 direction review are still required. To capture deltas without terminal text,
-start with `WORKBENCH_SCROLL_DEBUG=1 just toolkit-workbench` and retain the
+start with `BAND_SCROLL_DEBUG=1 just toolkit-workbench` and retain the
 launcher output/log. Qt's [wheel event documentation](https://doc.qt.io/qt-6/qwheelevent.html)
 describes the platform delta conventions.
 
@@ -502,7 +502,7 @@ per-window layouts now persist in separate view profiles. See [font persistence]
 
 Run `just toolkit-workbench` for the same Qt client on saved Workbench workspaces.
 It shares the existing service and `.local/sessions` catalog, honoring
-`WORKBENCH_STATE_DIR`. Closing detaches rather than stopping shells; normal
+`BAND_STATE_DIR`. Closing detaches rather than stopping shells; normal
 attachment never steals another window’s terminal. The private disposable
 `just toolkit-ui` workflow is unchanged. View/theme restoration and automatic
 peer-window catalog updates are implemented; **Refresh workspaces** remains an
@@ -642,7 +642,7 @@ prevent a controlled sharpness comparison. Do not infer that another rasterizer
 change is needed from that image alone. These reports make scale/font mismatches
 visible; they do not measure perceived sharpness or establish a rendering fix.
 
-For a different output path, set `WORKBENCH_DISPLAY_REPORT=/absolute/file.json`
+For a different output path, set `BAND_DISPLAY_REPORT=/absolute/file.json`
 when running `just toolkit-workbench`. Ordinary launches create no report and
 install no diagnostic observers. Enabled reporting is debounced after display,
 geometry, attachment and font changes, outside paint/parse paths. Native Linux UI
@@ -736,8 +736,8 @@ an array index into another terminal.
 The panel distinguishes absent/unavailable identity from a recognized agent with
 Unknown state, explains Working/Needs input/Ready, and states the limits of last
 reports after cancellation. Ready does not claim task success. Supported agents
-have an allowlisted Copy command action for `wb-codex`, `wb-claude`, `wb-copilot`
-or `wb-pi`; copying never types or launches anything. Existing policies and
+have an allowlisted Copy command action for `band-codex`, `band-claude`, `band-copilot`
+or `band-pi`; copying never types or launches anything. Existing policies and
 invocation-local observer setup stay with the CLI. Escape/Close restores the
 previous view/focus, and application shortcuts remain isolated while open.
 

@@ -55,7 +55,7 @@ while True:
                  'directory':str(root),'terminals':[{'id':f'terminal-{i}','name':'Shell'} for i in range(w*3,min(w*3+3,6))]} for w in range(3)]}
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
-        managed=root/'config.conf';managed.write_text('workbench-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = Workbench Night\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
+        managed=root/'config.conf';managed.write_text('band-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = Workbench Night\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
         config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'view_state':str(root/'qt-view.json'),'catalog_updates':True,'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
@@ -82,7 +82,7 @@ while True:
             flags=run('pkg-config','--cflags','--libs','wayland-client','xkbcommon').split()
             run('cc','-std=c11','-Wall','-Wextra','-Werror','-I'+str(root),ROOT/'tests/wayland_keyboard.c',root/'virtual-keyboard.c','-o',root/'keyboard',*flags)
         display_report=artifacts/'display-report.json';display_report.unlink(missing_ok=True)
-        env['WORKBENCH_DISPLAY_REPORT']=str(display_report)
+        env['BAND_DISPLAY_REPORT']=str(display_report)
         client=subprocess.Popen([viewer,str(config),'--test-report',str(report)],env=env,stdout=log,stderr=log);processes.append(client)
         def data():
             try:return json.loads(report.read_text())
@@ -532,7 +532,7 @@ while True:
         shortcut_settings();click(*data()['shortcut_clear']);wait_until(lambda:not data()['shortcut_draft_labels']['commands'])
         click(*data()['shortcut_reset']);wait_until(lambda:data()['shortcut_draft_labels']['commands']=='F10')
         click(*data()['shortcut_apply']);wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F10')
-        assert (root/'ui/linux/shortcuts.conf').read_text()=='workbench-shortcuts-v1\n'
+        assert (root/'ui/linux/shortcuts.conf').read_text()=='band-shortcuts-v1\n'
         assert managed.read_bytes()==managed_bytes and sizes()==shortcut_grid and [received(i) for i in range(6)]==shortcut_input
         # One-shot forwarding is tied to the focused reader and bypasses app chords.
         forwarding_input=received(0);forwarding_sizes=sizes()
@@ -1231,7 +1231,7 @@ while True:
         wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='Codex')
         wait_until((root/'agent.pid').exists)
         group=os.getpgid(int((root/'agent.pid').read_text()))
-        hook_env=dict(os.environ,WORKBENCH_SESSION_SOCKET=str(root/(data()['panes'][8]['identity']+'.sock')),WORKBENCH_AGENT_GROUP=str(group),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
+        hook_env=dict(os.environ,BAND_SESSION_SOCKET=str(root/(data()['panes'][8]['identity']+'.sock')),BAND_AGENT_GROUP=str(group),BAND_AGENT_RUN=uuid.uuid4().hex)
         def hook(event,label,index=8,environment=None):
             result=subprocess.run([runtime,'agent-hook','codex'],input=json.dumps({'hook_event_name':event}),env=hook_env if environment is None else environment,text=True,capture_output=True,timeout=3)
             assert result.returncode==0 and not result.stdout and not result.stderr
@@ -1250,7 +1250,7 @@ while True:
         wait_until(lambda:data()['selected']==extra and data()['panes'][extra]['ready'] and data()['panes'][extra]['focus'])
         typed('sh -c '+shlex.quote('echo $$ > '+shlex.quote(str(root/'attention-agent.pid'))+'; exec '+shlex.quote(str(fixture))+' 120'));key('Return')
         wait_until(lambda:data()['panes'][extra]['facts'].get('agent')=='Codex');wait_until((root/'attention-agent.pid').exists)
-        extra_env=dict(os.environ,WORKBENCH_SESSION_SOCKET=str(root/(extra_id+'.sock')),WORKBENCH_AGENT_GROUP=str(os.getpgid(int((root/'attention-agent.pid').read_text()))),WORKBENCH_AGENT_RUN=uuid.uuid4().hex)
+        extra_env=dict(os.environ,BAND_SESSION_SOCKET=str(root/(extra_id+'.sock')),BAND_AGENT_GROUP=str(os.getpgid(int((root/'attention-agent.pid').read_text()))),BAND_AGENT_RUN=uuid.uuid4().hex)
         hook('PermissionRequest','Needs input');hook('PermissionRequest','Needs input',extra,extra_env)
         wait_until(lambda:data()['waiting_count']==2 and data()['waiting_identities']==[attention_target,extra_id])
         assert data()['selected']==extra,'a background attention report changed focus'
@@ -1321,7 +1321,7 @@ while True:
         hook('PermissionRequest','Needs input');wait_until(lambda:data()['agent_info_details']['heading']=='Needs input')
         hook('Stop','Ready');wait_until(lambda:data()['agent_info_details']['heading']=='Ready')
         click(*settled_point(lambda d:d['agent_info_copy']));wait_until(lambda:data()['agent_launcher_clipboard_matches'])
-        assert data()['agent_info_details']['launcher']=='wb-codex'
+        assert data()['agent_info_details']['launcher']=='band-codex'
         capture('agent-details-ready.png')
         click(*settled_point(lambda d:d['agent_info_runtime']));wait_until(lambda:data()['runtime_info_open'] and not data()['agent_info_open'] and data()['runtime_info_report'].get('state')=='available')
         assert data()['runtime_info_target']==data()['panes'][8]['identity']
@@ -1385,7 +1385,7 @@ while True:
         wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='Pi');wait_until((root/'pi.pid').exists)
         click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
         click(*data()['agent_info_menu']);wait_until(lambda:data()['agent_info_open'] and not data()['layout_menu_open'])
-        assert data()['agent_info_details']['agent']=='Pi' and data()['agent_info_details']['launcher']=='wb-pi' and data()['agent_info_details']['heading']=='Status unknown'
+        assert data()['agent_info_details']['agent']=='Pi' and data()['agent_info_details']['launcher']=='band-pi' and data()['agent_info_details']['heading']=='Status unknown'
         key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])
         key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('Agent details');key('Return');wait_until(lambda:data()['agent_info_open'])
         key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])

@@ -2,7 +2,7 @@
 
 Run `just toolkit-workbench` to open the Qt candidate on the existing saved
 Workbench catalog. It uses the same `.local/sessions` directory as `just spike`;
-`WORKBENCH_STATE_DIR` selects a different directory. An empty directory is seeded
+`BAND_STATE_DIR` selects a different directory. An empty directory is seeded
 by the existing session service. Existing catalogs are loaded as-is: this mode
 does not add the study’s sample workspaces or rename your projects.
 
@@ -31,7 +31,7 @@ Current limits:
 - The existing service requires the same runtime path and project directory.
   Startup rejects a mismatched service rather than replacing it or its shells.
 - Existing Unix socket length limits apply. If necessary, choose a shorter
-  absolute `WORKBENCH_STATE_DIR` before creating a separate test session.
+  absolute `BAND_STATE_DIR` before creating a separate test session.
 
 ## Manual review
 

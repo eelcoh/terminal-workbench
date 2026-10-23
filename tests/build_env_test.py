@@ -51,7 +51,7 @@ def main():
         assert build.main()==0
         commands=[call.args[0] for call in run.call_args_list]
         assert commands[0]==[sys.executable,str(build.ROOT/'scripts/prepare-agent-launchers.py')]
-        assert commands[-1]==['cargo','build','--locked','--bin','workbench-session']
+        assert commands[-1]==['cargo','build','--locked','--bin','band-session']
     with patch.object(sys,'argv',['build-runtime.py','--runtime-only']), patch.object(build.subprocess,'run') as run:
         assert build.main()==2 and not run.called
     print('PASS: Apple Silicon/Intel/Linux local discovery, PATH fallback, explicit compiler override, version rejection, paths with spaces and child-only environment')

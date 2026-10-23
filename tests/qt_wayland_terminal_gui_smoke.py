@@ -51,7 +51,7 @@ def main():
                 child=subprocess.Popen(args,**kwargs);processes.append(child);return child
             try:
                 nested=dict(os.environ,WINIT_UNIX_BACKEND='x11',LIBGL_ALWAYS_SOFTWARE='1')
-                for name in ('WAYLAND_DISPLAY','NIRI_SOCKET','QT_QPA_PLATFORM','QT_SCALE_FACTOR','QT_SCREEN_SCALE_FACTORS','QT_FONT_DPI','WORKBENCH_TEST_KEYBOARD_LAYOUT','WORKBENCH_TEST_KEYBOARD_VARIANT'):
+                for name in ('WAYLAND_DISPLAY','NIRI_SOCKET','QT_QPA_PLATFORM','QT_SCALE_FACTOR','QT_SCREEN_SCALE_FACTORS','QT_FONT_DPI','BAND_TEST_KEYBOARD_LAYOUT','BAND_TEST_KEYBOARD_VARIANT'):
                     nested.pop(name,None)
                 rd,wr=os.pipe()
                 try:

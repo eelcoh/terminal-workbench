@@ -14,7 +14,7 @@ static void write(const QString &path,const QByteArray &bytes){QFile file(path);
 int main(int argc,char **argv){
     QCoreApplication app(argc,argv);QTemporaryDir dir;require(dir.isValid(),"private fixture");
     const auto target=dir.filePath("managed.conf"),link=dir.filePath("config.conf");
-    const QByteArray managed="workbench-config-v1\n# preserve me\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n";
+    const QByteArray managed="band-config-v1\n# preserve me\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n";
     write(target,managed);require(QFile::link(target,link),"managed symlink");
     UiFonts linuxFonts(link,false),macFonts(link,true);
     require(linuxFonts.error().isEmpty() && linuxFonts.current()["size"]==16 && macFonts.current()["size"]==20,"platform precedence");
@@ -29,16 +29,16 @@ int main(int argc,char **argv){
     for(int i=0;i<50;++i){linuxFonts.step(-1);}
     require(linuxFonts.current()["size"]==10,"lower bound");
     QFile check(target);require(check.open(QIODevice::ReadOnly) && check.readAll()==managed && QFileInfo(link).isSymLink(),"UI preserves managed bytes and symlink");check.close();
-    write(target,"workbench-config-v1\n[font]\nfamily = Fira Code\nsize = 99\n");UiFonts invalid(link,false);
+    write(target,"band-config-v1\n[font]\nfamily = Fira Code\nsize = 99\n");UiFonts invalid(link,false);
     require(!invalid.error().isEmpty() && invalid.current()["family"]=="JetBrains Mono" && invalid.current()["size"]==16,"invalid file falls back as one transaction");
-    write(target,"workbench-config-v1\n[font]\nsize = 22\n[shortcuts]\ncopy = Ctrl+C\n");UiFonts invalidOther(link,false);require(!invalidOther.error().isEmpty() && invalidOther.current()["size"]==16,"other-section validation retained");
-    write(target,"workbench-config-v1\n[appearance]\napplication-theme = absent-theme\nterminal-theme = also-absent\n[font]\nfamily = Fira Code\nsize = 19\n[macos.font]\nsize = 21\n");
+    write(target,"band-config-v1\n[font]\nsize = 22\n[shortcuts]\ncopy = Ctrl+C\n");UiFonts invalidOther(link,false);require(!invalidOther.error().isEmpty() && invalidOther.current()["size"]==16,"other-section validation retained");
+    write(target,"band-config-v1\n[appearance]\napplication-theme = absent-theme\nterminal-theme = also-absent\n[font]\nfamily = Fira Code\nsize = 19\n[macos.font]\nsize = 21\n");
     UiFonts missingThemeLinux(link,false),missingThemeMac(link,true);
     require(missingThemeLinux.error().isEmpty() && missingThemeLinux.current()["family"]=="Fira Code" && missingThemeLinux.current()["size"]==19,"unused missing theme must not discard Linux fonts");
     require(missingThemeMac.error().isEmpty() && missingThemeMac.current()["family"]=="Fira Code" && missingThemeMac.current()["size"]==21,"unused missing theme must not discard Mac fonts");
     write(dir.filePath("absent-theme"),"background = #invalid\n");UiFonts corruptTheme(link,true);
     require(corruptTheme.error().isEmpty() && corruptTheme.current()==missingThemeMac.current(),"unused malformed theme must not discard fonts");
-    write(target,"workbench-config-v1\n[appearance]\nterminal-theme = absent\n[font]\nsize = 99\n");UiFonts badFontWithTheme(link,true);
+    write(target,"band-config-v1\n[appearance]\nterminal-theme = absent\n[font]\nsize = 99\n");UiFonts badFontWithTheme(link,true);
     require(!badFontWithTheme.error().isEmpty() && badFontWithTheme.current()["size"]==16,"font validation remains active with unused themes");
     UiFonts absent(dir.filePath("missing"),true);require(absent.error().isEmpty() && absent.current()==invalid.defaults(),"missing config defaults");
     write(target,managed);const auto layer=dir.filePath("ui/linux/terminal-font.json");

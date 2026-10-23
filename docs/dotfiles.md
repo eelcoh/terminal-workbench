@@ -12,17 +12,22 @@ to create a commented example. Init preserves an existing file or symlink.
 
 | Platform | Default directory |
 | --- | --- |
-| Linux | `$XDG_CONFIG_HOME/terminal-workbench`, otherwise `~/.config/terminal-workbench` |
-| macOS | `~/.config/terminal-workbench` |
+| Linux | `$XDG_CONFIG_HOME/band`, otherwise `~/.config/band` |
+| macOS | `~/.config/band` |
 
-Set `WORKBENCH_CONFIG_DIR` to use another directory, for example a shared
+Settings from before the rename to Band (`~/.config/terminal-workbench`) are
+copied once the first time the new directory is missing; the old folder stays.
+Files with the old `workbench-config-v1` and `workbench-shortcuts-v1` headers
+are still read; new files are written as `band-config-v1` / `band-shortcuts-v1`.
+
+Set `BAND_CONFIG_DIR` to use another directory, for example a shared
 dotfiles checkout. Directory and `config.conf` symlinks are supported. Theme
 paths are relative to the configured directory, even if the config file itself
 is a symlink. Share `config.conf` and your `themes/`; leave generated `ui/` files
 out of your dotfiles repository.
 
 ```text
-workbench-config-v1
+band-config-v1
 
 [appearance]
 application-theme = Workbench Night
@@ -120,8 +125,8 @@ Workspace/terminal theme overrides stay local in `.local/sessions/appearance.sta
 and continue to override default terminal colors. They contain machine/session
 identities and are not dotfiles. Window restore state, catalog, sockets and agent
 credentials also remain local. Follow-workspace chrome uses the active workspace
-palette. Explicit `WORKBENCH_THEME` remains a terminal-default import override.
-Explicit `WORKBENCH_SHORTCUTS` retains the existing standalone shortcut-file
+palette. Explicit `BAND_THEME` remains a terminal-default import override.
+Explicit `BAND_SHORTCUTS` retains the existing standalone shortcut-file
 behavior, including full-map saves, instead of the managed/UI shortcut layering.
 
 ## Migration and scope
@@ -185,7 +190,7 @@ On macOS, startup copies existing preferences from the previous
 `~/Library/Application Support/Terminal Workbench` location once. Managed config,
 themes and Mac UI settings are copied only where a destination does not already
 exist; existing destination symlinks are left alone. Original files stay intact,
-and session/runtime data is never copied. Explicit `WORKBENCH_CONFIG_DIR` overrides
+and session/runtime data is never copied. Explicit `BAND_CONFIG_DIR` overrides
 skip this migration. A marker prevents removed settings/themes from reappearing.
 
 
@@ -245,7 +250,7 @@ A bundled name or a Ghostty file path works; relative paths resolve beside
 `config.conf`, including TerminalColors `.default` downloads:
 
 ```text
-workbench-config-v1
+band-config-v1
 [appearance]
 terminal-theme = themes/miasma-default
 [macos.appearance]
@@ -291,7 +296,7 @@ terminal-width = 1/3
 terminal-width = 2/3
 ```
 
-Add these sections to your existing `workbench-config-v1` file. Omit `directory`
+Add these sections to your existing `band-config-v1` file. Omit `directory`
 to prefill New workspace with the selected workspace's saved folder (or the
 launch default when there is no workspace). A configured folder replaces that
 prefill; you can edit it or Browse before Create. Absolute paths, `~`, `~/path`
@@ -422,7 +427,7 @@ a drawer without discarding the preference. This is Qt client presentation state
 separate from workspace palettes, catalog organization and runtime ownership.
 
 To validate on Mac, install, activate and open the new preview. Add the example
-to `~/.config/terminal-workbench/config.conf`, open Configuration and choose
+to `~/.config/band/config.conf`, open Configuration and choose
 **Use view defaults**. Change either managed value and watch it update. Toggle
 that setting using the navigation pin or Reduced motion menu action; later file
 changes should preserve the window choice. Close/reopen to check restoration,

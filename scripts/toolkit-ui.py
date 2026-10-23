@@ -31,7 +31,7 @@ def configuration(state,runtime,cwd,data,preferences,saved=False,installed=False
 
 def saved_window(runtime,viewer,preferences,*,installed=False,desktop=False):
     from installed_paths import session_directory
-    state=session_directory(os.environ) if installed else Path(os.environ.get('WORKBENCH_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
+    state=session_directory(os.environ) if installed else Path(os.environ.get('BAND_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
     cwd=Path.home().resolve() if installed else ROOT
     # Match the working viewer's service configuration; initialization never
     # starts stopped saved terminals or takes ownership from another window.
@@ -105,7 +105,7 @@ if args.install_desktop_entry:
     sys.exit(0)
 if args.paths:
     from installed_paths import session_directory
-    state=session_directory(os.environ) if args.installed else Path(os.environ.get('WORKBENCH_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
+    state=session_directory(os.environ) if args.installed else Path(os.environ.get('BAND_STATE_DIR',str(ROOT/'.local/sessions'))).expanduser().resolve()
     print(json.dumps(dict(runtime=str(runtime),viewer=str(viewer),state=str(state),configuration=str(config_directory(runtime,prepare=False)),cwd=str(Path.home().resolve() if args.installed else ROOT)),indent=2))
     sys.exit(0)
 if args.desktop:

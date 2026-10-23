@@ -54,7 +54,8 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
     PortableLayer layers[3]={0};char line[2048];int section=-1,kind=0,number=1;
-    bool valid=fgets(line,sizeof(line),file) && !strcmp(line,"workbench-config-v1\n");
+    // Files written before the rename to Band keep their workbench header.
+    bool valid=fgets(line,sizeof(line),file) && (!strcmp(line,"band-config-v1\n") || !strcmp(line,"workbench-config-v1\n"));
     while (valid && fgets(line,sizeof(line),file)) {
         number++;if (number>512 || !strchr(line,'\n')) {valid=false;break;}
         char *text=portable_trim(line);if (!*text || *text=='#') continue;

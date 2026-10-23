@@ -286,11 +286,11 @@ pub fn serve_with_shell_launch(
     command.cwd(std::env::current_dir()?);
     command.env("TERM", "xterm-256color");
     // A session is independent of whichever terminal or Herdr invoked it.
-    command.env("TERM_PROGRAM", "terminal-workbench");
-    command.env("WORKBENCH_SESSION_SOCKET", &socket);
-    command.env_remove("WORKBENCH_AGENT_GROUP");
-    command.env_remove("WORKBENCH_AGENT_RUN");
-    if let Some(bin) = std::env::var_os("WORKBENCH_AGENT_BIN") {
+    command.env("TERM_PROGRAM", "band");
+    command.env("BAND_SESSION_SOCKET", &socket);
+    command.env_remove("BAND_AGENT_GROUP");
+    command.env_remove("BAND_AGENT_RUN");
+    if let Some(bin) = std::env::var_os("BAND_AGENT_BIN") {
         let mut paths = vec![std::path::PathBuf::from(bin)];
         if let Some(path) = std::env::var_os("PATH") {
             paths.extend(std::env::split_paths(&path));

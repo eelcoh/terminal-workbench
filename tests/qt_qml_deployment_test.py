@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix='wb-qml-imports-') as directory:
         try:run_import_deployment(script,prefix,output,log)
         except BaseException:
             print(log.read_text(),file=sys.stderr);raise
-    qml=prefix/'workbench-ui-study.app/Contents/Resources/qml' if sys.platform=='darwin' else prefix/'qml'
+    qml=prefix/'band-ui.app/Contents/Resources/qml' if sys.platform=='darwin' else prefix/'qml'
     for name in ('QtQuick','QtQuick/Controls','QtQuick/Controls/Basic','QtQuick/Dialogs'):
         assert (qml/name/'qmldir').is_file(),f'missing runtime module {name}'
     for name in ('QtQuick/Particles','QtQuick/Shapes/DesignHelpers','QtQml/XmlListModel','QtQml/LocalStorage'):
@@ -26,8 +26,8 @@ with tempfile.TemporaryDirectory(prefix='wb-qml-imports-') as directory:
     scratch=prefix/'scratch';scratch.mkdir()
     environment.update(QT_QPA_PLATFORM='offscreen',QT_QUICK_BACKEND='software',QSG_RHI_BACKEND='software',QML_DISABLE_DISK_CACHE='1',TMPDIR=str(scratch))
     subprocess.run([str(ROOT/'.local/build/qt-input/workbench-qml-deployment-probe'),str(qml)],env=environment,check=True,timeout=30)
-    viewer=ROOT/'.local/build/qt-input/workbench-ui-study'
-    if sys.platform=='darwin':viewer=viewer.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
+    viewer=ROOT/'.local/build/qt-input/band-ui'
+    if sys.platform=='darwin':viewer=viewer.with_suffix('.app')/'Contents/MacOS/band-ui'
     result=subprocess.run([str(viewer),'--check-deployment',str(qml)],env=environment,capture_output=True,text=True,timeout=30)
     try:client=json.loads(result.stdout)
     except ValueError:raise AssertionError((result.returncode,result.stdout,result.stderr))

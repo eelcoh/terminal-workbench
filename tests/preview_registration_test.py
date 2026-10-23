@@ -37,10 +37,10 @@ class RegistrationTest(unittest.TestCase):
 
     def test_custom_namespace_cannot_retarget_global_entry(self):
         linux.install(self.old,self.env);before=self.path.read_bytes()
-        value=linux.follow_activation(self.new,self.root/'custom-session',dict(self.env,WORKBENCH_STATE_DIR=str(self.root/'custom-session')))
+        value=linux.follow_activation(self.new,self.root/'custom-session',dict(self.env,BAND_STATE_DIR=str(self.root/'custom-session')))
         self.assertEqual(value,dict(result='skipped',reason='custom-session'));self.assertEqual(self.path.read_bytes(),before)
         # Explicitly naming the standard namespace still follows normally.
-        self.assertEqual(self.follow(WORKBENCH_STATE_DIR=str(self.state))['result'],'updated')
+        self.assertEqual(self.follow(BAND_STATE_DIR=str(self.state))['result'],'updated')
 
     def test_unmanaged_entry_symlink_and_directory_stay_untouched(self):
         self.path.parent.mkdir(parents=True);self.path.write_text('[Desktop Entry]\nName=My custom launcher\n')

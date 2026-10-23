@@ -72,7 +72,7 @@ def follow_activation(launcher,state,environment):
     """Follow successful default-session selection only for an existing managed entry."""
     from installed_paths import session_directory
     try:
-        default_environment={key:value for key,value in environment.items() if key!='WORKBENCH_STATE_DIR'}
+        default_environment={key:value for key,value in environment.items() if key!='BAND_STATE_DIR'}
         if state.resolve()!=session_directory(default_environment):
             return dict(result='skipped',reason='custom-session')
         path=desktop_path(environment)

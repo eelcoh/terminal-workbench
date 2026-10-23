@@ -2,7 +2,7 @@
 
 The launcher and management CLI now share one background organization service per
 state directory. It starts automatically and concurrent launches reuse it. The
-service is `workbench-session service` (`crates/runtime/src/service/`), a Rust port
+service is `band-session service` (`crates/runtime/src/service/`), a Rust port
 of the earlier Python server with the same protocol, catalog files and locks. The
 Python server and catalog were removed (2026-10-23); the service is the only
 implementation. Separate runtime processes still own individual PTYs, terminal

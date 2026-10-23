@@ -25,7 +25,7 @@ int main(int argc,char **argv) {
     wl_registry_add_listener(registry,&listener,NULL);assert(wl_display_roundtrip(display)>=0);assert(manager&&seat);
     struct zwp_virtual_keyboard_v1 *keyboard=zwp_virtual_keyboard_manager_v1_create_virtual_keyboard(manager,seat);
     struct xkb_context *context=xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    struct xkb_rule_names names={.variant=getenv("WORKBENCH_TEST_KEYBOARD_VARIANT"),.layout=getenv("WORKBENCH_TEST_KEYBOARD_LAYOUT") ? getenv("WORKBENCH_TEST_KEYBOARD_LAYOUT") : "us"};
+    struct xkb_rule_names names={.variant=getenv("BAND_TEST_KEYBOARD_VARIANT"),.layout=getenv("BAND_TEST_KEYBOARD_LAYOUT") ? getenv("BAND_TEST_KEYBOARD_LAYOUT") : "us"};
     struct xkb_keymap *map=xkb_keymap_new_from_names(context,&names,XKB_KEYMAP_COMPILE_NO_FLAGS);assert(map);
     char *serialized=xkb_keymap_get_as_string(map,XKB_KEYMAP_FORMAT_TEXT_V1);assert(serialized);
     int fd=memfd_create("wb-test-keymap",MFD_CLOEXEC);assert(fd>=0);
@@ -66,7 +66,7 @@ int main(int argc,char **argv) {
         zwp_virtual_keyboard_v1_key(keyboard,0,found-8,WL_KEYBOARD_KEY_STATE_PRESSED);
         if(hold) {
             assert(wl_display_roundtrip(display)>=0);
-            const char *path=getenv("WORKBENCH_TEST_KEY_DOWN");assert(path);
+            const char *path=getenv("BAND_TEST_KEY_DOWN");assert(path);
             FILE *ready=fopen(path,"w");assert(ready);fputs("ready",ready);fclose(ready);
             assert(getchar()!=EOF);
         }

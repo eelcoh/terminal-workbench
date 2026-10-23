@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Client for the Rust session service (`workbench-session service`).
+"""Client for the Rust session service (`band-session service`).
 
 Development tools and tests use it to start the service and send protocol 1
 requests. Clients retry only connection establishment, never a sent mutation.

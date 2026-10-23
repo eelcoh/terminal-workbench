@@ -50,7 +50,7 @@ static bool query_attributes(GhosttyTerminal terminal, void *userdata, GhosttyDe
 static GhosttyString query_version(GhosttyTerminal terminal, void *userdata)
 {
     (void)terminal; (void)userdata;
-    static const uint8_t name[]="terminal-workbench";
+    static const uint8_t name[]="band";
     return (GhosttyString){.ptr=name,.len=sizeof(name)-1};
 }
 static bool configure(WorkbenchVT *state)

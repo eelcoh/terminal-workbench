@@ -35,7 +35,7 @@ class PreviewInventoryTest(unittest.TestCase):
         return directory,payload
 
     def origin(self,payload):
-        return dict(version=1,runtime_binary=str(payload/'libexec/workbench-session'),agent_bin=str(payload/'.local/bin'))
+        return dict(version=1,runtime_binary=str(payload/'libexec/band-session'),agent_bin=str(payload/'.local/bin'))
 
     def inspect(self,health):
         with patch.object(inventory,'inspect',return_value=health):return inventory.inventory(self.installs,self.state)
@@ -53,7 +53,7 @@ class PreviewInventoryTest(unittest.TestCase):
             dict(id='legacy',state='running',runtime=None),
             dict(id='foreign',state='running',runtime=dict(origin=self.origin(manual)))]
         before=files(self.root)
-        value=self.inspect(dict(runtime_binary=str(new/'libexec/workbench-session'),terminals=terminals))
+        value=self.inspect(dict(runtime_binary=str(new/'libexec/band-session'),terminals=terminals))
         rows={row['payload']:row for row in value['installations']}
         self.assertFalse(rows[str(old)]['service']);self.assertTrue(rows[str(new)]['service'])
         self.assertEqual(rows[str(old)]['runtime_terminals'],['retained'])
@@ -100,12 +100,12 @@ class PreviewInventoryTest(unittest.TestCase):
         self.assertEqual(len(self.inspect(None)['invalid_installations']),1)
 
     def test_live_service_health_does_not_seed_catalog_or_launch_runtime(self):
-        _,payload=self.install('one','a');runtime=payload/'libexec/workbench-session';runtime.parent.mkdir()
+        _,payload=self.install('one','a');runtime=payload/'libexec/band-session';runtime.parent.mkdir()
         marker=self.root/'runtime must not start'
         runtime.write_text('#!/bin/sh\ntouch '+str(marker)+'\n');runtime.chmod(0o755)
         self.state.mkdir(mode=0o700)
         # The development runtime serves the authority; the payload's runtime must never start.
-        child=subprocess.Popen([str(ROOT/'target/debug/workbench-session'),'service','--state-dir',str(self.state),
+        child=subprocess.Popen([str(ROOT/'target/debug/band-session'),'service','--state-dir',str(self.state),
             '--runtime',str(runtime),'--cwd',str(self.root)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         try:
             deadline=time.monotonic()+5

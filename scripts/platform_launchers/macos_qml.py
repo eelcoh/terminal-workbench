@@ -31,7 +31,7 @@ def deploy(bundle,script,output,log):
     with tempfile.TemporaryDirectory(prefix='.qt-qml-',dir=bundle.parent) as directory:
         prefix=Path(directory).resolve()
         run_import_deployment(script,prefix,output,log)
-        contents=prefix/'workbench-ui-study.app/Contents'
+        contents=prefix/'band-ui.app/Contents'
         qml=contents/'Resources/qml';plugins=contents/'PlugIns'
         if not qml.is_dir() or not plugins.is_dir():raise ValueError('Qt CMake did not produce the expected Mac QML deployment layout')
         for path in contents.rglob('*'):

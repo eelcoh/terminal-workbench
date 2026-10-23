@@ -104,7 +104,7 @@ Spatial zoom transitions keep terminal input scoped to the overview until it
 closes. A new terminal key/text event completes a closing zoom and then enters
 the focused terminal without losing queued short presses. The exit gesture stays
 consumed. Toggle Overview again during a closing zoom to cancel its pending jump
-and reopen. Reduced motion (`WORKBENCH_REDUCED_MOTION=1`) skips transitions.
+and reopen. Reduced motion (`BAND_REDUCED_MOTION=1`) skips transitions.
 
 In Spatial Overview, drag a thumbnail between workspace rows or between cards.
 Release over the outlined row to save. Escape cancels the drag without closing
@@ -138,7 +138,7 @@ starts from the displayed position. Typing is not delayed or consumed by the
 animation. Clicking or scrolling
 inside moving terminal content settles the view before hit testing. Overview,
 dialogs, theme selection, workspace switches and window resizing also settle the
-working-view motion. `WORKBENCH_REDUCED_MOTION=1` disables both overview and pane
+working-view motion. `BAND_REDUCED_MOTION=1` disables both overview and pane
 transitions. No new terminal-intercepting keyboard chord is added by this slice.
 
 ## Commands palette prototype

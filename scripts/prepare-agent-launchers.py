@@ -9,8 +9,12 @@ directory = root / '.local/bin'
 directory.mkdir(parents=True, exist_ok=True)
 # The runtime binary acts as each launcher and the hook observer, selected by
 # the name it is invoked through. The link resolves once cargo has built it.
-target = os.path.relpath(root / 'target/debug/workbench-session', directory)
+target = os.path.relpath(root / 'target/debug/band-session', directory)
+# Remove links left by the names used before the rename to Band.
 for name in ('wb-codex', 'wb-claude', 'wb-copilot', 'wb-pi', 'wb-agent-hook'):
+    if (directory / name).is_symlink():
+        (directory / name).unlink()
+for name in ('band-codex', 'band-claude', 'band-copilot', 'band-pi', 'band-agent-hook'):
     path = directory / name
     if path.is_symlink() and os.readlink(path) == target:
         continue
@@ -20,7 +24,7 @@ for name in ('wb-codex', 'wb-claude', 'wb-copilot', 'wb-pi', 'wb-agent-hook'):
 
 # Copilot supports invocation-local plugin directories. No files are installed
 # into project/user settings; policy, trust and other plugins remain in effect.
-# Hooks run inside a Workbench shell, where the runtime sets WORKBENCH_AGENT_BIN.
+# Hooks run inside a Workbench shell, where the runtime sets BAND_AGENT_BIN.
 plugin = root / '.local/integrations/copilot'
 plugin.mkdir(parents=True, exist_ok=True)
 manifest = {'name': 'workbench-observers', 'version': '0.1.0', 'license': 'MIT',
@@ -28,7 +32,7 @@ manifest = {'name': 'workbench-observers', 'version': '0.1.0', 'license': 'MIT',
 events = ('sessionStart', 'sessionEnd', 'userPromptSubmitted', 'preToolUse',
     'postToolUse', 'postToolUseFailure', 'agentStop', 'errorOccurred', 'notification')
 hooks = {'version': 1, 'hooks': {event: [{'type': 'command',
-    'bash': '"$WORKBENCH_AGENT_BIN/wb-agent-hook" copilot ' + event,
+    'bash': '"$BAND_AGENT_BIN/band-agent-hook" copilot ' + event,
     'timeoutSec': 2}] for event in events}}
 for name, value in [('plugin.json', manifest), ('hooks.json', hooks)]:
     path = plugin / name
@@ -36,7 +40,7 @@ for name, value in [('plugin.json', manifest), ('hooks.json', hooks)]:
     if not path.exists() or path.read_text() != contents:
         path.write_text(contents)
 
-# The Pi extension is loaded only for wb-pi, with no settings installation.
+# The Pi extension is loaded only for band-pi, with no settings installation.
 pi = root / '.local/integrations/pi'
 pi.mkdir(parents=True, exist_ok=True)
 (pi / 'workbench.ts').write_bytes((root / 'integrations/pi/workbench.ts').read_bytes())

@@ -65,7 +65,7 @@ replaces this viewer as the production frontend.
 ## Workspace layout experiment
 
 Launchers bootstrap independent runtime processes under stable socket
-identities. An automatically started organization service (`workbench-session
+identities. An automatically started organization service (`band-session
 service`, in Rust) owns saved workspace and terminal names, identities, startup and explicit
 recovery. All launcher/management CLI requests reuse that authority. It preserves
 `spike.sock` as Main's first shell

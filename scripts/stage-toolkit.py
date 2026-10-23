@@ -38,7 +38,7 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
     try:
         print(f'Staging preview: {directory}',flush=True)
         payload=directory
-        relative_viewer='libexec/workbench-ui-study'
+        relative_viewer='libexec/band-ui'
         if sys.platform=='darwin':
             from platform_launchers.macos import prepare
             payload,relative_viewer=prepare(directory,viewer)
@@ -47,34 +47,34 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
         for name in MODULES:shutil.copy2(ROOT/'scripts'/name,scripts/name)
         shutil.copytree(ROOT/'scripts/platform_launchers',scripts/'platform_launchers',ignore=shutil.ignore_patterns('__pycache__'))
         executable=payload/'libexec';executable.mkdir()
-        shutil.copy2(runtime,executable/'workbench-session')
-        if sys.platform!='darwin':shutil.copy2(viewer,executable/'workbench-ui-study')
+        shutil.copy2(runtime,executable/'band-session')
+        if sys.platform!='darwin':shutil.copy2(viewer,executable/'band-ui')
         # Retain the helper layout expected by the session service. All launch
         # scripts resolve their own location; no generated checkout paths escape.
         agents=payload/'.local/bin';agents.mkdir(parents=True)
         # The runtime binary acts as each launcher and the hook observer,
         # selected by the name it is invoked through.
-        for name in ('wb-codex','wb-claude','wb-copilot','wb-pi','wb-agent-hook'):
-            (agents/name).symlink_to('../../libexec/workbench-session')
+        for name in ('band-codex','band-claude','band-copilot','band-pi','band-agent-hook'):
+            (agents/name).symlink_to('../../libexec/band-session')
         pi=payload/'.local/integrations/pi';pi.mkdir(parents=True)
         shutil.copy2(ROOT/'integrations/pi/workbench.ts',pi/'workbench.ts')
         plugin=payload/'.local/integrations/copilot';plugin.mkdir(parents=True)
-        # These hooks run inside a Workbench shell with WORKBENCH_AGENT_BIN set
+        # These hooks run inside a Workbench shell with BAND_AGENT_BIN set
         # by the runtime, so the plugin stays valid after relocating the preview.
         manifest={'name':'workbench-observers','version':'0.1.0','license':'MIT',
                   'description':'Optional local Workbench lifecycle status observers','hooks':'hooks.json'}
         events=('sessionStart','sessionEnd','userPromptSubmitted','preToolUse','postToolUse',
                 'postToolUseFailure','agentStop','errorOccurred','notification')
         hooks={'version':1,'hooks':{event:[{'type':'command',
-            'bash':'"$WORKBENCH_AGENT_BIN/wb-agent-hook" copilot '+event,'timeoutSec':2}] for event in events}}
+            'bash':'"$BAND_AGENT_BIN/band-agent-hook" copilot '+event,'timeoutSec':2}] for event in events}}
         for name,value in (('plugin.json',manifest),('hooks.json',hooks)):
             (plugin/name).write_text(json.dumps(value,indent=2)+'\n')
         launcher=payload/'terminal-workbench'
         # Opening a window runs only the runtime binary and Qt. Preview
         # management actions (--check, --status, --activate, ...) still use Python.
         launcher.write_text('#!/bin/sh\nset -eu\nroot=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\n'
-            'case "$*" in\n    ""|--desktop) exec "$root/libexec/workbench-session" open --payload "$root" --viewer "$root/'+relative_viewer+'" "$@" ;;\nesac\n'
-            'export PYTHONDONTWRITEBYTECODE=1\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/toolkit-ui.py" "$root/libexec/workbench-session" "$root/'+relative_viewer+'" --saved --installed "$@"\n')
+            'case "$*" in\n    ""|--desktop) exec "$root/libexec/band-session" open --payload "$root" --viewer "$root/'+relative_viewer+'" "$@" ;;\nesac\n'
+            'export PYTHONDONTWRITEBYTECODE=1\nexec '+shlex.quote(sys.executable)+' -B "$root/scripts/toolkit-ui.py" "$root/libexec/band-session" "$root/'+relative_viewer+'" --saved --installed "$@"\n')
         launcher.chmod(0o755)
         notices=payload/'notices';notices.mkdir()
         for name in ('LICENSE','fonts','themes'):
@@ -103,9 +103,9 @@ def stage(parent,runtime,viewer,bootstrap=None,*,sign=True,bundle_qt=False,qt_to
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--parent',type=Path,default=ROOT/'.local/staged')
-    parser.add_argument('--runtime',type=Path,default=ROOT/'target/debug/workbench-session')
-    default=ROOT/'.local/build/qt-input/workbench-ui-study'
-    if sys.platform=='darwin':default=default.with_suffix('.app')/'Contents/MacOS/workbench-ui-study'
+    parser.add_argument('--runtime',type=Path,default=ROOT/'target/debug/band-session')
+    default=ROOT/'.local/build/qt-input/band-ui'
+    if sys.platform=='darwin':default=default.with_suffix('.app')/'Contents/MacOS/band-ui'
     parser.add_argument('--viewer',type=Path,default=default)
     parser.add_argument('--bootstrap',type=Path,default=ROOT/'.local/build/qt-input/workbench-preview-bootstrap')
     parser.add_argument('--install',action='store_true',help='Copy the completed preview into a fresh permanent installation; do not activate or open')

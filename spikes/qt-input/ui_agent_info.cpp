@@ -5,10 +5,10 @@
 #include "core/attention_navigation.h"
 namespace {
 QString launcher(const QString &agent){
-    if(agent=="Codex")return "wb-codex";
-    if(agent=="Claude")return "wb-claude";
-    if(agent=="Copilot")return "wb-copilot";
-    if(agent=="Pi")return "wb-pi";
+    if(agent=="Codex")return "band-codex";
+    if(agent=="Claude")return "band-claude";
+    if(agent=="Copilot")return "band-copilot";
+    if(agent=="Pi")return "band-pi";
     return {};
 }
 }

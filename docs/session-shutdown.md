@@ -61,7 +61,7 @@ For Mac review, first try Cancel in your normal session. For a confirmed stop,
 use a disposable state so no daily-use jobs are affected:
 
 ```sh
-WORKBENCH_STATE_DIR=/tmp/wb-shutdown-review just spike
+BAND_STATE_DIR=/tmp/wb-shutdown-review just spike
 ```
 
 Create some terminals, open Commands (Command+Option+P), choose Stop all terminals,
@@ -71,7 +71,7 @@ the same command: restarted shells stay live and others remain stopped.
 The matching backend test also uses disposable state:
 
 ```sh
-TMPDIR=/tmp python3 tests/session_shutdown_test.py target/debug/workbench-session
+TMPDIR=/tmp python3 tests/session_shutdown_test.py target/debug/band-session
 ```
 
 Installable app/daemon lifecycle, session selection and update policy remain open.
@@ -113,7 +113,7 @@ Native Mac review remains required.
 For Mac review without affecting daily-use terminals:
 
 ```sh
-WORKBENCH_STATE_DIR=/tmp/wb-qt-shutdown-review just toolkit-workbench
+BAND_STATE_DIR=/tmp/wb-qt-shutdown-review just toolkit-workbench
 ```
 
 Create some terminals and a second window with the same command. Test Cancel,
