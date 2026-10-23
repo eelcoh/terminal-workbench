@@ -44,6 +44,10 @@ try:
   Path('size').write_text(str(cols)+','+str(rows))
   if Path('live').exists() and not updated:
    os.write(1,b'\\x1b[6;1HLIVE-OUTPUT');updated=True
+  if Path('mouse').exists():
+   os.write(1,b'\\x1b[?1000h\\x1b[?1006h');Path('mouse').rename('mouse-on')
+  if Path('nomouse').exists():
+   os.write(1,b'\\x1b[?1000l\\x1b[?1006l');Path('nomouse').rename('mouse-off')
 finally:termios.tcsetattr(0,termios.TCSANOW,original)
 """)
             send(c,16,("python3 " + shlex.quote(str(reader)) + "\n").encode())
@@ -97,7 +101,8 @@ finally:termios.tcsetattr(0,termios.TCSANOW,original)
             data=report(path)
             x0=int(data["x"]+8+data["cell_width"]*.2)
             y0=int(data["y"]+8+data["cell_height"]*.5)
-            x1=int(data["x"]+8+data["cell_width"]*10.2)
+            # Ghostty includes the final cell once the pointer passes its midpoint.
+            x1=int(data["x"]+8+data["cell_width"]*10.7)
             cmd("mousemove","--window",window,x0,y0)
             cmd("mousedown",1)
             cmd("mousemove","--window",window,x1,y0)
@@ -114,12 +119,35 @@ finally:termios.tcsetattr(0,termios.TCSANOW,original)
             data=report(path);yshape=int(data["y"]+8+data["cell_height"]*6.5)
             cmd("mousemove","--window",window,int(data["x"]+8+data["cell_width"]*7.2),yshape)
             cmd("mousedown",1)
-            cmd("mousemove","--window",window,int(data["x"]+8+data["cell_width"]*8.2),yshape)
+            cmd("mousemove","--window",window,int(data["x"]+8+data["cell_width"]*8.7),yshape)
             cmd("mouseup",1);cmd("key","--window",window,"ctrl+shift+c")
             wait_until(lambda:clipboard()==b"->")
             cmd("key","--window",window,"ctrl+shift+v")
             expected+=b"\x1b[200~->\x1b[201~"
             wait_until(lambda:(root/"input").read_bytes()==expected)
+            # Double-click selects a word and triple-click a line, through VT gestures.
+            def cell(column,row):
+                data=report(path)
+                return int(data["x"]+8+data["cell_width"]*(column+.5)),int(data["y"]+8+data["cell_height"]*(row+.5))
+            cmd("mousemove","--window",window,*cell(7,0));cmd("click","--repeat",2,"--delay",80,1)
+            cmd("key","--window",window,"ctrl+shift+c")
+            wait_until(lambda:clipboard()==b"sample")
+            cmd("mousemove","--window",window,*cell(2,1));cmd("click","--repeat",3,"--delay",80,1)
+            cmd("key","--window",window,"ctrl+shift+c")
+            wait_until(lambda:clipboard()=="café λ".encode())
+            # With mouse tracking enabled, clicks and the wheel go to the application;
+            # Shift keeps local selection. SGR coordinates are one-based.
+            time.sleep(.6)  # end the click sequence so the next press is a fresh click
+            (root/"mouse").touch();wait_until((root/"mouse-on").exists);time.sleep(.1)
+            cmd("mousemove","--window",window,*cell(3,2));cmd("click",1)
+            expected+=b"\x1b[<0;4;3M\x1b[<0;4;3m"
+            wait_until(lambda:(root/"input").read_bytes()==expected)
+            cmd("click",4)
+            wait_until(lambda:(root/"input").read_bytes().startswith(expected+b"\x1b[<64;4;3M"))
+            expected=(root/"input").read_bytes()
+            cmd("keydown","shift");cmd("click",1);cmd("keyup","shift");time.sleep(.3)
+            assert (root/"input").read_bytes()==expected,"Shift+click reached the mouse-tracking application"
+            (root/"nomouse").touch();wait_until((root/"mouse-off").exists);time.sleep(.1)
             # Scroll the Ghostty viewport, then typing returns to the live terminal.
             cmd("click",4)
             wait_until(lambda:"history-" in report(path).get("text",""))
@@ -153,7 +181,7 @@ finally:termios.tcsetattr(0,termios.TCSANOW,original)
             wait_until(lambda:(root/"input").read_bytes()==expected)
             assert (root/"reader-pid").read_text()==pid
             close_window(window,env);v.wait(timeout=5)
-            print("PASS: Qt/Ghostty snapshot + live output, IME commit-only, native keys, selection/copy/bracketed paste, scrollback, PTY resize, owner rejection and same-PID reopen")
+            print("PASS: Qt/Ghostty snapshot + live output, IME commit-only, native keys, drag/word/line selection, copy/bracketed paste, application mouse/wheel reporting with Shift bypass, scrollback, PTY resize, owner rejection and same-PID reopen")
         finally:
             if (root/"input").exists():
                 (artifacts/"input.bin").write_bytes((root/"input").read_bytes())

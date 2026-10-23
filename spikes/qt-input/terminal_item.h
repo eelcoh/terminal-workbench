@@ -92,6 +92,8 @@ protected:
     void mousePressEvent(QMouseEvent *) override;
     void mouseMoveEvent(QMouseEvent *) override;
     void mouseReleaseEvent(QMouseEvent *) override;
+    void mouseDoubleClickEvent(QMouseEvent *) override;
+    void hoverMoveEvent(QHoverEvent *) override;
     void wheelEvent(QWheelEvent *) override;
 private:
     using Cell=TerminalTextCell;
@@ -106,7 +108,10 @@ private:
     void updateCursor();
     void encodeKey(QKeyEvent *, bool, bool raw=false);
     void committed(const QString &);
-    void select(const QPointF &, bool);
+    bool mouseTracking() const;
+    bool reportMouse(GhosttyMouseAction, GhosttyMouseButton, const QPointF &, Qt::KeyboardModifiers, bool anyPressed);
+    bool gesture(GhosttySelectionGestureEvent, const QPointF &, qint64 timestamp=-1);
+    void resetGesture();
     void live();
     static void reply(GhosttyTerminal, void *, const uint8_t *, size_t);
     QLocalSocket socket_;
@@ -130,6 +135,10 @@ private:
     GhosttyRenderStateRowCells cells_=nullptr;
     GhosttyKeyEncoder encoder_=nullptr;
     GhosttyKeyEvent event_=nullptr;
+    GhosttyMouseEncoder mouse_=nullptr;
+    GhosttyMouseEvent mouseEvent_=nullptr;
+    GhosttySelectionGesture gesture_=nullptr;
+    GhosttySelectionGestureEvent press_=nullptr,drag_=nullptr,release_=nullptr;
     QVector<QVector<Cell>> grid_;
     TerminalTextSurface textRows_;
     QColor background_{"#191d24"};
@@ -140,12 +149,11 @@ private:
     qreal cellWidth_=10, cellHeight_=22, ascent_=17;
     quint16 columns_=0, lines_=0, wantedColumns_=0, wantedLines_=0;
     QRectF caret_;
-    bool cursorVisible_=false, cursorFocused_=false, dragging_=false;
+    // dragging_: a selection gesture is active; reporting_: the pressed buttons
+    // belong to a terminal application with mouse tracking enabled.
+    bool cursorVisible_=false, cursorFocused_=false, dragging_=false, reporting_=false;
     GhosttyRenderStateCursorVisualStyle cursorStyle_=GHOSTTY_RENDER_STATE_CURSOR_VISUAL_STYLE_BLOCK;
     QImage cursorGlyph_;qint64 cursorRowKey_=0;QRect cursorSource_;QColor cursorInk_;
-    QPoint anchor_;
-    QPointF pressPosition_;
-    bool selectionStarted_=false;
     mutable AccessibleSnapshot accessible_;
     mutable bool accessibleDirty_=true;
 };

@@ -121,9 +121,9 @@ def main():
                 def clipboard():
                     reply=subprocess.run(['wl-paste','--no-newline','--type','text/plain;charset=utf-8'],env=env,capture_output=True,timeout=5)
                     return reply.stdout if reply.returncode==0 else b''
-                def point(data,column,row,scale):
+                def point(data,column,row,scale,fraction=.25):
                     layout=windows()[0]['layout'];origin=layout['tile_pos_in_workspace_view'];offset=layout['window_offset_in_tile']
-                    x=origin[0]+offset[0]+data['x']+8+(column+.25)*data['cell_width']
+                    x=origin[0]+offset[0]+data['x']+8+(column+fraction)*data['cell_width']
                     y=origin[1]+offset[1]+data['y']+8+(row+.5)*data['cell_height']
                     xrun('mousemove','--window',parent,round(x*scale),round(y*scale));time.sleep(.08)
                 def copy_range(start,end,row,scale,value):
@@ -133,8 +133,10 @@ def main():
                     wait_until(lambda:clipboard()==sentinel.encode())
                     data=report(path)
                     xrun('mousemove','--window',parent,1910,1190);time.sleep(.08)
-                    point(data,start,row,scale);xrun('mousedown',1)
-                    point(data,end,row,scale);xrun('mouseup',1);time.sleep(.08)
+                    # Ghostty includes an edge cell once the pointer passes its midpoint.
+                    forward=start<=end
+                    point(data,start,row,scale,.25 if forward else .75);xrun('mousedown',1)
+                    point(data,end,row,scale,.75 if forward else .25);xrun('mouseup',1);time.sleep(.08)
                     key('c','Control','Shift');wait_until(lambda:clipboard()==value.encode())
                 original_grid=wait_until(lambda:(root/'size').read_text())
                 original_window=(report(path)['window_width'],report(path)['window_height'])

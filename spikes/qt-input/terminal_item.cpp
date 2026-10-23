@@ -86,9 +86,16 @@ TerminalItem::TerminalItem(QQuickItem *parent): QQuickPaintedItem(parent)
         || ghostty_render_state_row_iterator_new(nullptr,&rows_)!=GHOSTTY_SUCCESS
         || ghostty_render_state_row_cells_new(nullptr,&cells_)!=GHOSTTY_SUCCESS
         || ghostty_key_encoder_new(nullptr,&encoder_)!=GHOSTTY_SUCCESS
-        || ghostty_key_event_new(nullptr,&event_)!=GHOSTTY_SUCCESS) {
+        || ghostty_key_event_new(nullptr,&event_)!=GHOSTTY_SUCCESS
+        || ghostty_mouse_encoder_new(nullptr,&mouse_)!=GHOSTTY_SUCCESS
+        || ghostty_mouse_event_new(nullptr,&mouseEvent_)!=GHOSTTY_SUCCESS
+        || ghostty_selection_gesture_new(nullptr,&gesture_)!=GHOSTTY_SUCCESS
+        || ghostty_selection_gesture_event_new(nullptr,&press_,GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_PRESS)!=GHOSTTY_SUCCESS
+        || ghostty_selection_gesture_event_new(nullptr,&drag_,GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_DRAG)!=GHOSTTY_SUCCESS
+        || ghostty_selection_gesture_event_new(nullptr,&release_,GHOSTTY_SELECTION_GESTURE_EVENT_TYPE_RELEASE)!=GHOSTTY_SUCCESS) {
         fail("Ghostty initialization failed"); return;
     }
+    setAcceptHoverEvents(true);
     refreshTimer_.setSingleShot(true); refreshTimer_.setInterval(16);
     connect(&refreshTimer_,&QTimer::timeout,this,[this]{refresh();});
     handshakeTimer_.setSingleShot(true); handshakeTimer_.setInterval(10000);
@@ -120,6 +127,9 @@ TerminalItem::~TerminalItem()
     delete search_;search_=nullptr;
     socket_.disconnect(this); socket_.abort();
     ghostty_key_event_free(event_); ghostty_key_encoder_free(encoder_);
+    ghostty_mouse_event_free(mouseEvent_); ghostty_mouse_encoder_free(mouse_);
+    ghostty_selection_gesture_event_free(press_); ghostty_selection_gesture_event_free(drag_);
+    ghostty_selection_gesture_event_free(release_); ghostty_selection_gesture_free(gesture_,terminal_);
     ghostty_render_state_row_cells_free(cells_); ghostty_render_state_row_iterator_free(rows_);
     ghostty_render_state_free(render_); ghostty_terminal_free(terminal_);
 }
@@ -202,7 +212,7 @@ void TerminalItem::setTextFont(const QVariantMap &style)
     wheel_.reset();wheelTime_.invalidate();
     font_=QFont(loaded.value(family));fontPoints_=size.toInt();font_.setPointSizeF(fontPoints_);
     QFontMetricsF metrics(font_);cellWidth_=std::ceil(metrics.horizontalAdvance('M'));cellHeight_=std::ceil(metrics.height());ascent_=metrics.ascent();
-    dragging_=false;selectionStarted_=false;cursorGlyph_=QImage();cursorRowKey_=0;
+    resetGesture();cursorGlyph_=QImage();cursorRowKey_=0;
     resizeTerminal();if(ready_ && !refreshTimer_.isActive())refreshTimer_.start();
     update(boundingRect().toAlignedRect());QGuiApplication::inputMethod()->update(Qt::ImFont|Qt::ImCursorRectangle);Q_EMIT textFontChanged();
 }
@@ -272,7 +282,7 @@ bool TerminalItem::frame(quint8 kind,const QByteArray &data)
         ghostty_render_state_row_iterator_free(rows_);rows_=nullptr;
         ghostty_render_state_free(render_);render_=nullptr;
         if(search_)search_->close(false);
-        ghostty_terminal_free(terminal_);terminal_=next;
+        resetGesture();ghostty_terminal_free(terminal_);terminal_=next;
         if(search_)search_->setTerminal(terminal_);
         if(ghostty_render_state_new(nullptr,&render_)!=GHOSTTY_SUCCESS
             || ghostty_render_state_row_iterator_new(nullptr,&rows_)!=GHOSTTY_SUCCESS
@@ -317,7 +327,7 @@ void TerminalItem::resizeTerminal()
     quint16 cols=quint16(std::clamp(int((width()-16)/cellWidth_),1,1000));
     quint16 rows=quint16(std::clamp(int((height()-16)/cellHeight_),1,1000));
     if(cols==wantedColumns_ && rows==wantedLines_)return;
-    wantedColumns_=cols;wantedLines_=rows;dragging_=false;
+    wantedColumns_=cols;wantedLines_=rows;resetGesture();
     QByteArray data(4,0);qToBigEndian(cols,data.data());qToBigEndian(rows,data.data()+2);send(17,data);
 }
 void TerminalItem::refresh(bool retained)
@@ -620,39 +630,128 @@ void TerminalItem::paste()
         live();send(16,output.first(qsizetype(written)));
     }
 }
-void TerminalItem::select(const QPointF &position,bool start)
+bool TerminalItem::mouseTracking() const
 {
-    if(!ready_ || !columns_ || !lines_)return;
+    bool tracking=false;
+    if(terminal_)ghostty_terminal_get(terminal_,GHOSTTY_TERMINAL_DATA_MOUSE_TRACKING,&tracking);
+    return tracking;
+}
+static GhosttyMouseButton mouseButton(Qt::MouseButton button)
+{
+    switch(button) {
+    case Qt::LeftButton: return GHOSTTY_MOUSE_BUTTON_LEFT;
+    case Qt::RightButton: return GHOSTTY_MOUSE_BUTTON_RIGHT;
+    case Qt::MiddleButton: return GHOSTTY_MOUSE_BUTTON_MIDDLE;
+    case Qt::BackButton: return GHOSTTY_MOUSE_BUTTON_EIGHT;
+    case Qt::ForwardButton: return GHOSTTY_MOUSE_BUTTON_NINE;
+    default: return GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+    }
+}
+// The encoder follows the application's tracking mode and format, and emits
+// nothing for events that mode does not report.
+bool TerminalItem::reportMouse(GhosttyMouseAction action,GhosttyMouseButton button,const QPointF &position,Qt::KeyboardModifiers modifiers,bool anyPressed)
+{
+    if(!ready_ || !columns_ || !lines_)return false;
+    ghostty_mouse_encoder_setopt_from_terminal(mouse_,terminal_);
+    auto size=sized<GhosttyMouseEncoderSize>();
+    size.screen_width=quint32(width());size.screen_height=quint32(height());
+    size.cell_width=quint32(std::max<qreal>(1,cellWidth_));size.cell_height=quint32(std::max<qreal>(1,cellHeight_));
+    size.padding_left=size.padding_top=8;
+    size.padding_right=quint32(std::max<qreal>(0,width()-8-columns_*cellWidth_));
+    size.padding_bottom=quint32(std::max<qreal>(0,height()-8-lines_*cellHeight_));
+    ghostty_mouse_encoder_setopt(mouse_,GHOSTTY_MOUSE_ENCODER_OPT_SIZE,&size);
+    ghostty_mouse_encoder_setopt(mouse_,GHOSTTY_MOUSE_ENCODER_OPT_ANY_BUTTON_PRESSED,&anyPressed);
+    const bool trackCell=true;ghostty_mouse_encoder_setopt(mouse_,GHOSTTY_MOUSE_ENCODER_OPT_TRACK_LAST_CELL,&trackCell);
+    ghostty_mouse_event_set_action(mouseEvent_,action);
+    if(button==GHOSTTY_MOUSE_BUTTON_UNKNOWN)ghostty_mouse_event_clear_button(mouseEvent_);
+    else ghostty_mouse_event_set_button(mouseEvent_,button);
+    ghostty_mouse_event_set_mods(mouseEvent_,terminalMods(modifiers));
+    ghostty_mouse_event_set_position(mouseEvent_,GhosttyMousePosition{float(position.x()),float(position.y())});
+    char bytes[128];size_t written=0;
+    if(ghostty_mouse_encoder_encode(mouse_,mouseEvent_,bytes,sizeof(bytes),&written)!=GHOSTTY_SUCCESS || !written)return false;
+    send(16,QByteArray(bytes,qsizetype(written)));return true;
+}
+void TerminalItem::resetGesture()
+{
+    if(gesture_ && terminal_)ghostty_selection_gesture_reset(gesture_,terminal_);
+    dragging_=false;
+}
+// VT owns anchors, click counting and word/line boundaries.
+bool TerminalItem::gesture(GhosttySelectionGestureEvent event,const QPointF &position,qint64 timestamp)
+{
+    if(!ready_ || !columns_ || !lines_)return false;
     QPoint cell(std::clamp(int((position.x()-8)/cellWidth_),0,int(columns_)-1),std::clamp(int((position.y()-8)/cellHeight_),0,int(lines_)-1));
-    if(start)anchor_=cell;
-    GhosttySelection selection=sized<GhosttySelection>();
     GhosttyPoint point{};point.tag=GHOSTTY_POINT_TAG_VIEWPORT;
-    point.value.coordinate={quint16(anchor_.x()),quint32(anchor_.y())};
-    if(ghostty_terminal_grid_ref(terminal_,point,&selection.start)!=GHOSTTY_SUCCESS)return;
     point.value.coordinate={quint16(cell.x()),quint32(cell.y())};
-    if(ghostty_terminal_grid_ref(terminal_,point,&selection.end)!=GHOSTTY_SUCCESS)return;
-    ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_SELECTION,&selection);refresh();
+    auto ref=sized<GhosttyGridRef>();
+    if(ghostty_terminal_grid_ref(terminal_,point,&ref)!=GHOSTTY_SUCCESS)return false;
+    if(event==press_) {
+        const auto *hints=QGuiApplication::styleHints();
+        const quint64 time=quint64(std::max<qint64>(0,timestamp))*1000000ULL;
+        const quint64 interval=quint64(hints->mouseDoubleClickInterval())*1000000ULL;
+        const double distance=hints->mouseDoubleClickDistance();
+        ghostty_selection_gesture_event_set(event,GHOSTTY_SELECTION_GESTURE_EVENT_OPT_TIME_NS,&time);
+        ghostty_selection_gesture_event_set(event,GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_INTERVAL_NS,&interval);
+        ghostty_selection_gesture_event_set(event,GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REPEAT_DISTANCE,&distance);
+    } else if(event==drag_) {
+        GhosttySelectionGestureGeometry geometry{columns_,quint32(std::max<qreal>(1,cellWidth_)),8,quint32(std::max<qreal>(1,height()))};
+        ghostty_selection_gesture_event_set(event,GHOSTTY_SELECTION_GESTURE_EVENT_OPT_GEOMETRY,&geometry);
+    }
+    if(event!=release_) {
+        GhosttySurfacePosition surface{position.x(),position.y()};
+        ghostty_selection_gesture_event_set(event,GHOSTTY_SELECTION_GESTURE_EVENT_OPT_POSITION,&surface);
+    }
+    if(ghostty_selection_gesture_event_set(event,GHOSTTY_SELECTION_GESTURE_EVENT_OPT_REF,&ref)!=GHOSTTY_SUCCESS)return false;
+    auto selection=sized<GhosttySelection>();
+    if(ghostty_selection_gesture_event(gesture_,terminal_,event,&selection)!=GHOSTTY_SUCCESS)return false;
+    ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_SELECTION,&selection);refresh();return true;
 }
 void TerminalItem::mousePressEvent(QMouseEvent *event)
 {
-    cancelForwarding();
-    forceActiveFocus();dragging_=true;selectionStarted_=false;pressPosition_=event->position();
-    accessibleClearSelection();event->accept();
+    cancelForwarding();forceActiveFocus();event->accept();
+    // Shift selects text even while an application tracks the mouse.
+    if(reporting_ || (mouseTracking() && !(event->modifiers()&Qt::ShiftModifier))) {
+        reporting_=true;
+        reportMouse(GHOSTTY_MOUSE_ACTION_PRESS,mouseButton(event->button()),event->position(),event->modifiers(),true);
+        return;
+    }
+    if(event->button()!=Qt::LeftButton)return;
+    accessibleClearSelection();
+    ghostty_terminal_set(terminal_,GHOSTTY_TERMINAL_OPT_SELECTION,nullptr);
+    dragging_=true;gesture(press_,event->position(),event->timestamp());
+}
+void TerminalItem::mouseDoubleClickEvent(QMouseEvent *event)
+{
+    // The press preceding this event already advanced the VT click count.
+    event->accept();
 }
 void TerminalItem::mouseMoveEvent(QMouseEvent *event)
 {
-    if(dragging_) {
-        if(!selectionStarted_ && (event->position()-pressPosition_).manhattanLength()>=QGuiApplication::styleHints()->startDragDistance()) {
-            selectionStarted_=true;select(pressPosition_,true);
-        }
-        if(selectionStarted_)select(event->position(),false);
-    }
     event->accept();
+    if(reporting_) {
+        GhosttyMouseButton held=GHOSTTY_MOUSE_BUTTON_UNKNOWN;
+        for(auto button:{Qt::LeftButton,Qt::RightButton,Qt::MiddleButton})
+            if(event->buttons()&button){held=mouseButton(button);break;}
+        reportMouse(GHOSTTY_MOUSE_ACTION_MOTION,held,event->position(),event->modifiers(),event->buttons()!=Qt::NoButton);
+        return;
+    }
+    if(dragging_ && (event->buttons()&Qt::LeftButton))gesture(drag_,event->position());
 }
 void TerminalItem::mouseReleaseEvent(QMouseEvent *event)
 {
-    if(dragging_ && selectionStarted_)select(event->position(),false);
-    dragging_=false;selectionStarted_=false;event->accept();
+    event->accept();
+    if(reporting_) {
+        reportMouse(GHOSTTY_MOUSE_ACTION_RELEASE,mouseButton(event->button()),event->position(),event->modifiers(),event->buttons()!=Qt::NoButton);
+        if(event->buttons()==Qt::NoButton)reporting_=false;
+        return;
+    }
+    if(dragging_ && event->button()==Qt::LeftButton){gesture(release_,event->position());dragging_=false;}
+}
+void TerminalItem::hoverMoveEvent(QHoverEvent *event)
+{
+    // Any-event tracking reports motion without buttons; other modes emit nothing.
+    if(!dragging_ && mouseTracking())reportMouse(GHOSTTY_MOUSE_ACTION_MOTION,GHOSTTY_MOUSE_BUTTON_UNKNOWN,event->position(),event->modifiers(),false);
+    event->ignore();
 }
 QObject *TerminalItem::searchController()
 {
@@ -693,6 +792,15 @@ void TerminalItem::wheelEvent(QWheelEvent *event)
     if(!result.handled){event->ignore();return;}
     event->accept();
     if(!result.rows)return;
+    if(mouseTracking() && !(event->modifiers()&Qt::ShiftModifier)) {
+        // Applications that track the mouse receive wheel buttons 4/5 instead.
+        const auto button=result.rows<0?GHOSTTY_MOUSE_BUTTON_FOUR:GHOSTTY_MOUSE_BUTTON_FIVE;
+        for(int step=0;step<std::min(std::abs(result.rows),12);++step) {
+            reportMouse(GHOSTTY_MOUSE_ACTION_PRESS,button,event->position(),event->modifiers(),false);
+            reportMouse(GHOSTTY_MOUSE_ACTION_RELEASE,button,event->position(),event->modifiers(),false);
+        }
+        return;
+    }
     GhosttyTerminalScrollViewport scroll{};scroll.tag=GHOSTTY_SCROLL_VIEWPORT_DELTA;scroll.value.delta=result.rows;
-    dragging_=false;ghostty_terminal_scroll_viewport(terminal_,scroll);refresh();
+    resetGesture();ghostty_terminal_scroll_viewport(terminal_,scroll);refresh();
 }
