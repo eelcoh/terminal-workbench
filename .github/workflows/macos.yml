@@ -1,0 +1,94 @@
+name: macOS
+
+# Native build, headless checks and the Band.app artifact on Apple Silicon.
+# Git operations use SSH (AGENTS.md): the repository secret SSH_PRIVATE_KEY
+# holds a read-only key registered with GitHub, used for this checkout and the
+# pinned Ghostty clone.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZIG_VERSION: 0.16.0
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  check:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out over SSH
+        uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          ssh-strict: true
+
+      - name: SSH for the Ghostty clone
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Tools
+        run: |
+          brew install qt just ninja
+          rustup toolchain install stable --profile minimal --component clippy,rustfmt
+          rustup default stable
+
+      - name: Zig ${{ env.ZIG_VERSION }}
+        run: |
+          name="zig-aarch64-macos-$ZIG_VERSION"
+          expected=$(curl -fsSL https://ziglang.org/download/index.json | python3 -c "import json,sys;print(json.load(sys.stdin)['$ZIG_VERSION']['aarch64-macos']['shasum'])")
+          curl -fsSLo "$RUNNER_TEMP/zig.tar.xz" "https://ziglang.org/download/$ZIG_VERSION/$name.tar.xz"
+          echo "$expected  $RUNNER_TEMP/zig.tar.xz" | shasum -a 256 -c -
+          mkdir -p .local/tools && tar -xJf "$RUNNER_TEMP/zig.tar.xz" -C .local/tools
+          echo "ZIG=$PWD/.local/tools/$name/zig" >> "$GITHUB_ENV"
+
+      - name: Cache the pinned Ghostty VT build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .local/deps/ghostty-vt
+            .local/runtime-vt
+          key: ghostty-vt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/prepare-runtime-vt.py') }}-zig-${{ env.ZIG_VERSION }}
+
+      - name: just check
+        run: just check
+
+      - name: Qt client checks (offscreen)
+        run: |
+          for recipe in toolkit-catalog-test toolkit-view-state-test toolkit-shortcuts-test toolkit-fonts-test \
+              toolkit-lifecycle-test toolkit-runtime-facts-test toolkit-theme-import-test toolkit-search-test \
+              toolkit-scroll-test toolkit-about-test toolkit-configuration-test toolkit-workspace-appearance-test \
+              toolkit-agent-info-test toolkit-runtime-info-test package-tools-test; do
+            echo "::group::$recipe"
+            just "$recipe"
+            echo "::endgroup::"
+          done
+
+      - name: Package Band.app
+        run: just package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Band-macos-arm64
+          path: dist/Band-*-macos-*.zip
+          if-no-files-found: error
+          retention-days: 14

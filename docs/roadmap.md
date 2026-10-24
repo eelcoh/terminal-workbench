@@ -77,14 +77,17 @@ installed from a release artifact on a machine without Python.
      and workspace Appearance says how many terminals keep their own colors.
    - A terminal scrollbar: not needed (owner, 2026-10-22).
    Selection drags do not autoscroll at the edge.
-5. [x] **Packaging** (2026-10-23, Mac review pending). `just package` builds a
-   zipped, ad-hoc signed `Band.app` with Qt and the runtime inside it, or a
-   Linux tar.gz using the system Qt with `band --install-desktop-entry`
-   (optionally through Distrobox). The rename to Band landed with it. Preview
+5. [x] **Packaging** (2026-10-23; `just package` confirmed on Mac 2026-10-24).
+   `just package` builds a zipped, ad-hoc signed `Band.app` with Qt and the
+   runtime inside it, or a Linux tar.gz using the system Qt with
+   `band --install-desktop-entry` (optionally through Distrobox). The rename to Band landed with it. Preview
    staging, activation and inventory tooling are removed. Flatpak or AppImage,
    an app icon, signing and notarization come later. See [packaging](packaging.md).
-6. **macOS CI.** Build plus headless tests on a macOS runner; keep a short manual
-   checklist for input, IME, displays and trackpad per release.
+6. **macOS CI.** `.github/workflows/macos.yml` (2026-10-24, first run pending
+   the `SSH_PRIVATE_KEY` secret): `just check`, offscreen Qt client tests and
+   `just package` on Apple Silicon, with `Band.app` as a downloadable artifact.
+   The manual checklist for input, IME, displays and trackpad stays in
+   [the macOS build guide](macos-build.md#native-checks).
 7. **Remove the eight-workspace ceiling** or document why it stays.
 
 Exit criteria: release artifacts for both platforms, no Python on the user path,

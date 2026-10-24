@@ -146,3 +146,26 @@ failing socket, and existing sessions are preserved.
 After a reboot, `just recover-sessions` starts fresh shells for saved terminals
 whose sockets have no listener, keeping their names, IDs and appearance. It only
 removes owned, dead socket files.
+
+## CI
+
+`.github/workflows/macos.yml` runs on every push to `main`, on pull requests
+and on demand, on GitHub's Apple Silicon runner: `just check`, the offscreen Qt
+client tests, then `just package`. The zipped `Band.app` is uploaded as the
+`Band-macos-arm64` workflow artifact (kept 14 days). Graphical input, IME,
+displays and trackpad still need the manual checks above.
+
+Git operations stay on SSH, so the workflow needs the repository secret
+`SSH_PRIVATE_KEY`: a private key, without a passphrase, whose public half is
+registered with GitHub. A deploy key on this repository is not enough, because
+the build also clones `ghostty-org/ghostty`; use a key on an account (ideally a
+separate machine account with no write access to anything):
+
+```sh
+ssh-keygen -t ed25519 -N '' -C band-ci -f band-ci
+gh secret set SSH_PRIVATE_KEY < band-ci   # then add band-ci.pub to that account's SSH keys
+rm band-ci
+```
+
+Pull requests from forks get no secrets, so their runs stop at checkout.
+
