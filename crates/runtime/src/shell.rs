@@ -21,6 +21,18 @@ fn select_shell(
         .unwrap_or_else(|| "/bin/sh".into())
 }
 
+/// Some environments (Distrobox among them) set SHELL to a bare name; find it on PATH.
+fn resolve_name(shell: OsString, path: Option<&std::ffi::OsStr>) -> OsString {
+    if Path::new(&shell).components().count() != 1 || Path::new(&shell).is_absolute() {
+        return shell;
+    }
+    path.into_iter()
+        .flat_map(std::env::split_paths)
+        .map(|directory| directory.join(&shell))
+        .find(|candidate| candidate.is_absolute() && candidate.is_file())
+        .map_or(shell, OsString::from)
+}
+
 fn supports_login(executable: &Path) -> bool {
     executable.file_name().is_some_and(|name| {
         matches!(
@@ -40,7 +52,8 @@ impl ShellLaunch {
     }
 
     pub fn user_default() -> Self {
-        let environment = std::env::var_os("SHELL");
+        let environment = std::env::var_os("SHELL")
+            .map(|shell| resolve_name(shell, std::env::var_os("PATH").as_deref()));
         let account = if environment
             .as_ref()
             .is_some_and(|path| Path::new(path).is_file())
@@ -100,6 +113,22 @@ mod tests {
             select_shell(None, Some("/missing".into()), valid),
             "/bin/sh"
         );
+    }
+
+    #[test]
+    fn bare_shell_name_is_found_on_path() {
+        let directory = std::env::temp_dir().join(format!("band-shell-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(directory.join("zsh"), "").unwrap();
+        let path = std::env::join_paths(["relative", directory.to_str().unwrap()]).unwrap();
+        assert_eq!(
+            resolve_name("zsh".into(), Some(&path)),
+            directory.join("zsh")
+        );
+        assert_eq!(resolve_name("fish".into(), Some(&path)), "fish");
+        assert_eq!(resolve_name("/bin/zsh".into(), Some(&path)), "/bin/zsh");
+        assert_eq!(resolve_name("zsh".into(), None), "zsh");
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

@@ -75,7 +75,11 @@ pub fn account_shell() -> Option<std::ffi::OsString> {
     {
         macos::account_shell()
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    {
+        linux::account_shell()
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
         None
     }

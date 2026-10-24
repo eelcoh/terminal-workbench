@@ -40,3 +40,15 @@ pub fn working_directory(pid: i32) -> Option<PathBuf> {
         .ok()
         .filter(|path| path.is_absolute() && path.is_dir())
 }
+
+/// The login shell from the user database, for launchers (desktop entries,
+/// containers) that supply no usable SHELL.
+pub fn account_shell() -> Option<std::ffi::OsString> {
+    use std::os::unix::ffi::OsStrExt;
+    let entry = unsafe { libc::getpwuid(libc::getuid()) };
+    if entry.is_null() || unsafe { (*entry).pw_shell }.is_null() {
+        return None;
+    }
+    let shell = unsafe { std::ffi::CStr::from_ptr((*entry).pw_shell) }.to_bytes();
+    (!shell.is_empty()).then(|| std::ffi::OsStr::from_bytes(shell).to_owned())
+}
