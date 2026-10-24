@@ -39,11 +39,10 @@ fn main() {
             .arg(out.join("libworkbench-vt.a"))
             .arg(out.join("terminal_core.o")),
     );
+    // The VT build installs a shared library beside the archive. Apple's linker
+    // prefers it for -l, so link from a directory holding only the archive.
+    std::fs::copy(&library, out.join("libghostty-vt.a")).expect("copy libghostty-vt.a");
     println!("cargo:rustc-link-search=native={}", out.display());
-    println!(
-        "cargo:rustc-link-search=native={}",
-        ghostty.join("lib").display()
-    );
     println!("cargo:rustc-link-lib=static=workbench-vt");
     println!("cargo:rustc-link-lib=static=ghostty-vt");
 }
