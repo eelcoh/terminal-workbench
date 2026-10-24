@@ -1340,7 +1340,7 @@ mod tests {
             json!(["a", "b"])
         );
         let launch = Launch {
-            runtime: PathBuf::from("/bin/true"),
+            runtime: PathBuf::from("/usr/bin/true"),
             cwd: root.clone(),
             agent_bin: None,
         };
