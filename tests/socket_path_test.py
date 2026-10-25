@@ -14,7 +14,9 @@ from session_service import request
 
 
 def sized_directory(root, size):
-    directory=root/('s'*(size-len(os.fsencode(root))-1))
+    padding=size-len(os.fsencode(root))-1
+    assert padding>0,f'{root} is too long to build a {size}-byte directory'
+    directory=root/('s'*padding)
     directory.mkdir()
     assert len(os.fsencode(directory))==size
     return directory
@@ -23,7 +25,7 @@ def sized_directory(root, size):
 def main():
     runtime=Path(sys.argv[1]).resolve()
     os.environ['SHELL']='/bin/sh'
-    with tempfile.TemporaryDirectory(prefix='wb-path-') as directory:
+    with tempfile.TemporaryDirectory(prefix='wb-path-',dir='/tmp') as directory:
         root=Path(directory).resolve()
         # The absolute session directory from the Mac report is exactly 71 bytes.
         state=sized_directory(root,71)
