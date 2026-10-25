@@ -98,11 +98,14 @@ def main():
                 send(connection, 17, struct.pack("!HH", 93, 31))
                 send(connection, 16, b"printf '\\nWB_SIZE:'; stty size\n")
                 expect(connection, rb"\r?\nWB_SIZE:31 93\r?\n")
-                send(connection, 16, b"printf '\\033[?1049h\\033[2JALT_SCREEN\\n'; sleep 0.2; printf 'DETACHED_OUTPUT\\n'\n")
+                # The marker shows the shell printed while detached, however slow the host.
+                marker = Path(directory) / "detached.done"
+                send(connection, 16, b"printf '\\033[?1049h\\033[2JALT_SCREEN\\n'; sleep 0.2; printf 'DETACHED_OUTPUT\\n'; : > " + str(marker).encode() + b"\n")
                 expect(connection, rb"\x1b\[2JALT_SCREEN")
                 connection.close()
                 connection = None
-                time.sleep(0.3)
+                wait_until(marker.exists)
+                time.sleep(0.1)
                 os.kill(int(pid), 0)
                 assert server.poll() is None, "closing the viewer must preserve the runtime"
                 connection, replay, sizes = attach(path)
