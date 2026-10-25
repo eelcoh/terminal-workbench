@@ -22,7 +22,7 @@ def main():
             root = Path(directory)
             path = root / 'session.sock'
             fixture = root / agent
-            shutil.copyfile('/usr/bin/sleep', fixture)
+            shutil.copyfile(shutil.which('sleep'), fixture)
             fixture.chmod(0o700)
             process = subprocess.Popen([runtime, str(path), '/bin/sh'], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             viewer = legacy = watch = None

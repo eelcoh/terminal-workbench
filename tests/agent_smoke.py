@@ -22,7 +22,7 @@ def main():
         root = Path(directory)
         path = root / "session.sock"
         fixture = root / "codex"
-        shutil.copyfile("/usr/bin/sleep", fixture)
+        shutil.copyfile(shutil.which("sleep"), fixture)
         fixture.chmod(0o700)
         with (root / "runtime.log").open("w+") as log:
             process = subprocess.Popen([runtime, str(path), "/bin/sh"], cwd=root, stdout=log, stderr=log)

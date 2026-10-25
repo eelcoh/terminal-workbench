@@ -30,7 +30,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='wb-watch-real-') as temporary:
         root = Path(temporary);path=root/'live.sock';catalog(root,['live','missing'])
         before=(root/'workspaces.json').read_bytes()
-        fixture=root/'codex';shutil.copyfile('/usr/bin/sleep',fixture);fixture.chmod(0o700)
+        fixture=root/'codex';shutil.copyfile(shutil.which('sleep'),fixture);fixture.chmod(0o700)
         server=subprocess.Popen([runtime,str(path),'/bin/sh'],cwd=root,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         viewer=watcher=None
         try:
