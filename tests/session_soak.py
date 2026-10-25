@@ -43,6 +43,10 @@ class Client:
 
 
 def record(path):return json.loads(path.read_text())
+def alive(pid):
+    try:os.kill(pid,0)
+    except ProcessLookupError:return False
+    return True
 def replace(path,value):
     temporary=path.with_name(path.name+'.tmp');temporary.write_text(json.dumps(value));temporary.replace(path)
 def resources(pids):
@@ -150,7 +154,9 @@ def main():
                     print(f'Soak: {time.monotonic()-start:.0f}s, {cycles} cycles, {service_restarts} service restarts',flush=True);last_notice=time.monotonic()
             # Return to the original shells and verify invocation-local variables.
             for identity in ids:
-                client=clients[identity];send(client.stream,16,b'X');time.sleep(.05)
+                client=clients[identity];workload=record(root/(identity+'.progress'))['pid']
+                # Type the shell command only once the TUI has quit, or it reads both.
+                send(client.stream,16,b'X');wait_until(lambda:not alive(workload))
                 finish=root/(identity+'.final')
                 send(client.stream,16,("printf '%s:%s' \"$$\" \"$keep\" > "+shlex.quote(str(finish))+"\n").encode())
                 assert wait_until(lambda:finish.exists() and finish.read_text())==str(shells[identity])+':'+identity
