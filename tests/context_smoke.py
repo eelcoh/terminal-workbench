@@ -14,7 +14,7 @@ from session_smoke import attach, send, read_frame, wait_until, expect
 
 binary = str(Path(sys.argv[1]).resolve())
 with tempfile.TemporaryDirectory(prefix='wb-context-test-') as directory:
-    root=Path(directory)
+    root=Path(directory).resolve()  # macOS reports /private/var for /var
     repo=root/'repository λ'; repo.mkdir()
     def git(*args):
         return subprocess.run(['git','-C',str(repo),*args],check=True,capture_output=True,text=True).stdout.strip()
