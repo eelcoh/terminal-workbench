@@ -3,7 +3,7 @@
 #define WORKBENCH_ATTENTION_NAVIGATION_H
 #include <stdbool.h>
 #include <stddef.h>
-#define ATTENTION_LIMIT 64
+#define ATTENTION_LIMIT 256
 static inline int attention_next(const bool *waiting,size_t count,int current,int direction)
 {
     if(!waiting || !count || count>ATTENTION_LIMIT) return -1;

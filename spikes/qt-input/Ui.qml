@@ -438,8 +438,13 @@ ApplicationWindow {
     readonly property bool creationOpen: createDialog.visible
     readonly property bool drawerOpen: drawer.visible
     readonly property bool nameFocused: newName.activeFocus
-    readonly property bool canCreateTerminal: spaces.length > 0 && counts[workspace] < 8 && !studySession.busy && dragSlot < 0
-    readonly property bool canCreateWorkspace: spaces.length < 8 && !studySession.busy && dragSlot < 0
+    // The service bounds (catalog.rs); a workspace may hold any share of the terminals.
+    readonly property int maxWorkspaces: 64
+    readonly property int maxTerminals: 256
+    readonly property int indicatorSlots: topbar.markerSlots
+    readonly property int terminalTotal: counts.reduce(function(sum, count) { return sum + count }, 0)
+    readonly property bool canCreateTerminal: spaces.length > 0 && terminalTotal < maxTerminals && !studySession.busy && dragSlot < 0
+    readonly property bool canCreateWorkspace: spaces.length < maxWorkspaces && terminalTotal < maxTerminals && !studySession.busy && dragSlot < 0
     ListModel { id: terminalModel }
     property int catalogRevision: 0
     function indices(space) { const revision = catalogRevision; let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space) result.push(i); return result.sort((a,b) => terminalModel.get(a).ordinal - terminalModel.get(b).ordinal) }
@@ -677,7 +682,7 @@ ApplicationWindow {
             const source = terminalModel.get(dragSlot)
             dropRaw = raw; dropProjected = projected
             dropPosition = raw - (source.spaceIndex === w && source.ordinal < raw ? 1 : 0)
-            dropAllowed = source.spaceIndex === w || counts[w] < 8
+            dropAllowed = true
             break
         }
     }
@@ -717,15 +722,12 @@ ApplicationWindow {
     }
     function canMoveWorkspace(delta) {
         const target = workspace + delta
-        return selected >= 0 && (!overview || overviewOrdinals[selected] >= 0) && !studySession.busy && target >= 0 && target < spaces.length && counts[target] < 8
+        return selected >= 0 && (!overview || overviewOrdinals[selected] >= 0) && !studySession.busy && target >= 0 && target < spaces.length
     }
     function moveSelectedWorkspace(delta) {
         if (selected < 0 || studySession.busy || (overview && overviewOrdinals[selected] < 0)) return
         const target = workspace + delta
         if (target < 0 || target >= spaces.length) return
-        if (counts[target] >= 8) {
-            moveNotice = spaces[target] + " already has eight terminals"; moveNoticeTimer.restart(); return
-        }
         moveNotice = ""
         followMove = true
         studySession.moveTerminal(terminalModel.get(selected).terminalId, spaceIds[target], -1)
@@ -769,6 +771,14 @@ ApplicationWindow {
     QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; onClicked: help.open() }
     Item {
         id: topbar; x: window.navigationEdge; y: 4; width: parent.width - x - 12; height: 32
+        // Markers that fit between the side controls; past that, a window follows the selection.
+        readonly property int markerCount: window.counts[window.workspace] || 0
+        // The row is centred: half its width must clear the workspace name on the left and
+        // the count, New terminal and Overview on the right, with 8 px to spare on each side.
+        readonly property real markerRoom: Math.min(width / 2 - workspaceButton.width, width / 2 - focusedCount.width - newTerminalButton.width - overviewButton.width - 36) - 8
+        readonly property int markerSlots: Math.max(1, Math.min(markerCount, Math.floor(2 * markerRoom / 28)))
+        readonly property int markerFocus: Math.max(0, window.indices(window.workspace).indexOf(window.selected))
+        readonly property int markerStart: Math.max(0, Math.min(markerCount - markerSlots, markerFocus - Math.floor(markerSlots / 2)))
         QuietButton { id: workspaceButton; objectName: "workspaceButton"; leftAligned: true; width: Math.min(200, Math.max(80, topbar.width / 4)); text: window.overview ? "Overview" : (window.spaces[window.workspace] || "No workspaces"); hint: "Choose workspace"; onClicked: window.openNavigation("workspaces") }
         Rectangle {
             anchors.centerIn: parent; width: indicatorRow.width + 8; height: 28; radius: 14; color: window.chrome.background
@@ -777,11 +787,11 @@ ApplicationWindow {
         Row {
             id: indicatorRow; objectName: "indicatorRow"; anchors.centerIn: parent; spacing: 0; visible: !window.overview && window.counts[window.workspace] > 0
             Repeater {
-                model: window.counts[window.workspace] || 0
+                model: topbar.markerSlots
                 QuietButton {
                     required property int index
                     implicitWidth: 28; implicitHeight: 28; text: ""; hint: { const item = paneIndex < 0 ? null : window.panel(paneIndex); return item ? item.facts.title : "Terminal" }
-                    readonly property int paneIndex: window.indices(window.workspace)[index] ?? -1
+                    readonly property int paneIndex: window.indices(window.workspace)[topbar.markerStart + index] ?? -1
                     Rectangle {
                         anchors.centerIn: parent; width: window.selected === parent.paneIndex ? 24 : 14; height: 8; radius: 4
                         color: window.selected === parent.paneIndex ? window.accent : window.left(parent.paneIndex) + window.paneWidth(parent.paneIndex) > deck.contentX && window.left(parent.paneIndex) < deck.contentX + deck.width ? window.chrome.muted : window.chrome.border
@@ -802,7 +812,7 @@ ApplicationWindow {
             color: window.chrome.muted; font.pixelSize: 12
         }
         QuietButton {
-            objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal" + (studyShortcuts.labels["new-terminal"] ? " · " + studyShortcuts.labels["new-terminal"] : ""); enabled: window.canCreateTerminal
+            id: newTerminalButton; objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal" + (studyShortcuts.labels["new-terminal"] ? " · " + studyShortcuts.labels["new-terminal"] : ""); enabled: window.canCreateTerminal
             x: window.overview ? overviewButton.x - width - 12 : focusedCount.x + focusedCount.width + 12
             onClicked: window.newTerminal()
         }
@@ -1075,7 +1085,7 @@ ApplicationWindow {
         x: Math.min(window.width - width - 12, deck.x + window.dragPoint.x + 16)
         y: Math.max(60, Math.min(window.height - height - 12, deck.y + window.dragPoint.y + 16))
         width: dragLabel.implicitWidth + 24; height: 38; radius: 8; color: window.chrome.surface; border.color: window.accent; z: 5
-        Label { id: dragLabel; anchors.centerIn: parent; text: (window.dropSpace < 0 ? "Move terminal" : !window.dropAllowed ? "Workspace is full" : window.spaces[window.dropSpace] + " · position " + (window.dropPosition + 1)) + " · Esc cancels"; color: window.chrome.foreground }
+        Label { id: dragLabel; anchors.centerIn: parent; text: (window.dropSpace < 0 ? "Move terminal" : window.spaces[window.dropSpace] + " · position " + (window.dropPosition + 1)) + " · Esc cancels"; color: window.chrome.foreground }
     }
     Timer {
         interval: 16; repeat: true; running: window.dragSlot >= 0

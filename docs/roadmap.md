@@ -88,7 +88,14 @@ installed from a release artifact on a machine without Python.
    `just package` on Apple Silicon, with `Band.app` as a downloadable artifact.
    The manual checklist for input, IME, displays and trackpad stays in
    [the macOS build guide](macos-build.md#native-checks).
-7. **Remove the eight-workspace ceiling** or document why it stays.
+7. [x] **Eight-by-eight ceiling removed** (2026-10-25). A window holds up to
+   64 workspaces and 256 terminals in any split; moves no longer check room. The
+   bounds keep a worst-case catalog and health reply inside the service message
+   limit, now 1 MiB on every side. Position markers in the top bar show a window
+   around the selected terminal when they do not all fit. The limits are unit
+   tested on catalog data; the UI test runs fifteen live terminals and a ninth in
+   one workspace. The marker window and a window with hundreds of live terminals
+   have not been exercised yet.
 
 Exit criteria: release artifacts for both platforms, no Python on the user path,
 detach/reattach and agent status working from an installed build, and a week of

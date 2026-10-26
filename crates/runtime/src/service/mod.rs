@@ -23,7 +23,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 const PROTOCOL: i64 = 1;
-const LIMIT: usize = 256 * 1024;
+// One request or reply; the Qt client and Python tools use the same bound.
+pub(crate) const LIMIT: usize = 1024 * 1024;
 const METHODS: [&str; 20] = [
     "catalog.read",
     "health",

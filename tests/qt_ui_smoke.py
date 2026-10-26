@@ -185,7 +185,7 @@ while True:
                 if cancel:
                     key('Escape');wait_until(lambda:data()['drag_slot']==-1)
             finally:button('mouseup')
-        def drag_workspace(slot,workspace,allowed=True):
+        def drag_workspace(slot,workspace,allowed=True,cancel=False):
             show_preview(slot)
             pane=data()['panes'][slot]
             start=(pane['x'],(max(105,pane['top'])+min(748,pane['bottom']))/2)
@@ -199,7 +199,7 @@ while True:
                     time.sleep(.08)
                 move(160,data()['overview_groups'][workspace]+25)
                 wait_until(lambda:data()['drop_space']==workspace and data()['drop_allowed']==allowed)
-                if not allowed:capture('drag-full-workspace.png')
+                if cancel:capture('drag-eight-terminal-workspace.png');key('Escape');wait_until(lambda:data()['drag_slot']==-1)
             finally:button('mouseup')
         def workspace_form(mode):
             click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
@@ -1144,16 +1144,17 @@ while True:
         assert sizes()==creation_sizes,('Overview resized dynamically created terminals',creation_sizes,sizes())
         capture('created-overview.png');key('Escape');wait_until(lambda:not data()['overview'])
         capture('working.png')
-        # Fill a destination through the UI: rejected drops must not mutate or detach.
+        # Eight terminals no longer fill a workspace: a drop there is allowed, and a
+        # cancelled one must not mutate or detach.
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
         for slot in range(9,13):
             key('super+alt+t');wait_until(lambda:len(data()['panes'])==slot+1 and data()['panes'][slot]['ready'] and not data()['busy'])
         wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']))
         full_catalog=workspace_catalog.load(root);assert len(order(1))==8
         full_sizes=sizes();key('super+alt+o');wait_until(lambda:data()['overview']);time.sleep(.35)
-        drag_workspace(0,1,allowed=False)
+        drag_workspace(0,1,allowed=True,cancel=True)
         wait_until(lambda:data()['drag_slot']==-1)
-        assert workspace_catalog.load(root)==full_catalog and sizes()==full_sizes,'full destination accepted a drop'
+        assert workspace_catalog.load(root)==full_catalog and sizes()==full_sizes,'cancelled drop changed the catalog'
         last=data()['panes'][5];drag(3,last['right']-8,last['y'])
         wait_until(lambda:order(1)[:3]==['terminal-4','terminal-5','terminal-3'])
         assert sizes()==full_sizes,'full workspace reorder resized a terminal'
@@ -1200,14 +1201,15 @@ while True:
         new_cwd=root/'edited-new-shell-cwd';typed('pwd > '+shlex.quote(str(new_cwd)));key('Return');wait_until(new_cwd.exists)
         assert new_cwd.read_text().strip()==str(chosen),'new shell ignored edited folder'
         assert data()['panes'][7]['theme']==0 and data()['panes'][13]['theme']==0
-        # A full destination consumes the move shortcut without sending it to a PTY.
+        # A workspace with eight terminals takes a ninth; the round trip restores the order
+        # and the move shortcuts never reach a PTY.
         key('super+alt+Up');wait_until(lambda:data()['workspace']==2 and data()['panes'][8]['focus'])
         full_move_catalog=workspace_catalog.load(root);full_move_sizes=sizes()
-        key('super+alt+shift+Up');wait_until(lambda:'eight terminals' in data()['move_notice'])
-        assert workspace_catalog.load(root)==full_move_catalog and data()['selected']==8
-        capture('keyboard-move-full.png')
-        key('super+alt+shift+Down');wait_until(lambda:data()['workspace']==3 and data()['selected']==8 and data()['panes'][8]['focus'])
-        key('super+alt+shift+Up');wait_until(lambda:data()['workspace']==2 and data()['panes'][8]['focus'] and not data()['busy'])
+        assert len(full_move_catalog['workspaces'][1]['terminals'])==8
+        key('super+alt+shift+Up');wait_until(lambda:data()['workspace']==1 and data()['selected']==8 and data()['panes'][8]['focus'] and not data()['busy'])
+        assert len(workspace_catalog.load(root)['workspaces'][1]['terminals'])==9 and data()['move_notice']==''
+        capture('keyboard-move-ninth.png')
+        key('super+alt+shift+Down');wait_until(lambda:data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'] and not data()['busy'])
         assert workspace_catalog.load(root)==full_move_catalog and sizes()==full_move_sizes
         expected=[b'first',b'second',b'',b'peer',b'chosen\x1b',b'']
         assert [received(i) for i in range(6)]==expected,'navigation/overview shortcuts leaked into a PTY'
@@ -1481,14 +1483,15 @@ while True:
         assert all(p['ready'] for p in data()['panes'])
         for pid in pids:os.kill(int(pid),0)
         capture('lifecycle-empty-workspace.png')
-        # Eight pane indicators and a long name must fit the minimum window width.
+        # Eight pane indicators and a long name fit the minimum window width; more would
+        # show a window of indicators around the selection.
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
         workspace_form('rename');key('ctrl+a');typed('A long workspace name that stays within the compact top bar');key('Return')
         wait_until(lambda:not data()['creation_open'])
         if wayland:run('niri','msg','action','set-window-width','680')
         else:cmd('windowsize','--sync',window,680,760)
         wait_until(lambda:data()['window_width']==680 and all(p['geometry_ready'] for p in data()['panes']))
-        boxes=data()['chrome_boxes']
+        boxes=data()['chrome_boxes'];assert data()['indicator_slots']==8,data()['indicator_slots']
         assert boxes['workspace'][2] < boxes['indicators'][0] and boxes['indicators'][2] < boxes['count'][0]
         assert boxes['count'][2] <= boxes['add'][0] and boxes['add'][2] < boxes['overview'][0],'top-bar controls overlap'
         wait_until(lambda:display_data().get('window_logical_size',[0])[0]==data()['window_width'])

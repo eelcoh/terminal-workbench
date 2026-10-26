@@ -20,9 +20,9 @@ selected. Rejected multi-line, malformed UTF-8 or oversized paste preserves the
 existing value and selection. Escape/Cancel discards edits. A native folder
 browser remains follow-up.
 
-The spike currently supports eight workspaces. At capacity, New workspace changes
-to **Workspace limit (8)**; hovering or clicking explains that closing a workspace
-allows another to be created.
+Band supports 64 workspaces and 256 terminals (2026-10-25; formerly eight
+workspaces). At either limit New workspace is disabled, and Commands explains which
+limit was reached.
 
 The first shell in a new workspace, subsequent new terminals, and explicitly
 recovered shells start in its saved folder. Existing shells retain their current

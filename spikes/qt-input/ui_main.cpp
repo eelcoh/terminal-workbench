@@ -238,6 +238,7 @@ int main(int argc,char **argv) {
                 {"workspaces_button",center("workspacesButton")},
                 {"workspace",window->property("workspace").toInt()},
                 {"move_notice",window->property("moveNotice").toString()},
+                {"indicator_slots",window->property("indicatorSlots").toInt()},
                 {"agents_only",window->property("agentsOnly").toBool()},{"needs_only",window->property("needsOnly").toBool()},
                 {"overview_search",center("overviewSearch")},{"overview_search_focus",window->property("overviewSearchFocused").toBool()},
                 {"overview_columns",window->property("overviewColumns").toInt()},{"overview_clear_filters",center("overviewClearFilters")},{"overview_matches",window->property("overviewMatches").toInt()},{"waiting_count",window->property("waitingCount").toInt()},

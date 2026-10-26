@@ -50,7 +50,7 @@ bool UiWorkspaceAppearance::validChoice(const QVariantMap &value){
     return UiThemes::parse(theme["colors"].toString().toUtf8(),colors,ignored,error) && !ignored;
 }
 void UiWorkspaceAppearance::setWorkspaces(const QStringList &ids){
-    if(ids.size()>(terminals_?64:8))return;
+    if(ids.size()>(terminals_?256:64))return;
     QStringList seen;for(const auto &id:ids){if(!identity(id) || seen.contains(id))return;seen.append(id);}
     if(ids_==ids)return;
     ids_=ids;for(const auto &id:choices_.keys())if(!ids_.contains(id))choices_.remove(id);

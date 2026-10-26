@@ -13,8 +13,10 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-pub(crate) const MAX_WORKSPACES: usize = 8;
-pub(crate) const MAX_TERMINALS: usize = 8;
+// Bounds keep the catalog and health replies well inside the service message
+// limit; a workspace may hold any share of the terminals.
+pub(crate) const MAX_WORKSPACES: usize = 64;
+pub(crate) const MAX_TERMINALS: usize = 256;
 
 pub(crate) type Result<T> = std::result::Result<T, String>;
 
@@ -331,11 +333,8 @@ pub(crate) fn validate(data: &Value) -> Result<()> {
         if let Some(directory) = workspace.get("directory") {
             directory_value(directory.as_str().unwrap_or(""), None, false)?;
         }
-        if !workspace["terminals"]
-            .as_array()
-            .is_some_and(|list| list.len() <= MAX_TERMINALS)
-        {
-            return fail("Invalid terminal count");
+        if !workspace["terminals"].is_array() {
+            return fail("Invalid terminal list");
         }
         for entity in std::iter::once(workspace).chain(terminals(workspace)) {
             if !entity.is_object() {
@@ -356,7 +355,14 @@ pub(crate) fn validate(data: &Value) -> Result<()> {
             }
         }
     }
+    if terminal_count(data) > MAX_TERMINALS {
+        return fail("Invalid terminal count");
+    }
     validate_pending(data)
+}
+
+pub(crate) fn terminal_count(data: &Value) -> usize {
+    workspaces(data).iter().map(|w| terminals(w).len()).sum()
 }
 
 fn validate_pending(data: &Value) -> Result<()> {
@@ -698,9 +704,6 @@ fn move_terminal(data: &mut Value, identity: &str, destination: &str, position: 
         return fail("Destination workspace no longer exists");
     };
     let count = terminals(&list[target]).len();
-    if source != target && count >= MAX_TERMINALS {
-        return fail("Destination already has eight terminals");
-    }
     let remaining = count - usize::from(source == target);
     let position = if position == -1 {
         remaining as i64
@@ -750,7 +753,10 @@ fn mutate(
     match method {
         "workspace.create" => {
             if workspaces(data).len() >= MAX_WORKSPACES {
-                return fail("This spike supports eight workspaces");
+                return fail(format!("Band supports {MAX_WORKSPACES} workspaces"));
+            }
+            if terminal_count(data) >= MAX_TERMINALS {
+                return fail(format!("Band supports {MAX_TERMINALS} terminals"));
             }
             let terminal = new_terminal_identity(data)?;
             let workspace = json!({"id": random_hex(16)?, "name": title,
@@ -758,6 +764,9 @@ fn mutate(
             workspaces_mut(data).push(workspace);
         }
         "workspace.rename" | "terminal.create" => {
+            if method == "terminal.create" && terminal_count(data) >= MAX_TERMINALS {
+                return fail(format!("Band supports {MAX_TERMINALS} terminals"));
+            }
             let terminal = new_terminal_identity(data)?;
             let Some(workspace) = workspaces_mut(data).iter_mut().find(|w| id(w) == identity)
             else {
@@ -766,9 +775,6 @@ fn mutate(
             if method == "workspace.rename" {
                 workspace["name"] = json!(title);
             } else {
-                if terminals(workspace).len() >= MAX_TERMINALS {
-                    return fail("This spike supports eight terminals per workspace");
-                }
                 terminals_mut(workspace).push(json!({"id": terminal, "name": title}));
             }
         }
@@ -918,7 +924,7 @@ pub(crate) fn begin_stop(
     let known = terminal_ids(data);
     let Some(list) = targets
         .as_array()
-        .filter(|list| !list.is_empty() && list.len() <= MAX_WORKSPACES * MAX_TERMINALS)
+        .filter(|list| !list.is_empty() && list.len() <= MAX_TERMINALS)
     else {
         return fail("Choose terminals to stop");
     };
@@ -1141,7 +1147,7 @@ mod tests {
     }
 
     #[test]
-    fn moves_respect_positions_and_capacity() {
+    fn moves_respect_positions_without_a_per_workspace_cap() {
         let mut data = sample();
         move_terminal(&mut data, "b", "w1", 0).unwrap();
         assert_eq!(terminal_ids(&data), ["b", "a"]);
@@ -1151,15 +1157,35 @@ mod tests {
             move_terminal(&mut data, "a", "w2", 3).unwrap_err(),
             "Invalid terminal insertion position"
         );
-        for index in 0..7 {
+        for index in 0..20 {
             data["workspaces"][1]["terminals"]
                 .as_array_mut()
                 .unwrap()
                 .push(json!({"id": format!("x{index}"), "name": "Shell 1"}));
         }
-        assert_eq!(
-            move_terminal(&mut data, "a", "w2", -1).unwrap_err(),
-            "Destination already has eight terminals"
+        move_terminal(&mut data, "a", "w2", -1).unwrap();
+        assert_eq!(terminals(&workspaces(&data)[1]).len(), 22);
+    }
+
+    #[test]
+    fn a_full_catalog_with_the_longest_values_fits_one_service_message() {
+        // Quotes and backslashes double when escaped; folders allow 1023 bytes.
+        let long = |length: usize| "\"".repeat(length);
+        let mut list = Vec::new();
+        for w in 0..MAX_WORKSPACES {
+            let count = MAX_TERMINALS / MAX_WORKSPACES;
+            let terminals: Vec<Value> = (0..count)
+                .map(|t| json!({"id": format!("{w:0>20}{t:0>20}"), "name": long(63), "custom_name": true}))
+                .collect();
+            list.push(json!({"id": format!("w{w:0>39}"), "name": long(63),
+                "directory": format!("/{}", long(1022)), "terminals": terminals}));
+        }
+        let data = json!({"version": 1, "workspaces": list});
+        assert_eq!(terminal_count(&data), MAX_TERMINALS);
+        let bytes = serde_json::to_vec(&data).unwrap().len();
+        assert!(
+            bytes * 2 < super::super::LIMIT,
+            "{bytes} bytes leave too little room"
         );
     }
 
@@ -1375,7 +1401,7 @@ mod tests {
             &json!({"version": 1, "workspaces": [
                 {"id": "a", "name": "Source", "terminals": [{"id": "one", "name": "One"}, {"id": "two", "name": "Two"}]},
                 {"id": "b", "name": "Empty", "terminals": []},
-                {"id": "c", "name": "Full", "terminals": full}]}),
+                {"id": "c", "name": "Eight", "terminals": full}]}),
         )
         .unwrap();
         let moved = move_saved(&root, "one", "b", 0).unwrap();
@@ -1392,14 +1418,14 @@ mod tests {
         for (identity, destination, position) in [
             ("missing", "a", 0),
             ("one", "missing", 0),
-            ("one", "c", 0),
+            ("one", "c", 9),
             ("one", "a", 1),
             ("one", "a", -2),
         ] {
             assert!(move_saved(&root, identity, destination, position).is_err());
             assert_eq!(fs::read(root.join("workspaces.json")).unwrap(), before);
         }
-        // Reordering inside a full workspace still succeeds.
+        // Reordering inside a workspace keeps its terminal count.
         let moved = move_saved(&root, "f0", "c", 7).unwrap();
         assert_eq!(id(terminals(&workspaces(&moved)[2]).last().unwrap()), "f0");
         let moved = move_saved(&root, "f0", "c", 0).unwrap();
@@ -1411,10 +1437,21 @@ mod tests {
     #[test]
     fn capacity_identities_and_pending_intents_are_validated() {
         let mut data = sample();
-        while terminals(&workspaces(&data)[0]).len() < MAX_TERMINALS {
+        while terminal_count(&data) < MAX_TERMINALS {
             mutate(&mut data, "terminal.create", "w1", "Terminal", "", -1).unwrap();
         }
-        assert!(mutate(&mut data, "terminal.create", "w1", "Too many", "", -1).is_err());
+        assert_eq!(terminals(&workspaces(&data)[0]).len(), MAX_TERMINALS);
+        assert!(mutate(&mut data, "terminal.create", "w2", "Too many", "", -1).is_err());
+        assert!(mutate(&mut data, "workspace.create", "", "Too many", "", -1).is_err());
+        let mut spaces = sample();
+        while workspaces(&spaces).len() < MAX_WORKSPACES {
+            mutate(&mut spaces, "workspace.create", "", "Space", "", -1).unwrap();
+        }
+        assert!(mutate(&mut spaces, "workspace.create", "", "Too many", "", -1).is_err());
+        let mut over = data.clone();
+        terminals_mut(&mut workspaces_mut(&mut over)[1])
+            .push(json!({"id": "extra", "name": "Shell"}));
+        assert!(validate(&over).is_err());
         let mut legacy = sample();
         legacy["workspaces"][0]["terminals"][0]["id"] = json!("a".repeat(32));
         assert!(

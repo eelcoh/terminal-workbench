@@ -5,10 +5,13 @@
 #include <QJsonArray>
 #include <QSet>
 #include <QRegularExpression>
+namespace {
+constexpr qsizetype limit=1024*1024;  // One request or reply, as in the service (service/mod.rs).
+}
 
 UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),lifecycle_(QDir(config["state"].toString()).filePath("service.rpc"),this),config_(config) {
     connect(&lifecycle_,&UiLifecycle::changed,this,&UiSession::lifecycleChanged);
-    socket_.setReadBufferSize(256*1024+1);deadline_.setSingleShot(true);deadline_.setInterval(65000);
+    socket_.setReadBufferSize(limit+1);deadline_.setSingleShot(true);deadline_.setInterval(65000);
     connect(&deadline_,&QTimer::timeout,this,[this]{fail("Session service timed out. Refresh before trying again.");});
     connect(&socket_,&QLocalSocket::connected,this,[this] {
         if(!busy_)return;
@@ -20,7 +23,7 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
     connect(&socket_,&QLocalSocket::readyRead,this,[this] {
         if(!busy_)return;
         receive_+=socket_.readAll();
-        if(receive_.size()>256*1024) {fail("Session service reply exceeds the size limit.");return;}
+        if(receive_.size()>limit) {fail("Session service reply exceeds the size limit.");return;}
         const auto newline=receive_.indexOf('\n');if(newline<0)return;
         QJsonParseError parse;const auto document=QJsonDocument::fromJson(receive_.left(newline),&parse);
         if(parse.error!=QJsonParseError::NoError || !document.isObject() || newline!=receive_.size()-1) {fail("Invalid session service reply. Refresh before trying again.");return;}
@@ -66,7 +69,7 @@ void UiSession::request(const QString &method,const QString &identity,const QStr
     if(method=="terminal.move") {message.insert("destination",destination);message.insert("position",position);}
     if(method=="workspace.create_at" || method=="workspace.directory")message.insert("project_directory",directory);
     receive_=QJsonDocument(message).toJson(QJsonDocument::Compact)+'\n';
-    if(receive_.size()>256*1024) {fail("Request exceeds the session service size limit.");return;}
+    if(receive_.size()>limit) {fail("Request exceeds the session service size limit.");return;}
     Q_EMIT changed();deadline_.start();
     socket_.connectToServer(QDir(config_["state"].toString()).filePath("service.rpc"));
 }

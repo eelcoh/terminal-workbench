@@ -15,7 +15,7 @@ from catalog_files import check_identities, socket_path
 
 AGENTS = {0: None, 1: 'codex', 2: 'claude', 3: 'gemini', 4: 'opencode', 5: 'aider', 6: 'copilot', 7: 'pi', 255: None}
 STATES = {0: 'unknown', 1: 'working', 2: 'waiting', 3: 'ready'}
-CATALOG_LIMIT = 256 * 1024
+CATALOG_LIMIT = 1024 * 1024
 
 def entries(directory):
     with (directory / 'workspaces.json').open('rb') as file:

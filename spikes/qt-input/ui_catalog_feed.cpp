@@ -7,17 +7,19 @@
 #include <QRegularExpression>
 #include <QSet>
 namespace {
-constexpr qsizetype limit=256*1024;
+constexpr qsizetype limit=1024*1024;
+// The service bounds (catalog.rs); a workspace may hold any share of the terminals.
+constexpr qsizetype maxWorkspaces=64,maxTerminals=256;
 bool name(const QJsonValue &value){if(!value.isString())return false;const auto text=value.toString();if(text.trimmed()!=text || text.isEmpty() || text.toUtf8().size()>63)return false;for(const auto c:text)if(c.unicode()<32 || c.unicode()==127)return false;return true;}
 }
 bool UiCatalogFeed::valid(const QJsonObject &catalog){
     if(catalog["version"].toDouble()!=1 || !catalog["workspaces"].isArray())return false;
-    const auto workspaces=catalog["workspaces"].toArray();if(workspaces.size()>8)return false;
+    const auto workspaces=catalog["workspaces"].toArray();if(workspaces.size()>maxWorkspaces)return false;qsizetype total=0;
     static const QRegularExpression pattern("^[a-zA-Z0-9_-]{1,40}\\z");QSet<QString> ids;
     const auto entity=[&](const QJsonObject &value){const auto id=value["id"].toString();if(!pattern.match(id).hasMatch() || ids.contains(id) || !name(value["name"]))return false;ids.insert(id);return true;};
     for(const auto &item:workspaces){
         if(!item.isObject())return false;
-        const auto workspace=item.toObject();if(!entity(workspace) || !workspace["terminals"].isArray() || workspace["terminals"].toArray().size()>8)return false;
+        const auto workspace=item.toObject();if(!entity(workspace) || !workspace["terminals"].isArray() || (total+=workspace["terminals"].toArray().size())>maxTerminals)return false;
         if(workspace.contains("directory")){
             const auto folder=workspace["directory"];if(!folder.isString() || folder.toString().toUtf8().size()>1023)return false;
             for(const auto c:folder.toString())if(c.unicode()<32 || c.unicode()==127)return false;

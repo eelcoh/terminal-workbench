@@ -12,8 +12,8 @@ int main(void)
     assert(attention_next(waiting,15,-1,1)==1 && attention_next(waiting,15,-1,-1)==14);
     waiting[1]=waiting[5]=false;
     assert(attention_next(waiting,15,14,1)==14 && attention_next(waiting,15,14,-1)==14);
-    waiting[14]=false;waiting[63]=true;
-    assert(attention_next(waiting,64,0,1)==63 && attention_next(waiting,64,0,-1)==63);
-    assert(attention_next(waiting,65,0,1)==-1);
+    waiting[14]=false;waiting[ATTENTION_LIMIT-1]=true;
+    assert(attention_next(waiting,ATTENTION_LIMIT,0,1)==ATTENTION_LIMIT-1 && attention_next(waiting,ATTENTION_LIMIT,0,-1)==ATTENTION_LIMIT-1);
+    assert(attention_next(waiting,ATTENTION_LIMIT+1,0,1)==-1);
     return 0;
 }

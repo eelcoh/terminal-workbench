@@ -29,8 +29,8 @@ are harmless to stop again. Closing a window still only detaches its terminals.
 Atomic replacements flush file data and sync the parent directory where supported.
 This slice verifies process loss, not storage failure or power-loss guarantees.
 The TSV and label projections the Raylib viewer read are no longer written
-(2026-10-23). Intent is bounded by the existing eight-workspace,
-eight-terminal limits. No journaling or filesystem work enters rendering, terminal
+(2026-10-23). Intent is bounded by the catalog limits of 64
+workspaces and 256 terminals. No journaling or filesystem work enters rendering, terminal
 parsing or PTY byte handling.
 
 Service health optionally advertises `catalog-journal-v1` in `features`. Opening

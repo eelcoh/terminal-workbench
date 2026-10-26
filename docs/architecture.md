@@ -116,9 +116,10 @@ the newly started, uncommitted runtimes are stopped. Existing sessions remain al
 The C viewer reads complete projections before applying changes and reconciles
 panes by stable identity. Pane resources live at fixed heap addresses, keeping VT
 userdata, transport, and selections attached to surviving terminals when a sibling
-is removed. New terminals receive separate encoders, selection, and queues. Each
-workspace can hold up to eight terminals and shows at most two at a time;
-Previous/Next brings a focused terminal into view. Workspaces are capped at eight.
+is removed. New terminals receive separate encoders, selection, and queues. A
+window holds up to 64 workspaces and 256 terminals in all, in any split between
+workspaces (2026-10-25; formerly eight by eight). A workspace shows at most two
+terminals at a time; Previous/Next brings a focused terminal into view.
 Saved terminal moves and reordering are implemented. Workspace cwd settings and
 a final runtime management protocol remain future work.
 

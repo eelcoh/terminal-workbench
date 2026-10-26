@@ -17,7 +17,7 @@ import sys
 import time
 
 PROTOCOL = 1
-LIMIT = 256 * 1024
+LIMIT = 1024 * 1024
 
 class Unavailable(Exception):
     pass

@@ -138,7 +138,7 @@ def main():
             data = call()["data"]
             assert len(data["workspaces"]) == 5
             # Malformed/unsupported clients fail locally; subsequent health still works.
-            for payload in (b'{"protocol":99}\n', b'[]\n', b'not json\n', b'x' * (256 * 1024 + 1)):
+            for payload in (b'{"protocol":99}\n', b'[]\n', b'not json\n', b"x" * (1024 * 1024 + 1)):
                 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as peer:
                     peer.settimeout(5); peer.connect(str(endpoint(state)))
                     try: peer.sendall(payload); reply = peer.recv(4096)

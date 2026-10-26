@@ -19,7 +19,7 @@ organization service; it leaves an inspectable session. Stop terminal / Stop
 workspace retain their existing removal behavior.
 
 The new service method `session.stop` requires a nonempty, unique `terminal_ids`
-list of saved identities, bounded by the existing eight-by-eight catalog. The
+list of saved identities, bounded by the catalog's 256-terminal limit. The
 method is advertised independently; legacy methods/transport keep their shape.
 The launcher upgrades an older organization service, adopting its existing shell
 runtimes. Rebuilding does not replace live runtimes. A legacy live runtime without

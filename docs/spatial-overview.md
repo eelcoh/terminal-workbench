@@ -73,7 +73,8 @@ ordinary overview navigation. Transition screenshots are in .local/test-results.
 
 Dragging starts after eight pixels of movement, keeping ordinary clicks available.
 The moving thumbnail reuses the existing preview. A destination outline and insertion
-line show placement; red marks a full workspace (eight terminals). The overview
+line show placement. Every workspace accepts a drop, since moves do not change the
+total number of terminals (formerly red marked a workspace with eight). The overview
 consumes input throughout the gesture and asynchronous save. Errors appear in its
 footer, and the viewer waits for a successful save before changing ownership.
 

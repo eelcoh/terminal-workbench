@@ -110,7 +110,8 @@ In Spatial Overview, drag a thumbnail between workspace rows or between cards.
 Release over the outlined row to save. Escape cancels the drag without closing
 Overview. Wheel and Shift+wheel remain available while holding the thumbnail;
 hovering near the edges also reveals more rows/cards. Empty workspaces are drop
-targets. A workspace with eight terminals rejects incoming moves.
+targets. Moves never fail for lack of room: a workspace has no terminal limit of
+its own.
 
 ## Working-view pane navigation
 
