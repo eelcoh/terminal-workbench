@@ -21,7 +21,7 @@ def fixture(path, version):
 
 def main():
     with tempfile.TemporaryDirectory(prefix='wb build env ') as directory:
-        root = Path(directory)
+        root = Path(directory).resolve()  # find_zig resolves; macOS keeps /var behind /private
         system_zig = fixture(root/'bin/zig', '0.17.0')
         environment = {'PATH': str(system_zig.parent), 'SHELL': '/bin/zsh'}
         for system, machine, target in [('Darwin','arm64','aarch64-macos'), ('Darwin','x86_64','x86_64-macos'), ('Linux','x86_64','x86_64-linux')]:
