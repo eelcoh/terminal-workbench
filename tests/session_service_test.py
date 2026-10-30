@@ -13,7 +13,7 @@ import time
 from session_smoke import attach, send, wait_until
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
-from session_service import request, endpoint, exchange, Unavailable
+from session_service import request, endpoint, exchange, Unavailable, ReplyClosed
 
 
 def main():
@@ -32,7 +32,8 @@ def main():
             try:
                 exchange(state, dict(protocol=1, method="health", runtime=str(runtime), cwd=str(root)))
                 return False
-            except (Unavailable, ConnectionResetError, BrokenPipeError):
+            # A dying service may accept the connection and close it without replying.
+            except (Unavailable, ReplyClosed, ConnectionResetError, BrokenPipeError):
                 return True
         def stop_service():
             call("service.shutdown")
