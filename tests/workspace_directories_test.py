@@ -14,7 +14,7 @@ from session_service import request
 
 def main():
     runtime=Path(sys.argv[1]).resolve()
-    with tempfile.TemporaryDirectory(prefix='wb-project-') as temporary:
+    with tempfile.TemporaryDirectory(prefix='wb-project-',dir='/tmp') as temporary:
         root=Path(temporary).resolve();state=root/'sessions';os.environ['SHELL']='/bin/sh'
         first=root/'Projects/café files';first.mkdir(parents=True)
         second=root/'box $() project';second.mkdir()

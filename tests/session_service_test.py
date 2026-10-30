@@ -18,7 +18,7 @@ from session_service import request, endpoint, exchange, Unavailable, ReplyClose
 
 def main():
     runtime = Path(sys.argv[1]).resolve()
-    with tempfile.TemporaryDirectory(prefix="wb-service-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="wb-service-", dir="/tmp") as temporary:
         root = Path(temporary).resolve()
         state = root / "sessions"
         data = None
