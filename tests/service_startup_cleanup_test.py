@@ -17,7 +17,7 @@ class StartupCleanupTest(unittest.TestCase):
     def setUp(self):
         self.directory=tempfile.TemporaryDirectory(prefix='wb-start-',dir='/tmp')
         self.addCleanup(self.directory.cleanup)
-        self.root=Path(self.directory.name)
+        self.root=Path(self.directory.name).resolve()
         self.children=[]
         self.addCleanup(self.cleanup)
 

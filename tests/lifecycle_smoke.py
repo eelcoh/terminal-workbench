@@ -12,7 +12,7 @@ def read_record(socket):
     try:return json.loads(socket.with_suffix('.lifecycle').read_text())
     except (OSError,ValueError):return None
 with tempfile.TemporaryDirectory(prefix='wb-life-') as directory:
-    root=Path(directory);state=root/'sessions';os.environ['SHELL']='/bin/sh';connection=None
+    root=Path(directory).resolve();state=root/'sessions';os.environ['SHELL']='/bin/sh';connection=None
     def call(method='initialize',identity=''):return request(state,runtime,root,method,identity)
     def receipt():return read_record(state/'spike.sock')
     def stopped():return call('terminal.lifecycle','spike')['state']=='stopped'

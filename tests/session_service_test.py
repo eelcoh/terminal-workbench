@@ -19,7 +19,7 @@ from session_service import request, endpoint, exchange, Unavailable
 def main():
     runtime = Path(sys.argv[1]).resolve()
     with tempfile.TemporaryDirectory(prefix="wb-service-") as temporary:
-        root = Path(temporary)
+        root = Path(temporary).resolve()
         state = root / "sessions"
         data = None
         connection = None
@@ -142,7 +142,7 @@ def main():
                 with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as peer:
                     peer.settimeout(5); peer.connect(str(endpoint(state)))
                     try: peer.sendall(payload); reply = peer.recv(4096)
-                    except ConnectionResetError: reply = b''
+                    except (ConnectionResetError, BrokenPipeError): reply = b''
                     assert not reply or b'"ok":false' in reply
                 assert call("health")["service_pid"] > 0
             # Service endpoint recovery refuses to remove ordinary files or symlinks.
