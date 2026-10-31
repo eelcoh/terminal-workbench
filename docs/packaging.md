@@ -14,7 +14,17 @@ just package          # native build for this machine
 | macOS | `dist/Band-<version>-macos-<arch>.zip` | `Band.app` with Qt deployed inside |
 | Linux | `dist/band-<version>-linux-<arch>.tar.gz` | `band-<version>-linux-<arch>/`, uses the system Qt 6.8+ |
 
-On this Linux workstation, run it inside the `build-machine` Distrobox. A Mac
+On this Linux workstation, run it inside the `build-machine` Distrobox. On
+Fedora 44 (the Distrobox and the Linux CI container) the build needs:
+
+```sh
+sudo dnf install gcc-c++ cmake ninja-build just cargo rust clippy rustfmt zig python3 \
+  qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtsvg git-core openssh-clients \
+  zsh procps-ng findutils which diffutils xz tar fontconfig
+```
+
+`.github/workflows/linux.yml` builds, tests and packages in that container as
+an unprivileged user, and uploads the archive as `band-linux-x86_64`. A Mac
 build needs Homebrew Qt (`brew install qt`), Zig 0.16.0 and Rust; see
 [the macOS build guide](macos-build.md). `just package-test` checks the layout,
 relocation, agent launchers, saved sessions and an offscreen Qt start (Linux).
