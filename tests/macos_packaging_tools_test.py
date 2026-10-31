@@ -13,6 +13,7 @@ ROOT=Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT/'scripts'))
 from platform_launchers import macos_tools as tools
 from platform_launchers import macos_deploy
+from platform_launchers import macos_qml
 
 
 class ToolTest(unittest.TestCase):
@@ -79,6 +80,31 @@ class ToolTest(unittest.TestCase):
         messages=[]
         with self.assertRaises(subprocess.CalledProcessError):self.invoke('raise SystemExit(23)\n',report=messages.append)
         self.assertFalse(any('finished' in message for message in messages))
+
+
+class QmlLinkTest(unittest.TestCase):
+    def test_homebrew_keg_links_become_files_and_unknown_links_remain(self):
+        with tempfile.TemporaryDirectory(prefix='wb qml links ') as directory:
+            root=Path(directory).resolve();homebrew=root/'homebrew'
+            keg=homebrew/'Cellar/qtdeclarative/6.12.0_1/share/qt/qml/QtQml/WorkerScript'
+            keg.mkdir(parents=True);(keg/'libworkerscriptplugin.dylib').write_text('plugin')
+            (keg/'qmldir').write_text('module QtQml.WorkerScript')
+            qt=homebrew/'Cellar/qtbase/6.12.0';qt.mkdir(parents=True)
+            prefix=root/'deploy';contents=prefix/'band-ui.app/Contents'
+            plugins=contents/'PlugIns';qml=contents/'Resources/qml/QtQml'
+            plugins.mkdir(parents=True);qml.mkdir(parents=True)
+            # Verbatim copies of links whose relative targets only made sense in Homebrew.
+            (plugins/'libworkerscriptplugin.dylib').symlink_to('../../../../../Cellar/qtdeclarative/6.12.0_1/share/qt/qml/QtQml/WorkerScript/libworkerscriptplugin.dylib')
+            (qml/'WorkerScript').symlink_to('../../../../Cellar/qtdeclarative/6.12.0_1/share/qt/qml/QtQml/WorkerScript')
+            (plugins/'internal.dylib').symlink_to('libworkerscriptplugin.dylib')
+            (plugins/'unknown.dylib').symlink_to('../../../Cellar/missing/lib.dylib')
+            macos_qml.materialize(contents,prefix,qt)
+            copied=plugins/'libworkerscriptplugin.dylib'
+            self.assertFalse(copied.is_symlink());self.assertEqual(copied.read_text(),'plugin')
+            self.assertFalse((qml/'WorkerScript').is_symlink())
+            self.assertEqual((qml/'WorkerScript/qmldir').read_text(),'module QtQml.WorkerScript')
+            self.assertTrue((plugins/'internal.dylib').is_symlink())
+            self.assertTrue((plugins/'unknown.dylib').is_symlink())
 
 
 class ToolchainTest(unittest.TestCase):

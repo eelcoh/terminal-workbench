@@ -166,7 +166,7 @@ def deploy(bundle,payload,info,qml_directory,*,notice_directory=None,qml_deploy_
             qml_options=['-qmldir='+str(qml_directory)]
             if qml_deploy_script is not None:
                 from .macos_qml import deploy as deploy_imports
-                qml_report=deploy_imports(bundle,qml_deploy_script,output,log)
+                qml_report=deploy_imports(bundle,qml_deploy_script,output,log,info['prefix'])
                 phases['qml_imports']=time.monotonic()-phase_started;phase_started=time.monotonic()
                 qml_options=[]
             # With no -qmldir, macdeployqt otherwise auto-scans the working directory.

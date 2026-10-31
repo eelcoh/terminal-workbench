@@ -27,11 +27,29 @@ def _merge(source,destination):
             shutil.move(path,target)
 
 
-def deploy(bundle,script,output,log):
+def materialize(contents,prefix,qt_prefix):
+    # Homebrew's merged Qt prefix links each file into its formula's keg with a
+    # relative path, and Qt's deployment copies those links verbatim. Replace
+    # each one that leaves the deployment with the file it names in Qt's tree.
+    bases=[Path(qt_prefix).resolve(),*Path(qt_prefix).resolve().parents]
+    for path in sorted(path for path in contents.rglob('*') if path.is_symlink()):
+        if path.exists() and path.resolve().is_relative_to(prefix):continue
+        target=Path(os.readlink(path));parts=target.parts
+        while parts and parts[0]=='..':parts=parts[1:]
+        candidates=[target] if target.is_absolute() else [base.joinpath(*parts) for base in bases if parts]
+        source=next((candidate.resolve() for candidate in candidates if candidate.exists()),None)
+        if source is None:continue
+        path.unlink()
+        if source.is_dir():shutil.copytree(source,path)
+        else:shutil.copy2(source,path)
+
+
+def deploy(bundle,script,output,log,qt_prefix):
     with tempfile.TemporaryDirectory(prefix='.qt-qml-',dir=bundle.parent) as directory:
         prefix=Path(directory).resolve()
         run_import_deployment(script,prefix,output,log)
         contents=prefix/'band-ui.app/Contents'
+        materialize(contents,prefix,qt_prefix)
         qml=contents/'Resources/qml';plugins=contents/'PlugIns'
         if not qml.is_dir() or not plugins.is_dir():raise ValueError('Qt CMake did not produce the expected Mac QML deployment layout')
         for path in contents.rglob('*'):
