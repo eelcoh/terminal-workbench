@@ -1,4 +1,5 @@
 #include "ui_agent_info.h"
+#include "core/attention_navigation.h"
 #include <QGuiApplication>
 #include <QClipboard>
 #include <cstdio>
@@ -27,7 +28,7 @@ int main(int argc,char **argv){
     require(help.nextWaiting(ordered,{"removed","c"},"a",1)=="c","stale waiting IDs cannot retarget another pane");
     require(help.nextWaiting(ordered,{"removed"},"a",1).isEmpty() && help.nextWaiting({},waiting,"a",1).isEmpty(),"empty and removed queue is a no-op");
     require(help.nextWaiting(ordered,waiting,"missing",-1)=="c","missing selection starts at the last waiting result");
-    QStringList oversized;for(int i=0;i<65;++i)oversized.append(QString::number(i));
+    QStringList oversized;for(int i=0;i<ATTENTION_LIMIT+1;++i)oversized.append(QString::number(i));
     require(help.nextWaiting(oversized,{"1"},"0",1).isEmpty(),"bounded client snapshot");
     std::puts("PASS: identity/status separation, unavailable/stale/unsupported metadata and allowlisted clipboard commands without runtime access");
 }
