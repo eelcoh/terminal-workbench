@@ -35,8 +35,9 @@ def deploy(bundle,script,output,log):
         qml=contents/'Resources/qml';plugins=contents/'PlugIns'
         if not qml.is_dir() or not plugins.is_dir():raise ValueError('Qt CMake did not produce the expected Mac QML deployment layout')
         for path in contents.rglob('*'):
-            if path.is_symlink() and not path.resolve(strict=True).is_relative_to(prefix):
-                raise ValueError(f'Qt QML deployment contains an external symlink: {path.relative_to(prefix)}')
+            if path.is_symlink() and not (path.exists() and path.resolve().is_relative_to(prefix)):
+                raise ValueError(f'Qt QML deployment contains an external or dangling symlink: '
+                    f'{path.relative_to(prefix)} -> {os.readlink(path)}')
         modules=sorted(str(path.parent.relative_to(qml)) for path in qml.rglob('qmldir'))
         destination=bundle/'Contents/Resources/qml'
         if destination.is_symlink():destination.unlink()

@@ -86,6 +86,14 @@ jobs:
       - name: Package Band.app
         run: just package
 
+      - name: Qt deployment diagnostics
+        if: failure()
+        run: |
+          qml="$(brew --prefix qt)/share/qt/qml"
+          echo "QML import root: $qml"; ls -la "$qml" | head -40
+          find "$qml/" -maxdepth 3 -type l -exec ls -l {} + | head -40
+          for log in dist/qt-deploy-*.log; do echo "::group::$log"; tail -200 "$log"; echo "::endgroup::"; done
+
       - uses: actions/upload-artifact@v4
         with:
           name: Band-macos-arm64
