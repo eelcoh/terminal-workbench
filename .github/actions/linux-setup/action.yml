@@ -1,0 +1,43 @@
+name: Linux build setup
+description: Fedora build packages (matching the build-machine Distrobox), SSH for the Ghostty clone and the cached Ghostty VT build.
+
+inputs:
+  ssh-key:
+    description: Private key registered with GitHub, used for the pinned Ghostty clone.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Build packages
+      shell: bash
+      run: |
+        dnf -y --setopt=install_weak_deps=False install \
+          gcc-c++ cmake ninja-build just cargo rust clippy rustfmt zig python3 \
+          qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtsvg \
+          zsh procps-ng findutils which diffutils xz tar fontconfig
+
+    # Checks run as this user (the workflow's default shell): as root, file
+    # permission tests would pass vacuously. 1001 owns the runner workspace.
+    - name: Build user and SSH for the Ghostty clone
+      shell: bash
+      env:
+        SSH_PRIVATE_KEY: ${{ inputs.ssh-key }}
+      run: |
+        id builder >/dev/null 2>&1 || useradd -m -u 1001 builder
+        install -d -m 700 -o builder -g builder /home/builder/.ssh
+        printf '%s\n' "$SSH_PRIVATE_KEY" > /home/builder/.ssh/id_ed25519
+        echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > /home/builder/.ssh/known_hosts
+        chmod 600 /home/builder/.ssh/id_ed25519 && chown builder:builder /home/builder/.ssh/*
+
+    - name: Cache the pinned Ghostty VT build
+      uses: actions/cache@v6
+      with:
+        path: |
+          .local/deps/ghostty-vt
+          .local/runtime-vt
+        key: ghostty-vt-linux-fedora44-${{ runner.arch }}-${{ hashFiles('scripts/prepare-runtime-vt.py') }}
+
+    - name: Hand the checkout to the build user
+      shell: bash
+      run: chown -R builder:builder "$GITHUB_WORKSPACE"

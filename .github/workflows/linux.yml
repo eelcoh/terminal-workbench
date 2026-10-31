@@ -1,0 +1,168 @@
+name: Linux
+
+# Build, headless checks and the Linux archive in a Fedora 44 container, the
+# same release as the build-machine Distrobox. Git operations use SSH
+# (AGENTS.md) with the repository secret SSH_PRIVATE_KEY, as on macOS.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_QPA_PLATFORM: offscreen
+
+# The setup action creates the unprivileged build user; root steps say so.
+defaults:
+  run:
+    shell: runuser -u builder -- env HOME=/home/builder bash --noprofile --norc -eo pipefail {0}
+
+jobs:
+  # The three jobs share no build output and run side by side; each reports
+  # every failure in its own part instead of stopping at the first.
+  check:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    timeout-minutes: 60
+    steps:
+      # Git must exist before checkout, or it falls back to an HTTPS archive.
+      - name: Git and SSH
+        shell: bash
+        run: dnf -y --setopt=install_weak_deps=False install git-core openssh-clients util-linux
+
+      - name: Check out over SSH
+        uses: actions/checkout@v7
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          ssh-strict: true
+
+      - uses: ./.github/actions/linux-setup
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # The commands come from `just --dry-run`, keeping the justfile the list.
+      - name: just check
+        run: |
+          just runtime-build
+          commands="$(just --dry-run --no-deps check 2>&1)"
+          [ -n "$commands" ] || { echo 'just check listed no commands'; exit 1; }
+          failed=()
+          while IFS= read -r command; do
+            echo "::group::$command"
+            eval "$command" </dev/null || { failed+=("$command"); echo "::error::failed: $command"; }
+            echo "::endgroup::"
+          done <<< "$commands"
+          (( ${#failed[@]} == 0 )) || { printf 'FAILED: %s\n' "${failed[@]}"; exit 1; }
+
+      # Logs the runner would otherwise discard, for diagnosis without another run.
+      - name: Keep failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-failure-logs-check
+          path: |
+            dist/*.log
+            .local/sessions/*.log
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  qt:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    timeout-minutes: 60
+    steps:
+      # Git must exist before checkout, or it falls back to an HTTPS archive.
+      - name: Git and SSH
+        shell: bash
+        run: dnf -y --setopt=install_weak_deps=False install git-core openssh-clients util-linux
+
+      - name: Check out over SSH
+        uses: actions/checkout@v7
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          ssh-strict: true
+
+      - uses: ./.github/actions/linux-setup
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Qt client checks (offscreen)
+        run: |
+          failed=()
+          for recipe in toolkit-catalog-test toolkit-view-state-test toolkit-shortcuts-test toolkit-fonts-test \
+              toolkit-lifecycle-test toolkit-runtime-facts-test toolkit-theme-import-test toolkit-search-test \
+              toolkit-scroll-test toolkit-about-test toolkit-configuration-test toolkit-workspace-appearance-test \
+              toolkit-agent-info-test toolkit-runtime-info-test package-tools-test; do
+            echo "::group::$recipe"
+            just "$recipe" </dev/null || { failed+=("$recipe"); echo "::error::failed: $recipe"; }
+            echo "::endgroup::"
+          done
+          (( ${#failed[@]} == 0 )) || { printf 'FAILED: %s\n' "${failed[@]}"; exit 1; }
+
+      # Logs the runner would otherwise discard, for diagnosis without another run.
+      - name: Keep failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-failure-logs-qt
+          path: |
+            dist/*.log
+            .local/sessions/*.log
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  package:
+    runs-on: ubuntu-latest
+    container: fedora:44
+    timeout-minutes: 60
+    steps:
+      # Git must exist before checkout, or it falls back to an HTTPS archive.
+      - name: Git and SSH
+        shell: bash
+        run: dnf -y --setopt=install_weak_deps=False install git-core openssh-clients util-linux
+
+      - name: Check out over SSH
+        uses: actions/checkout@v7
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          ssh-strict: true
+
+      - uses: ./.github/actions/linux-setup
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Package and test the Linux archive
+        run: just package-test
+
+      # Logs the runner would otherwise discard, for diagnosis without another run.
+      - name: Keep failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-failure-logs-package
+          path: |
+            dist/*.log
+            .local/sessions/*.log
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: band-linux-x86_64
+          path: dist/band-*-linux-*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
