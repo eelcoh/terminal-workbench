@@ -88,6 +88,8 @@ installed from a release artifact on a machine without Python.
    offscreen Qt client tests and `just package` on Apple Silicon, with `Band.app`
    as a downloadable artifact. Every check runs after a failure, and failure logs
    are kept as an artifact. The CI-built `Band.app` has not been opened on a Mac.
+   `.github/workflows/linux.yml` (2026-10-31) does the same in a Fedora 44
+   container as an unprivileged user and uploads the tested Linux archive.
    The manual checklist for input, IME, displays and trackpad stays in
    [the macOS build guide](macos-build.md#native-checks).
 7. [x] **Eight-by-eight ceiling removed** (2026-10-25). A window holds up to
