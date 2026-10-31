@@ -1,6 +1,6 @@
 # Roadmap
 
-Terminal Workbench is a terminal with niri-style scrolling workspaces for macOS
+Band is a terminal with niri-style scrolling workspaces for macOS
 and for Linux desktops that don't run niri. Agent status is one feature, not the
 product's focus (owner, 2026-10-23). The history of every slice so far is in the
 [status log](status-log.md); this page is the plan.
@@ -29,7 +29,7 @@ product's focus (owner, 2026-10-23). The history of every slice so far is in the
 
 ## v0.1: daily driver on both platforms
 
-Goal: the owner uses Workbench as their only terminal for a week on Linux and Mac,
+Goal: the owner uses Band as their only terminal for a week on Linux and Mac,
 installed from a release artifact on a machine without Python.
 
 1. **One Rust daemon.** Move the session authority into `band-session`:
@@ -83,9 +83,11 @@ installed from a release artifact on a machine without Python.
    `band --install-desktop-entry` (optionally through Distrobox). The rename to Band landed with it. Preview
    staging, activation and inventory tooling are removed. Flatpak or AppImage,
    an app icon, signing and notarization come later. See [packaging](packaging.md).
-6. **macOS CI.** `.github/workflows/macos.yml` (2026-10-24, first run pending
-   the `SSH_PRIVATE_KEY` secret): `just check`, offscreen Qt client tests and
-   `just package` on Apple Silicon, with `Band.app` as a downloadable artifact.
+6. [x] **macOS CI** (first green run 2026-10-31). `.github/workflows/macos.yml`
+   (checkout and the Ghostty clone use the `SSH_PRIVATE_KEY` secret): `just check`,
+   offscreen Qt client tests and `just package` on Apple Silicon, with `Band.app`
+   as a downloadable artifact. Every check runs after a failure, and failure logs
+   are kept as an artifact. The CI-built `Band.app` has not been opened on a Mac.
    The manual checklist for input, IME, displays and trackpad stays in
    [the macOS build guide](macos-build.md#native-checks).
 7. [x] **Eight-by-eight ceiling removed** (2026-10-25). A window holds up to
