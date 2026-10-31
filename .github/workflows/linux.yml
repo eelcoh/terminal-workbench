@@ -30,7 +30,10 @@ jobs:
   # every failure in its own part instead of stopping at the first.
   check:
     runs-on: ubuntu-latest
-    container: fedora:44
+    container:
+      image: fedora:44
+      # The default PID 1 never reaps orphans; a desktop's init does.
+      options: --init
     timeout-minutes: 60
     steps:
       # Git must exist before checkout, or it falls back to an HTTPS archive.
@@ -78,7 +81,10 @@ jobs:
 
   qt:
     runs-on: ubuntu-latest
-    container: fedora:44
+    container:
+      image: fedora:44
+      # The default PID 1 never reaps orphans; a desktop's init does.
+      options: --init
     timeout-minutes: 60
     steps:
       # Git must exist before checkout, or it falls back to an HTTPS archive.
@@ -125,7 +131,10 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
-    container: fedora:44
+    container:
+      image: fedora:44
+      # The default PID 1 never reaps orphans; a desktop's init does.
+      options: --init
     timeout-minutes: 60
     steps:
       # Git must exist before checkout, or it falls back to an HTTPS archive.
