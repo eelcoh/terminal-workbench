@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out over SSH
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
           ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
@@ -42,7 +42,7 @@ jobs:
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
           echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -62,7 +62,7 @@ jobs:
           echo "ZIG=$PWD/.local/tools/$name/zig" >> "$GITHUB_ENV"
 
       - name: Cache the pinned Ghostty VT build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .local/deps/ghostty-vt
@@ -114,7 +114,7 @@ jobs:
       # Logs the runner would otherwise discard, for diagnosis without another run.
       - name: Keep failure logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-failure-logs
           path: |
@@ -124,7 +124,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Band-macos-arm64
           path: dist/Band-*-macos-*.zip
