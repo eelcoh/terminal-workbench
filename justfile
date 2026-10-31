@@ -72,6 +72,7 @@ package:
 
 # Relocation, user state, agent launchers and Qt start of the Linux archive.
 package-test: package
+    cargo build --locked --bin band-session
     python3 tests/package_test.py
 
 # Explicitly recover dead session endpoints after a reboot or runtime crash.
