@@ -25,8 +25,9 @@ with tempfile.TemporaryDirectory(prefix='wb-life-',dir='/tmp') as directory:
         data=call()['data'];sibling=read_record(state/'main-2.sock')['shell_pid']
         initial=receipt();assert initial['event']=='running' and initial['shell_pid']>1
         assert (state/'spike.lifecycle').stat().st_mode&0o777==0o600
-        socket=state/'spike.sock';connection,_,_=attach(socket);send(connection,16,b'exit\n');wait_until(stopped);connection.close();connection=None
-        assert settled('exited')['record']['exit_code']==0
+        socket=state/'spike.sock';connection,_,_=attach(socket);send(connection,16,b'exit 0\n');wait_until(stopped);connection.close();connection=None
+        # A bare exit returns the last status, which a macOS login profile may leave non-zero.
+        exited=settled('exited');assert exited['record']['exit_code']==0,exited
         assert {key: value for key,value in call('terminal.status','spike').items() if key not in ('ok','protocol')}=={'id':'spike','state':'stopped'},'Legacy status shape changed'
         old_service=call('health')['service_pid'];call('service.shutdown');time.sleep(.1)
         adopted=call('terminal.lifecycle','spike');assert adopted['lifecycle']['record']==receipt()
