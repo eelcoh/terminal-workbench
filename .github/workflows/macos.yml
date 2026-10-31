@@ -69,30 +69,60 @@ jobs:
             .local/runtime-vt
           key: ghostty-vt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/prepare-runtime-vt.py') }}-zig-${{ env.ZIG_VERSION }}
 
+      # Every check runs even after one fails, so one run reports all failures.
+      # The commands come from `just --dry-run`, keeping the justfile the list.
       - name: just check
-        run: just check
+        run: |
+          just runtime-build
+          commands="$(just --dry-run --no-deps check 2>&1)"
+          [ -n "$commands" ] || { echo 'just check listed no commands'; exit 1; }
+          failed=()
+          while IFS= read -r command; do
+            echo "::group::$command"
+            eval "$command" </dev/null || { failed+=("$command"); echo "::error::failed: $command"; }
+            echo "::endgroup::"
+          done <<< "$commands"
+          (( ${#failed[@]} == 0 )) || { printf 'FAILED: %s\n' "${failed[@]}"; exit 1; }
 
       - name: Qt client checks (offscreen)
+        if: ${{ !cancelled() }}
         run: |
+          failed=()
           for recipe in toolkit-catalog-test toolkit-view-state-test toolkit-shortcuts-test toolkit-fonts-test \
               toolkit-lifecycle-test toolkit-runtime-facts-test toolkit-theme-import-test toolkit-search-test \
               toolkit-scroll-test toolkit-about-test toolkit-configuration-test toolkit-workspace-appearance-test \
               toolkit-agent-info-test toolkit-runtime-info-test package-tools-test; do
             echo "::group::$recipe"
-            just "$recipe"
+            just "$recipe" </dev/null || { failed+=("$recipe"); echo "::error::failed: $recipe"; }
             echo "::endgroup::"
           done
+          (( ${#failed[@]} == 0 )) || { printf 'FAILED: %s\n' "${failed[@]}"; exit 1; }
 
       - name: Package Band.app
+        id: package
+        if: ${{ !cancelled() }}
         run: just package
 
       - name: Qt deployment diagnostics
-        if: failure()
+        if: ${{ failure() && steps.package.outcome == 'failure' }}
         run: |
           qml="$(brew --prefix qt)/share/qt/qml"
           echo "QML import root: $qml"; ls -la "$qml" | head -40
           find "$qml/" -maxdepth 3 -type l -exec ls -l {} + | head -40
           for log in dist/qt-deploy-*.log; do echo "::group::$log"; tail -200 "$log"; echo "::endgroup::"; done
+
+      # Logs the runner would otherwise discard, for diagnosis without another run.
+      - name: Keep failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-failure-logs
+          path: |
+            dist/*.log
+            .local/sessions/*.log
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - uses: actions/upload-artifact@v4
         with:
