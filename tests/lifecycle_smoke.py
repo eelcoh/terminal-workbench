@@ -16,6 +16,8 @@ with tempfile.TemporaryDirectory(prefix='wb-life-',dir='/tmp') as directory:
     def call(method='initialize',identity=''):return request(state,runtime,root,method,identity)
     def receipt():return read_record(state/'spike.sock')
     def stopped():return call('terminal.lifecycle','spike')['state']=='stopped'
+    # The endpoint refuses connections a moment before the exit record is written.
+    def settled(reason):return wait_until(lambda:(lambda l:l if l['reason']==reason else None)(call('terminal.lifecycle','spike')['lifecycle']))
     def recover():
         call('terminal.recover','spike');wait_until(lambda:receipt() and receipt()['event']=='running')
         assert receipt()['exit_code'] is None and receipt()['signal'] is None
@@ -24,16 +26,16 @@ with tempfile.TemporaryDirectory(prefix='wb-life-',dir='/tmp') as directory:
         initial=receipt();assert initial['event']=='running' and initial['shell_pid']>1
         assert (state/'spike.lifecycle').stat().st_mode&0o777==0o600
         socket=state/'spike.sock';connection,_,_=attach(socket);send(connection,16,b'exit\n');wait_until(stopped);connection.close();connection=None
-        result=call('terminal.lifecycle','spike');assert result['lifecycle']['reason']=='exited' and result['lifecycle']['record']['exit_code']==0
+        assert settled('exited')['record']['exit_code']==0
         assert {key: value for key,value in call('terminal.status','spike').items() if key not in ('ok','protocol')}=={'id':'spike','state':'stopped'},'Legacy status shape changed'
         old_service=call('health')['service_pid'];call('service.shutdown');time.sleep(.1)
         adopted=call('terminal.lifecycle','spike');assert adopted['lifecycle']['record']==receipt()
         assert call('health')['service_pid']!=old_service
         recover();assert receipt()['shell_pid']!=initial['shell_pid']
         connection,_,_=attach(socket);send(connection,16,b'exit 42\n');wait_until(stopped);connection.close();connection=None
-        assert call('terminal.lifecycle','spike')['lifecycle']['record']['exit_code']==42
+        assert settled('exited')['record']['exit_code']==42
         recover();os.kill(receipt()['shell_pid'],signal.SIGKILL);wait_until(stopped)
-        signalled=call('terminal.lifecycle','spike')['lifecycle'];assert signalled['reason']=='signal' and signalled['record']['signal'] and signalled['record']['exit_code'] is None
+        signalled=settled('signal');assert signalled['record']['signal'] and signalled['record']['exit_code'] is None
         recover();subprocess.run([str(runtime),'stop',str(socket)],check=True,capture_output=True,timeout=12);wait_until(stopped)
         assert call('terminal.lifecycle','spike')['lifecycle']['reason']=='stopped'
         recover();running=receipt();os.kill(running['runtime_pid'],signal.SIGKILL);wait_until(stopped)
