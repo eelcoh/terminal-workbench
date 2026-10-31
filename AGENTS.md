@@ -19,8 +19,12 @@ Herdr repository is reference material, not the governing project.
 - Add dependencies only for a concrete implementation need.
 - Use `just check` for Rust validation and report platform checks separately.
 - On this workstation, run builds and install build dependencies inside the
-  `build-machine` Distrobox. Rust is intentionally absent from the host. Use
+  `build-machine` Distrobox. Rust and Node are intentionally absent from the host.
+  Agents normally run inside the box (`distrobox enter build-machine -- claude`,
+  started from `/var/home/eelco/Code/tools/terminal-workbench`, not `~/Code/…`);
+  there, run `just check` directly. From the host, use
   `distrobox enter build-machine -- just --working-directory /var/home/eelco/Code/tools/terminal-workbench --justfile /var/home/eelco/Code/tools/terminal-workbench/justfile check`.
+  On macOS, build natively with Homebrew ([macOS build guide](docs/macos-build.md)).
 - Describe scaffolding and unverified integrations accurately.
 - Get alignment on the commit message before committing. Do not publish a remote
   repository or push without authorization.
