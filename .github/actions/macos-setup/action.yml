@@ -1,0 +1,48 @@
+name: macOS build setup
+description: SSH for the Ghostty clone, Python, Homebrew tools, Rust, Zig and the cached Ghostty VT build.
+
+inputs:
+  ssh-key:
+    description: Private key registered with GitHub, used for the pinned Ghostty clone.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: SSH for the Ghostty clone
+      shell: bash
+      env:
+        SSH_PRIVATE_KEY: ${{ inputs.ssh-key }}
+      run: |
+        mkdir -p ~/.ssh && chmod 700 ~/.ssh
+        printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+        echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
+
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.12'
+
+    - name: Tools
+      shell: bash
+      run: |
+        brew install qt just ninja
+        rustup toolchain install stable --profile minimal --component clippy,rustfmt
+        rustup default stable
+
+    - name: Zig ${{ env.ZIG_VERSION }}
+      shell: bash
+      run: |
+        name="zig-aarch64-macos-$ZIG_VERSION"
+        expected=$(curl -fsSL https://ziglang.org/download/index.json | python3 -c "import json,sys;print(json.load(sys.stdin)['$ZIG_VERSION']['aarch64-macos']['shasum'])")
+        curl -fsSLo "$RUNNER_TEMP/zig.tar.xz" "https://ziglang.org/download/$ZIG_VERSION/$name.tar.xz"
+        echo "$expected  $RUNNER_TEMP/zig.tar.xz" | shasum -a 256 -c -
+        mkdir -p .local/tools && tar -xJf "$RUNNER_TEMP/zig.tar.xz" -C .local/tools
+        echo "ZIG=$PWD/.local/tools/$name/zig" >> "$GITHUB_ENV"
+
+    - name: Cache the pinned Ghostty VT build
+      uses: actions/cache@v6
+      with:
+        path: |
+          .local/deps/ghostty-vt
+          .local/runtime-vt
+        key: ghostty-vt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/prepare-runtime-vt.py') }}-zig-${{ env.ZIG_VERSION }}

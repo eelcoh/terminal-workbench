@@ -23,6 +23,8 @@ env:
   QT_QPA_PLATFORM: offscreen
 
 jobs:
+  # The three jobs share no build output and run side by side; each reports
+  # every failure in its own part instead of stopping at the first.
   check:
     runs-on: macos-latest
     timeout-minutes: 60
@@ -34,42 +36,10 @@ jobs:
           ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
           ssh-strict: true
 
-      - name: SSH for the Ghostty clone
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
-          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' >> ~/.ssh/known_hosts
-
-      - uses: actions/setup-python@v7
+      - uses: ./.github/actions/macos-setup
         with:
-          python-version: '3.12'
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Tools
-        run: |
-          brew install qt just ninja
-          rustup toolchain install stable --profile minimal --component clippy,rustfmt
-          rustup default stable
-
-      - name: Zig ${{ env.ZIG_VERSION }}
-        run: |
-          name="zig-aarch64-macos-$ZIG_VERSION"
-          expected=$(curl -fsSL https://ziglang.org/download/index.json | python3 -c "import json,sys;print(json.load(sys.stdin)['$ZIG_VERSION']['aarch64-macos']['shasum'])")
-          curl -fsSLo "$RUNNER_TEMP/zig.tar.xz" "https://ziglang.org/download/$ZIG_VERSION/$name.tar.xz"
-          echo "$expected  $RUNNER_TEMP/zig.tar.xz" | shasum -a 256 -c -
-          mkdir -p .local/tools && tar -xJf "$RUNNER_TEMP/zig.tar.xz" -C .local/tools
-          echo "ZIG=$PWD/.local/tools/$name/zig" >> "$GITHUB_ENV"
-
-      - name: Cache the pinned Ghostty VT build
-        uses: actions/cache@v6
-        with:
-          path: |
-            .local/deps/ghostty-vt
-            .local/runtime-vt
-          key: ghostty-vt-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/prepare-runtime-vt.py') }}-zig-${{ env.ZIG_VERSION }}
-
-      # Every check runs even after one fails, so one run reports all failures.
       # The commands come from `just --dry-run`, keeping the justfile the list.
       - name: just check
         run: |
@@ -84,8 +54,35 @@ jobs:
           done <<< "$commands"
           (( ${#failed[@]} == 0 )) || { printf 'FAILED: %s\n' "${failed[@]}"; exit 1; }
 
+      # Logs the runner would otherwise discard, for diagnosis without another run.
+      - name: Keep failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-failure-logs-check
+          path: |
+            dist/*.log
+            .local/sessions/*.log
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  qt:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out over SSH
+        uses: actions/checkout@v7
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          ssh-strict: true
+
+      - uses: ./.github/actions/macos-setup
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - name: Qt client checks (offscreen)
-        if: ${{ !cancelled() }}
         run: |
           failed=()
           for recipe in toolkit-catalog-test toolkit-view-state-test toolkit-shortcuts-test toolkit-fonts-test \
@@ -98,13 +95,39 @@ jobs:
           done
           (( ${#failed[@]} == 0 )) || { printf 'FAILED: %s\n' "${failed[@]}"; exit 1; }
 
+      # Logs the runner would otherwise discard, for diagnosis without another run.
+      - name: Keep failure logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-failure-logs-qt
+          path: |
+            dist/*.log
+            .local/sessions/*.log
+            .local/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  package:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out over SSH
+        uses: actions/checkout@v7
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          ssh-strict: true
+
+      - uses: ./.github/actions/macos-setup
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - name: Package Band.app
-        id: package
-        if: ${{ !cancelled() }}
         run: just package
 
       - name: Qt deployment diagnostics
-        if: ${{ failure() && steps.package.outcome == 'failure' }}
+        if: failure()
         run: |
           qml="$(brew --prefix qt)/share/qt/qml"
           echo "QML import root: $qml"; ls -la "$qml" | head -40
@@ -116,7 +139,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: macos-failure-logs
+          name: macos-failure-logs-package
           path: |
             dist/*.log
             .local/sessions/*.log
