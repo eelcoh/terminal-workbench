@@ -118,9 +118,12 @@ def assemble_macos(parent, runtime, viewer, launcher, *, deploy=None, sign=True)
 
 def check_macos_bundle(bundle):
     """Load the controls, dialogs and real client from the signed bundle alone."""
-    environment = {key: value for key, value in os.environ.items() if not key.startswith(('QML_', 'QML2_', 'QT_PLUGIN', 'DYLD_'))}
+    # The bundle ships only the cocoa platform plugin; offscreen would have to
+    # come from the build machine's Qt, which this check exists to rule out.
+    environment = {key: value for key, value in os.environ.items()
+                   if not key.startswith(('QML_', 'QML2_', 'QT_PLUGIN', 'QT_QPA_', 'DYLD_'))}
     with tempfile.TemporaryDirectory(prefix='band-bundle-check-') as scratch:
-        environment.update(QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software', TMPDIR=scratch)
+        environment.update(QT_QUICK_BACKEND='software', TMPDIR=scratch)
         result = subprocess.run([str(bundle / 'Contents/MacOS/band-ui'), '--check-deployment',
                                  str(bundle / 'Contents/Resources/qml')],
                                 env=environment, capture_output=True, text=True, timeout=60)
