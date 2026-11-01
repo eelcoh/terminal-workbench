@@ -32,8 +32,18 @@ relocation, agent launchers, saved sessions and an offscreen Qt start (Linux).
 ## Install
 
 **macOS.** Unzip and move `Band.app` to `/Applications` (or `~/Applications`).
-Because the app is not notarized, the first open needs Control-click → Open, or
-`xattr -dr com.apple.quarantine /Applications/Band.app`.
+The app is ad-hoc signed, not notarized, so a browser download is quarantined
+and Gatekeeper refuses it. Since macOS 15, Control-click → Open no longer gets
+past that. Before the first open, clear the flag:
+
+```sh
+xattr -dr com.apple.quarantine ~/Applications/Band.app
+```
+
+or open it once and choose System Settings → Privacy & Security → Open Anyway.
+A quarantined copy's first open has failed with `Band: Invalid argument (os
+error 22)` in `launch.log` (2026-11-01, macOS 26); after clearing the flag it
+opened normally.
 
 **Linux.** Unpack anywhere, for example `~/.local/opt`, then:
 

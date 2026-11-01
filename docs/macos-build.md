@@ -112,9 +112,10 @@ To build an installable `Band.app` (zipped in `dist/`):
 just package
 ```
 
-Unzip it and move `Band.app` to `/Applications`; the first open needs
-Control-click → Open because it is not notarized. Close older preview windows
-first. See [the packaging guide](packaging.md).
+Unzip it and move `Band.app` to `/Applications`. A downloaded copy (for example
+the CI artifact) is quarantined; clear that with `xattr -dr com.apple.quarantine
+/Applications/Band.app` before the first open (see [the packaging guide](packaging.md#install)).
+A copy built locally is not quarantined. Close older preview windows first.
 
 Updating source does not update already running runtime processes. Close the
 window and start new terminals to exercise runtime changes.
