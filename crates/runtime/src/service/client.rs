@@ -199,16 +199,18 @@ pub fn initialize(directory: &Path, runtime: &Path, cwd: &Path, agent_bin: &Path
     endpoint(directory)?;
     // Serialize concurrent first launches. The server holds its own lock for
     // its lifetime; competing direct server starts cannot replace its socket.
-    let _lock = lock_file(&directory.join("service-start.lock"), false).map_err(os)?;
+    let lock = directory.join("service-start.lock");
+    let _lock = lock_file(&lock, false).map_err(|error| format!("{}: {error}", lock.display()))?;
     match send(directory, &message) {
         Err(Failure::Unavailable) => {}
         other => return finish(other),
     }
+    let log_path = directory.join("service.log");
     let log = OpenOptions::new()
         .append(true)
         .create(true)
-        .open(directory.join("service.log"))
-        .map_err(os)?;
+        .open(&log_path)
+        .map_err(|error| format!("{}: {error}", log_path.display()))?;
     let mut command = Command::new(runtime);
     command
         .arg("service")
@@ -232,7 +234,9 @@ pub fn initialize(directory: &Path, runtime: &Path, cwd: &Path, agent_bin: &Path
             Ok(())
         });
     }
-    let mut child = command.spawn().map_err(os)?;
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("starting {}: {error}", runtime.display()))?;
     wait_for_startup(directory, &mut child)?;
     // The ready service is now the authority; it outlives this launcher.
     drop(child);

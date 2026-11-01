@@ -19,6 +19,11 @@ fn os(error: io::Error) -> String {
     error.to_string()
 }
 
+/// Name the launch stage in a failure, so one log line says where it failed.
+fn stage<T>(name: &str, result: Result<T>) -> Result<T> {
+    result.map_err(|error| format!("{name}: {error}"))
+}
+
 fn env(name: &str) -> Option<String> {
     std::env::var(name).ok()
 }
@@ -517,26 +522,37 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
     let runtime = payload.join("bin/band-session");
     let runtime =
         fs::canonicalize(&runtime).map_err(|error| format!("{}: {error}", runtime.display()))?;
-    let cwd = fs::canonicalize(home()).map_err(os)?;
-    let state = session_directory()?;
-    prepare_directory(&state)?;
+    let home = home();
+    let cwd = fs::canonicalize(&home)
+        .map_err(|error| format!("home folder {}: {error}", home.display()))?;
+    let state = stage("session state", session_directory())?;
+    stage(
+        "session state",
+        prepare_directory(&state).map_err(|error| format!("{}: {error}", state.display())),
+    )?;
     let views = state.join("qt");
     match DirBuilder::new().mode(0o700).create(&views) {
-        Err(error) if error.kind() != io::ErrorKind::AlreadyExists => return Err(os(error)),
+        Err(error) if error.kind() != io::ErrorKind::AlreadyExists => {
+            return Err(format!("window state {}: {error}", views.display()))
+        }
         _ => {}
     }
-    let (lease, view) = acquire_window_slot(&views)?;
+    let (lease, view) = stage("window slot", acquire_window_slot(&views))?;
     let agent_bin = payload.join("bin");
-    let catalog = match initialize(&state, &runtime, &cwd, &agent_bin) {
-        // A service started by another install (an earlier Band or preview).
-        // With no other window open, hand over; its shells keep running.
-        Err(error) if error.contains("configuration differs") => {
-            let _others = reserve_other_slots(&views, &view)?;
-            retire(&state)?;
-            initialize(&state, &runtime, &cwd, &agent_bin)?
-        }
-        other => other?,
-    }["data"]
+    let catalog = stage(
+        "session service",
+        match initialize(&state, &runtime, &cwd, &agent_bin) {
+            // A service started by another install (an earlier Band or preview).
+            // With no other window open, hand over; its shells keep running.
+            Err(error) if error.contains("configuration differs") => {
+                reserve_other_slots(&views, &view).and_then(|_others| {
+                    retire(&state)?;
+                    initialize(&state, &runtime, &cwd, &agent_bin)
+                })
+            }
+            other => other,
+        },
+    )?["data"]
         .take();
     let mut settings = configuration(&state, &runtime, &cwd, catalog, preferences, payload);
     settings.insert(
@@ -550,8 +566,11 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
         // Replace the launcher with Qt so the desktop owns the actual GUI
         // process. Its inherited lease lives until Qt exits; Qt removes this
         // private config after reading it, and exec failure removes it here.
-        let config = temporary_file(&views, "launch-", &contents)?;
-        inheritable(&lease)?;
+        let config = stage(
+            "launch configuration",
+            temporary_file(&views, "launch-", &contents),
+        )?;
+        stage("window slot", inheritable(&lease))?;
         println!(
             "Opening Band; closing detaches. Session state: {}",
             state.display()
