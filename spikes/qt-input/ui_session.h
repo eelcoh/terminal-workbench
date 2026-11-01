@@ -37,6 +37,9 @@ public:
     Q_INVOKABLE void dismissTerminal(const QString &identity);
     Q_INVOKABLE void closeTerminal(const QString &identity);
     Q_INVOKABLE void stopTerminals(const QStringList &identities);
+    // Fresh shells for every saved terminal whose runtime has ended (after a
+    // reboot, crash or stop); live shells are never replaced.
+    Q_INVOKABLE void recoverAll();
     Q_INVOKABLE void closeWorkspace(const QString &identity);
     QString error() const {return error_;}
     Q_INVOKABLE QObject *observe(const QString &identity);

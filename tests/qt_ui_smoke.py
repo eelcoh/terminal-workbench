@@ -648,6 +648,15 @@ while True:
                 click(*pane(data(),target)['primary_action']);wait_until(lambda:pane(data(),target)['ready'],timeout=15)
                 wait_until(lambda:pane(peer_data(),target)['lifecycle'].get('state')=='running',timeout=15)
                 assert all(not pane(data(),identity)['ready'] for identity in frozen if identity!=target)
+                # Start all stopped shells restarts the rest and leaves running ones alone.
+                def shell_pid(identity):return json.loads((root/(identity+'.lifecycle')).read_text())['shell_pid']
+                running_pid=shell_pid(target);assert running_pid
+                command_search('start all stopped');key('Return')
+                wait_until(lambda:all(pane(data(),identity)['ready'] for identity in frozen),timeout=30)
+                wait_until(lambda:all(pane(peer_data(),identity)['lifecycle'].get('state')=='running' for identity in frozen),timeout=15)
+                assert shell_pid(target)==running_pid,'bulk start replaced a running shell'
+                assert workspace_catalog.load(root)==before_stop and not data()['error']
+                capture('session-start-complete.png')
                 window=peer_window;focus(window)
                 if wayland:run('niri','msg','action','close-window','--id',window)
                 else:close_window(window,env)
@@ -661,7 +670,7 @@ while True:
                 window=original_window
                 if excluded_owner:excluded_owner.close()
                 if stop_peer and stop_peer.poll() is None:stop_peer.terminate();stop_peer.wait(timeout=5)
-            print(('wayland' if wayland else 'xcb')+' PASS: confirmed session stop, Cancel/initial Enter, stale identities, cross-window ownership/status, frozen-ID exclusion with same PID/state, preserved catalog/readers, explicit recovery and close-detach')
+            print(('wayland' if wayland else 'xcb')+' PASS: confirmed session stop, Cancel/initial Enter, stale identities, cross-window ownership/status, frozen-ID exclusion with same PID/state, preserved catalog/readers, explicit recovery, start all stopped shells and close-detach')
         if '--shutdown-only' in sys.argv[3:]:
             stop_all_flow()
             if wayland:run('niri','msg','action','close-window','--id',window)

@@ -170,6 +170,11 @@ ApplicationWindow {
     readonly property int overviewColumns: deck.columns
     property int overviewMatches: 0
     property int waitingCount: 0
+    readonly property int stoppedCount: {
+        const facts = studySession.lifecycle; let count = 0
+        for (let i = 0; i < terminalModel.count; ++i) if ((facts[terminalModel.get(i).terminalId] || {}).state === "stopped") ++count
+        return count
+    }
     property var waitingIdentities: []
     property var workspaceWaitingCounts: []
     property var agentIndices: []
@@ -337,6 +342,7 @@ ApplicationWindow {
         case "move-up": moveSelectedWorkspace(-1); break
         case "move-down": moveSelectedWorkspace(1); break
         case "session-stop": requestSessionStop(); break
+        case "session-start": if (stoppedCount > 0) studySession.recoverAll(); break
         case "close-workspace": requestWorkspaceClose(spaceIds[workspace]); break
         case "close-terminal": closePane(terminalModel.get(selected).terminalId); break
         case "forward": panel(selected).terminal.forceActiveFocus(); panel(selected).terminal.forwardNextKey(); break;
@@ -622,6 +628,12 @@ ApplicationWindow {
         function onCompleted(catalog, method) { window.applyCatalog(catalog, method) }
         function onActionCompleted(identity, method) {
             if (method === "terminal.recover") { const i = window.identityIndex(identity); if (i >= 0) studySession.reconnect(window.panel(i).terminal, identity, false) }
+            if (method === "session.recover") {
+                for (let i = 0; i < terminalModel.count; ++i) {
+                    const pane = window.panel(i)
+                    if (pane !== null && pane.lifecycle.state === "stopped") studySession.reconnect(pane.terminal, pane.terminalId, false)
+                }
+            }
         }
         function onChanged() { if (!studySession.busy && studySession.error.length > 0) window.followMove = false }
     }

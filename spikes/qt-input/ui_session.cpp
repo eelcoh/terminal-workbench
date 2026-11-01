@@ -32,7 +32,7 @@ UiSession::UiSession(const QJsonObject &config,QObject *parent):QObject(parent),
         if(!reply["ok"].toBool()) {fail(reply["error"].toString("Session request failed. Refresh before trying again."));return;}
         if(!reply["data"].isObject() || !UiCatalogFeed::valid(reply["data"].toObject())) {fail("Missing session catalog. Refresh before trying again.");return;}
         const auto catalog=reply["data"].toObject().toVariantMap();const auto method=method_,identity=identity_;
-        deadline_.stop();busy_=false;socket_.abort();receive_.clear();if(catalog_)catalog_->resume(catalog);Q_EMIT changed();Q_EMIT completed(catalog,method);prune(reply["data"].toObject());if(method=="session.stop")refreshInactive();Q_EMIT actionCompleted(identity,method);
+        deadline_.stop();busy_=false;socket_.abort();receive_.clear();if(catalog_)catalog_->resume(catalog);Q_EMIT changed();Q_EMIT completed(catalog,method);prune(reply["data"].toObject());if(method=="session.stop" || method=="session.recover")refreshInactive();Q_EMIT actionCompleted(identity,method);
     });
     connect(&socket_,&QLocalSocket::disconnected,this,[this]{if(busy_)fail("Session service closed before replying. Refresh before trying again.");});
     connect(&socket_,&QLocalSocket::errorOccurred,this,[this](auto){if(busy_)fail(sent_?"Request outcome is unknown. Refresh before trying again.":socket_.errorString());});
@@ -106,6 +106,7 @@ void UiSession::reconnect(TerminalItem *item,const QString &identity,bool takeov
     item->reconnectSession(QDir(config_["state"].toString()).filePath(identity+".ctl"),takeover);
 }
 void UiSession::recover(const QString &identity) {request("terminal.recover",identity);}
+void UiSession::recoverAll() {request("session.recover");}
 void UiSession::closeWorkspace(const QString &identity) {request("workspace.close",identity);}
 void UiSession::stopTerminals(const QStringList &identities) {
     if(busy_)return;

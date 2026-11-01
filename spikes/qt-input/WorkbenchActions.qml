@@ -42,6 +42,7 @@ QtObject {
         row("move-right", "Move terminal right", "Reorder within this workspace", host.canReorder(1), session.busy ? "Another change is in progress" : "No next position"),
         row("move-up", "Move to workspace above", "Keep the same running process", host.canMoveWorkspace(-1), "No available workspace above"),
         row("move-down", "Move to workspace below", "Keep the same running process", host.canMoveWorkspace(1), "No available workspace below"),
+        row("session-start", "Start all stopped shells", "Start a fresh shell in each stopped terminal, in its workspace’s folder; running shells are left alone", host.stoppedCount > 0 && !session.busy, session.busy ? "Another change is in progress" : "No stopped terminals"),
         row("session-stop", "Stop all terminals…", "Confirm before stopping shells across this session’s workspaces and windows; keep saved organization", host.terminalItems.length > 0 && !session.busy, session.busy ? "Another change is in progress" : "No saved terminals"),
         row("close-workspace", "Remove workspace…", "Confirm before stopping its terminals and removing this workspace", hasWorkspace && !session.busy, !hasWorkspace ? "No workspace selected" : "Another change is in progress"),
         row("close-terminal", exitedPane ? "Close pane" : "Close terminal…", exitedPane ? "Remove this exited pane" : "Confirm before stopping and removing this terminal", hasPane && !session.busy, session.busy ? "Another change is in progress" : "No terminal selected"),

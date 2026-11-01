@@ -8,7 +8,9 @@ the same reason through the shared organization service.
 
 Closing a window still detaches live shells. Explicit recovery still creates a
 fresh shell under the same terminal identity and appearance; it cannot resume old
-jobs, shell variables or running commands. The normal Stop terminal/workspace
+jobs, shell variables or running commands. After a reboot every saved terminal
+is stopped; Commands → **Start all stopped shells** starts a fresh shell in each
+of them at once and leaves running shells alone. The normal Stop terminal/workspace
 actions still remove their entries. Where a stopped saved entry remains, its
 reason is available without starting a shell or taking another window's owner.
 
