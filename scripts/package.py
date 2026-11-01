@@ -116,6 +116,27 @@ def assemble_macos(parent, runtime, viewer, launcher, *, deploy=None, sign=True)
     return bundle
 
 
+def check_macos_bundle(bundle):
+    """Load the controls, dialogs and real client from the signed bundle alone."""
+    environment = {key: value for key, value in os.environ.items() if not key.startswith(('QML_', 'QML2_', 'QT_PLUGIN', 'DYLD_'))}
+    with tempfile.TemporaryDirectory(prefix='band-bundle-check-') as scratch:
+        environment.update(QT_QPA_PLATFORM='offscreen', QT_QUICK_BACKEND='software', TMPDIR=scratch)
+        result = subprocess.run([str(bundle / 'Contents/MacOS/band-ui'), '--check-deployment',
+                                 str(bundle / 'Contents/Resources/qml')],
+                                env=environment, capture_output=True, text=True, timeout=60)
+    try:
+        report = json.loads(result.stdout)
+    except ValueError:
+        raise ValueError(f'Bundle check gave no report: {result.returncode} {result.stderr}') from None
+    if result.returncode != 0 or not report.get('qml_ok') or not report.get('client_ok'):
+        raise ValueError(f'Bundle does not load from its own Qt: {report} {result.stderr}')
+    root = str(bundle.resolve()) + '/'
+    outside = [image for image in report.get('loaded_images', [])
+               if not image.startswith((root, '/System/', '/usr/lib/'))]
+    if outside:
+        raise ValueError(f'Bundle loaded Qt from outside itself: {outside}')
+
+
 def archive_linux(root, destination):
     with tarfile.open(destination, 'w:gz') as archive:
         archive.add(root, arcname=root.name)
@@ -155,6 +176,7 @@ def main():
             bundle = assemble_macos(parent, runtime, BUILD / 'band-ui.app/Contents/MacOS/band-ui', BUILD / 'band-launcher',
                                     deploy=lambda bundle, payload: deploy(bundle, payload, info, ROOT / 'native/macos/qt-deployment',
                                                                           qml_deploy_script=imports))
+            check_macos_bundle(bundle)
             destination = DIST / f'Band-{version()}-macos-{architecture()}.zip'
             destination.unlink(missing_ok=True)
             archive_macos(bundle, destination)

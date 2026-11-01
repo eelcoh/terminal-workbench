@@ -107,6 +107,25 @@ class QmlLinkTest(unittest.TestCase):
             self.assertTrue((plugins/'unknown.dylib').is_symlink())
 
 
+class StylePruneTest(unittest.TestCase):
+    def test_unused_styles_and_their_plugins_go_and_basic_stays(self):
+        with tempfile.TemporaryDirectory(prefix='wb qml styles ') as directory:
+            root=Path(directory);qml=root/'qml';plugins=root/'PlugIns';plugins.mkdir()
+            def module(path,*lines):
+                (qml/path).mkdir(parents=True);(qml/path/'qmldir').write_text('\n'.join(lines)+'\n')
+            module('QtQuick/Controls','module QtQuick.Controls','plugin qtquickcontrols2plugin')
+            module('QtQuick/Controls/Basic','module QtQuick.Controls.Basic','plugin qtquickcontrols2basicstyleplugin')
+            module('QtQuick/Controls/Material','module QtQuick.Controls.Material','plugin qtquickcontrols2materialstyleplugin')
+            module('QtQuick/Controls/Material/impl','module QtQuick.Controls.Material.impl','optional plugin qtquickcontrols2materialstyleimplplugin')
+            names=('qtquickcontrols2plugin','qtquickcontrols2basicstyleplugin','qtquickcontrols2materialstyleplugin','qtquickcontrols2materialstyleimplplugin')
+            for name in names:(plugins/f'lib{name}.dylib').write_text(name)
+            self.assertEqual(macos_qml.prune_styles(qml,plugins),['QtQuick/Controls/Material'])
+            self.assertFalse((qml/'QtQuick/Controls/Material').exists())
+            self.assertTrue((qml/'QtQuick/Controls/Basic/qmldir').is_file())
+            self.assertEqual(sorted(path.name for path in plugins.iterdir()),
+                ['libqtquickcontrols2basicstyleplugin.dylib','libqtquickcontrols2plugin.dylib'])
+
+
 class ToolchainTest(unittest.TestCase):
     def test_options_follow_the_tool_and_include_the_qt_library_directory(self):
         with tempfile.TemporaryDirectory(prefix='wb qt tools ') as directory:

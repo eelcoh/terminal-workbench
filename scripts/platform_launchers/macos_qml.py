@@ -44,6 +44,28 @@ def materialize(contents,prefix,qt_prefix):
         else:shutil.copy2(source,path)
 
 
+# Band sets the Basic style in code; the scanner still selects every style
+# Controls can load at runtime. Frameworks only these plugins need are then
+# never copied, because macdeployqt runs after this step.
+UNUSED_STYLES=('Fusion','Material','Universal','Imagine','FluentWinUI3','iOS','macOS','Windows')
+
+
+def prune_styles(qml,plugins):
+    removed=[]
+    for name in UNUSED_STYLES:
+        module=qml/'QtQuick/Controls'/name
+        if not module.is_dir():continue
+        for qmldir in module.rglob('qmldir'):
+            for line in qmldir.read_text().splitlines():
+                words=line.split()
+                if words[:1]==['plugin'] and len(words)>1:plugin=words[1]
+                elif words[:2]==['optional','plugin'] and len(words)>2:plugin=words[2]
+                else:continue
+                (plugins/f'lib{plugin}.dylib').unlink(missing_ok=True)
+        shutil.rmtree(module);removed.append(f'QtQuick/Controls/{name}')
+    return removed
+
+
 def deploy(bundle,script,output,log,qt_prefix):
     with tempfile.TemporaryDirectory(prefix='.qt-qml-',dir=bundle.parent) as directory:
         prefix=Path(directory).resolve()
@@ -56,6 +78,7 @@ def deploy(bundle,script,output,log,qt_prefix):
             if path.is_symlink() and not (path.exists() and path.resolve().is_relative_to(prefix)):
                 raise ValueError(f'Qt QML deployment contains an external or dangling symlink: '
                     f'{path.relative_to(prefix)} -> {os.readlink(path)}')
+        pruned=prune_styles(qml,plugins)
         modules=sorted(str(path.parent.relative_to(qml)) for path in qml.rglob('qmldir'))
         destination=bundle/'Contents/Resources/qml'
         if destination.is_symlink():destination.unlink()
@@ -63,4 +86,4 @@ def deploy(bundle,script,output,log,qt_prefix):
         _merge(qml,destination)
         _merge(plugins,bundle/'Contents/PlugIns')
         progress(f'QML deployment selected {len(modules)} modules')
-        return dict(mode='qt-cmake-import-closure',modules=modules)
+        return dict(mode='qt-cmake-import-closure',modules=modules,pruned=pruned)
