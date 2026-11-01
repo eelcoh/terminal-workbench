@@ -27,6 +27,12 @@ int main(int argc, char **argv) {
     uint32_t size = sizeof(executable);
     if (_NSGetExecutablePath(executable, &size) != 0 || !realpath(executable, resolved))
         return failure("Cannot locate the application.");
+    // A quarantined download runs from a random read-only copy, where opening
+    // has failed with a bare system error; say what to do instead.
+    if (strstr(resolved, "/AppTranslocation/"))
+        return failure("macOS is running a quarantined copy of Band from a temporary location. "
+            "Move Band.app to Applications, then run in Terminal: "
+            "xattr -dr com.apple.quarantine /Applications/Band.app");
     char *last = strrchr(resolved, '/');
     if (!last) return failure("Invalid application location.");
     *last = '\0';
