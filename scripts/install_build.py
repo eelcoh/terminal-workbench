@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Install the newest green CI build of Band for this platform.
+"""Install a Band build for this platform.
 
 macOS: Band.app into ~/Applications. Linux: the archive into ~/.local/opt.
-Uses `gh`, so the download is not quarantined and Gatekeeper does not stop the
-ad-hoc signed app. Development tooling; runs on the system Python 3.9 on macOS.
+Installs a local `just package` archive, an artifact zip downloaded in a
+browser (its quarantine flag is cleared, so Gatekeeper does not stop the ad-hoc
+signed app), or by default the newest green CI build, fetched with `gh`. Development tooling; runs on the system Python 3.9 on macOS.
 """
 import argparse
 import json
@@ -13,6 +14,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -34,6 +36,24 @@ def latest_run(workflow, branch):
     if not runs:
         sys.exit(f'no successful {workflow} run on {branch}')
     return runs[0]
+
+
+def unpack_artifact(path, download):
+    # A browser saves the artifact as a zip around the release archive (Safari
+    # may unpack it to a folder); accept that or the release archive itself.
+    if path.is_dir():
+        for item in path.iterdir():
+            if item.is_file():
+                shutil.copy2(item, download)
+    elif zipfile.is_zipfile(path) and not any(
+            name.startswith('Band.app/') for name in zipfile.ZipFile(path).namelist()):
+        with zipfile.ZipFile(path) as artifact:
+            for name in artifact.namelist():
+                if '/' in name or name.startswith('.'):
+                    sys.exit(f'unexpected path in artifact: {name}')
+            artifact.extractall(download)
+    else:
+        shutil.copy2(path, download)
 
 
 def running_from(path):
@@ -62,6 +82,7 @@ def install_macos(download, dest):
         app.rename(target)
     finally:
         shutil.rmtree(staging, ignore_errors=True)
+    subprocess.run(('xattr', '-dr', 'com.apple.quarantine', str(target)), check=True)
     print(f'installed {target}')
 
 
@@ -85,6 +106,8 @@ def install_linux(download, dest):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('artifact', nargs='?', type=Path,
+                        help='downloaded artifact zip or release archive (default: fetch with gh)')
     parser.add_argument('--branch', default='main')
     parser.add_argument('--dest', type=Path, help='install folder (default per platform)')
     args = parser.parse_args()
@@ -92,10 +115,13 @@ def main():
     if system not in TARGETS:
         sys.exit(f'no CI build for {system}')
     workflow, artifact, dest = TARGETS[system]
-    run = latest_run(workflow, args.branch)
-    print(f"run {run['databaseId']}: {run['headSha'][:7]} from {run['createdAt']}")
     with tempfile.TemporaryDirectory() as tmp:
-        gh('run', 'download', str(run['databaseId']), '-n', artifact, '-D', tmp)
+        if args.artifact:
+            unpack_artifact(args.artifact.expanduser(), tmp)
+        else:
+            run = latest_run(workflow, args.branch)
+            print(f"run {run['databaseId']}: {run['headSha'][:7]} from {run['createdAt']}")
+            gh('run', 'download', str(run['databaseId']), '-n', artifact, '-D', tmp)
         (install_macos if system == 'Darwin' else install_linux)(Path(tmp), args.dest or dest)
 
 

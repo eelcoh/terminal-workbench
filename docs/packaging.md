@@ -45,7 +45,10 @@ choose System Settings → Privacy & Security → Open Anyway. That dialog comes
 from Gatekeeper before any Band code runs. Downloading with `gh run download`
 or `curl` instead of a browser sets no quarantine flag; `just install-ci`
 installs the newest green CI build that way (into `~/Applications` on macOS,
-`~/.local/opt` on Linux; `--dest` overrides).
+`~/.local/opt` on Linux; `--dest` overrides). Without `gh`, download the
+artifact in a browser and run `just install-ci ~/Downloads/Band-macos-arm64.zip`,
+which installs it and clears the flag. A local build is never quarantined:
+`just package-install` builds and installs it in the same places.
 A quarantined copy's first open has failed with `Band: Invalid argument (os
 error 22)` in `launch.log` (2026-11-01, macOS 26); after clearing the flag it
 opened normally.
