@@ -75,6 +75,10 @@ package-test: package
     cargo build --locked --bin band-session
     python3 tests/package_test.py
 
+# Newest green CI build into ~/Applications (macOS) or ~/.local/opt (Linux), via gh.
+install-ci *args:
+    python3 scripts/install_ci_build.py {{args}}
+
 # Explicitly recover dead session endpoints after a reboot or runtime crash.
 recover-sessions:
     python3 scripts/session_service.py recover-all --state-dir .local/sessions --runtime target/debug/band-session --cwd .
