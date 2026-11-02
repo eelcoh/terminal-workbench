@@ -40,7 +40,10 @@ past that. Before the first open, clear the flag:
 xattr -dr com.apple.quarantine ~/Applications/Band.app
 ```
 
-or open it once and choose System Settings → Privacy & Security → Open Anyway.
+or, after macOS reports that it "could not verify Band is free of malware",
+choose System Settings → Privacy & Security → Open Anyway. That dialog comes
+from Gatekeeper before any Band code runs. Downloading with `gh run download`
+or `curl` instead of a browser sets no quarantine flag.
 A quarantined copy's first open has failed with `Band: Invalid argument (os
 error 22)` in `launch.log` (2026-11-01, macOS 26); after clearing the flag it
 opened normally.
