@@ -59,7 +59,7 @@ def inspect(entry):
 def main():
     root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--state-dir',type=Path,default=root/'.local/sessions')
+    parser.add_argument('--state-dir',type=Path,default=Path(os.environ.get('BAND_STATE_DIR',root/'.local/sessions')))
     args = parser.parse_args()
     # Read the existing catalog directly: no seed, lock file, startup or recovery.
     data = json.loads((args.state_dir/'workspaces.json').read_text())

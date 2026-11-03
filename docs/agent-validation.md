@@ -123,6 +123,37 @@ resume/interrupt/error paths, child-agent isolation, stale/missing signals and
 native input/GUI behavior remain part of the milestone; the table above does not
 close the release gate.
 
+## Installed build acceptance
+
+v0.1 needs agent status from an installed build, not the development tree.
+Every check so far ran from a checkout. Record the date, the commit from
+About, the platform and the exact agent version for each run.
+
+1. Install with `just package-install` (or a CI artifact, see
+   [packaging](packaging.md#install)) and open Band from the app menu, Finder
+   or Launchpad, not from a checkout.
+2. Open a **new terminal**: retained terminals keep the launchers they were
+   started with. Check that `command -v band-copilot` (Mac) or `band-claude`,
+   `band-codex`, `band-pi` (Linux) resolves inside the installed payload's
+   `bin/` (`Band.app/Contents/Resources/band/bin` on macOS).
+   `BAND_STATE_DIR=~/.local/state/band just agent-status`, run from a checkout,
+   shows each terminal's `origin.agent_bin`.
+3. In a second terminal outside Band, start a trace against the installed state:
+   `BAND_STATE_DIR=~/.local/state/band just agent-watch 300` from a checkout.
+4. Start the agent through its `band-*` launcher in an empty folder. Check
+   Unknown before the first prompt, then Working → Ready for a no-tool reply,
+   in the terminal header, the Agents rail and the trace.
+5. Ask for a built-in question (`ask_user` in Copilot, plan mode in Codex).
+   Check Needs input, switch workspace, and return through the Needs input
+   filter. Answer it and check Working → Ready.
+6. Close the window with the agent running, reopen Band, and check the same
+   agent, PID and status (`just agent-status` with the same `BAND_STATE_DIR`).
+7. Exit the agent normally. Identity and status clear.
+
+The Mac run uses Copilot only. On Linux one of Claude or Codex is enough for
+the gate; Pi is optional. Permission, cancellation and policy edge cases stay
+with the sequence above and do not block this check.
+
 ## Linux permission and background-workspace review — 2026-10-14
 
 Runtime/viewer base: `b85c0bb`. Real Claude Code **2.1.299** and Codex **0.162.1**

@@ -87,9 +87,21 @@ installed from a release artifact on a machine without Python.
    (checkout and the Ghostty clone use the `SSH_PRIVATE_KEY` secret): `just check`,
    offscreen Qt client tests and `just package` on Apple Silicon, with `Band.app`
    as a downloadable artifact. Every check runs after a failure, and failure logs
-   are kept as an artifact. The CI-built `Band.app` has not been opened on a Mac.
-   `.github/workflows/linux.yml` (2026-10-31) does the same in a Fedora 44
-   container as an unprivileged user and uploads the tested Linux archive.
+   are kept as an artifact. `.github/workflows/linux.yml` (2026-10-31) does the
+   same in a Fedora 44 container as an unprivileged user and uploads the tested
+   Linux archive.
+   The owner opened the CI-built `Band.app` on macOS 26 (2026-11-01). A browser
+   download is quarantined: Gatekeeper refuses the ad-hoc signed app, and a
+   translocated copy failed with a bare `Invalid argument`. The launcher now
+   explains translocation, launch errors name their stage and path, and the
+   bundle checks itself on its own Qt plugins (496 files instead of 706 after
+   pruning unused Qt Quick styles). `just package-install` and `just install-ci`
+   install without quarantine ([packaging](packaging.md#install)). A Mac reboot
+   left every shell stopped, as designed; Commands → **Start all stopped shells**
+   restarts them in one step.
+   Open: replacing an installed app while its shells run. Those shells keep
+   the old install's agent launchers on `PATH`, so they need a stable location
+   outside the bundle before in-place updates are safe.
    The manual checklist for input, IME, displays and trackpad stays in
    [the macOS build guide](macos-build.md#native-checks).
 7. [x] **Eight-by-eight ceiling removed** (2026-10-25). A window holds up to
