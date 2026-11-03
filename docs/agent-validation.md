@@ -170,7 +170,30 @@ agent-watch 300`. The install commit and Copilot version were not recorded.
 
 The trace also listed every terminal stopped since the reboot as
 `unavailable` (connection refused): socket files without a runtime. That is
-expected and does not affect live terminals. Linux has not been run yet.
+expected and does not affect live terminals.
+
+### Linux, installed build — 2026-11-03
+
+Install: `~/.local/opt/band-0.1.0-linux-x86_64` built from `16e5b9f`
+(uncommitted changes, 2026-10-24), opened from the app menu through the
+`build-machine` Distrobox, on the owner's existing session service. Codex
+0.166.0 (`band-codex`) and Pi 1.3.0 (`band-pi`) ran in new terminals.
+`just agent-status` against `~/.local/state/band` confirmed each launcher came
+from the installed `bin/`, and the Codex command line carried the installed
+`band-session agent-hook codex` hooks.
+
+| Step | Result |
+| --- | --- |
+| Launchers from the installed payload | Pass (Codex and Pi) |
+| Unknown before the first prompt | Pass (Codex) |
+| Working / Ready from hooks | Pass: Codex Ready, Pi Working and Ready, `status_source: hook` |
+| Needs input and its filter | Pass (owner) |
+| Close and reopen with agents running | Pass (owner); the Codex PID was unchanged |
+| Normal exit | Not recorded |
+
+These were point samples and the owner's observations, not a continuous
+trace. The build predates the Mac fixes; the update is held back while the
+agents run (see [install updates](install-updates.md)).
 
 ## Linux permission and background-workspace review — 2026-10-14
 
