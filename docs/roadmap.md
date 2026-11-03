@@ -101,7 +101,8 @@ installed from a release artifact on a machine without Python.
    restarts them in one step.
    Open: replacing an installed app while its shells run. Those shells keep
    the old install's agent launchers on `PATH`, so they need a stable location
-   outside the bundle before in-place updates are safe.
+   outside the bundle before in-place updates are safe
+   ([proposal](install-updates.md)).
    The manual checklist for input, IME, displays and trackpad stays in
    [the macOS build guide](macos-build.md#native-checks).
 7. [x] **Eight-by-eight ceiling removed** (2026-10-25). A window holds up to

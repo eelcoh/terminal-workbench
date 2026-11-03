@@ -154,6 +154,24 @@ The Mac run uses Copilot only. On Linux one of Claude or Codex is enough for
 the gate; Pi is optional. Permission, cancellation and policy edge cases stay
 with the sequence above and do not block this check.
 
+### macOS, installed build — 2026-11-03
+
+The owner ran `band-copilot` in a new terminal of the installed `Band.app`
+(macOS 26) and traced it with `BAND_STATE_DIR=~/.local/state/band just
+agent-watch 300`. The install commit and Copilot version were not recorded.
+
+| Step | Result |
+| --- | --- |
+| Launchers from the installed payload | Pass (an earlier attempt showed no status; a new terminal fixed it) |
+| No-tool or question turn | Pass: Working → Needs input → Working → Ready |
+| Needs input filter after switching workspace | Not recorded |
+| Close and reopen with the agent running | Not recorded |
+| Normal exit | Pass: Unknown, then identity cleared about 1.4 s later |
+
+The trace also listed every terminal stopped since the reboot as
+`unavailable` (connection refused): socket files without a runtime. That is
+expected and does not affect live terminals. Linux has not been run yet.
+
 ## Linux permission and background-workspace review — 2026-10-14
 
 Runtime/viewer base: `b85c0bb`. Real Claude Code **2.1.299** and Codex **0.162.1**
