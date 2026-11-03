@@ -519,9 +519,6 @@ fn temporary_file(directory: &Path, prefix: &str, contents: &str) -> Result<Path
 }
 
 fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool) -> Result<i32> {
-    let runtime = payload.join("bin/band-session");
-    let runtime =
-        fs::canonicalize(&runtime).map_err(|error| format!("{}: {error}", runtime.display()))?;
     let home = home();
     let cwd = fs::canonicalize(&home)
         .map_err(|error| format!("home folder {}: {error}", home.display()))?;
@@ -530,6 +527,13 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
         "session state",
         prepare_directory(&state).map_err(|error| format!("{}: {error}", state.display())),
     )?;
+    // Run from Band's own copy, so updating or removing the install never
+    // pulls helpers from under running shells; the lock lasts until the
+    // service holds the copy itself.
+    let (copy, _copy_lock) = stage("runtime copy", crate::payload::prepare(&state, payload))?;
+    let runtime = copy.join("bin/band-session");
+    let runtime =
+        fs::canonicalize(&runtime).map_err(|error| format!("{}: {error}", runtime.display()))?;
     let views = state.join("qt");
     match DirBuilder::new().mode(0o700).create(&views) {
         Err(error) if error.kind() != io::ErrorKind::AlreadyExists => {
@@ -538,7 +542,7 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
         _ => {}
     }
     let (lease, view) = stage("window slot", acquire_window_slot(&views))?;
-    let agent_bin = payload.join("bin");
+    let agent_bin = copy.join("bin");
     let catalog = stage(
         "session service",
         match initialize(&state, &runtime, &cwd, &agent_bin) {

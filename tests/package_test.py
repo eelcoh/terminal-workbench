@@ -103,9 +103,13 @@ def check_linux(root):
             assert 'Close every window' in refused.stderr, refused.stderr
         assert request(state, ROOT / 'target/debug/band-session', home, 'health')['service_pid'] == earlier_service
         launch()
+        config = json.loads(evidence.read_text())['config']
+        # Windows run from Band's own copy of the runtime, not from the install.
+        runtime = Path(config['runtime'])
+        first_copy = runtime.parent.parent
+        assert first_copy.parent == state / 'payloads' and runtime.name == 'band-session', runtime
         assert request(state, runtime, home, 'health')['service_pid'] != earlier_service
         os.kill(earlier_pid, 0)
-        config = json.loads(evidence.read_text())['config']
         assert config['catalog'] == earlier
         assert config['state'] == str(state) and config['cwd'] == str(home) and config['saved_session'] and config['installed']
         assert config['build_info']['version'] == package.version() and config['build_info']['kind'] == 'installed'
@@ -120,13 +124,23 @@ def check_linux(root):
             send(connection, 16, ('printf "%s\\n%s" "$$" "$BAND_AGENT_BIN" > ' + shlex.quote(str(proof)) + '\n').encode())
             wait_until(lambda: proof.exists() and len(proof.read_text().splitlines()) == 2)
             pid, agent_bin = proof.read_text().splitlines()
-            assert Path(agent_bin) == band / 'bin'
+            assert Path(agent_bin) == first_copy / 'bin'
         finally:
             connection.close()
         service = request(state, runtime, home, 'health')['service_pid']
         launch(exit_code=42)
         os.kill(int(pid), 0)
         assert request(state, runtime, home, 'health')['service_pid'] == service
+        # A new build at the same path gets its own copy and takes over the
+        # service; the running shell keeps the copy it started with.
+        with (band / 'bin/band-session').open('ab') as binary:
+            binary.write(b'\0')
+        launch()
+        runtime = Path(json.loads(evidence.read_text())['config']['runtime'])
+        assert runtime.parent.parent != first_copy and first_copy.is_dir()
+        assert request(state, runtime, home, 'health')['service_pid'] != service
+        os.kill(int(pid), 0)
+        assert (first_copy / 'bin/band-copilot').exists()
         # Each agent launcher resolves its integrations after relocation.
         commands = root / 'commands'; commands.mkdir()
         for agent in ('codex', 'claude', 'copilot', 'pi'):
@@ -138,7 +152,7 @@ def check_linux(root):
             arguments = json.loads(result.stdout)
             assert arguments[-1] == 'a spaced argument' and str(ROOT) not in result.stdout
             if agent == 'pi':
-                assert arguments[0] == '--extension' and Path(arguments[1]).is_relative_to(band)
+                assert arguments[0] == '--extension' and Path(arguments[1]).is_relative_to(Path(agent_bin).parent)
             if agent == 'copilot':
                 hooks = json.loads((Path(arguments[1]) / 'hooks.json').read_text())
                 for entry in hooks['hooks'].values():
@@ -150,6 +164,8 @@ def check_linux(root):
         def stopped():
             return next(t['state'] for t in request(state, runtime, home, 'health')['terminals'] if t['id'] == terminal) == 'stopped'
         wait_until(stopped); launch(); assert stopped()
+        # Nothing runs from the first copy any more, so that open removed it.
+        assert not first_copy.exists() and runtime.is_file()
         assert files(band) == payload, 'launching wrote into the release payload'
         # App menu entry: written, refreshed, removed; unknown arguments refused.
         data = root / 'data'
@@ -238,12 +254,16 @@ static int _NSGetExecutablePath(char *path,uint32_t *size) {
         assert result.returncode == 0, (result.returncode, result.stdout, result.stderr, log)
         config = json.loads(evidence.read_text())['config']
         assert config['state'] == str(state) and config['viewer'] == str((bundle / 'Contents/MacOS/band-ui').resolve())
+        assert Path(config['runtime']).parent.parent.parent == state / 'payloads', config['runtime']
         assert (state / 'launch.log').read_text().count('Band launch:') == 1
         refused = subprocess.run([str(bundle / 'Contents/MacOS/Band'), '--anything'], env=env, capture_output=True, text=True)
         assert refused.returncode == 2 and 'usage' in refused.stderr
     finally:
         if state.exists():
-            stop_all(state, payload / 'bin/band-session', home)
+            runtime = payload / 'bin/band-session'
+            if evidence.exists():
+                runtime = Path(json.loads(evidence.read_text())['config']['runtime'])
+            stop_all(state, runtime, home)
 
 
 def main():
@@ -254,7 +274,7 @@ def main():
         check_macos_layout(root / 'mac-layout')
         print('PASS: Band.app layout, Info.plist identity and Finder launcher handoff (structural, on Linux)', flush=True)
         check_linux(root / 'linux')
-        print('PASS: relocated Linux archive, user state, agent launchers, retained/stopped shells, read-only payload, desktop entry and offscreen Qt start')
+        print('PASS: relocated Linux archive, user state, runtime copies across an update, agent launchers, retained/stopped shells, read-only payload, desktop entry and offscreen Qt start')
 
 
 if __name__ == '__main__':

@@ -90,12 +90,24 @@ without extra setup.
 | --- | --- |
 | Settings and themes | `~/.config/band` (`XDG_CONFIG_HOME`, or `BAND_CONFIG_DIR`) |
 | Sessions, window state, launch log | `~/.local/state/band` (`XDG_STATE_HOME`, or `BAND_STATE_DIR`) |
+| Runtime copies | `~/.local/state/band/payloads/<version>-<hash>/` |
 
 Settings from `~/.config/terminal-workbench` are copied once on first start.
 State from the earlier preview (`~/.local/state/terminal-workbench/qt-preview`)
-is adopted in place, so shells started by a preview keep running. Shells
-started by an older install keep that install's helpers until they exit; keep
-the old install until then.
+is adopted in place, so shells started by a preview keep running.
+
+## Updating
+
+Close Band's windows, then replace or delete the install; shells keep running.
+(The Qt client still runs from the install, so keep it in place while a window
+is open.) Opening a window copies the install's `bin/` and `integrations/` (about 4 MB) into
+`payloads/`, and the session service, every terminal runtime and the agent
+launchers run from that copy. A new build gets a new copy, and the next window
+hands the session service over to it when no other window is open; shells
+started before keep their own copy until they exit. A copy nothing uses any
+more is removed when a window opens. The Qt client still runs from the install.
+Shells started by a build from before 2026-11-03 run from the install itself;
+keep that install until they exit. See [install updates](install-updates.md).
 
 ## Not yet
 

@@ -148,6 +148,7 @@ fn main() {
         eprintln!("usage: band-session SOCKET [--login-shell] [SHELL]");
         std::process::exit(2);
     }
+    band_runtime::payload::hold();
     if let Err(error) = band_runtime::session::serve_with_shell_launch(socket.into(), shell) {
         eprintln!("session: {error}");
         std::process::exit(1);
@@ -173,6 +174,7 @@ fn service(mut args: impl Iterator<Item = std::ffi::OsString>) -> Result<(), Str
         return Err(USAGE.into());
     };
     band_runtime::service::prepare_directory(&state)?;
+    band_runtime::payload::hold();
     let canonical = |path: &std::path::Path| {
         std::fs::canonicalize(path).map_err(|error| format!("{}: {error}", path.display()))
     };

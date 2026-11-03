@@ -20,6 +20,8 @@ pub mod launch;
 #[cfg(unix)]
 mod lifecycle;
 #[cfg(unix)]
+pub mod payload;
+#[cfg(unix)]
 mod platform;
 #[cfg(unix)]
 mod runtime_origin;

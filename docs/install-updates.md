@@ -1,6 +1,8 @@
 # Updating an installed Band
 
-Design note (2026-11-03): proposal for the owner, not implemented.
+Design note (2026-11-03). The owner chose the proposal below; it is
+implemented in `crates/runtime/src/payload.rs` and covered by the package
+test on Linux. A native Mac run from the copy is still pending.
 
 Band's shells must survive an update. Today they do, but what keeps serving
 them afterwards depends on where the new copy lands. This note records what

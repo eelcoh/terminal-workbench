@@ -99,10 +99,11 @@ installed from a release artifact on a machine without Python.
    install without quarantine ([packaging](packaging.md#install)). A Mac reboot
    left every shell stopped, as designed; Commands → **Start all stopped shells**
    restarts them in one step.
-   Open: replacing an installed app while its shells run. Those shells keep
-   the old install's agent launchers on `PATH`, so they need a stable location
-   outside the bundle before in-place updates are safe
-   ([proposal](install-updates.md)).
+   Installed windows now run the service, runtimes and agent launchers from a
+   Band-owned copy of each build, so replacing or deleting the install is safe
+   for running shells and a new build takes over the service
+   ([install updates](install-updates.md)). Tested on Linux; a native Mac run
+   from the copy is pending.
    The manual checklist for input, IME, displays and trackpad stays in
    [the macOS build guide](macos-build.md#native-checks).
 7. [x] **Eight-by-eight ceiling removed** (2026-10-25). A window holds up to
