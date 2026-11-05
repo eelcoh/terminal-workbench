@@ -133,6 +133,22 @@ fn main() {
         return;
     }
     let first = args.next();
+    if first
+        .as_ref()
+        .is_some_and(|argument| argument == "--command")
+    {
+        let (Some(text), None) = (args.next(), args.next()) else {
+            eprintln!("usage: band-session SOCKET --command TEXT");
+            std::process::exit(2);
+        };
+        band_runtime::payload::hold();
+        let shell = band_runtime::shell::ShellLaunch::user_default().with_command(text);
+        if let Err(error) = band_runtime::session::serve_with_shell_launch(socket.into(), shell) {
+            eprintln!("session: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     let login = first
         .as_ref()
         .is_some_and(|argument| argument == "--login-shell");

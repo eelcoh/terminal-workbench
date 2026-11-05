@@ -280,6 +280,11 @@ impl Authority {
                 Some(_) => fail("Invalid session service parameters"),
             }
         };
+        let started_app = match message.get("app") {
+            None | Some(Value::Null) => None,
+            Some(definition) if definition.is_object() => Some(definition.clone()),
+            Some(_) => return fail("Invalid app"),
+        };
         let project_directory = match message.get("project_directory") {
             None | Some(Value::Null) => None,
             Some(Value::String(value)) if value.len() <= 1023 => Some(value.clone()),
@@ -386,6 +391,8 @@ impl Authority {
                 {
                     let mut data = catalog::load(&self.directory)?;
                     self.reconcile(&mut data)?;
+                    // Apps that ended while no window was open, or before a reboot.
+                    catalog::prune_apps(&self.directory, &mut data)?;
                     catalog::save(&self.directory, &data)?;
                     return Ok(self.data_reply(data));
                 }
@@ -403,6 +410,9 @@ impl Authority {
                 let _lock = catalog::locked(&self.directory)?;
                 let mut data = catalog::load(&self.directory)?;
                 self.reconcile(&mut data)?;
+                if catalog::prune_apps(&self.directory, &mut data)? {
+                    catalog::save(&self.directory, &data)?;
+                }
                 let Some((workspace, terminal)) = find_terminal(&data, &identity) else {
                     return fail("Terminal no longer exists");
                 };
@@ -441,6 +451,7 @@ impl Authority {
             &destination,
             position,
             project_directory.as_deref(),
+            started_app.as_ref(),
             &mut self.children,
         )?;
         Ok(self.data_reply(data))

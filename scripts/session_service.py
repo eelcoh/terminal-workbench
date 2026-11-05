@@ -140,7 +140,7 @@ def service_command(directory, runtime, cwd):
             "--cwd", str(cwd), "--agent-bin", str(agent_bin)]
 
 
-def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None, terminal_ids=None, expected_instance=None):
+def request(directory, runtime, cwd, method="initialize", identity="", title="", destination="", position=-1, *, project_directory=None, terminal_ids=None, expected_instance=None, app=None):
     directory, runtime, cwd = directory.resolve(), runtime.resolve(), cwd.resolve()
     message = dict(protocol=PROTOCOL, method=method, identity=identity, title=title,
                    destination=destination, position=position, runtime=str(runtime), cwd=str(cwd), project_directory=project_directory)
@@ -148,6 +148,8 @@ def request(directory, runtime, cwd, method="initialize", identity="", title="",
         message["expected_instance"] = expected_instance
     if method == "session.stop":
         message["terminal_ids"] = terminal_ids
+    if app is not None:
+        message["app"] = app
     try:
         return exchange(directory, message)
     except Unavailable:

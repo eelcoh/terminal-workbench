@@ -17,6 +17,9 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 // limit; a workspace may hold any share of the terminals.
 pub(crate) const MAX_WORKSPACES: usize = 64;
 pub(crate) const MAX_TERMINALS: usize = 256;
+/// Apps carry a command and folder; the cap keeps the worst-case catalog
+/// inside one service message.
+pub(crate) const MAX_APPS: usize = 64;
 
 pub(crate) type Result<T> = std::result::Result<T, String>;
 
@@ -318,6 +321,64 @@ fn valid_identity(identity: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
 }
 
+/// The app a terminal runs instead of a shell, as saved when it was started.
+pub(crate) fn app(terminal: &Value) -> Option<&Value> {
+    terminal.get("app")
+}
+
+fn validate_app(definition: &Value) -> Result<()> {
+    let Some(fields) = definition.as_object() else {
+        return fail("Invalid app");
+    };
+    if fields
+        .keys()
+        .any(|key| !matches!(key.as_str(), "id" | "command" | "directory"))
+    {
+        return fail("Invalid app field");
+    }
+    if !valid_identity(definition["id"].as_str().unwrap_or("")) {
+        return fail("Invalid app identity");
+    }
+    let command = definition["command"].as_str().unwrap_or("");
+    if command.trim().is_empty() || command.len() > 1023 || has_control(command) {
+        return fail("An app command must be one line of at most 1023 bytes");
+    }
+    if let Some(folder) = definition.get("directory") {
+        directory_value(folder.as_str().unwrap_or(""), None, false)?;
+    }
+    Ok(())
+}
+
+/// Remove app terminals whose program has ended. An app is never restarted,
+/// only started again from its definition; this runs before any recovery.
+pub(crate) fn prune_apps(directory: &Path, data: &mut Value) -> Result<bool> {
+    if ["pending_create", "pending_stop", "pending_close"]
+        .iter()
+        .any(|key| data.get(*key).is_some())
+    {
+        return Ok(false);
+    }
+    let mut ended = Vec::new();
+    for terminal in workspaces(data).iter().flat_map(terminals) {
+        if app(terminal).is_none() {
+            continue;
+        }
+        let path = socket_path(directory, id(terminal))?;
+        // Only absence or refusal establishes an ended app; keep it otherwise.
+        let live = |endpoint: &Path| endpoint_alive(endpoint).unwrap_or(true);
+        if !live(&path.with_extension("ctl")) && !live(&path) {
+            ended.push(id(terminal).to_owned());
+        }
+    }
+    if ended.is_empty() {
+        return Ok(false);
+    }
+    for workspace in workspaces_mut(data) {
+        terminals_mut(workspace).retain(|terminal| !ended.iter().any(|i| i == id(terminal)));
+    }
+    Ok(true)
+}
+
 pub(crate) fn validate(data: &Value) -> Result<()> {
     if !data.is_object() || data.get("version").and_then(Value::as_f64) != Some(1.0) {
         return fail("Unsupported workspace metadata version");
@@ -354,9 +415,24 @@ pub(crate) fn validate(data: &Value) -> Result<()> {
                 return fail("Invalid custom terminal name flag");
             }
         }
+        let mut apps = std::collections::HashSet::new();
+        for definition in terminals(workspace).iter().filter_map(app) {
+            validate_app(definition)?;
+            if !apps.insert(definition["id"].as_str()) {
+                return fail("An app runs at most once per workspace");
+            }
+        }
     }
     if terminal_count(data) > MAX_TERMINALS {
         return fail("Invalid terminal count");
+    }
+    let apps = workspaces
+        .iter()
+        .flat_map(terminals)
+        .filter(|terminal| app(terminal).is_some())
+        .count();
+    if apps > MAX_APPS {
+        return fail(format!("Band runs at most {MAX_APPS} apps at once"));
     }
     validate_pending(data)
 }
@@ -598,9 +674,21 @@ pub(crate) fn ensure_sessions(
                 .open(directory.join(&log_name))
                 .map_err(os)?;
             let mut command = Command::new(&launch.runtime);
+            command.arg(&path);
+            let folder = match app(terminal) {
+                Some(definition) => {
+                    command
+                        .arg("--command")
+                        .arg(definition["command"].as_str().unwrap_or(""));
+                    match definition.get("directory").and_then(Value::as_str) {
+                        Some(folder) => directory_value(folder, None, true)?,
+                        None => workspace_folder(workspace, launch)?,
+                    }
+                }
+                None => workspace_folder(workspace, launch)?,
+            };
             command
-                .arg(&path)
-                .current_dir(workspace_folder(workspace, launch)?)
+                .current_dir(folder)
                 .stdin(Stdio::null())
                 .stdout(log.try_clone().map_err(os)?)
                 .stderr(log);
@@ -703,6 +791,12 @@ fn move_terminal(data: &mut Value, identity: &str, destination: &str, position: 
     let Some(target) = list.iter().position(|w| id(w) == destination) else {
         return fail("Destination workspace no longer exists");
     };
+    let moving_app = terminals(&list[source])
+        .iter()
+        .any(|t| id(t) == identity && app(t).is_some());
+    if moving_app && source != target {
+        return fail("Apps stay in the workspace they were started in");
+    }
     let count = terminals(&list[target]).len();
     let remaining = count - usize::from(source == target);
     let position = if position == -1 {
@@ -1001,6 +1095,7 @@ pub(crate) fn manage(
     destination: &str,
     position: i64,
     project_directory: Option<&str>,
+    started_app: Option<&Value>,
     children: &mut Vec<(String, Child)>,
 ) -> Result<Value> {
     let _lock = locked(directory)?;
@@ -1008,6 +1103,13 @@ pub(crate) fn manage(
     let mut data = load(directory)?;
     finish_create(directory, &mut data)?;
     finish_stop(directory, &launch.runtime, &mut data)?;
+    // Ended apps leave before recovery can restart them.
+    if prune_apps(directory, &mut data)? {
+        save(directory, &data)?;
+    }
+    if started_app.is_some() && method != "terminal.create" {
+        return fail("Only terminal.create starts an app");
+    }
     let explicit_recovery = method == "session.recover";
     let mut method = method.to_owned();
     // Recover interrupted close before any startup, never resurrect its shells.
@@ -1046,6 +1148,23 @@ pub(crate) fn manage(
     }
     if method != "initialize" && method != "initialize-new" {
         mutate(&mut data, &method, identity, title, destination, position)?;
+    }
+    if let Some(definition) = started_app {
+        let workspace = workspaces_mut(&mut data)
+            .iter_mut()
+            .find(|w| id(w) == identity)
+            .expect("terminal.create checked its workspace");
+        let mut definition = definition.clone();
+        validate_app(&json!({"id": definition["id"], "command": definition["command"]}))?;
+        // A relative or ~ folder is fixed when the app starts.
+        if let Some(folder) = definition.get("directory").and_then(Value::as_str) {
+            let base = PathBuf::from(workspace_folder(workspace, launch)?);
+            definition["directory"] = json!(directory_value(folder, Some(&base), true)?);
+        }
+        terminals_mut(workspace)
+            .last_mut()
+            .expect("terminal.create added a terminal")["app"] = definition;
+        validate(&data)?;
     }
     check_sockets(directory, &data)?; // Before committing intent.
     let startup = if method == "initialize" {
@@ -1147,6 +1266,60 @@ mod tests {
     }
 
     #[test]
+    fn apps_are_validated_unique_per_workspace_and_stay_put() {
+        let with_app = |definition: Value| {
+            let mut data = sample();
+            data["workspaces"][0]["terminals"][1]["app"] = definition;
+            data
+        };
+        assert!(validate(&with_app(json!({"id": "lazygit", "command": "lazygit"}))).is_ok());
+        assert!(validate(&with_app(
+            json!({"id": "btop", "command": "btop", "directory": "/tmp"})
+        ))
+        .is_ok());
+        for invalid in [
+            json!("lazygit"),
+            json!({"id": "lazygit"}),
+            json!({"id": "lazygit", "command": "  "}),
+            json!({"id": "lazygit", "command": "a\nb"}),
+            json!({"id": "lazygit", "command": "x".repeat(1024)}),
+            json!({"id": "has space", "command": "x"}),
+            json!({"id": "lazygit", "command": "x", "directory": "relative"}),
+            json!({"id": "lazygit", "command": "x", "icon": "g"}),
+        ] {
+            assert!(validate(&with_app(invalid.clone())).is_err(), "{invalid}");
+        }
+        let mut twice = with_app(json!({"id": "lazygit", "command": "lazygit"}));
+        twice["workspaces"][0]["terminals"][0]["app"] = json!({"id": "lazygit", "command": "lg"});
+        assert!(validate(&twice).is_err());
+        // The same app may run in another workspace.
+        let mut elsewhere = with_app(json!({"id": "lazygit", "command": "lazygit"}));
+        elsewhere["workspaces"][1]["terminals"] =
+            json!([{"id": "c", "name": "Git", "app": {"id": "lazygit", "command": "lazygit"}}]);
+        assert!(validate(&elsewhere).is_ok());
+        // Reordering within the workspace is fine; leaving it is not.
+        let mut data = with_app(json!({"id": "lazygit", "command": "lazygit"}));
+        move_terminal(&mut data, "b", "w1", 0).unwrap();
+        assert!(move_terminal(&mut data, "b", "w2", 0).is_err());
+        assert_eq!(id(&terminals(&workspaces(&data)[0])[0]), "b");
+    }
+
+    #[test]
+    fn ended_apps_are_pruned_but_shells_and_pending_changes_are_not() {
+        let root = temporary("prune");
+        let mut data = sample();
+        data["workspaces"][0]["terminals"][1]["app"] = json!({"id": "btop", "command": "btop"});
+        assert!(prune_apps(&root, &mut data).unwrap());
+        assert_eq!(terminal_ids(&data), ["a"]);
+        let mut pending = sample();
+        pending["workspaces"][0]["terminals"][1]["app"] = json!({"id": "btop", "command": "btop"});
+        pending["pending_stop"] = json!(["b"]);
+        assert!(!prune_apps(&root, &mut pending).unwrap());
+        assert_eq!(terminal_ids(&pending), ["a", "b"]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn moves_respect_positions_without_a_per_workspace_cap() {
         let mut data = sample();
         move_terminal(&mut data, "b", "w1", 0).unwrap();
@@ -1175,13 +1348,22 @@ mod tests {
         for w in 0..MAX_WORKSPACES {
             let count = MAX_TERMINALS / MAX_WORKSPACES;
             let terminals: Vec<Value> = (0..count)
-                .map(|t| json!({"id": format!("{w:0>20}{t:0>20}"), "name": long(63), "custom_name": true}))
+                .map(|t| {
+                    let mut terminal = json!({"id": format!("{w:0>20}{t:0>20}"), "name": long(63), "custom_name": true});
+                    // One app per workspace reaches MAX_APPS with the longest values.
+                    if t == 0 {
+                        terminal["app"] = json!({"id": "x".repeat(40), "command": long(1023),
+                            "directory": format!("/{}", long(1022))});
+                    }
+                    terminal
+                })
                 .collect();
             list.push(json!({"id": format!("w{w:0>39}"), "name": long(63),
                 "directory": format!("/{}", long(1022)), "terminals": terminals}));
         }
         let data = json!({"version": 1, "workspaces": list});
         assert_eq!(terminal_count(&data), MAX_TERMINALS);
+        assert!(validate(&data).is_ok());
         let bytes = serde_json::to_vec(&data).unwrap().len();
         assert!(
             bytes * 2 < super::super::LIMIT,
@@ -1253,6 +1435,7 @@ mod tests {
             "",
             -1,
             None,
+            None,
             &mut Vec::new(),
         )
     }
@@ -1272,6 +1455,7 @@ mod tests {
             "",
             destination,
             position,
+            None,
             None,
             &mut children,
         );
@@ -1379,6 +1563,7 @@ mod tests {
             "",
             "",
             -1,
+            None,
             None,
             &mut children,
         )

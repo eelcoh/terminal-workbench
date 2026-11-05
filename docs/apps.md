@@ -1,6 +1,8 @@
 # Apps (v0.2 plan)
 
-Plan (2026-11-05), not implemented. Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
+Plan (2026-11-05). Slice 1 (runtime and catalog) is implemented; see
+[app terminals](session-service.md#app-terminals). Nothing in the UI starts an
+app yet. Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
 TUIs such as lazygit and btop live next to the strip and are one key away.
 Running apps belong to their workspace (owner, 2026-11-05).
 
@@ -9,7 +11,8 @@ Running apps belong to their workspace (owner, 2026-11-05).
 An app is a runtime terminal like any other, so it survives detach, window
 close and service handover. The difference is in the catalog and the client:
 
-- **Catalog.** A terminal entry may carry `"app": "<name>"`. It stays in its
+- **Catalog.** A terminal entry may carry `"app": {"id", "command",
+  "directory"}`, saved when the app starts. It stays in its
   workspace's `terminals` list, so moves, recovery and shutdown need no new
   paths, but the strip skips it.
 - **Runtime.** The service starts an app's runtime with the command from its
@@ -17,9 +20,9 @@ close and service handover. The difference is in the catalog and the client:
   `$SHELL -l -c '<command>'`, so `PATH` from the login shell (Homebrew,
   `~/.local/bin`) applies and quoting is the shell's. It starts in the
   definition's directory, or the workspace folder by default.
-- **Exit.** When the program exits, the pane closes: the client dismisses an
-  exited app terminal instead of offering a restart. With no window open, the
-  next window dismisses it.
+- **Exit.** When the program exits, the pane closes. The service removes an
+  ended app terminal on the next catalog change or window open, and the client
+  (slice 4) closes its pane at once.
 - **After a reboot**, stopped apps are dismissed, not restarted. Starting one
   again is one key. **Start all stopped shells** skips them.
 - **Client state.** Which app is in the side panel, and the panel's width, are
@@ -46,10 +49,11 @@ today.
 
 ## Slices
 
-1. **Runtime and catalog.** `terminal.create` takes an optional app (ID,
+1. [x] **Runtime and catalog.** `terminal.create` takes an optional app (ID,
    command, directory). The runtime gains a command mode. Exited and
-   after-reboot app terminals are dismissed; recovery and bulk start skip
-   them. Rust unit tests, plus service tests over the socket.
+   after-reboot app terminals are removed; recovery and bulk start never
+   restart them. At most 64 apps and 1023-byte commands keep the worst-case
+   catalog in one message. Rust unit tests and `tests/app_terminal_test.py`.
 2. **Definitions.** Parse `[app.*]` in the Qt client's config reader, with the
    existing validation and startup notice. Config tests.
 3. **The rail, one panel per icon.** Replace the drawer's Workspaces/Agents

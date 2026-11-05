@@ -130,6 +130,23 @@ shutdown when the service lacks support.
 The removed staged-preview launcher used this runtime method for its explicit
 `--activate`. The service does not know about Qt, window slots or app bundles.
 
+## App terminals
+
+`terminal.create` takes an optional `app` object: `id` (a session-style
+identity), `command` (one line, at most 1023 bytes) and an optional
+`directory`, resolved against the workspace folder when the app starts and
+saved absolute. The terminal entry keeps that object as `app`. Its runtime runs
+`band-session SOCKET --command TEXT`, which starts the user's shell as
+`-l -c TEXT` (without `-l` for shells that lack it), so the terminal ends
+when the command does.
+
+An app runs at most once per workspace and cannot move to another workspace;
+the catalog holds at most 64 apps, which keeps the worst-case catalog inside
+one message. An app terminal with no live endpoint is removed from the catalog
+when a window initializes, before any change, and before `session.recover` or
+`terminal.recover`, so an app is never restarted: it is started again from its
+definition. Pending journals defer the removal.
+
 ## Remove a stopped terminal
 
 `terminal.dismiss` accepts a stable terminal identity with the normal service

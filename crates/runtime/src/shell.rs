@@ -7,6 +7,7 @@ pub struct ShellLaunch {
     executable: OsString,
     login: bool,
     user_default: bool,
+    command: Option<OsString>,
 }
 
 fn select_shell(
@@ -48,6 +49,7 @@ impl ShellLaunch {
             executable,
             login: false,
             user_default: false,
+            command: None,
         }
     }
 
@@ -68,6 +70,7 @@ impl ShellLaunch {
             executable,
             login,
             user_default: true,
+            command: None,
         }
     }
 
@@ -78,6 +81,14 @@ impl ShellLaunch {
         self
     }
 
+    /// Run an app's command line through the login shell, so its PATH and
+    /// quoting apply; the terminal ends when the command does.
+    pub fn with_command(mut self, text: OsString) -> Self {
+        self.login = supports_login(Path::new(&self.executable));
+        self.command = Some(text);
+        self
+    }
+
     pub(crate) fn command(self) -> CommandBuilder {
         let mut command = CommandBuilder::new(&self.executable);
         if self.user_default {
@@ -85,6 +96,10 @@ impl ShellLaunch {
         }
         if self.login {
             command.arg("-l");
+        }
+        if let Some(text) = self.command {
+            command.arg("-c");
+            command.arg(text);
         }
         command
     }
@@ -113,6 +128,17 @@ mod tests {
             select_shell(None, Some("/missing".into()), valid),
             "/bin/sh"
         );
+    }
+
+    #[test]
+    fn apps_run_through_a_login_shell_command_line() {
+        let argv = |launch: ShellLaunch| launch.command().get_argv().clone();
+        let app = ShellLaunch::explicit("/bin/zsh".into()).with_command("lazygit -p 'a b'".into());
+        assert_eq!(argv(app), ["/bin/zsh", "-l", "-c", "lazygit -p 'a b'"]);
+        // A shell without a known login flag still runs the command.
+        let other = ShellLaunch::explicit("/opt/xonsh".into()).with_command("btop".into());
+        assert_eq!(argv(other), ["/opt/xonsh", "-c", "btop"]);
+        assert_eq!(argv(ShellLaunch::explicit("/bin/sh".into())), ["/bin/sh"]);
     }
 
     #[test]

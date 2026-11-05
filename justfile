@@ -47,6 +47,7 @@ check: runtime-build
     python3 tests/service_startup_cleanup_test.py
     python3 tests/lifecycle_smoke.py target/debug/band-session
     python3 tests/terminal_dismiss_test.py target/debug/band-session
+    python3 tests/app_terminal_test.py target/debug/band-session
     python3 tests/workspace_directories_test.py target/debug/band-session
     python3 tests/window_slots_test.py
 
@@ -299,6 +300,10 @@ pi-observer-test:
 # Metadata-only exited-pane removal and live/recovery race protection.
 terminal-dismiss-test: runtime-build
     python3 tests/terminal_dismiss_test.py target/debug/band-session
+
+# App terminals: command mode, workspace rules, removal on exit and recovery.
+app-terminal-test: runtime-build
+    python3 tests/app_terminal_test.py target/debug/band-session
 
 # Read-only per-terminal runtime diagnostics, parser bounds and cancellation.
 toolkit-runtime-info-test: toolkit-client
