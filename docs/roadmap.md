@@ -139,7 +139,8 @@ Goal: TUIs such as lazygit and btop live next to the strip and are one key away.
 - An app pane is an ordinary runtime terminal, so it survives detach and
   restart. Its placement and visibility are client state. When the program
   exits, its pane closes instead of dropping to a shell.
-- Open: whether running apps belong to a workspace or to the window.
+- Running apps belong to their workspace (owner, 2026-11-05): each workspace
+  has its own apps, and the dock shows the current workspace's apps.
 
 ## v0.3: SSH hosts and worktrees
 

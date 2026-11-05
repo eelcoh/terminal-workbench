@@ -4,6 +4,14 @@ Design note (2026-11-03). The owner chose the proposal below; it is
 implemented in `crates/runtime/src/payload.rs` and covered by the package
 test on Linux. A native Mac run from the copy is still pending.
 
+First real update, Linux, 2026-11-03: the owner closed the window with Codex
+and Pi running, installed `8ba5e8e` over the `16e5b9f` folder with
+`just package-install` and reopened Band. The service moved to
+`payloads/0.1.0-96516f5a36ce04b7/`; Codex kept its PID and both agents still
+reported Ready. The five existing shells still run the install's runtime, as
+expected for shells started before this change, and now use the replaced
+folder's launchers until they restart.
+
 Band's shells must survive an update. Today they do, but what keeps serving
 them afterwards depends on where the new copy lands. This note records what
 happens now and proposes one change.
