@@ -22,6 +22,26 @@ typedef struct {
     bool has_application,has_terminal,has_follow,follow;
     ShortcutState shortcuts;
 } PortableConfig;
+/* App definitions ([app.ID], [linux.app.ID], [macos.app.ID]); see docs/apps.md. */
+#define PORTABLE_APP_MAX 32
+#define PORTABLE_APP_SECTIONS (PORTABLE_APP_MAX*3)
+typedef struct { char id[41],name[64],command[1024],directory[1024]; } PortableApp;
+/* About 270 KB: callers that want apps allocate it; others pass NULL and only validate. */
+typedef struct {
+    int count;PortableApp apps[PORTABLE_APP_MAX];
+    PortableApp sections[PORTABLE_APP_SECTIONS];
+} PortableApps;
+static bool portable_app_id(const char *text)
+{
+    size_t length=strlen(text);if (!length || length>40) return false;
+    for (const char *p=text;*p;p++) if (!isalnum((unsigned char)*p) && *p!='-' && *p!='_') return false;
+    return true;
+}
+static bool portable_plain(const char *value)
+{
+    for (const unsigned char *p=(const unsigned char *)value;*p;p++) if (*p<32 || *p==127) return false;
+    return true;
+}
 static char *portable_trim(char *text)
 {
     while (*text && isspace((unsigned char)*text)) text++;
@@ -47,19 +67,35 @@ static bool portable_theme(const char *config,const char *value,Theme *out,char 
 }
 /* Font-only clients validate fields without opening appearance assets they do not use.
  * When false, theme values are neither resolved nor advertised as loaded colors. */
-static bool portable_read_with_theme_files(const char *path,bool apple,bool load_theme_files,PortableConfig *out,char *error,size_t capacity)
+static bool portable_read_full(const char *path,bool apple,bool load_theme_files,PortableConfig *out,PortableApps *apps,char *error,size_t capacity)
 {
+    if (apps) apps->count=0;
     PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default(),.terminal_width=0.5};
     if (!path) { *out=next;return true; }
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
     PortableLayer layers[3]={0};char line[2048];int section=-1,kind=0,number=1;
+    struct { char id[41];int layer;bool name,command,directory; } app_sections[PORTABLE_APP_SECTIONS];int app_count=0,app=-1;
     // Files written before the rename to Band keep their workbench header.
     bool valid=fgets(line,sizeof(line),file) && (!strcmp(line,"band-config-v1\n") || !strcmp(line,"workbench-config-v1\n"));
     while (valid && fgets(line,sizeof(line),file)) {
         number++;if (number>512 || !strchr(line,'\n')) {valid=false;break;}
         char *text=portable_trim(line);if (!*text || *text=='#') continue;
         if (*text=='[') {
+            app=-1;size_t length=strlen(text);
+            const char *prefixes[]={"[app.","[linux.app.","[macos.app."};int layer=-1;
+            for (int i=0;i<3;i++) if (!strncmp(text,prefixes[i],strlen(prefixes[i]))) layer=i;
+            if (layer>=0) {
+                char *id=text+strlen(prefixes[layer]);
+                if (text[length-1]!=']' || app_count>=PORTABLE_APP_SECTIONS) {valid=false;break;}
+                text[length-1]=0;if (!portable_app_id(id)) {valid=false;break;}
+                for (int i=0;i<app_count;i++) if (app_sections[i].layer==layer && !strcmp(app_sections[i].id,id)) valid=false;
+                if (!valid) break;
+                app=app_count++;memset(&app_sections[app],0,sizeof(app_sections[app]));
+                strcpy(app_sections[app].id,id);app_sections[app].layer=layer;
+                if (apps) {memset(&apps->sections[app],0,sizeof(apps->sections[app]));strcpy(apps->sections[app].id,id);}
+                section=layer;kind=5;continue;
+            }
             static const char *sections[]={"[appearance]","[shortcuts]","[font]","[workspace]","[view]","[linux.appearance]","[linux.shortcuts]","[linux.font]","[linux.workspace]","[linux.view]","[macos.appearance]","[macos.shortcuts]","[macos.font]","[macos.workspace]","[macos.view]"};
             int found=-1;for (int i=0;i<15;i++) if (!strcmp(text,sections[i])) found=i;
             if (found<0) {valid=false;break;}section=found/5;kind=found%5;continue;
@@ -67,7 +103,14 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
         char *equal=strchr(text,'=');if (section<0 || !equal) {valid=false;break;}*equal++=0;
         char *key=portable_trim(text),*value=portable_trim(equal);PortableLayer *layer=&layers[section];
         if (!*value) {valid=false;break;}
-        if (kind==4) {
+        if (kind==5) {
+            bool *seen=NULL;char *target=NULL;size_t size=0;PortableApp *values=apps ? &apps->sections[app] : NULL;
+            if (!strcmp(key,"name")) {seen=&app_sections[app].name;size=sizeof(values->name);if (values) target=values->name;}
+            else if (!strcmp(key,"command")) {seen=&app_sections[app].command;size=sizeof(values->command);if (values) target=values->command;}
+            else if (!strcmp(key,"directory")) {seen=&app_sections[app].directory;size=sizeof(values->directory);if (values) target=values->directory;}
+            if (!seen || *seen || strlen(value)>=size || !portable_plain(value)) {valid=false;break;}
+            *seen=true;if (target) strcpy(target,value);
+        } else if (kind==4) {
             bool *seen=NULL,*setting=NULL;
             if (!strcmp(key,"navigation-pinned")) {seen=&layer->has_navigation_pinned;setting=&layer->navigation_pinned;}
             else if (!strcmp(key,"reduced-motion")) {seen=&layer->has_reduced_motion;setting=&layer->reduced_motion;}
@@ -114,6 +157,39 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
     if (ferror(file)) valid=false;
     fclose(file);
     if (!valid) {snprintf(error,capacity,"Invalid dotfile near line %d; preferences kept",number);return false;}
+    /* Every app has a command on both platforms: a platform section either
+     * overrides an [app.ID] or defines a platform-only app in full. */
+    int distinct=0;
+    for (int i=0;i<app_count;i++) {
+        int base=-1,first=i;
+        for (int j=0;j<app_count;j++) if (!strcmp(app_sections[j].id,app_sections[i].id)) {
+            if (app_sections[j].layer==0) base=j;
+            if (j<first) first=j;
+        }
+        if (first==i) distinct++;
+        if (!app_sections[i].command && (app_sections[i].layer==0 || base<0)) {snprintf(error,capacity,"App %s needs a command; preferences kept",app_sections[i].id);return false;}
+    }
+    if (distinct>PORTABLE_APP_MAX) {snprintf(error,capacity,"At most %d apps can be defined; preferences kept",PORTABLE_APP_MAX);return false;}
+    if (apps) {
+        int layer=apple ? 2 : 1;
+        for (int i=0;i<app_count;i++) {
+            int base=-1,platform=-1,first=i;
+            for (int j=0;j<app_count;j++) if (!strcmp(app_sections[j].id,app_sections[i].id)) {
+                if (app_sections[j].layer==0) base=j;
+                if (app_sections[j].layer==layer) platform=j;
+                if (j<first) first=j;
+            }
+            if (first!=i || (base<0 && platform<0)) continue;
+            PortableApp *result=&apps->apps[apps->count++];*result=apps->sections[base>=0 ? base : platform];
+            if (platform>=0 && base>=0) {
+                const PortableApp *over=&apps->sections[platform];
+                if (app_sections[platform].name) strcpy(result->name,over->name);
+                if (app_sections[platform].command) strcpy(result->command,over->command);
+                if (app_sections[platform].directory) strcpy(result->directory,over->directory);
+            }
+            if (!result->name[0]) memcpy(result->name,result->id,strlen(result->id)+1); /* IDs fit names */
+        }
+    }
     PortableLayer *platform=&layers[apple ? 2 : 1];
     next.navigation_pinned=platform->has_navigation_pinned ? platform->navigation_pinned : layers[0].navigation_pinned;
     next.reduced_motion=platform->has_reduced_motion ? platform->reduced_motion : layers[0].reduced_motion;
@@ -142,6 +218,10 @@ static bool portable_read_with_theme_files(const char *path,bool apple,bool load
             next.shortcuts.bindings[i]=(ShortcutChord){0};
     if (!shortcut_valid(&next.shortcuts,error,capacity)) return false;
     *out=next;error[0]=0;return true;
+}
+static bool portable_read_with_theme_files(const char *path,bool apple,bool load_theme_files,PortableConfig *out,char *error,size_t capacity)
+{
+    return portable_read_full(path,apple,load_theme_files,out,NULL,error,capacity);
 }
 /* The working viewer retains full theme validation and its transaction boundary. */
 static inline bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)

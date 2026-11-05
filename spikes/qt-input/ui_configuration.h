@@ -6,6 +6,7 @@
 #include "ui_fonts.h"
 #include "creation_defaults.h"
 #include "view_defaults.h"
+#include "app_definitions.h"
 #include "ui_appearance.h"
 #include "ui_shortcuts.h"
 
@@ -17,6 +18,7 @@ class UiConfiguration final : public QObject {
     Q_PROPERTY(bool navigationPinned READ navigationPinned NOTIFY changed)
     Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY changed)
     Q_PROPERTY(int themeIndex READ themeIndex NOTIFY changed)
+    Q_PROPERTY(QVariantList apps READ apps NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY changed)
     Q_PROPERTY(QString managedPath READ managedPath CONSTANT)
@@ -29,6 +31,7 @@ public:
     double terminalWidth() const {return creation_.terminalWidth;}
     bool navigationPinned() const {return view_.navigationPinned;}
     bool reducedMotion() const {return view_.reducedMotion;}
+    QVariantList apps() const {return apps_.apps;}
     int themeIndex() const {return appearance_?appearance_->themeIndex():0;}
     QString error() const {return error_;}
     QString status() const {return status_;}
@@ -48,7 +51,7 @@ private:
     void watchSources();
     bool refresh(bool manual);
     UiAppearance *appearance_;
-    bool apple_;CreationDefaults creation_;ViewDefaults view_;
+    bool apple_;CreationDefaults creation_;ViewDefaults view_;AppDefinitions apps_;
     UiFonts &fonts_;UiShortcuts &shortcuts_;
     QFileSystemWatcher watcher_;QTimer debounce_;
     QMap<QString,QByteArray> attempted_;

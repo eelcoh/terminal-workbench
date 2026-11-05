@@ -52,6 +52,24 @@ int main(void)
     assert(portable_read(path,true,&view,error,sizeof(error)) && view.navigation_pinned && !view.reduced_motion);
     assert(portable_read(path,false,&view,error,sizeof(error)) && !view.navigation_pinned && view.reduced_motion);
     assert(portable_read(NULL,false,&view,error,sizeof(error)) && !view.navigation_pinned && !view.reduced_motion);
+    /* Apps: platform sections override [app.ID] fields or define a platform-only app. */
+    write_text(path,"band-config-v1\n[app.lazygit]\nname = Lazygit\ncommand = lazygit\n[macos.app.lazygit]\ncommand = /opt/homebrew/bin/lazygit\n"
+        "[app.btop]\ncommand = btop --utf-force\ndirectory = ~\n[linux.app.htop]\ncommand = htop\n[font]\nsize = 18\n");
+    PortableApps *apps=calloc(1,sizeof(*apps));assert(apps);PortableConfig with_apps;
+    assert(portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)) && apps->count==3 && with_apps.font.size==18);
+    assert(!strcmp(apps->apps[0].id,"lazygit") && !strcmp(apps->apps[0].name,"Lazygit") && !strcmp(apps->apps[0].command,"lazygit"));
+    assert(!strcmp(apps->apps[1].name,"btop") && !strcmp(apps->apps[1].command,"btop --utf-force") && !strcmp(apps->apps[1].directory,"~"));
+    assert(!strcmp(apps->apps[2].id,"htop"));
+    assert(portable_read_full(path,true,false,&with_apps,apps,error,sizeof(error)) && apps->count==2);
+    assert(!strcmp(apps->apps[0].command,"/opt/homebrew/bin/lazygit") && !strcmp(apps->apps[0].name,"Lazygit"));
+    /* Readers that do not ask for apps still accept the file. */
+    assert(portable_read(path,false,&with_apps,error,sizeof(error)));
+    char many[8192]="band-config-v1\n";
+    for(int i=0;i<=PORTABLE_APP_MAX;i++){char entry[64];snprintf(entry,sizeof(entry),"[app.a%d]\ncommand = true\n",i);strcat(many,entry);}
+    write_text(path,many);assert(!portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)) && strstr(error,"At most"));
+    write_text(path,"band-config-v1\n[macos.app.lazygit]\nname = Git\n");
+    assert(!portable_read(path,false,&with_apps,error,sizeof(error)) && strstr(error,"needs a command"));
+    free(apps);
     PortableConfig unchanged=linux_config;
     const char *bad[]={
         "band-config-v1\n[view]\nnavigation-pinned = yes\n",
@@ -75,7 +93,15 @@ int main(void)
         "band-config-v1\n[shortcuts]\nforward = Super+Alt+P\ncommands = Super+Alt+P\n",
         "band-config-v1\n[appearance]\nfollow-workspace = maybe\n",
         "band-config-v1\n[appearance]\nterminal-theme = absent\n",
-        "band-config-v1\n[appearance]\nterminal-theme = Workbench Night"};
+        "band-config-v1\n[appearance]\nterminal-theme = Workbench Night",
+        "band-config-v1\n[app.lazygit]\nname = Lazygit\n",
+        "band-config-v1\n[app.lazygit]\ncommand = a\ncommand = b\n",
+        "band-config-v1\n[app.lazygit]\ncommand = a\n[app.lazygit]\ncommand = b\n",
+        "band-config-v1\n[app.lazygit]\ncommand = a\nicon = g\n",
+        "band-config-v1\n[app.has space]\ncommand = a\n",
+        "band-config-v1\n[app.]\ncommand = a\n",
+        "band-config-v1\n[app.x]\ncommand = a\tb\n",
+        "band-config-v1\n[apps.x]\ncommand = a\n"};
     for (size_t i=0;i<sizeof(bad)/sizeof(*bad);i++) {
         write_text(path,bad[i]);assert(!portable_read(path,false,&linux_config,error,sizeof(error)));
         assert(!memcmp(&linux_config,&unchanged,sizeof(linux_config)) && error[0]);

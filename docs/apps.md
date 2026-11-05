@@ -1,8 +1,8 @@
 # Apps (v0.2 plan)
 
-Plan (2026-11-05). Slice 1 (runtime and catalog) is implemented; see
-[app terminals](session-service.md#app-terminals). Nothing in the UI starts an
-app yet. Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
+Plan (2026-11-05). Slice 1 (runtime and catalog) and slice 2 (definitions)
+are implemented; see [app terminals](session-service.md#app-terminals) and
+[dotfiles](dotfiles.md#apps). Nothing in the UI starts an app yet. Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
 TUIs such as lazygit and btop live next to the strip and are one key away.
 Running apps belong to their workspace (owner, 2026-11-05).
 
@@ -54,8 +54,10 @@ today.
    after-reboot app terminals are removed; recovery and bulk start never
    restart them. At most 64 apps and 1023-byte commands keep the worst-case
    catalog in one message. Rust unit tests and `tests/app_terminal_test.py`.
-2. **Definitions.** Parse `[app.*]` in the Qt client's config reader, with the
-   existing validation and startup notice. Config tests.
+2. [x] **Definitions.** `[app.*]` in the shared C config parser, so every
+   settings reader accepts the file; values reach QML as
+   `configuration.apps`, inside the existing all-or-nothing reload. At most
+   32 definitions. C and Qt configuration tests.
 3. **The rail, one panel per icon.** Replace the drawer's Workspaces/Agents
    switch. Clicking an icon opens its panel and clicking the active icon closes
    it; pinning stays. This lands before the Apps panel, so the panel has a
@@ -76,5 +78,9 @@ not change the UI.
 
 - An app icon in the dock: a letter badge from the name, or an optional
   `icon` key later.
+- An app that fails to start (owner's first trial, 2026-11-05: `htop` missing
+  inside the Distrobox, exit 127) vanishes without a word. Slice 4 keeps the
+  pane of an app that exits non-zero within a few seconds, with its exit code
+  from the `.lifecycle` file and its last output, until it is dismissed.
 - Whether one app can run twice in a workspace. The plan says no: choosing it
   again shows the running one.

@@ -120,5 +120,15 @@ int main(int argc,char **argv){
     require(!creationSettings.reload() && !creationSettings.navigationPinned() && creationSettings.reducedMotion(),"open editor defers view changes too");
     creationSettings.setEditing(false);require(wait([&]{return creationSettings.navigationPinned() && !creationSettings.reducedMotion();}),"view defaults accepted after draft closes");
     QFile::remove(creationPath);require(wait([&]{return !creationSettings.navigationPinned() && !creationSettings.reducedMotion();}),"removed managed file restores built-in view defaults");
-    std::puts("PASS: creation folders/widths, Unicode/home paths, platform field precedence, transaction rollback, deferred drafts,  managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
+    // App definitions join the same transaction; an invalid one keeps every domain.
+    write(creationPath,"band-config-v1\n[font]\nsize = 22\n[app.lazygit]\nname = Lazygit\ncommand = lazygit\n[macos.app.lazygit]\ncommand = /opt/homebrew/bin/lazygit\n[app.btop]\ncommand = btop\ndirectory = ~\n");
+    const auto appName=[&](int i,const char *key){return creationSettings.apps().value(i).toMap().value(key).toString();};
+    require(creationSettings.reload() && creationSettings.apps().size()==2 && appName(0,"name")=="Lazygit" && appName(0,"command")=="lazygit"
+        && appName(1,"name")=="btop" && appName(1,"directory")=="~","apps join live reload with names defaulting to IDs");
+    const auto appleApps=AppDefinitions::read(creationPath,true);
+    require(appleApps.error.isEmpty() && appleApps.apps.value(0).toMap().value("command")=="/opt/homebrew/bin/lazygit","platform app fields override");
+    write(creationPath,"band-config-v1\n[font]\nsize = 23\n[app.lazygit]\nname = Lazygit\n");
+    require(!creationSettings.reload() && size(creationFonts)==22 && creationSettings.apps().size()==2 && creationSettings.error().contains("needs a command"),"an app without a command keeps the live transaction");
+    QFile::remove(creationPath);require(wait([&]{return creationSettings.apps().isEmpty();}),"removed managed file removes apps");
+    std::puts("PASS: app definitions, creation folders/widths, Unicode/home paths, platform field precedence, transaction rollback, deferred drafts,  managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
 }

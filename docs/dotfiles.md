@@ -77,6 +77,32 @@ and `none` to clear a binding. Platform sections keep Mac Command+Option and
 Linux Super+Alt defaults while sharing other preferences, or retain older/custom
 Ctrl+Shift bindings explicitly.
 
+## Apps
+
+Apps (v0.2, [plan](apps.md)) are defined one section per app; the name after
+`app.` is the app's ID (letters, digits, `-` and `_`, at most 40):
+
+```text
+[app.lazygit]
+name = Lazygit
+command = lazygit
+
+[macos.app.lazygit]
+command = /opt/homebrew/bin/lazygit
+
+[linux.app.htop]
+command = htop
+```
+
+`command` (one line, at most 1023 bytes) runs through your login shell.
+`name` defaults to the ID. `directory` defaults to the workspace folder and may
+be absolute, `~` or relative to it. A `[linux.app.ID]` or `[macos.app.ID]`
+section overrides fields of `[app.ID]` on that platform, or defines an app for
+that platform only, which then needs its own `command`. At most 32 apps; a
+repeated section or key, an unknown key or an app without a command rejects
+the whole file like any other invalid setting. Definitions reload live with the
+rest of the file. Nothing in the window starts an app yet.
+
 ## Terminal fonts
 
 `[font]` accepts `family = JetBrains Mono` or `family = Fira Code` and integer
