@@ -1,6 +1,6 @@
 """App terminals run a command, stay in their workspace and are never restarted."""
 from pathlib import Path
-import json,os,sys,tempfile
+import json,os,re,sys,tempfile
 ROOT=Path(__file__).resolve().parent.parent
 sys.path[:0]=[str(ROOT/'scripts'),str(ROOT/'tests')]
 import catalog_files as catalog
@@ -27,8 +27,10 @@ with tempfile.TemporaryDirectory(prefix='wb-apps-',dir='/tmp') as temporary:
         app=dict(id='watch',command='printf "WB_APP %s\\n" "$PWD"; read line; printf "WB_GOT %s\\n" "$line"')
         data=call('terminal.create',workspace,'Watch',app=app);entry=find(data,'watch')
         assert entry['app']==app and entry['name']=='Watch' and state_of(entry['id'])=='running'
-        stream,_,_=attach(catalog.socket_path(state,entry));viewers.append(stream)
-        expect(stream,('WB_APP '+str(project)).encode())
+        stream,replayed,_=attach(catalog.socket_path(state,entry));viewers.append(stream)
+        # The app may print before the viewer attaches; its output is then in the replay.
+        printed=re.escape(('WB_APP '+str(project)).encode())
+        if not re.search(printed,replayed):expect(stream,printed)
         located=call('terminal.create',workspace,'Sub',app=dict(id='sub',command='pwd; sleep 30',directory='sub'))
         assert find(located,'sub')['app']['directory']==str(project/'sub')
         refused('at most once','terminal.create',workspace,'Again',app=dict(id='watch',command='true'))
