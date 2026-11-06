@@ -45,6 +45,8 @@ public:
     Q_INVOKABLE QObject *observe(const QString &identity);
     Q_INVOKABLE void attach(TerminalItem *item,const QString &identity);
     Q_INVOKABLE void createTerminal(const QString &workspace);
+    // Start an app definition (id, name, command, directory) in a workspace.
+    Q_INVOKABLE void startApp(const QString &workspace,const QVariantMap &definition);
     Q_INVOKABLE void createWorkspace(const QString &name,const QString &directory);
     Q_INVOKABLE void renameWorkspace(const QString &identity,const QString &name);
     Q_INVOKABLE void setWorkspaceDirectory(const QString &identity,const QString &directory);
@@ -68,5 +70,5 @@ private:
     UiLifecycle lifecycle_;
     QHash<QString,RuntimeFacts *> facts_;
     QHash<QString,QPointer<TerminalItem>> readers_;
-    QJsonObject config_;QLocalSocket socket_;QTimer deadline_;QByteArray receive_;QString method_,identity_,error_;bool busy_=false,sent_=false;
+    QJsonObject config_;QLocalSocket socket_;QTimer deadline_;QByteArray receive_;QString method_,identity_,error_;QJsonObject app_;bool busy_=false,sent_=false;
 };

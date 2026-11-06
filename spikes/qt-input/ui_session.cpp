@@ -66,6 +66,8 @@ void UiSession::request(const QString &method,const QString &identity,const QStr
     QJsonObject message{{"protocol",1},{"method",method},{"identity",identity},{"title",name},
         {"runtime",config_["runtime"]},{"cwd",config_["cwd"]}};
     if(method=="session.stop")message.insert("terminal_ids",QJsonArray::fromStringList(terminalIds));
+    if(method=="terminal.create" && !app_.isEmpty())message.insert("app",app_);
+    app_={};
     if(method=="terminal.move") {message.insert("destination",destination);message.insert("position",position);}
     if(method=="workspace.create_at" || method=="workspace.directory")message.insert("project_directory",directory);
     receive_=QJsonDocument(message).toJson(QJsonDocument::Compact)+'\n';
@@ -74,6 +76,12 @@ void UiSession::request(const QString &method,const QString &identity,const QStr
     socket_.connectToServer(QDir(config_["state"].toString()).filePath("service.rpc"));
 }
 void UiSession::createTerminal(const QString &workspace) {request("terminal.create",workspace,"Shell");}
+void UiSession::startApp(const QString &workspace,const QVariantMap &definition) {
+    if(busy_)return;
+    QJsonObject app{{"id",definition["id"].toString()},{"command",definition["command"].toString()}};
+    if(!definition["directory"].toString().isEmpty())app.insert("directory",definition["directory"].toString());
+    app_=app;request("terminal.create",workspace,definition["name"].toString());
+}
 void UiSession::createWorkspace(const QString &name,const QString &directory) {request("workspace.create_at",{},name,directory);}
 void UiSession::renameWorkspace(const QString &identity,const QString &name) {request("workspace.rename",identity,name);}
 void UiSession::setWorkspaceDirectory(const QString &identity,const QString &directory) {request("workspace.directory",identity,{},directory);}

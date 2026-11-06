@@ -19,8 +19,9 @@ terminal backgrounds to the same outline. The native client now implements this 
 | Surface | Purpose | Visible controls |
 | --- | --- | --- |
 | Top bar | Location within the current workspace | Workspace name, pane indicators, focused pane/count, new terminal, Overview, application menu |
-| Left rail | Choose a navigation task | Workspaces, Agents with Needs input count, shortcut help |
-| Left panel | Find a destination | Workspace names/counts or agent names/status with workspace and terminal context |
+| Left rail | Choose a navigation task | Workspaces, Apps, Agents with Needs input count, shortcut help |
+| Left panel | Find a destination | Workspace names/counts, app definitions, or agent names/status with workspace and terminal context |
+| Side panel | The workspace's shown app | App name, hide, overflow menu; or a failed start's exit code and last lines |
 | Pane header | Identify the terminal and its activity | Name, agent identity/state, overflow menu |
 
 Pane indicators use a longer accent mark for focus, softer marks for other panes
@@ -39,7 +40,9 @@ panel, and clicking the active icon closes it, or hides a pinned panel without
 unpinning it. The panel is titled, with no mode switch. The Agents icon appears
 once the window has seen an agent and carries the waiting badge. While open, the
 panel dims the rest of the window and a press there only closes it; the rail
-stays usable. The agent directory shows
+stays usable. The Apps icon appears when `config.conf` defines apps
+([apps](apps.md)); its panel starts or shows one in the current workspace, in a
+side panel right of the strip. The agent directory shows
 agents across workspaces with enough context to jump to the right terminal,
 and offers an explicit Needs input filter. Unknown remains an honest state.
 The attention count covers all workspaces, not just the selected one.
@@ -129,6 +132,8 @@ confirmation focus. Native navigation and copy/paste defaults are unchanged.
 Per-window version-3 view files save pin state, navigation mode and Needs input
 filter. Readers retain version-1/version-2 layout and width compatibility; older
 files default to the compact rail. Temporary drawers and menus are not restored.
+The app shown beside the strip, per workspace, and the side panel's width are
+optional fields of the same file.
 This changes client view data only. Runtime/session protocols are unchanged.
 
 The compact 1240×760 half-pane layout retains the 7×16 terminal cell size, with

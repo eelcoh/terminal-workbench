@@ -31,6 +31,10 @@ int main(int argc,char **argv){
     check(viewRestore.initial()==viewDefaults,"inherited view settings survive restart with fallback values");
     viewDefaults["motion_default"]="true";check(!UiViewState::valid(viewDefaults),"motion inheritance marker stays typed");
     viewDefaults["motion_default"]=false;viewDefaults["navigation_default"]=1;check(!UiViewState::valid(viewDefaults),"navigation inheritance marker stays typed");
+    auto side=state;side["app_width"]=0.4;spaces=side["workspaces"].toMap();workspace=spaces["w2"].toMap();workspace["app"]="t9";spaces["w2"]=workspace;side["workspaces"]=spaces;
+    check(UiViewState::valid(side),"the app beside the strip and its width");
+    side["app_width"]=0.95;check(!UiViewState::valid(side),"app width bounded");side["app_width"]=0.4;
+    workspace["app"]="../t9";spaces["w2"]=workspace;side["workspaces"]=spaces;check(!UiViewState::valid(side),"shown app is an identity");
     auto invalid=state;invalid["version"]=2;check(!UiViewState::valid(invalid),"future version rejected");
     invalid=state;invalid["overview"]="true";check(!UiViewState::valid(invalid),"filter booleans stay typed");
     invalid=state;invalid["window"]=QVariantMap{{"width",40000},{"height",760}};check(!UiViewState::valid(invalid),"geometry bounded");

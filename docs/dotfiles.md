@@ -101,7 +101,8 @@ section overrides fields of `[app.ID]` on that platform, or defines an app for
 that platform only, which then needs its own `command`. At most 32 apps; a
 repeated section or key, an unknown key or an app without a command rejects
 the whole file like any other invalid setting. Definitions reload live with the
-rest of the file. Nothing in the window starts an app yet.
+rest of the file. The rail's Apps icon lists them; choosing one starts it in
+the current workspace, beside the strip.
 
 ## Terminal fonts
 

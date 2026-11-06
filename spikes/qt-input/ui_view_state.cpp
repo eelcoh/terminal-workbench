@@ -22,17 +22,20 @@ bool UiViewState::validTheme(const QVariantMap &value){
 }
 bool UiViewState::valid(const QVariantMap &state){
     const auto root=QJsonObject::fromVariantMap(state),window=root["window"].toObject();
-    if(!keys(root,{"navigation_default","motion_default","navigation_pinned","version","window","workspace","terminal","overview","agents","needs","motion","overview_y","workspaces","terminals"}) || root["version"].toDouble()!=1)return false;
+    if(!keys(root,{"navigation_default","motion_default","navigation_pinned","version","window","workspace","terminal","overview","agents","needs","motion","overview_y","workspaces","terminals","app_width"}) || root["version"].toDouble()!=1)return false;
     for(const auto &key:{"navigation_default","motion_default"})if(root.contains(key) && !root[key].isBool())return false;
     if(root.contains("navigation_pinned") && !root["navigation_pinned"].isBool())return false;
     if(!root["window"].isObject() || !keys(window,{"width","height"}) || !number(window["width"],680,16384) || !number(window["height"],440,16384))return false;
     for(const auto &key:{"workspace","terminal"})if(!root[key].isString() || !identity(root[key].toString()))return false;
     for(const auto &key:{"overview","agents","needs","motion"})if(!root[key].isBool())return false;
+    if(root.contains("app_width") && !number(root["app_width"],.2,.8))return false;
     if(!number(root["overview_y"],0,1e7) || !root["workspaces"].isObject() || !root["terminals"].isObject())return false;
     const auto workspaces=root["workspaces"].toObject(),terminals=root["terminals"].toObject();if(workspaces.size()>8 || terminals.size()>64)return false;
     for(auto it=workspaces.begin();it!=workspaces.end();++it){
-        const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"focus","x","theme","theme_default"}) || !value["focus"].isString() || !identity(value["focus"].toString()) || !number(value["x"],0,1e7) || !value["theme"].isObject())return false;
+        const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"focus","x","theme","theme_default","app"}) || !value["focus"].isString() || !identity(value["focus"].toString()) || !number(value["x"],0,1e7) || !value["theme"].isObject())return false;
         if(value.contains("theme_default") && !value["theme_default"].isBool())return false;
+        // The app shown beside the strip, if any.
+        if(value.contains("app") && (!value["app"].isString() || !identity(value["app"].toString())))return false;
         if(!validTheme(value["theme"].toObject().toVariantMap()))return false;
     }
     for(auto it=terminals.begin();it!=terminals.end();++it){const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"width","full"}) || !number(value["width"],.25,1) || !value["full"].isBool())return false;}

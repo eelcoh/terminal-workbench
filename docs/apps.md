@@ -1,8 +1,9 @@
 # Apps (v0.2 plan)
 
-Plan (2026-11-05). Slices 1 (runtime and catalog), 2 (definitions) and 3
-(the rail) are implemented; see [app terminals](session-service.md#app-terminals) and
-[dotfiles](dotfiles.md#apps). Nothing in the UI starts an app yet. Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
+Plan (2026-11-05). Slices 1 (runtime and catalog), 2 (definitions), 3 (the
+rail) and 4 (Apps panel and side panel) are implemented; see
+[app terminals](session-service.md#app-terminals) and
+[dotfiles](dotfiles.md#apps). Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
 TUIs such as lazygit and btop live next to the strip and are one key away.
 Running apps belong to their workspace (owner, 2026-11-05).
 
@@ -63,10 +64,17 @@ today.
    icon closes it (a pinned panel hides without unpinning). The temporary
    panel now opens beside the rail instead of a Drawer over it, so the rail
    stays usable. The Agents icon appears once an agent has been seen.
-4. **Apps panel and side panel.** The panel lists definitions; choosing one
+4. [x] **Apps panel and side panel.** The panel lists definitions; choosing one
    starts it in the current workspace, or shows it if it is already running. A
-   running app opens in a side panel beside the strip, with its own width. It
-   is a live terminal with normal input, selection and search.
+   running app opens in a side panel right of the strip, with its own width
+   (drag its left edge). It is a live terminal pane with normal input,
+   selection, search and pane menu; its header has Hide, which keeps it
+   running. The shown app per workspace and the width are saved with the
+   window view. When the program exits, the pane closes. If it exits
+   non-zero within 5 seconds of this window starting it, the panel keeps its
+   exit code and last lines, read from the runtime's `.output` file, with
+   Start again and Dismiss. Commands → Show apps opens the panel; the UI test
+   covers start, show, hide, resize, a failed start and a normal exit.
 5. **Dock.** Small rail icons under the fixed ones for the current workspace's
    running apps. Click shows or hides the app; it keeps running when hidden.
    Command-P / Super-P lists apps and does the same. Shortcuts are designed
@@ -75,13 +83,13 @@ today.
 Each slice ships on its own and keeps both platforms green. Slices 1 and 2 do
 not change the UI.
 
+Not yet: keyboard access to a shown app beyond the Apps panel (Previous
+terminal returns from it to the strip). A failed start shows its notice only in
+the window that started the app; other windows just close its pane.
+
 ## Open
 
 - An app icon in the dock: a letter badge from the name, or an optional
   `icon` key later.
-- An app that fails to start (owner's first trial, 2026-11-05: `htop` missing
-  inside the Distrobox, exit 127) vanishes without a word. Slice 4 keeps the
-  pane of an app that exits non-zero within a few seconds, with its exit code
-  from the `.lifecycle` file and its last output, until it is dismissed.
 - Whether one app can run twice in a workspace. The plan says no: choosing it
   again shows the running one.

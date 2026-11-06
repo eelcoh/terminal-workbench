@@ -33,7 +33,13 @@ void UiLifecycle::inspect(const QString &identity) {
         const auto state=reply["state"].toString();const auto detail=reply["lifecycle"].toObject();
         if(error.error!=QJsonParseError::NoError || reply["protocol"].toInt()!=1 || !reply["ok"].toBool() || reply["id"].toString()!=identity
             || (state!="running" && state!="stopped" && state!="unavailable") || !detail["message"].isString()) {unavailable();return;}
-        finish({{"state",state},{"reason",detail["reason"].toString()},{"message",detail["message"].toString()}});
+        QVariantMap value{{"state",state},{"reason",detail["reason"].toString()},{"message",detail["message"].toString()}};
+        // An app that failed: its exit code and the last lines it printed.
+        const auto record=detail["record"].toObject();
+        if(record["exit_code"].isDouble())value.insert("exit_code",record["exit_code"].toInteger());
+        if(record["signal"].isString())value.insert("signal",record["signal"].toString());
+        if(detail["output"].isString())value.insert("output",detail["output"].toString());
+        finish(value);
     });
     connect(socket,&QLocalSocket::disconnected,this,unavailable);
     connect(socket,&QLocalSocket::errorOccurred,this,[unavailable](auto){unavailable();});

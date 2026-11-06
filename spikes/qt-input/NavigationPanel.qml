@@ -9,6 +9,8 @@ Item {
     required property var host
     required property var session
     readonly property bool agents: host.navigationSection === "agents"
+    readonly property bool apps: host.navigationSection === "apps"
+    readonly property bool workspaces: !agents && !apps
     readonly property bool searchFocused: navigation.agents && agentSearch.activeFocus
     property bool needsOnly: false
     property var matches: []
@@ -42,6 +44,14 @@ Item {
         if (agentSearch.text.length || needsOnly) clearFilters()
         else { if (host.drawerOpen) host.closeNavigation(); else { host.contentItem.forceActiveFocus(); host.restoreAfterPopup() } }
     }
+    function focusApp(index) {
+        const count = appRows.count
+        if (!count) { host.contentItem.forceActiveFocus(); return }
+        const row = appRows.itemAt(Math.max(0, Math.min(count - 1, index)))
+        if (row.y < list.contentY) list.contentY = row.y
+        else if (row.y + row.height > list.contentY + list.height) list.contentY = Math.max(0, row.y + row.height - list.height)
+        row.forceActiveFocus(Qt.TabFocusReason)
+    }
     function focusWorkspace(index) {
         const count = host.spaces.length
         if (!count) return
@@ -56,7 +66,7 @@ Item {
         // Each rail icon owns this panel's content; the title names it.
         Label {
             objectName: "navigationTitle"; width: 184; height: 28; leftPadding: 8; verticalAlignment: Text.AlignVCenter
-            text: navigation.agents ? "Agents" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: 14; font.weight: Font.DemiBold
+            text: navigation.agents ? "Agents" : navigation.apps ? "Apps" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: 14; font.weight: Font.DemiBold
         }
         ChromeButton {
             objectName: "navigationPin"; tones: host.chrome; iconName: "pin"; selected: host.navigationPinned
@@ -84,13 +94,13 @@ Item {
         Label { width: parent.width; text: navigation.matches.length + " / " + host.agentIndices.length + " agents"; color: host.chrome.muted; font.pixelSize: 12 }
     }
     Flickable {
-        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.agents ? parent.height - y - 14 : createFooter.y - y - 12)
+        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.workspaces ? createFooter.y - y - 12 : parent.height - y - 14)
         clip: true; contentHeight: body.height; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Column {
             id: body; width: list.width; spacing: 6
             Repeater {
-                id: workspaceRows; model: navigation.agents ? 0 : host.spaces.length
+                id: workspaceRows; model: navigation.workspaces ? host.spaces.length : 0
                 Item {
                     required property int index
                     property alias button: workspaceEntry
@@ -138,6 +148,44 @@ Item {
                         onClicked: host.requestWorkspaceClose(parent.identity)
                     }
                 }
+            }
+            Label {
+                width: body.width; visible: navigation.apps && appRows.count > 0; leftPadding: 8; bottomPadding: 4
+                text: "Starts in " + (host.spaces[host.workspace] || "this workspace"); textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12
+            }
+            Repeater {
+                id: appRows; model: navigation.apps ? host.appDefinitions : []
+                ChromeButton {
+                    id: appRow
+                    required property int index
+                    required property var modelData
+                    readonly property bool running: { const revision = host.catalogRevision; return host.runningApp(host.workspace, modelData.id) >= 0 }
+                    objectName: "navigationApp" + index
+                    tones: host.chrome; width: body.width; height: 52; padding: 10
+                    selected: { const shown = host.shownApp; return shown >= 0 && shown === host.runningApp(host.workspace, modelData.id) }
+                    hint: modelData.name + " · " + modelData.command + (running ? " · running" : "")
+                    Keys.onDownPressed: navigation.focusApp(index + 1)
+                    Keys.onUpPressed: navigation.focusApp(index - 1)
+                    Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Home) { navigation.focusApp(0); event.accepted = true }
+                        else if (event.key === Qt.Key_End) { navigation.focusApp(appRows.count - 1); event.accepted = true }
+                        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.chooseApp(modelData.id); event.accepted = true }
+                        else event.accepted = false
+                    }
+                    contentItem: Item {
+                        Column {
+                            anchors.left: parent.left; anchors.right: appState.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; spacing: 3
+                            Text { width: parent.width; text: appRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
+                            Text { width: parent.width; text: appRow.modelData.command; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12 }
+                        }
+                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.running ? "Running" : ""; color: host.chrome.ready; font.pixelSize: 12 }
+                    }
+                    onClicked: host.chooseApp(modelData.id)
+                }
+            }
+            Label {
+                width: body.width; visible: navigation.apps && appRows.count === 0
+                padding: 8; text: "No apps defined\nAdd an [app.NAME] section with a command to config.conf."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
             }
             Repeater {
                 id: agentRows; model: navigation.agents ? navigation.matches : []
@@ -187,7 +235,7 @@ Item {
     }
     Item {
         id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; height: 50
-        visible: !navigation.agents
+        visible: navigation.workspaces
         Rectangle { width: parent.width; height: 1; color: host.chrome.border }
         ChromeButton {
             objectName: "newWorkspaceButton"; y: 12; width: parent.width; height: 36

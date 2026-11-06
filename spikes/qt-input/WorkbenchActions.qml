@@ -29,6 +29,7 @@ QtObject {
         row("previous-waiting", "Previous agent needing input", "Focus the previous terminal whose last report needs input", host.waitingCount > 0, "No agents report Needs input"),
         row("waiting-agents", "Show agents needing input", "Open the agent list with Needs input selected and its search cleared", true, ""),
         row("agents", "Show agents", "Open the agent list across workspaces", true, ""),
+        row("apps", "Show apps", "Open the apps defined in config.conf; choosing one starts or shows it in this workspace", hasWorkspace, "No workspace selected"),
         row("previous-terminal", "Previous terminal", "Focus the terminal to the left", position > 0, "No previous terminal in this view"),
         row("next-terminal", "Next terminal", "Focus the terminal to the right", position >= 0 && position + 1 < neighbours.length, "No next terminal in this view"),
         row("previous-workspace", "Previous workspace", "Switch to the workspace above", host.workspace > 0, "Already at the first workspace"),
