@@ -40,10 +40,17 @@ with tempfile.TemporaryDirectory(prefix='wb-apps-',dir='/tmp') as temporary:
         # The same app may run in another workspace.
         assert find(call('terminal.create',other,'Watch',app=dict(id='watch',command='sleep 30')),'watch')
         # When the program ends, the terminal ends with it, and the next window
-        # removes it instead of keeping a stopped pane.
+        # removes it instead of keeping a stopped pane. A normal exit leaves no output.
         send(stream,16,b'done\n');expect(stream,b'WB_GOT done')
         wait_until(lambda:state_of(entry['id'])=='stopped')
+        assert 'output' not in request(state,runtime,root,'terminal.lifecycle',entry['id'])['lifecycle']
         assert all(t['id']!=entry['id'] for w in call()['workspaces'] for t in w['terminals'])
+        # An app that fails before any window attaches leaves its last lines
+        # and exit code for the window that started it.
+        failed=find(call('terminal.create',other,'Missing',app=dict(id='missing',command='echo WB_MISSING >&2; exit 3')),'missing')
+        wait_until(lambda:state_of(failed['id'])=='stopped')
+        detail=request(state,runtime,root,'terminal.lifecycle',failed['id'])['lifecycle']
+        assert detail['record']['exit_code']==3 and detail['output'].strip()=='WB_MISSING',detail
         # Starting it again works once it has ended.
         again=find(call('terminal.create',workspace,'Watch',app=dict(id='watch',command='sleep 30')),'watch')
         assert again['id']!=entry['id'] and state_of(again['id'])=='running'
@@ -63,4 +70,4 @@ with tempfile.TemporaryDirectory(prefix='wb-apps-',dir='/tmp') as temporary:
             current=request(state,runtime,root,'catalog.read')['data'];remaining=[t['id'] for w in current['workspaces'] for t in w['terminals']]
             if remaining:request(state,runtime,root,'session.stop',terminal_ids=remaining)
             request(state,runtime,root,'service.shutdown')
-print('PASS: app command in its folder, uniqueness, validation, fixed workspace, removal on exit, restart by definition, no restart on recovery')
+print('PASS: app command in its folder, uniqueness, validation, fixed workspace, removal on exit, output of a failed start, restart by definition, no restart on recovery')

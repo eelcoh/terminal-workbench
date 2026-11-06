@@ -636,6 +636,11 @@ fn prepare_launch(socket: &Path) -> Result<()> {
         Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(os(error)),
         _ => {}
     }
+    // An app's output from a failed earlier start.
+    match fs::remove_file(socket.with_extension("output")) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(os(error)),
+        _ => {}
+    }
     let record = json!({"version": 1, "event": "launching", "runtime_pid": null,
         "shell_pid": null, "started_ms": now_ms() as u64, "exit_code": null, "signal": null});
     atomic_write(&path, &(record.to_string() + "\n"))

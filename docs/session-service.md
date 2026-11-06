@@ -147,6 +147,13 @@ when a window initializes, before any change, and before `session.recover` or
 `terminal.recover`, so an app is never restarted: it is started again from its
 definition. Pending journals defer the removal.
 
+When an app exits unsuccessfully, its runtime writes the last lines of its
+screen (at most 12 lines and 2 KiB, control characters removed) to a private
+`ID.output` file next to its lifecycle record; a new launch removes it.
+`terminal.lifecycle` returns that text as `lifecycle.output` for an exited or
+signalled terminal, so a window that attaches too late can still show why a
+start failed.
+
 ## Remove a stopped terminal
 
 `terminal.dismiss` accepts a stable terminal identity with the normal service

@@ -89,6 +89,10 @@ impl ShellLaunch {
         self
     }
 
+    pub(crate) fn runs_command(&self) -> bool {
+        self.command.is_some()
+    }
+
     pub(crate) fn command(self) -> CommandBuilder {
         let mut command = CommandBuilder::new(&self.executable);
         if self.user_default {

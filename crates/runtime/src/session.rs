@@ -282,6 +282,7 @@ pub fn serve_with_shell_launch(
         pixel_width: 0,
         pixel_height: 0,
     })?;
+    let app = shell.runs_command();
     let mut command = shell.command();
     command.cwd(std::env::current_dir()?);
     command.env("TERM", "xterm-256color");
@@ -661,6 +662,12 @@ pub fn serve_with_shell_launch(
     }
     let status = child.wait()?;
     eprintln!("shell exited: {status}");
+    if app && stop_reply.is_none() && !status.success() {
+        // An app that fails at once has ended before any window attaches.
+        if let Ok(screen) = terminal.export(false) {
+            lifecycle.output(&screen);
+        }
+    }
     lifecycle.finish(
         if stop_reply.is_some() {
             "stopped"

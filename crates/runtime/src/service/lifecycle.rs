@@ -16,11 +16,12 @@ const EVENTS: [&str; 7] = [
     "startup_failed",
 ];
 
-fn read_record(socket: &Path) -> Option<Value> {
+/// A private runtime-written file of at most 4 KiB.
+fn read_evidence(socket: &Path, extension: &str) -> Option<Vec<u8>> {
     let mut file = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(socket.with_extension("lifecycle"))
+        .open(socket.with_extension(extension))
         .ok()?;
     let metadata = file.metadata().ok()?;
     if !metadata.is_file()
@@ -32,6 +33,18 @@ fn read_record(socket: &Path) -> Option<Value> {
     }
     let mut bytes = Vec::new();
     file.by_ref().take(4097).read_to_end(&mut bytes).ok()?;
+    (bytes.len() <= 4096).then_some(bytes)
+}
+
+/// The last screen lines an app left when it failed; text only, newline-separated.
+fn read_output(socket: &Path) -> Option<String> {
+    let text = String::from_utf8(read_evidence(socket, "output")?).ok()?;
+    let clean = text.chars().all(|ch| ch == '\n' || !ch.is_control());
+    (clean && !text.is_empty()).then_some(text)
+}
+
+fn read_record(socket: &Path) -> Option<Value> {
+    let bytes = read_evidence(socket, "lifecycle")?;
     let value: Value = serde_json::from_slice(&bytes).ok()?;
     let object = value.as_object()?;
     let required = [
@@ -134,7 +147,14 @@ pub(crate) fn detail(socket: &Path, state: &str) -> Value {
             ),
         },
     };
-    json!({"reason": reason, "message": message, "record": value})
+    let mut detail = json!({"reason": reason, "message": message, "record": value});
+    if let Some(output) = (reason == "exited" || reason == "signal")
+        .then(|| read_output(socket))
+        .flatten()
+    {
+        detail["output"] = json!(output);
+    }
+    detail
 }
 
 #[cfg(test)]
@@ -213,6 +233,41 @@ mod tests {
         // SAFETY: a valid NUL-terminated path; mkfifo has no other preconditions.
         assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
         assert!(read_record(&socket).is_none(), "read from a FIFO");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failed_apps_report_their_last_output() {
+        let root = std::env::temp_dir().join(format!("wb-life-output-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let socket = root.join("one.sock");
+        let private = |extension: &str, text: &str| {
+            let path = socket.with_extension(extension);
+            fs::write(&path, text).unwrap();
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+        };
+        private(
+            "lifecycle",
+            &json!({"version": 1, "runtime_pid": 123, "shell_pid": 456,
+            "started_ms": 1, "event": "exited", "exit_code": 127, "signal": null})
+            .to_string(),
+        );
+        assert!(detail(&socket, "stopped").get("output").is_none());
+        private("output", "zsh:1: command not found: htop\n");
+        let found = detail(&socket, "stopped");
+        assert_eq!(found["output"], "zsh:1: command not found: htop\n");
+        assert_eq!(found["record"]["exit_code"], 127);
+        assert!(detail(&socket, "running").get("output").is_none());
+        for bad in ["\x1b[31mred\n", ""] {
+            private("output", bad);
+            assert!(
+                detail(&socket, "stopped").get("output").is_none(),
+                "accepted {bad:?}"
+            );
+        }
+        private("output", &"x".repeat(4097));
+        assert!(detail(&socket, "stopped").get("output").is_none());
         fs::remove_dir_all(root).unwrap();
     }
 }
