@@ -1,7 +1,7 @@
 # Apps (v0.2 plan)
 
-Plan (2026-11-05). Slice 1 (runtime and catalog) and slice 2 (definitions)
-are implemented; see [app terminals](session-service.md#app-terminals) and
+Plan (2026-11-05). Slices 1 (runtime and catalog), 2 (definitions) and 3
+(the rail) are implemented; see [app terminals](session-service.md#app-terminals) and
 [dotfiles](dotfiles.md#apps). Nothing in the UI starts an app yet. Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
 TUIs such as lazygit and btop live next to the strip and are one key away.
 Running apps belong to their workspace (owner, 2026-11-05).
@@ -58,10 +58,11 @@ today.
    settings reader accepts the file; values reach QML as
    `configuration.apps`, inside the existing all-or-nothing reload. At most
    32 definitions. C and Qt configuration tests.
-3. **The rail, one panel per icon.** Replace the drawer's Workspaces/Agents
-   switch. Clicking an icon opens its panel and clicking the active icon closes
-   it; pinning stays. This lands before the Apps panel, so the panel has a
-   place to go.
+3. [x] **The rail, one panel per icon.** The drawer's Workspaces/Agents
+   switch is gone; clicking an icon opens its panel and clicking the active
+   icon closes it (a pinned panel hides without unpinning). The temporary
+   panel now opens beside the rail instead of a Drawer over it, so the rail
+   stays usable. The Agents icon appears once an agent has been seen.
 4. **Apps panel and side panel.** The panel lists definitions; choosing one
    starts it in the current workspace, or shows it if it is already running. A
    running app opens in a side panel beside the strip, with its own width. It

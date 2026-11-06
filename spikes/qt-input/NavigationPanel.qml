@@ -53,8 +53,11 @@ Item {
     }
     Row {
         id: header; x: 14; y: 14; spacing: 2
-        ChromeButton { objectName: "navigationWorkspaces"; tones: host.chrome; width: 106; text: "Workspaces"; selected: !navigation.agents; onClicked: host.navigationSection = "workspaces" }
-        ChromeButton { objectName: "navigationAgents"; tones: host.chrome; width: 76; text: "Agents"; selected: navigation.agents; onClicked: host.navigationSection = "agents" }
+        // Each rail icon owns this panel's content; the title names it.
+        Label {
+            objectName: "navigationTitle"; width: 184; height: 28; leftPadding: 8; verticalAlignment: Text.AlignVCenter
+            text: navigation.agents ? "Agents" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: 14; font.weight: Font.DemiBold
+        }
         ChromeButton {
             objectName: "navigationPin"; tones: host.chrome; iconName: "pin"; selected: host.navigationPinned
             enabled: host.width >= 920 || host.navigationPinned

@@ -31,10 +31,15 @@ with state text retained in headers and the Agents view. Needs input has
 an additional attention mark, backed by a textual state in the pane header and
 Agents view. This remains a per-window view of the current workspace.
 
-The compact rail opens a temporary drawer. Pinning it keeps a named panel visible
-and reduces the terminal viewport. Both variants are in the sketch for review;
+The compact rail opens a temporary panel beside it. Pinning it keeps the panel
+visible and reduces the terminal viewport. Both variants are in the sketch for review;
 the native implementation starts compact and retains the pin option for daily-use
-review. Workspaces and Agents are separate modes in that same left area. The agent directory shows
+review. Each rail icon owns one panel (2026-11-05): clicking an icon opens its
+panel, and clicking the active icon closes it, or hides a pinned panel without
+unpinning it. The panel is titled, with no mode switch. The Agents icon appears
+once the window has seen an agent and carries the waiting badge. While open, the
+panel dims the rest of the window and a press there only closes it; the rail
+stays usable. The agent directory shows
 agents across workspaces with enough context to jump to the right terminal,
 and offers an explicit Needs input filter. Unknown remains an honest state.
 The attention count covers all workspaces, not just the selected one.

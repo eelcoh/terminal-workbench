@@ -181,20 +181,38 @@ ApplicationWindow {
     property var navigationOverride: null
     readonly property bool navigationPinned: navigationOverride === null ? studyConfiguration.navigationPinned : navigationOverride
     property string navigationSection: "workspaces"
-    readonly property bool navigationDocked: navigationPinned && width >= 920
+    // The active rail icon hides a pinned column for now without unpinning it.
+    property bool navigationHidden: false
+    readonly property bool navigationDocked: navigationPinned && width >= 920 && !navigationHidden
+    // The Agents icon appears once this window has seen an agent.
+    property bool agentsSeen: false
+    onAgentIndicesChanged: if (agentIndices.length) agentsSeen = true
     readonly property int navigationEdge: navigationDocked ? 288 : 44
     onNavigationPinnedChanged: scheduleViewSave()
     onNavigationDockedChanged: {
         if (navigationDocked) drawer.close()
         Qt.callLater(function() { if (!overview && selected >= 0) reveal() })
     }
+    function focusNavigation() { if (navigationSection === "workspaces") navigation.focusWorkspace(workspace); else navigation.focusSearch() }
     function openNavigation(section) {
         navigationSection = section
-        if (!navigationDocked) drawer.open()
-        else Qt.callLater(function() { if (section === "workspaces") navigation.focusWorkspace(workspace); else navigation.focusSearch() })
+        navigationHidden = false
+        // A rail click focuses its icon; switching sections returns focus to the panel.
+        if (!navigationDocked && !drawer.visible) drawer.open()
+        else Qt.callLater(focusNavigation)
     }
     function closeNavigation() { drawer.close() }
+    // Rail icons: one panel each; the active icon closes its panel.
+    function toggleSection(section) {
+        if ((drawer.visible || navigationDocked) && navigationSection === section) {
+            if (navigationDocked) { navigationHidden = true; Qt.callLater(restoreAfterPopup) }
+            else drawer.close()
+            return
+        }
+        openNavigation(section)
+    }
     function toggleNavigationPin() {
+        navigationHidden = false
         navigationOverride = !navigationPinned
         if (navigationDocked) drawer.close()
         else drawer.open()
@@ -773,12 +791,16 @@ ApplicationWindow {
     QuietButton { objectName: "applicationMenuButton"; x: 8; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
     Column {
         x: 8; y: 52; spacing: 14
-        QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.openNavigation("workspaces") }
-        QuietButton { objectName: "agentsButton"; height: 28; iconName: "agents"; hint: window.waitingCount ? "Agents · " + window.waitingCount + " need input (last reports)" : "Agents"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "agents"; onClicked: window.openAgents() }
-    }
-    Rectangle {
-        x: 27; y: 87; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
-        Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: 10 }
+        QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }
+        QuietButton {
+            objectName: "agentsButton"; height: 28; iconName: "agents"; visible: window.agentsSeen || window.navigationSection === "agents"
+            hint: window.waitingCount ? "Agents · " + window.waitingCount + " need input (last reports)" : "Agents"
+            selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "agents"; onClicked: window.toggleSection("agents")
+            Rectangle {
+                objectName: "agentsBadge"; x: 19; y: -7; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
+                Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: 10 }
+            }
+        }
     }
     QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; onClicked: help.open() }
     Item {
@@ -1118,11 +1140,35 @@ ApplicationWindow {
         anchors.fill: parent
         host: window; session: studySession
     }
-    Drawer {
-        id: drawer; y: 40; width: 288; height: window.height - 40; edge: Qt.LeftEdge; leftPadding: 44
-        background: Rectangle { color: window.chrome.surface; border.color: window.chrome.border }
-        contentItem: Item {}
-        onOpened: { if (window.navigationSection === "workspaces") navigation.focusWorkspace(window.workspace); else navigation.focusSearch() }
+    // The unpinned panel opens beside the rail rather than over it (a Drawer
+    // always starts at the window edge), so rail icons stay usable while it
+    // is open. Like the modal drawer it replaces, a press elsewhere only closes it.
+    MouseArea {
+        id: navigationShade; objectName: "navigationShade"; anchors.fill: parent; z: 50; visible: drawer.visible
+        acceptedButtons: Qt.AllButtons
+        onPressed: mouse => { if (mouse.x < 44 && mouse.y >= 40) mouse.accepted = false; else drawer.close() }
+        onWheel: wheel => wheel.accepted = true
+        Rectangle { width: parent.width; height: 40; color: "#000000"; opacity: 0.5 * drawer.opacity }
+        Rectangle { x: 44; y: 40; width: parent.width - 44; height: parent.height - 40; color: "#000000"; opacity: 0.5 * drawer.opacity }
+    }
+    FocusScope {
+        id: drawer; objectName: "navigationDrawer"; x: 44; y: 40; z: 51; width: 244; height: window.height - 40; visible: false; opacity: 0
+        property alias contentItem: drawerContent
+        signal opened()
+        signal closed()
+        function open() {
+            if (visible) return
+            visible = true; opacity = 1; forceActiveFocus(Qt.OtherFocusReason); opened()
+        }
+        function close() {
+            if (!visible) return
+            visible = false; opacity = 0; closed()
+        }
+        Behavior on opacity { enabled: !window.reducedMotion && drawer.visible; NumberAnimation { duration: 120 } }
+        Keys.onEscapePressed: close()
+        Rectangle { anchors.fill: parent; color: window.chrome.surface; border.color: window.chrome.border }
+        Item { id: drawerContent; anchors.fill: parent }
+        onOpened: window.focusNavigation()
         onClosed: window.restoreAfterPopup()
     }
     ChromeMenu {

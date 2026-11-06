@@ -460,9 +460,20 @@ while True:
         click(*data()['navigation_workspace_1']);wait_until(lambda:data()['workspace']==1 and data()['panes'][3]['focus'])
         assert data()['navigation_docked'] and not data()['drawer_open']
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['panes'][0]['focus'])
-        click(*data()['agents_button']);wait_until(lambda:data()['navigation_section']=='agents')
+        # The Agents icon waits for the first agent; Commands still opens the panel.
+        assert not data()['agents_visible']
+        command_search('Show agents');key('Return');wait_until(lambda:data()['navigation_section']=='agents' and data()['agents_visible'])
         assert not data()['overview'] and not data()['navigation_agent_indices']
         capture('navigation-agents-empty.png')
+        # The active icon hides the pinned column without unpinning; another icon shows it again.
+        click(*data()['agents_button']);wait_until(lambda:data()['navigation_hidden'] and not data()['navigation_docked'] and data()['navigation_pinned'])
+        wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']) and not data()['drawer_open'])
+        click(*data()['workspaces_button']);wait_until(lambda:data()['navigation_docked'] and data()['navigation_section']=='workspaces')
+        # Unpinned, the active icon closes the drawer it opened.
+        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open'])
+        click(*data()['workspaces_button']);wait_until(lambda:not data()['drawer_open'])
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*data()['navigation_pin']);wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'])
         if wayland:run('niri','msg','action','set-window-width','680')
         else:cmd('windowsize','--sync',window,680,760)
         wait_until(lambda:data()['window_width']==680 and not data()['navigation_docked'])
@@ -1291,7 +1302,7 @@ while True:
         assert data()['overview'] and data()['agents_only'] and data()['needs_only'],'waiting list rewrote Overview context'
         capture('attention-waiting-agents.png')
         click(*data()['navigation_clear_filters']);wait_until(lambda:not data()['navigation_needs_only'] and len(data()['navigation_matches'])==2)
-        click(*data()['navigation_workspaces']);time.sleep(.25);capture('attention-workspace-counts.png')
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='workspaces');time.sleep(.25);capture('attention-workspace-counts.png')
         key('Escape');wait_until(lambda:not data()['drawer_open'])
         click(*data()['overview_clear_filters']);wait_until(lambda:not data()['agents_only'] and not data()['needs_only']);key('Escape');wait_until(lambda:not data()['overview'])
         request(root,Path(runtime),root,'terminal.close',extra_id);wait_until(lambda:len(data()['panes'])==14 and data()['navigation_agent_indices']==[8])
