@@ -51,6 +51,10 @@ with tempfile.TemporaryDirectory(prefix='wb-apps-',dir='/tmp') as temporary:
         wait_until(lambda:state_of(failed['id'])=='stopped')
         detail=request(state,runtime,root,'terminal.lifecycle',failed['id'])['lifecycle']
         assert detail['record']['exit_code']==3 and detail['output'].strip()=='WB_MISSING',detail
+        # It stays as a stopped pane through other changes, and Start again runs it again.
+        assert find(call('terminal.create',other,'Shell'),'missing')['id']==failed['id']
+        call('terminal.recover',failed['id'])
+        wait_until(lambda:state_of(failed['id'])=='stopped' and 'output' in request(state,runtime,root,'terminal.lifecycle',failed['id'])['lifecycle'])
         # Starting it again works once it has ended.
         again=find(call('terminal.create',workspace,'Watch',app=dict(id='watch',command='sleep 30')),'watch')
         assert again['id']!=entry['id'] and state_of(again['id'])=='running'
@@ -70,4 +74,4 @@ with tempfile.TemporaryDirectory(prefix='wb-apps-',dir='/tmp') as temporary:
             current=request(state,runtime,root,'catalog.read')['data'];remaining=[t['id'] for w in current['workspaces'] for t in w['terminals']]
             if remaining:request(state,runtime,root,'session.stop',terminal_ids=remaining)
             request(state,runtime,root,'service.shutdown')
-print('PASS: app command in its folder, uniqueness, validation, fixed workspace, removal on exit, output of a failed start, restart by definition, no restart on recovery')
+print('PASS: app command in its folder, uniqueness, validation, fixed workspace, removal on exit, output of a failed start kept until window open, start again, restart by definition, no restart on recovery')

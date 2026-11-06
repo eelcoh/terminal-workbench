@@ -34,7 +34,7 @@ bool UiViewState::valid(const QVariantMap &state){
     for(auto it=workspaces.begin();it!=workspaces.end();++it){
         const auto value=it.value().toObject();if(it.key().isEmpty() || !identity(it.key()) || !it.value().isObject() || !keys(value,{"focus","x","theme","theme_default","app"}) || !value["focus"].isString() || !identity(value["focus"].toString()) || !number(value["x"],0,1e7) || !value["theme"].isObject())return false;
         if(value.contains("theme_default") && !value["theme_default"].isBool())return false;
-        // The app shown beside the strip, if any.
+        // Written by builds with an app side panel (2026-11-06); read and ignored.
         if(value.contains("app") && (!value["app"].isString() || !identity(value["app"].toString())))return false;
         if(!validTheme(value["theme"].toObject().toVariantMap()))return false;
     }

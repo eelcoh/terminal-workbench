@@ -20,9 +20,14 @@ saved binding. Commands displays the active binding beside each action.
 | Cycle focused terminal width | Super+Alt+R | Command+Option+R |
 | Toggle focused terminal full width | Super+Alt+F | Command+Option+F |
 | Find in terminal | Super+Alt+S | Command+Option+S |
+| Show apps | Super+Alt+A | Command+Option+A |
 | Show shortcuts | Super+Alt+/ | Command+Option+/ |
 | Copy selection | Ctrl+Shift+C | Command+C |
 | Paste clipboard | Ctrl+Shift+V | Command+V |
+
+Show apps opens the Apps panel ([apps](apps.md)). The plan named Command-P /
+Super-P; Super+P switches displays on GNOME and other Linux desktops and
+Command+P is Print on the Mac, so it follows the other Super+Alt defaults.
 
 Remaining actions start unbound and are configurable, including rename, folder,
 appearance, confirmed stops/recovery, settings, and **Send next key to terminal**.
@@ -234,6 +239,7 @@ action IDs:
   `workspace.previous`, `workspace.next`
 - `terminal.new`, `terminal.stop`, `terminal.previous`, `terminal.next`
 - `agent.input.next`, `agent.input.previous`
+- `apps`
 - `terminal.width.cycle`, `terminal.width.full`
 - `terminal.font.settings`, `terminal.font.increase`,
   `terminal.font.decrease`, `terminal.font.reset`

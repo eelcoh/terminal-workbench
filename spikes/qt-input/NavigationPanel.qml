@@ -162,7 +162,7 @@ Item {
                     readonly property bool running: { const revision = host.catalogRevision; return host.runningApp(host.workspace, modelData.id) >= 0 }
                     objectName: "navigationApp" + index
                     tones: host.chrome; width: body.width; height: 52; padding: 10
-                    selected: { const shown = host.shownApp; return shown >= 0 && shown === host.runningApp(host.workspace, modelData.id) }
+                    selected: { const revision = host.catalogRevision; const pane = host.runningApp(host.workspace, modelData.id); return pane >= 0 && pane === host.selected && !host.overview }
                     hint: modelData.name + " · " + modelData.command + (running ? " · running" : "")
                     Keys.onDownPressed: navigation.focusApp(index + 1)
                     Keys.onUpPressed: navigation.focusApp(index - 1)

@@ -1600,61 +1600,54 @@ while True:
         request(root,Path(runtime),root,'terminal.close',removed_details)
         wait_until(lambda:not data()['runtime_info_open'] and len(data()['panes'])==1)
         assert data()['runtime_info_report']=={} and data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
-        # Apps from config.conf start beside the strip, in the current workspace.
-        # Choosing a running app shows it again; hiding keeps it running.
-        managed.write_bytes(managed_bytes+b'\n[app.echo]\nname = Echo app\ncommand = printf WB_SIDE_READY; exec cat\n'
-            b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n')
+        # Apps from config.conf open as panes in the strip, in the current workspace.
+        runs=root/'broken-runs'
+        managed.write_bytes(managed_bytes+b'\n[app.echo]\nname = Echo app\ncommand = printf WB_APP_READY; exec cat\n'
+            b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; echo run >> '+shlex.quote(str(runs)).encode()+b'; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n')
         wait_until(lambda:data()['apps_visible'])
-        if wayland:run('niri','msg','action','set-window-width','1240')
-        else:cmd('windowsize','--sync',window,1240,760)
-        wait_until(lambda:data()['window_width']==1240);time.sleep(.3)
-        strip_width=data()['deck_width'];assert not data()['app_panel_open']
         # The icon has just appeared; the rail below it moves.
         click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_third_app'])
         capture('apps-panel.png')
         click(*data()['navigation_first_app'])
         def app_pane(app_id):return next((p for p in data()['panes'] if p['app']==app_id),None)
-        wait_until(lambda:app_pane('echo') and app_pane('echo')['ready'] and 'WB_SIDE_READY' in app_pane('echo')['text'] and app_pane('echo')['focus'])
-        echo=app_pane('echo')['identity'];panel_box=data()['app_panel']
-        assert data()['app_panel_open'] and not data()['drawer_open'] and len(data()['panes'])==2 and data()['deck_width']<strip_width
-        assert data()['panes'][0]['identity']==survivor and data()['panes'][0]['right']<panel_box[0]<=app_pane('echo')['left'],'the app is beside the strip, not in it'
-        typed('side-input');key('Return');wait_until(lambda:re.sub(r'\s','',app_pane('echo')['text']).count('side-input')>=2)
-        capture('app-side-panel.png')
-        # Resizing the panel narrows the strip.
-        middle=(panel_box[1]+panel_box[3])/2;move(panel_box[0]-6,middle);button('mousedown');move(panel_box[0]-60,middle);move(panel_box[0]-120,middle);button('mouseup')
-        wait_until(lambda:data()['app_panel'][0]<panel_box[0]-80);wider=data()['deck_width']
-        # Commands → Show apps, Return on the first row: shows the running app, never a second one.
-        command_search('Show apps');key('Return');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
+        wait_until(lambda:app_pane('echo') and app_pane('echo')['ready'] and 'WB_APP_READY' in app_pane('echo')['text'] and app_pane('echo')['focus'])
+        echo=app_pane('echo')['identity']
+        assert len(data()['panes'])==2 and not data()['drawer_open'] and data()['panes'][0]['identity']==survivor
+        assert app_pane('echo')['visible'] and app_pane('echo')['left']>data()['panes'][0]['right'],'the app is the next pane in the strip'
+        typed('app-input');key('Return');wait_until(lambda:re.sub(r'\s','',app_pane('echo')['text']).count('app-input')>=2)
+        # Choosing a running app goes to its pane; Super+Alt+A opens the list.
+        key('super+alt+Left');wait_until(lambda:data()['panes'][0]['focus'])
+        key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
         time.sleep(.2);key('Return');wait_until(lambda:app_pane('echo')['focus'] and not data()['drawer_open'])
         assert len(data()['panes'])==2 and app_pane('echo')['identity']==echo
-        click(*app_pane('echo')['hide_app']);wait_until(lambda:not data()['app_panel_open'] and data()['panes'][0]['focus'])
-        assert app_pane('echo')['ready'] and request(root,Path(runtime),root,'terminal.status',echo)['state']=='running' and data()['deck_width']==strip_width
-        click(*data()['apps_button']);wait_until(lambda:data()['navigation_first_app']);click(*data()['navigation_first_app'])
-        wait_until(lambda:data()['app_panel_open'] and app_pane('echo')['focus']);assert app_pane('echo')['identity']==echo and data()['deck_width']==wider
-        # A failed start keeps its exit code and last lines until dismissed.
-        click(*data()['apps_button']);wait_until(lambda:data()['navigation_second_app']);click(*data()['navigation_second_app'])
-        wait_until(lambda:data()['app_failure_visible'] and data()['app_failure_dismiss_focus'])
-        assert 'code 7' in data()['app_failure_message'] and 'WB_BROKEN_OUTPUT' in data()['app_failure_output'],data()['app_failure_message']
-        assert data()['app_panel_open'] and data()['shown_app']==-1
-        capture('app-failed-start.png')
-        key('Return');wait_until(lambda:not data()['app_panel_open'] and not data()['app_failure_visible'])
+        capture('app-pane.png')
+        # A failed app keeps its pane with the exit code and last lines.
+        # Start again runs it again; Close pane removes it.
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_second_app']);click(*data()['navigation_second_app'])
+        def failed():
+            pane=app_pane('broken')
+            return pane and not pane['lifecycle'].get('busy') and pane['lifecycle'].get('state')=='stopped' and 'code 7' in pane['app_message'] and 'WB_BROKEN_OUTPUT' in pane['app_output']
+        wait_until(failed);broken=app_pane('broken')['identity']
+        assert not app_pane('broken')['ended'] and app_pane('broken')['visible'] and not data()['error']
+        capture('app-failed.png')
+        click(*settled_point(lambda d:(app_pane('broken') or {}).get('primary_action')))
+        wait_until(lambda:runs.exists() and runs.read_text().count('run')==2);wait_until(failed)
+        assert app_pane('broken')['identity']==broken
+        click(*settled_point(lambda d:(app_pane('broken') or {}).get('exited_close_action')));wait_until(lambda:app_pane('broken') is None)
         # A normal exit closes the pane without a notice.
-        click(*data()['apps_button']);wait_until(lambda:data()['navigation_third_app']);click(*data()['navigation_third_app'])
-        quick=wait_until(lambda:next((t['id'] for w in workspace_catalog.load(root)['workspaces'] for t in w['terminals'] if t.get('app',{}).get('id')=='quick'),None))
-        wait_until(lambda:request(root,Path(runtime),root,'terminal.status',quick)['state']=='stopped')
-        wait_until(lambda:(app_pane('quick') or {}).get('lifecycle',{}).get('state')=='stopped' and not data()['app_panel_open'])
-        assert not data()['app_failure_visible'] and not data()['error']
-        # Closing the app removes it; ended apps leave with that catalog change.
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_third_app']);click(*data()['navigation_third_app'])
+        wait_until(lambda:app_pane('quick') and app_pane('quick')['ended'] and not app_pane('quick')['visible'])
+        assert not data()['error'] and len([p for p in data()['panes'] if not p['ended']])==2
+        # Closing the app removes it; the ended app leaves with that catalog change.
         request(root,Path(runtime),root,'terminal.close',echo)
-        wait_until(lambda:len(data()['panes'])==1 and not data()['app_panel_open'])
+        wait_until(lambda:len(data()['panes'])==1)
         assert data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
         managed.write_bytes(managed_bytes);wait_until(lambda:data()['creation_width']==0.5)
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
-        assert json.loads((root/'qt-view.json').read_text())['app_width']>0.4,'the app panel width is window view state'
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: apps beside the strip (start, show, hide, resize, failed start, normal exit), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (start, go to running, Super+Alt+A, failed start kept and started again, normal exit), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except SystemExit:
         raise
     except BaseException:

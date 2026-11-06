@@ -349,9 +349,11 @@ fn validate_app(definition: &Value) -> Result<()> {
     Ok(())
 }
 
-/// Remove app terminals whose program has ended. An app is never restarted,
-/// only started again from its definition; this runs before any recovery.
-pub(crate) fn prune_apps(directory: &Path, data: &mut Value) -> Result<bool> {
+/// Remove app terminals whose program has ended. An app is never restarted
+/// by bulk recovery, only started again; this runs before any recovery. With
+/// `keep_failed`, an app that failed (its runtime left an `.output` file) stays
+/// as a stopped pane until it is closed, started again or a window opens.
+pub(crate) fn prune_apps(directory: &Path, data: &mut Value, keep_failed: bool) -> Result<bool> {
     if ["pending_create", "pending_stop", "pending_close"]
         .iter()
         .any(|key| data.get(*key).is_some())
@@ -366,7 +368,8 @@ pub(crate) fn prune_apps(directory: &Path, data: &mut Value) -> Result<bool> {
         let path = socket_path(directory, id(terminal))?;
         // Only absence or refusal establishes an ended app; keep it otherwise.
         let live = |endpoint: &Path| endpoint_alive(endpoint).unwrap_or(true);
-        if !live(&path.with_extension("ctl")) && !live(&path) {
+        let failed = keep_failed && fs::symlink_metadata(path.with_extension("output")).is_ok();
+        if !live(&path.with_extension("ctl")) && !live(&path) && !failed {
             ended.push(id(terminal).to_owned());
         }
     }
@@ -1108,8 +1111,9 @@ pub(crate) fn manage(
     let mut data = load(directory)?;
     finish_create(directory, &mut data)?;
     finish_stop(directory, &launch.runtime, &mut data)?;
-    // Ended apps leave before recovery can restart them.
-    if prune_apps(directory, &mut data)? {
+    // Ended apps leave before recovery can restart them; a failed one stays
+    // for the window to explain, except before starting all stopped shells.
+    if prune_apps(directory, &mut data, method != "session.recover")? {
         save(directory, &data)?;
     }
     if started_app.is_some() && method != "terminal.create" {
@@ -1314,12 +1318,16 @@ mod tests {
         let root = temporary("prune");
         let mut data = sample();
         data["workspaces"][0]["terminals"][1]["app"] = json!({"id": "btop", "command": "btop"});
-        assert!(prune_apps(&root, &mut data).unwrap());
+        // A failed app stays for ordinary changes, not for window open or recovery.
+        let output = socket_path(&root, "b").unwrap().with_extension("output");
+        fs::write(&output, "not found\n").unwrap();
+        assert!(!prune_apps(&root, &mut data, true).unwrap());
+        assert!(prune_apps(&root, &mut data, false).unwrap());
         assert_eq!(terminal_ids(&data), ["a"]);
         let mut pending = sample();
         pending["workspaces"][0]["terminals"][1]["app"] = json!({"id": "btop", "command": "btop"});
         pending["pending_stop"] = json!(["b"]);
-        assert!(!prune_apps(&root, &mut pending).unwrap());
+        assert!(!prune_apps(&root, &mut pending, false).unwrap());
         assert_eq!(terminal_ids(&pending), ["a", "b"]);
         fs::remove_dir_all(root).unwrap();
     }

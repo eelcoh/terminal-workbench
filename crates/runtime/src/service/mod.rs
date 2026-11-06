@@ -392,7 +392,7 @@ impl Authority {
                     let mut data = catalog::load(&self.directory)?;
                     self.reconcile(&mut data)?;
                     // Apps that ended while no window was open, or before a reboot.
-                    catalog::prune_apps(&self.directory, &mut data)?;
+                    catalog::prune_apps(&self.directory, &mut data, false)?;
                     catalog::save(&self.directory, &data)?;
                     return Ok(self.data_reply(data));
                 }
@@ -410,7 +410,8 @@ impl Authority {
                 let _lock = catalog::locked(&self.directory)?;
                 let mut data = catalog::load(&self.directory)?;
                 self.reconcile(&mut data)?;
-                if catalog::prune_apps(&self.directory, &mut data)? {
+                // Starting a failed app again is explicit; other ended apps leave.
+                if catalog::prune_apps(&self.directory, &mut data, true)? {
                     catalog::save(&self.directory, &data)?;
                 }
                 let Some((workspace, terminal)) = find_terminal(&data, &identity) else {

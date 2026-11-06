@@ -144,8 +144,10 @@ An app runs at most once per workspace and cannot move to another workspace;
 the catalog holds at most 64 apps, which keeps the worst-case catalog inside
 one message. An app terminal with no live endpoint is removed from the catalog
 when a window initializes, before any change, and before `session.recover` or
-`terminal.recover`, so an app is never restarted: it is started again from its
-definition. Pending journals defer the removal.
+`terminal.recover`, so bulk recovery never restarts an app. An app that failed
+(its runtime left an `.output` file, below) stays through ordinary changes and
+`terminal.recover` of that terminal, which starts it again; window open and
+`session.recover` remove it. Pending journals defer the removal.
 
 When an app exits unsuccessfully, its runtime writes the last lines of its
 screen (at most 12 lines and 2 KiB, control characters removed) to a private

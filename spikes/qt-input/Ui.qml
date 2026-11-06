@@ -29,14 +29,12 @@ ApplicationWindow {
             const focus = remembered[w], validFocus = indices(w).indexOf(focus) >= 0
             const x = !overview && w === workspace ? deck.contentX : (positions[w] || 0)
             workspaces[spaceIds[w]] = {focus: validFocus ? terminalModel.get(focus).terminalId : "", x: Math.max(0,x), theme: studyThemes.snapshot(effectiveTheme(w)), theme_default: (workspaceThemes[w] ?? -1) < 0}
-            const shown = identityIndex(sideApps[spaceIds[w]] || "")
-            if (isApp(shown)) workspaces[spaceIds[w]].app = sideApps[spaceIds[w]]
         }
         for (let i = 0; i < terminalModel.count; ++i) terminals[terminalModel.get(i).terminalId] = {width: widths[i] || 0.5, full: fullWidths[i] || false}
         return {version: 1, window: {width: Math.max(680,Math.min(16384,Math.round(width))), height: Math.max(440,Math.min(16384,Math.round(height)))},
             workspace: spaceIds[workspace] || "", terminal: selected >= 0 && selected < terminalModel.count ? terminalModel.get(selected).terminalId : "",
             navigation_default: navigationOverride === null, motion_default: motionOverride === null, navigation_pinned: navigationPinned, overview: overview, agents: agentsOnly, needs: needsOnly, motion: reducedMotion, overview_y: overview ? Math.max(0,deck.contentY) : 0,
-            workspaces: workspaces, terminals: terminals, app_width: Math.max(0.2, Math.min(0.8, appWidth))}
+            workspaces: workspaces, terminals: terminals}
     }
     function applySharedAppearance() {
         let themes = workspaceThemes.slice()
@@ -75,13 +73,10 @@ ApplicationWindow {
             themes.push(theme)
             if (theme < 0 && value && value.theme_default !== true) studyView.invalidate("A saved workspace theme is invalid. Using default colors; view file left untouched.")
         }
-        let shown = {}
-        for (let w = 0; w < spaceIds.length; ++w) { const value = saved.workspaces[spaceIds[w]]; if (value && isApp(identityIndex(value.app || ""))) shown[spaceIds[w]] = value.app }
-        sideApps = shown; if (saved.app_width !== undefined) appWidth = saved.app_width
         workspaceThemes = themes; remembered = focus; positions = scroll
         workspace = Math.max(0,spaceIds.indexOf(saved.workspace)); selected = identityIndex(saved.terminal)
         if (selected >= 0) workspace = terminalModel.get(selected).spaceIndex
-        if (selected < 0 || (isApp(selected) && sideApps[spaceIds[workspace]] !== saved.terminal)) selected = remembered[workspace] ?? -1
+        else selected = remembered[workspace] ?? -1
         navigationOverride = saved.navigation_default === true || saved.navigation_pinned === undefined ? null : saved.navigation_pinned
         motionOverride = saved.motion_default === true ? null : saved.motion; agentsOnly = saved.agents; needsOnly = saved.needs; overview = saved.overview
         rebuildOverview()
@@ -472,13 +467,12 @@ ApplicationWindow {
     readonly property int maxWorkspaces: 64
     readonly property int maxTerminals: 256
     readonly property int indicatorSlots: topbar.markerSlots
-    // Apps count toward the service's limit too.
     readonly property int terminalTotal: { const revision = catalogRevision; return terminalModel.count }
     readonly property bool canCreateTerminal: spaces.length > 0 && terminalTotal < maxTerminals && !studySession.busy && dragSlot < 0
     readonly property bool canCreateWorkspace: spaces.length < maxWorkspaces && terminalTotal < maxTerminals && !studySession.busy && dragSlot < 0
     ListModel { id: terminalModel }
     property int catalogRevision: 0
-    function indices(space) { const revision = catalogRevision; let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space && terminalModel.get(i).appId === "") result.push(i); return result.sort((a,b) => terminalModel.get(a).ordinal - terminalModel.get(b).ordinal) }
+    function indices(space) { const revision = catalogRevision; let result = []; for (let i = 0; i < terminalModel.count; ++i) if (terminalModel.get(i).spaceIndex === space && !endedApps[terminalModel.get(i).terminalId]) result.push(i); return result.sort((a,b) => terminalModel.get(a).ordinal - terminalModel.get(b).ordinal) }
     function ordinal(i) { const revision = catalogRevision; return i >= 0 && i < terminalModel.count ? terminalModel.get(i).ordinal : -1 }
     function applyCatalog(catalog, method) {
         if (method === "catalog.update") { cancelDrag(); paneMenu.close() }
@@ -502,7 +496,7 @@ ApplicationWindow {
         let added = -1
         for (let w = 0; w < catalog.workspaces.length; ++w) {
             const space = catalog.workspaces[w]
-            names.push(space.name); ids.push(space.id); folders.push(space.directory || studySession.defaultDirectory); totals.push(space.terminals.filter(terminal => !terminal.app).length)
+            names.push(space.name); ids.push(space.id); folders.push(space.directory || studySession.defaultDirectory); totals.push(space.terminals.filter(terminal => !endedApps[terminal.id]).length)
             const retained = previous[space.id]
             focus.push(retained ? identityIndex(retained.focus) : -1); scroll.push(retained ? retained.x : 0); themes.push(retained ? retained.theme : -1)
             for (let j = 0; j < space.terminals.length; ++j) {
@@ -517,7 +511,7 @@ ApplicationWindow {
                 sizes.push(studyConfiguration.terminalWidth); full.push(false); widths = sizes; fullWidths = full
                 terminalModel.append({terminalId: terminal.id, spaceIndex: w, ordinal: j, appId: terminal.app ? terminal.app.id : "", appName: terminal.app ? (terminal.name || terminal.app.id) : ""})
                 added = terminalModel.count - 1
-                if (focus[w] < 0 && !terminal.app) focus[w] = added
+                if (focus[w] < 0) focus[w] = added
             }
         }
         spaces = names; spaceIds = ids; directories = folders; counts = totals; workspaceThemes = themes
@@ -539,7 +533,7 @@ ApplicationWindow {
         Qt.callLater(syncItems)
         if (selected >= 0) {
             workspace = terminalModel.get(selected).spaceIndex
-            if (!isApp(selected)) { let values = remembered.slice(); values[workspace] = selected; remembered = values }
+            let values = remembered.slice(); values[workspace] = selected; remembered = values
             if (!overview) Qt.callLater(reveal)
         }
         let ended = {}
@@ -557,21 +551,12 @@ ApplicationWindow {
             terminalAction.close(); Qt.callLater(restoreAfterPopup)
         }
         if (method === "workspace.rename" || method === "workspace.directory") createDialog.close()
-        if (method === "terminal.create" && added >= 0) {
-            if (overview) toggleOverview()
-            if (isApp(added)) { let starts = Object.assign({}, appStarts); starts[terminalModel.get(added).terminalId] = Date.now(); appStarts = starts }
-            Qt.callLater(function() { if (isApp(added)) showApp(added); else focusPane(added) })
-        }
+        if (method === "terminal.create" && added >= 0) { if (overview) toggleOverview(); Qt.callLater(function() { focusPane(added) }) }
     }
-    // Apps (docs/apps.md): app terminals run beside the strip, one shown per
-    // workspace. Which one, and the panel's width, are this window's view state.
-    property var sideApps: ({})
-    property var appFailures: ({})
-    property var appStarts: ({})
+    // Apps (docs/apps.md) are panes in the strip that run a command. When the
+    // program exits normally its pane closes; after a failure it stays stopped,
+    // with the exit code and last lines, until started again or closed.
     property var endedApps: ({})
-    property real appWidth: 0.4
-    // A non-zero exit this soon after this window started the app is a failed start.
-    readonly property int appStartWindow: 5000
     readonly property var appDefinitions: studyConfiguration.apps
     function isApp(i) { return i >= 0 && i < terminalModel.count && terminalModel.get(i).appId !== "" }
     function runningApp(space, id) {
@@ -579,62 +564,32 @@ ApplicationWindow {
         for (let i = 0; i < terminalModel.count; ++i) { const item = terminalModel.get(i); if (item.spaceIndex === space && item.appId === id && !endedApps[item.terminalId]) return i }
         return -1
     }
-    readonly property int shownApp: {
-        const revision = catalogRevision
-        const i = identityIndex(sideApps[spaceIds[workspace] || ""] || "")
-        return i >= 0 && !endedApps[terminalModel.get(i).terminalId] ? i : -1
-    }
-    readonly property var shownFailure: appFailures[spaceIds[workspace] || ""] || null
-    readonly property bool sideOpen: !overview && (shownApp >= 0 || shownFailure !== null)
-    readonly property real sideWidth: { const room = width - navigationEdge - 40; return Math.round(Math.max(320, Math.min(room - 360, room * appWidth))) }
-    readonly property bool appPanelOpen: sideOpen
-    function setSideApp(space, identity) { let shown = Object.assign({}, sideApps); shown[space] = identity; sideApps = shown; scheduleViewSave() }
-    function clearAppFailure(space) { if (appFailures[space]) { let failures = Object.assign({}, appFailures); delete failures[space]; appFailures = failures } }
-    function showApp(i) {
-        if (!isApp(i)) return
-        const space = spaceIds[terminalModel.get(i).spaceIndex]
-        clearAppFailure(space); setSideApp(space, terminalModel.get(i).terminalId)
-        if (overview) toggleOverview()
-        focusPane(i)
-    }
+    // Choosing an app already in this workspace goes to its pane.
     function chooseApp(id) {
         if (drawer.visible) drawer.close()
         const running = runningApp(workspace, id)
-        if (running >= 0) { Qt.callLater(function() { showApp(running) }); return }
+        if (running >= 0) { Qt.callLater(function() { enterPane(running) }); return }
         const definition = (appDefinitions || []).find(app => app.id === id)
         if (!definition || spaces.length === 0 || !canCreateTerminal) return
-        clearAppFailure(spaceIds[workspace])
         studySession.startApp(spaceIds[workspace], definition)
     }
-    // Hiding keeps the app running; its terminal stays in the workspace.
-    function hideApp() {
-        const space = spaceIds[workspace] || ""
-        clearAppFailure(space); setSideApp(space, "")
-        if (isApp(selected)) leaveApp()
+    function appFailed(life) { return life.reason === "signal" || life.reason === "startup_failed" || (life.reason === "exited" && life.exit_code !== undefined && life.exit_code !== 0) }
+    function appFailure(name, life) {
+        return life.reason === "signal" ? name + " was ended by " + life.signal + "."
+            : life.reason === "startup_failed" ? name + " could not start."
+            : name + " exited with code " + life.exit_code + "." + (life.exit_code === 127 ? " Its command was not found." : "")
     }
-    function leaveApp() {
-        selected = remembered[workspace] ?? -1
-        if (!overview && selected >= 0) Qt.callLater(function() { if (selected >= 0 && panel(selected)) { reveal(); panel(selected).terminal.forceActiveFocus() } })
-        else window.contentItem.forceActiveFocus()
-    }
-    // The program ended: close its pane, or keep what a failed start printed.
     function appEnded(i) {
         const item = terminalModel.get(i), pane = panel(i)
-        if (!pane || endedApps[item.terminalId]) return
-        const life = pane.lifecycle, space = spaceIds[item.spaceIndex], started = appStarts[item.terminalId]
+        if (!pane || endedApps[item.terminalId] || appFailed(pane.lifecycle)) return
+        const space = item.spaceIndex, items = indices(space), position = items.indexOf(i)
         let ended = Object.assign({}, endedApps); ended[item.terminalId] = true; endedApps = ended
-        const failed = life.reason === "signal" || life.reason === "startup_failed" || (life.reason === "exited" && life.exit_code !== undefined && life.exit_code !== 0)
-        if (failed && started !== undefined && Date.now() - started < appStartWindow) {
-            const message = life.reason === "signal" ? item.appName + " was ended by " + life.signal + " right after starting."
-                : life.reason === "startup_failed" ? item.appName + " could not start."
-                : item.appName + " exited with code " + life.exit_code + " right after starting." + (life.exit_code === 127 ? " Its command was not found." : "")
-            let failures = Object.assign({}, appFailures); failures[space] = {id: item.appId, name: item.appName, message: message, output: life.output || ""}; appFailures = failures
-            if (sideApps[space] === item.terminalId) setSideApp(space, "")
-        }
-        if (selected === i) {
-            leaveApp()
-            if (appFailures[space] && spaceIds[workspace] === space) Qt.callLater(function() { appFailureDismiss.forceActiveFocus() })
-        }
+        ++catalogRevision
+        let counted = counts.slice(); counted[space] = Math.max(0, (counted[space] || 1) - 1); counts = counted
+        const rest = indices(space), next = rest.length ? rest[Math.max(0, Math.min(rest.length - 1, position))] : -1
+        if (remembered[space] === i) { let values = remembered.slice(); values[space] = next; remembered = values }
+        if (selected === i) { if (next >= 0) focusPane(next); else { selected = -1; window.contentItem.forceActiveFocus() } }
+        Qt.callLater(syncItems)
     }
     function newTerminal() { if (canCreateTerminal && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen) studySession.createTerminal(spaceIds[workspace]) }
     function newWorkspace() {
@@ -749,7 +704,7 @@ ApplicationWindow {
     function left(i) { if (i < 0 || i >= terminalModel.count) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
     function stripWidth() { const items = indices(workspace); return items.length === 0 ? deck.width : Math.max(deck.width, left(items[items.length - 1]) + paneWidth(items[items.length - 1])) }
     function reveal() {
-        if (overview || selected < 0 || selected >= terminalModel.count || isApp(selected)) return
+        if (overview || selected < 0 || selected >= terminalModel.count) return
         deck.directPanning = false
         const x = left(selected), w = paneWidth(selected)
         let target = Math.max(0, Math.min(deck.scrollTarget, stripWidth() - deck.width))
@@ -759,11 +714,6 @@ ApplicationWindow {
     }
     function focusPane(i) {
         if (i < 0 || i >= terminalModel.count) return
-        if (isApp(i)) {
-            selected = i; workspace = terminalModel.get(i).spaceIndex
-            Qt.callLater(function() { if (selected === i && panel(i) && panel(i).visible) panel(i).terminal.forceActiveFocus() })
-            return
-        }
         selected = i; workspace = terminalModel.get(i).spaceIndex
         let values = remembered.slice(); values[workspace] = i; remembered = values
         if (!overview) { reveal(); panel(i).terminal.forceActiveFocus() }
@@ -825,15 +775,13 @@ ApplicationWindow {
     }
     function enterPane(i) { focusPane(i); if (overview) toggleOverview() }
     function navigate(delta) {
-        // From the app beside the strip, back to the strip.
-        if (isApp(selected)) { if (delta < 0) leaveApp(); return }
         const items = overview ? overviewIndices(workspace) : indices(workspace); if (items.length) focusPane(items[Math.max(0, Math.min(items.length - 1, items.indexOf(selected) + delta))])
     }
     readonly property bool moveKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && dragSlot < 0
     property string moveNotice: ""
     property bool followMove: false
     function canReorder(delta) {
-        if (selected < 0 || isApp(selected) || studySession.busy || (overview && overviewOrdinals[selected] < 0)) return false
+        if (selected < 0 || studySession.busy || (overview && overviewOrdinals[selected] < 0)) return false
         const items = indices(terminalModel.get(selected).spaceIndex), position = items.indexOf(selected) + delta
         return position >= 0 && position < items.length
     }
@@ -841,13 +789,14 @@ ApplicationWindow {
         if (!canReorder(delta)) return
         moveNotice = ""
         const source = terminalModel.get(selected), items = indices(source.spaceIndex)
-        // Catalog positions include apps; move next to the neighbour in the strip.
+        // Catalog positions include ended apps; move next to the neighbour in the strip.
         const neighbour = terminalModel.get(items[items.indexOf(selected) + delta])
         followMove = true
         studySession.moveTerminal(source.terminalId, spaceIds[source.spaceIndex], neighbour.ordinal)
     }
     function canMoveWorkspace(delta) {
         const target = workspace + delta
+        // An app stays in its workspace.
         return selected >= 0 && !isApp(selected) && (!overview || overviewOrdinals[selected] >= 0) && !studySession.busy && target >= 0 && target < spaces.length
     }
     function moveSelectedWorkspace(delta) {
@@ -867,13 +816,13 @@ ApplicationWindow {
         deck.contentY = Math.max(0, Math.min(deck.contentHeight - deck.height, deck.contentY))
     }
     function cycleWidth() {
-        if (selected < 0 || isApp(selected)) return
+        if (selected < 0) return
         let values = widths.slice(), full = fullWidths.slice()
         values[selected] = values[selected] === 0.5 ? 2/3 : values[selected] > 0.6 ? 1/3 : 0.5
         full[selected] = false; widths = values; fullWidths = full; Qt.callLater(reveal)
     }
     function toggleFull() {
-        if (selected < 0 || isApp(selected)) return
+        if (selected < 0) return
         let values = fullWidths.slice(); values[selected] = !values[selected]; fullWidths = values; Qt.callLater(reveal)
     }
     component QuietButton: ChromeButton { tones: window.chrome }
@@ -942,7 +891,7 @@ ApplicationWindow {
             id: focusedCount; objectName: "focusedCount"
             anchors.left: indicatorRow.right; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter
             visible: !window.overview && window.counts[window.workspace] > 0
-            text: Math.max(0, window.indices(window.workspace).indexOf(window.isApp(window.selected) ? window.remembered[window.workspace] : window.selected) + 1) + " / " + (window.counts[window.workspace] || 0)
+            text: Math.max(0, window.indices(window.workspace).indexOf(window.selected) + 1) + " / " + (window.counts[window.workspace] || 0)
             color: window.chrome.muted; font.pixelSize: 12
         }
         QuietButton {
@@ -976,7 +925,7 @@ ApplicationWindow {
         onContentYChanged: window.scheduleViewSave()
         property real scrollTarget: 0
         property bool directPanning: false
-        x: window.navigationEdge + 16; y: window.overview ? overviewFilters.y + overviewFilters.implicitHeight + 16 : 60; width: parent.width - x - 12 - (window.sideOpen ? window.sideWidth + 12 : 0); height: parent.height - y - 12
+        x: window.navigationEdge + 16; y: window.overview ? overviewFilters.y + overviewFilters.implicitHeight + 16 : 60; width: parent.width - x - 12; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
         interactive: window.overview && window.dragSlot < 0
         contentWidth: window.overview ? width : window.stripWidth()
@@ -1048,9 +997,8 @@ ApplicationWindow {
                 required property string terminalId
                 required property string appId
                 required property string appName
-                // An app's pane lives in the side panel instead of the strip.
                 readonly property bool app: appId !== ""
-                parent: app ? appPanel : deck.contentItem
+                readonly property bool ended: window.endedApps[terminalId] === true
                 Connections { target: pane.runtimeFacts; function onChanged() { Qt.callLater(window.rebuildOverview) } }
                 property alias terminal: terminal
                 readonly property var runtimeFacts: studySession.observe(terminalId)
@@ -1059,12 +1007,12 @@ ApplicationWindow {
                 readonly property int overviewOrdinal: window.overviewOrdinals[index] ?? -1
                 readonly property real previewScale: Math.min(deck.cardWidth / width, deck.previewHeight / height)
                 objectName: "pane" + index
-                width: app ? appPanel.width : window.paneWidth(index); height: app ? appPanel.height : window.height - 72
-                x: app ? 0 : window.overview ? 3 + (overviewOrdinal % deck.columns) * deck.cellWidth : window.left(index)
-                y: app ? 0 : window.overview ? deck.groupTop(spaceIndex) + Math.floor(overviewOrdinal / deck.columns) * deck.rowStride + deck.previewTop : 0
-                scale: window.overview && !app ? previewScale : 1
+                width: window.paneWidth(index); height: window.height - 72
+                x: window.overview ? 3 + (overviewOrdinal % deck.columns) * deck.cellWidth : window.left(index)
+                y: window.overview ? deck.groupTop(spaceIndex) + Math.floor(overviewOrdinal / deck.columns) * deck.rowStride + deck.previewTop : 0
+                scale: window.overview ? previewScale : 1
                 transformOrigin: Item.TopLeft
-                visible: app ? !window.overview && window.shownApp === index : window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace
+                visible: !ended && (window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace)
                 color: studyThemes.theme(window.themeIndexFor(spaceIndex)).surface; radius: 6
                 border.width: window.overview ? 0 : 1; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : studyThemes.theme(window.themeIndexFor(spaceIndex)).border
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
@@ -1076,7 +1024,7 @@ ApplicationWindow {
                     anchors.fill: parent; enabled: !window.overview
                     onClicked: window.focusPane(pane.index)
                 }
-                Text { id: paneTitle; x: 14; y: 10; width: Math.min(implicitWidth, parent.width - (pane.app ? 95 : 65) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)); elide: Text.ElideMiddle; text: pane.app ? pane.appName : pane.facts.title; textFormat: Text.PlainText; font.pixelSize: 12; color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground }
+                Text { id: paneTitle; x: 14; y: 10; width: Math.min(implicitWidth, parent.width - 65 - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)); elide: Text.ElideMiddle; text: pane.app ? pane.appName : pane.facts.title; textFormat: Text.PlainText; font.pixelSize: 12; color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground }
                 // A swatch of the terminal's own palette; the frame keeps workspace colors.
                 Rectangle {
                     id: ownColors; objectName: "terminalOwnColors" + pane.terminalId
@@ -1094,13 +1042,9 @@ ApplicationWindow {
                     ToolTip.text: "Own colors: " + (visible ? studyThemes.theme(own).name : "") + " · click to change"
                 }
                 Text {
-                    id: headerState; x: parent.width - (pane.app ? 78 : 48) - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
+                    id: headerState; x: parent.width - 48 - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
                     text: pane.facts.agent ? pane.facts.agent + " · " + pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
                     color: pane.facts.needs_input ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : pane.facts.state === "Ready" ? studyThemes.theme(window.themeIndexFor(spaceIndex)).ready : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
-                }
-                QuietButton {
-                    objectName: "hideApp" + pane.index; visible: pane.app; anchors.right: parent.right; anchors.rightMargin: 33; y: 0; iconName: "hide"; height: 28
-                    hint: "Hide " + pane.appName + " · it keeps running"; onClicked: window.hideApp()
                 }
                 QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: 3; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); window.paneMenuTarget = pane.terminalId; const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
@@ -1113,7 +1057,7 @@ ApplicationWindow {
                     enabled: !window.overview
                     textFont: studyFonts.current
                     themeIndex: window.terminalThemeIndex(pane.terminalId, pane.spaceIndex)
-                    presentationEnabled: pane.app ? pane.visible : pane.visible && pane.x + pane.width * pane.scale > deck.contentX && pane.x < deck.contentX + deck.width && pane.y + pane.height * pane.scale > deck.contentY && pane.y < deck.contentY + deck.height
+                    presentationEnabled: pane.visible && pane.x + pane.width * pane.scale > deck.contentX && pane.x < deck.contentX + deck.width && pane.y + pane.height * pane.scale > deck.contentY && pane.y < deck.contentY + deck.height
                     opacity: presentationEnabled ? 1 : 0
                     Accessible.role: Accessible.Terminal; Accessible.name: pane.facts.title + " in " + window.spaces[pane.spaceIndex]
                     onStatusChanged: {
@@ -1128,34 +1072,47 @@ ApplicationWindow {
                 }
                 readonly property var lifecycle: studySession.lifecycle[terminalId] || ({state: "unavailable", message: "Checking terminal status…", busy: false})
                 onLifecycleChanged: if (app && lifecycle.state === "stopped" && !lifecycle.busy) window.appEnded(index)
+                readonly property bool appStopped: app && lifecycle.state === "stopped"
                 Rectangle {
-                    anchors.centerIn: terminal; width: Math.min(parent.width - 40, 420); height: lifecycleBody.implicitHeight + 32; radius: 10
-                    visible: !terminal.ready && !(pane.app && pane.lifecycle.state === "stopped") && !(terminalSearch.visible && window.selected === pane.index && terminal.searchable); color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).raised; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
+                    anchors.centerIn: terminal; width: Math.min(parent.width - 40, pane.appStopped ? 560 : 420); height: lifecycleBody.implicitHeight + 32; radius: 10
+                    visible: !terminal.ready && !(terminalSearch.visible && window.selected === pane.index && terminal.searchable); color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).raised; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
                     Column {
                         id: lifecycleBody; x: 16; y: 16; width: parent.width - 32; spacing: 10
                         Label {
                             width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 14
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).foreground
-                            text: terminal.attachment === "connecting" ? "Connecting…" : pane.lifecycle.state === "stopped" ? pane.lifecycle.message : terminal.attachment === "elsewhere" ? "Open in another window" : pane.lifecycle.state === "running" ? "Could not attach: " + terminal.status : (pane.lifecycle.message || "Checking terminal status…")
+                            objectName: "terminalLifecycleMessage" + pane.index
+                            text: terminal.attachment === "connecting" ? "Connecting…" : pane.appStopped ? window.appFailure(pane.appName, pane.lifecycle) : pane.lifecycle.state === "stopped" ? pane.lifecycle.message : terminal.attachment === "elsewhere" ? "Open in another window" : pane.lifecycle.state === "running" ? "Could not attach: " + terminal.status : (pane.lifecycle.message || "Checking terminal status…")
                         }
                         Label {
                             width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 12
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).muted
-                            text: pane.lifecycle.state === "stopped" ? "Start a new shell in this workspace’s folder. The previous process has ended." : terminal.attachment === "elsewhere" ? "Move this terminal here to continue with the same process." : "Reconnect keeps a running shell. Check again if its status has changed."
+                            text: pane.appStopped ? (pane.lifecycle.output ? "Its last lines are below. Fix its command in config.conf, then start it again." : "Fix its command in config.conf, then start it again.") : pane.lifecycle.state === "stopped" ? "Start a new shell in this workspace’s folder. The previous process has ended." : terminal.attachment === "elsewhere" ? "Move this terminal here to continue with the same process." : "Reconnect keeps a running shell. Check again if its status has changed."
                             visible: terminal.attachment !== "connecting"
+                        }
+                        Rectangle {
+                            width: parent.width; height: Math.min(appOutput.implicitHeight + 16, pane.height * 0.4); radius: 6; clip: true
+                            visible: pane.appStopped && (pane.lifecycle.output || "").length > 0
+                            color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).background; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
+                            TextEdit {
+                                id: appOutput; objectName: "appOutput" + pane.index; x: 8; y: 8; width: parent.width - 16
+                                readOnly: true; selectByMouse: true; textFormat: TextEdit.PlainText; wrapMode: TextEdit.Wrap
+                                text: pane.lifecycle.output || ""; color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).foreground
+                                font.family: studyFonts.current.family; font.pointSize: 11
+                            }
                         }
                         Flow {
                             width: parent.width; spacing: 8; visible: terminal.attachment !== "connecting"
                             QuietButton {
                                 objectName: "terminalPrimary" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex))
-                                text: pane.lifecycle.state === "stopped" ? "Start new shell" : terminal.attachment === "elsewhere" ? "Move here…" : "Reconnect"
+                                text: pane.appStopped ? "Start again" : pane.lifecycle.state === "stopped" ? "Start new shell" : terminal.attachment === "elsewhere" ? "Move here…" : "Reconnect"
                                 visible: pane.lifecycle.state === "stopped" || pane.lifecycle.state === "running"
                                 enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview
                                 onClicked: { if (pane.lifecycle.state === "stopped") studySession.recover(pane.terminalId); else if (terminal.attachment === "elsewhere") window.requestTerminalAction(pane.terminalId, "move"); else studySession.reconnect(terminal, pane.terminalId, false) }
                             }
                             QuietButton { objectName: "terminalReconnect" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Reconnect"; visible: terminal.attachment === "elsewhere" && pane.lifecycle.state === "running"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: studySession.reconnect(terminal, pane.terminalId, false) }
                             QuietButton { objectName: "terminalCloseExited" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: "Close pane"; visible: pane.lifecycle.state === "stopped"; enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview; onClicked: studySession.dismissTerminal(pane.terminalId) }
-                            QuietButton { objectName: "terminalCheck" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: pane.lifecycle.busy ? "Checking…" : "Check again"; enabled: !pane.lifecycle.busy && !window.overview; onClicked: studySession.inspect(pane.terminalId) }
+                            QuietButton { objectName: "terminalCheck" + pane.index; visible: !pane.appStopped; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)); text: pane.lifecycle.busy ? "Checking…" : "Check again"; enabled: !pane.lifecycle.busy && !window.overview; onClicked: studySession.inspect(pane.terminalId) }
                         }
                     }
                 }
@@ -1222,58 +1179,6 @@ ApplicationWindow {
             x: slot < 0 ? 6 : (before % deck.columns) * deck.cellWidth + (window.dropProjected === total ? window.panel(slot).width * window.panel(slot).previewScale + 5 : -5)
             y: deck.groupTop(window.dropSpace) + Math.floor(before / deck.columns) * deck.rowStride + deck.previewTop - deck.contentY
             width: 3; height: window.dropSpace >= 0 && window.overviewIndices(window.dropSpace).length === 0 ? 56 : deck.previewHeight; radius: 1.5; color: window.accent
-        }
-    }
-    // The side panel: the workspace's shown app, or what a failed start printed.
-    Item {
-        id: appPanel; objectName: "appPanel"
-        visible: window.sideOpen
-        x: deck.x + deck.width + 12; y: 60; width: window.sideWidth; height: window.height - 72
-        MouseArea {
-            objectName: "appPanelResize"; x: -10; width: 8; height: parent.height; cursorShape: Qt.SizeHorCursor
-            onPositionChanged: mouse => {
-                if (!pressed) return
-                const room = window.width - window.navigationEdge - 40, left = mapToItem(window.contentItem, mouse.x, 0).x + 4
-                window.appWidth = Math.max(0.2, Math.min(0.8, (window.width - 12 - left) / room))
-            }
-            onReleased: window.scheduleViewSave()
-        }
-        FocusScope {
-            id: appFailure; objectName: "appFailure"; anchors.fill: parent
-            visible: window.shownApp < 0 && window.shownFailure !== null
-            readonly property var failure: window.shownFailure || ({id: "", name: "", message: "", output: ""})
-            Keys.onEscapePressed: window.hideApp()
-            Rectangle { anchors.fill: parent; radius: 6; color: window.chrome.surface; border.color: window.chrome.border }
-            Column {
-                x: 16; y: 16; width: parent.width - 32; spacing: 12
-                Label { width: parent.width; text: appFailure.failure.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: window.chrome.foreground; font.pixelSize: 15; font.weight: Font.DemiBold }
-                Label { objectName: "appFailureMessage"; width: parent.width; text: appFailure.failure.message; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; font.pixelSize: 13 }
-                Rectangle {
-                    width: parent.width; height: Math.min(failureOutput.implicitHeight + 20, appFailure.height - 200); radius: 6; clip: true
-                    visible: appFailure.failure.output.length > 0; color: window.chrome.background; border.color: window.chrome.border
-                    TextEdit {
-                        id: failureOutput; objectName: "appFailureOutput"; x: 10; y: 10; width: parent.width - 20
-                        readOnly: true; selectByMouse: true; textFormat: TextEdit.PlainText; wrapMode: TextEdit.Wrap
-                        text: appFailure.failure.output; color: window.chrome.foreground; selectionColor: window.accent
-                        font.family: studyFonts.current.family; font.pointSize: 11
-                    }
-                }
-                Label { width: parent.width; text: "The last lines it printed. Fix its command in config.conf, then start it again."; visible: appFailure.failure.output.length > 0; wrapMode: Text.Wrap; color: window.chrome.muted; font.pixelSize: 12 }
-                Row {
-                    spacing: 8
-                    QuietButton {
-                        objectName: "appFailureRetry"; text: "Start again"
-                        enabled: window.canCreateTerminal && (window.appDefinitions || []).some(app => app.id === appFailure.failure.id)
-                        Keys.onReturnPressed: clicked(); Keys.onEnterPressed: clicked()
-                        onClicked: window.chooseApp(appFailure.failure.id)
-                    }
-                    QuietButton {
-                        id: appFailureDismiss; objectName: "appFailureDismiss"; text: "Dismiss"
-                        Keys.onReturnPressed: clicked(); Keys.onEnterPressed: clicked()
-                        onClicked: window.hideApp()
-                    }
-                }
-            }
         }
     }
     Rectangle {
