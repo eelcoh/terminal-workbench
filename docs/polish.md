@@ -78,6 +78,16 @@ its own.
    previews, sidebar pinned or not), agent launchers, *pick your apps* from the
    catalog (Band's own step), and the keys worth knowing from the keymap.
    Settings import stays optional; Ghostty theme import exists already.
+   *Done (first pass):* a welcome in the main area rather than a strip pane
+   (a non-terminal pane would be a new pane kind). Three steps with Back,
+   Skip and Continue, Return and the arrow keys: sidebar pinned or not, motion,
+   and Choose colors… for this workspace; installed apps to tick, which open
+   one at a time as panes when it finishes, or Browse the catalog…; and the
+   keys worth knowing as chips from the keymap. It opens once per state
+   directory (a `qt/welcomed` marker written by finishing or skipping; only
+   saved-session launchers pass one) and again from Commands (Welcome to Band).
+   It never writes config.conf. Open: whether the welcome should set the
+   default theme, which today is `application-theme` in config.conf.
 6. **Sidebar filter.** One filter field at the bottom of the sidebar across
    workspaces, panes, agents and apps; hover previews of a closed workspace's
    panes.

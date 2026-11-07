@@ -564,6 +564,11 @@ fn saved_window(payload: &Path, viewer: &Path, preferences: &Path, desktop: bool
         json!(view.with_extension("json").to_string_lossy()),
     );
     settings.insert("installed".into(), json!(true));
+    // Shared by all windows: the welcome shows once per state directory.
+    settings.insert(
+        "welcome_marker".into(),
+        json!(views.join("welcomed").to_string_lossy()),
+    );
     settings.insert("viewer".into(), json!(viewer.to_string_lossy()));
     let contents = Value::Object(settings).to_string();
     if desktop {

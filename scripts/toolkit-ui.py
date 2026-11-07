@@ -44,6 +44,7 @@ def saved_window(runtime,viewer,preferences):
         with tempfile.TemporaryDirectory(prefix='wb-qt-window-',dir='/tmp') as directory:
             config=Path(directory)/'ui.json';settings=configuration(state,runtime,cwd,data,preferences,True)
             settings['view_state']=str(view.with_suffix('.json'));settings['viewer']=str(viewer)
+            settings['welcome_marker']=str(views/'welcomed')
             config.write_text(json.dumps(settings))
             print(f'Qt saved sessions: {state}. Closing detaches; shells and workspaces remain.',flush=True)
             print(f'Qt window view: {settings["view_state"]}',flush=True)

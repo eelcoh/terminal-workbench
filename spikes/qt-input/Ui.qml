@@ -371,6 +371,7 @@ ApplicationWindow {
         case "configuration": configurationDialog.open(); break
         case "configuration-reload": if (studyConfiguration.reload()) { moveNotice = "Preferences reloaded"; moveNoticeTimer.restart() }; break
         case "about": about.open(); break
+        case "welcome": openWelcome(); break
         case "help": help.open(); break
         }
     }
@@ -601,6 +602,21 @@ ApplicationWindow {
     // Choosing an app already in this workspace goes to its pane; a missing one
     // is installed in a pane of its own (with the chosen recipe, or the first),
     // which opens the app when it succeeds.
+    // The welcome: open on a first run, and again from Commands.
+    readonly property bool welcomeOpen: welcome.visible
+    property var welcomeQueue: []
+    function openWelcome() { welcome.step = 0; welcome.picked = ({}); welcome.visible = true; welcome.forceActiveFocus() }
+    function finishWelcome(apps, browse) {
+        welcome.visible = false; studyWelcome.finish()
+        welcomeQueue = apps; openQueuedApp()
+        if (browse) openCatalog(); else if (!apps.length) restoreAfterPopup()
+    }
+    // One app at a time: the session takes one request at a time.
+    function openQueuedApp() {
+        if (!welcomeQueue.length || studySession.busy) return
+        const id = welcomeQueue[0]; welcomeQueue = welcomeQueue.slice(1); chooseApp(id, false)
+    }
+    Connections { target: studySession; function onChanged() { if (!studySession.busy && window.welcomeQueue.length) Qt.callLater(window.openQueuedApp) } }
     function chooseApp(id, install) {
         const running = runningApp(workspace, id)
         if (running >= 0) { if (drawer.visible) drawer.close(); Qt.callLater(function() { enterPane(running) }); return }
@@ -749,7 +765,7 @@ ApplicationWindow {
             pendingTerminalColors = false; Qt.callLater(showTerminalColors)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible && !appCatalog.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !welcome.visible && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible && !appCatalog.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -1319,6 +1335,12 @@ ApplicationWindow {
         visible: window.navigationDocked; color: window.chrome.surface
         Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: window.chrome.border }
     }
+    Welcome {
+        id: welcome; objectName: "welcome"; visible: false; z: 40
+        x: window.navigationEdge; y: 0; width: parent.width - x; height: parent.height
+        host: window; tones: window.chrome
+        onFinished: (apps, browse) => window.finishWelcome(apps, browse)
+    }
     NavigationPanel {
         id: navigation
         parent: window.navigationDocked ? pinnedNavigation : drawer.contentItem
@@ -1675,5 +1697,5 @@ ApplicationWindow {
     }
     Shortcut { sequence: "Escape"; enabled: window.overview && !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
-    Component.onCompleted: { studyApps.setDefinitions(window.appDefinitions); window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
+    Component.onCompleted: { studyApps.setDefinitions(window.appDefinitions); window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (studyWelcome.due) window.openWelcome(); else if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

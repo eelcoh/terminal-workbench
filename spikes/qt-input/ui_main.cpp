@@ -15,6 +15,7 @@
 #include "ui_themes.h"
 #include "ui_fonts.h"
 #include "ui_view_state.h"
+#include "ui_welcome.h"
 #include "ui_shortcuts.h"
 #include "ui_apps.h"
 #include <pwd.h>
@@ -79,6 +80,7 @@ int main(int argc,char **argv) {
     UiSession session(configuration);
     UiRuntimeInfo runtimeInfo(configuration["state"].toString(),configuration["runtime"].toString());
     UiViewState view(configuration["view_state"].toString());
+    UiWelcome welcome(configuration["welcome_marker"].toString());
 #if defined(Q_OS_MACOS)
     constexpr bool apple=true;
 #else
@@ -112,6 +114,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyRuntimeInfo",&runtimeInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
     engine.rootContext()->setContextProperty("studyView",&view);
+    engine.rootContext()->setContextProperty("studyWelcome",&welcome);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
     engine.rootContext()->setContextProperty("studyTerminalAppearance",&terminalAppearance);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
@@ -190,7 +193,7 @@ int main(int argc,char **argv) {
                 if(!item)return QJsonArray();
                 const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
             const auto box=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto rect=item->mapRectToScene(item->boundingRect());return QJsonArray{rect.left(),rect.top(),rect.right(),rect.bottom()};};
-            QJsonArray folderChoices;QJsonArray folderAccept;QJsonArray folderList;QJsonArray navigationAgents;QJsonArray navigationPanes;QJsonArray keyChips;bool folderMoving=false;
+            QJsonArray folderChoices;QJsonArray folderAccept;QJsonArray folderList;QJsonArray navigationAgents;QJsonArray navigationPanes;QJsonArray keyChips;QJsonArray welcomeApps;bool folderMoving=false;
             // Observe the installed fallback controls; no test actions enter production QML.
             QList<QQuickItem *> pending{window->contentItem()};
             while(!pending.isEmpty()) {
@@ -203,6 +206,7 @@ int main(int argc,char **argv) {
                     if(parent->clip() && !parent->mapRectToScene(parent->boundingRect()).contains(point)) {unclipped=false;break;}
                 if(unclipped && item->objectName().startsWith("navigationAgent") && item->objectName()!="navigationAgents")navigationAgents.append(item->property("hint").toString());
                 if(unclipped && item->objectName()=="keyChips")keyChips.append(item->property("keys").toString());
+                if(unclipped && item->objectName().startsWith("welcomeApp"))welcomeApps.append(item->property("hint").toString());
                 if(unclipped && item->objectName().startsWith("navigationPane"))navigationPanes.append(QJsonObject{{"name",item->objectName()},{"hint",item->property("hint").toString()},{"kind",item->property("kind").toString()},{"selected",item->property("selected").toBool()},{"focus",item->hasActiveFocus()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->objectName()=="folderDialogListView") {folderList=QJsonArray{point.x(),point.y()};folderMoving=item->property("moving").toBool();}
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
@@ -240,6 +244,8 @@ int main(int argc,char **argv) {
                 {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},
                 {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},
                 {"commands_open",window->property("commandsOpen").toBool()},
+                {"welcome_open",window->property("welcomeOpen").toBool()},{"welcome_step",[window]{const auto *item=window->findChild<QQuickItem *>("welcome");return item ? item->property("step").toInt() : -1;}()},
+                {"welcome_continue",center("welcomeContinue")},{"welcome_back",center("welcomeBack")},{"welcome_browse",center("welcomeBrowse")},{"welcome_sidebar_pinned",center("welcomeSidebar")},
                 {"command_first_row",center("commandRow0")},{"reduced_motion",window->property("reducedMotion").toBool()},
                 {"command_current",window->property("commandCurrent").toInt()},
                 {"command_search_focus",window->property("commandSearchFocus").toBool()},
@@ -308,7 +314,7 @@ int main(int argc,char **argv) {
                 {"form_submit_enabled",window->findChild<QQuickItem *>("submitWorkspaceButton")->isEnabled()},
                 {"creation_open",window->property("creationOpen").toBool()},
                 {"navigation_pinned",window->property("navigationPinned").toBool()},{"navigation_docked",window->property("navigationDocked").toBool()},
-                {"navigation_agent_labels",navigationAgents},{"navigation_panes",navigationPanes},{"key_chips",keyChips},{"expand_workspace_0",center("expandWorkspace0")},{"expand_workspace_1",center("expandWorkspace1")},{"navigation_section",window->property("navigationSection").toString()},{"navigation_pin",center("navigationPin")},
+                {"navigation_agent_labels",navigationAgents},{"navigation_panes",navigationPanes},{"key_chips",keyChips},{"welcome_apps",welcomeApps},{"expand_workspace_0",center("expandWorkspace0")},{"expand_workspace_1",center("expandWorkspace1")},{"navigation_section",window->property("navigationSection").toString()},{"navigation_pin",center("navigationPin")},
                 {"navigation_search",center("navigationAgentSearch")},{"navigation_search_focus",window->property("navigationSearchFocused").toBool()},
                 {"navigation_matches",QJsonArray::fromVariantList(listProperty(window,"navigationMatches"))},{"navigation_needs_only",window->property("navigationNeedsOnly").toBool()},
                 {"navigation_needs_filter",center("navigationNeedsFilter")},{"navigation_clear_filters",center("navigationClearFilters")},

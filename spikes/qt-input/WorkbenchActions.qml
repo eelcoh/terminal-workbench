@@ -55,6 +55,7 @@ QtObject {
         row("help", "Keyboard shortcuts", "Show the navigation and layout bindings", true, ""),
         row("configuration", "Configuration", "Show managed files and preference locations", true, ""),
         row("configuration-reload", "Reload configuration", "Read font and shortcut files without restarting terminals", !studyConfiguration.editing, "Close settings editors first"),
+        row("welcome", "Welcome to Band", "Sidebar and motion, apps to open, and the keys worth knowing", true, ""),
         row("about", "About Band", "Show this client build and copy installation diagnostics", true, "")
     ]
     function find(id) { return entries.find(entry => entry.id === id) }

@@ -65,7 +65,7 @@ while True:
         workspace_catalog.save(root,catalog)
         catalog=request(root,Path(runtime),root)['data']
         managed=root/'config.conf';managed.write_text('band-config-v1\n# managed fixture\n[appearance]\napplication-theme = missing-application-theme\nterminal-theme = Workbench Night\n[macos.font]\nsize = 20\n[font]\nfamily = Fira Code\nsize = 14\n[linux.font]\nsize = 16\n[shortcuts]\ncommands = F10\nshortcuts.help = F9\nworkspace.rename = F8\nforward = F6\n');managed_bytes=managed.read_bytes()
-        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'view_state':str(root/'qt-view.json'),'catalog_updates':True,'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
+        config=root/'sessions.json';config.write_text(json.dumps({'state':str(root),'view_state':str(root/'qt-view.json'),'welcome_marker':str(root/'qt'/'welcomed'),'catalog_updates':True,'runtime':runtime,'cwd':str(root),'catalog':catalog,'theme_store':str(theme_store),'preferences':str(managed),'shortcut_overrides':str(root/'ui/linux/shortcuts.conf'),'font_overrides':str(root/'ui/linux/terminal-font.json'),'theme_directory':str(root/'themes')}))
         rd,wr=os.pipe();x=subprocess.Popen(['Xvfb','-displayfd',str(wr),'-screen','0','1500x1100x24','-noreset','-nolisten','tcp'],pass_fds=(wr,),stdout=log,stderr=log);processes.append(x);os.close(wr)
         assert select.select([rd],[],[],5)[0]
         with os.fdopen(rd) as stream:display=stream.readline().strip()
@@ -237,6 +237,17 @@ while True:
             wait_until(lambda:bool(data()['command_matches']) and all(all(word in (entry['title']+' '+entry['detail']).lower() for word in query.lower().split()) for entry in data()['command_matches']))
         assert 'Adwaita' in data()['interface_font'],'bundled interface font was not applied'
         wait_until(lambda:all(p['facts'].get('cwd')==str(root/str(i)) for i,p in enumerate(data()['panes'])))
+        # A first run opens the welcome in the main area; Return steps through
+        # it, the keys step shows chips from the keymap, and finishing records it.
+        wait_until(lambda:data()['welcome_open'] and data()['welcome_step']==0)
+        assert not any(p['focus'] for p in data()['panes']) and not (root/'qt'/'welcomed').exists()
+        capture('welcome-look.png')
+        key('Return');wait_until(lambda:data()['welcome_step']==1)
+        click(*data()['welcome_back']);wait_until(lambda:data()['welcome_step']==0)
+        click(*data()['welcome_continue']);wait_until(lambda:data()['welcome_step']==1)
+        key('Return');wait_until(lambda:data()['welcome_step']==2 and 'F10' in data()['key_chips'])
+        capture('welcome-keys.png')
+        key('Return');wait_until(lambda:not data()['welcome_open'] and (root/'qt'/'welcomed').exists())
         wait_until(lambda:data()['panes'][0]['focus'])
         assert not data()['shortcut_error'] and data()['shortcut_sequences']['commands']=='F10' and data()['shortcut_labels']['help']=='F9'
         raw_key('super+alt+p');wait_until(lambda:len(received(0))>0);time.sleep(.1)
@@ -980,7 +991,7 @@ while True:
             return (value['panes'][4]['background']==background and value['chrome_background']=='#214365'
                 and all(value['panes'][i]['background']=='#214365' for i in (3,5)))
         def terminal_colors():
-            click(*data()['panes'][4]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+            click(*settled_point(lambda d:d['panes'][4]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
             click(*data()['terminal_colors_menu']);wait_until(lambda:data()['appearance_open'] and data()['appearance_terminal']==own_id and data()['theme_search_focus'])
         terminal_colors();assert 'frame keeps the workspace colors' in data()['appearance_note']
         typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down')
@@ -1121,7 +1132,7 @@ while True:
         key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
         key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
         assert sizes()==keyboard_sizes,'keyboard move resized a terminal'
-        time.sleep(.3);click(*data()['panes'][4]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+        time.sleep(.3);click(*settled_point(lambda d:d['panes'][4]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
         click(*data()['move_right_item']);wait_until(lambda:order(1)==['terminal-3','terminal-5','terminal-4'] and not data()['layout_menu_open'] and data()['panes'][4]['focus'])
         key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0)
@@ -1451,7 +1462,7 @@ while True:
         pi_fixture=root/'pi';shutil.copyfile('/usr/bin/sleep',pi_fixture);pi_fixture.chmod(0o700)
         typed('sh -c '+shlex.quote('echo $$ > '+shlex.quote(str(root/'pi.pid'))+'; exec '+shlex.quote(str(pi_fixture))+' 120'));key('Return')
         wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='Pi');wait_until((root/'pi.pid').exists)
-        click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+        click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
         click(*data()['agent_info_menu']);wait_until(lambda:data()['agent_info_open'] and not data()['layout_menu_open'])
         assert data()['agent_info_details']['agent']=='Pi' and data()['agent_info_details']['launcher']=='band-pi' and data()['agent_info_details']['heading']=='Status unknown'
         key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])
@@ -1470,7 +1481,7 @@ while True:
         wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='stopped' and '42' in data()['panes'][8]['lifecycle'].get('message',''))
         capture('lifecycle-exit-42.png')
         stopped_details_attempts=data()['panes'][8]['attachment_attempts']
-        click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+        click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
         click(*data()['runtime_info_menu']);wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='unavailable')
         assert data()['runtime_info_ownership']=='Stopped' and '42' in data()['panes'][8]['lifecycle']['message']
         capture('terminal-details-stopped.png');key('Escape');wait_until(lambda:not data()['runtime_info_open'])
@@ -1496,7 +1507,7 @@ while True:
         try:
             wait_until(lambda:data()['panes'][8]['attachment']=='elsewhere' and data()['panes'][8]['lifecycle'].get('state')=='running')
             owned_input=[received(i) for i in range(6)]
-            click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+            click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
             click(*data()['runtime_info_menu']);wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='available')
             assert data()['runtime_info_ownership']=='Attached in another window'
             key('Escape');wait_until(lambda:not data()['runtime_info_open'])
@@ -1533,7 +1544,7 @@ while True:
         assert sizes()==metadata_sizes and {p['identity']:p['instance'] for p in data()['panes']}==life_ids
         # Cancel/Enter never closes a terminal; confirm removes one stable identity.
         def close_menu():
-            click(*data()['panes'][8]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+            click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
             click(*data()['terminal_close_item']);wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='close')
             key('super+alt+Up');key('super+alt+t');time.sleep(.1)
             assert data()['selected']==8 and data()['workspace']==2 and len(data()['panes'])==14,'global actions escaped confirmation scope'
@@ -1631,7 +1642,7 @@ while True:
             typed('printf WB_CLOSE_'+entry.upper());key('Return');wait_until(lambda:'WB_CLOSE_'+entry.upper() in data()['panes'][1]['text'])
             raw_key('ctrl+d');wait_until(lambda:not data()['panes'][1]['ready'] and data()['panes'][1]['lifecycle'].get('state')=='stopped')
             if entry=='menu':
-                click(*data()['panes'][1]['layout_button']);wait_until(lambda:data()['layout_menu_open'])
+                click(*settled_point(lambda d:d['panes'][1]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
                 click(*data()['terminal_close_item'])
             else:
                 command_search('Close pane');key('Return')
@@ -1656,6 +1667,13 @@ while True:
         def entry(app_id):return next((e for e in data()['app_entries'] if e['id']==app_id),None)
         wait_until(lambda:entry('quick') and not data()['apps_checking'])
         assert [e['id'] for e in data()['app_entries'][:4]]==['echo','later','broken','quick'] and entry('lazygit')['builtin'] and len(data()['app_entries'])>100
+        # Commands opens the welcome again; its apps step lists installed apps
+        # and Browse the catalog leaves it for the catalog.
+        command_search('Welcome to Band');key('Return');wait_until(lambda:data()['welcome_open'] and data()['welcome_step']==0 and not data()['commands_open'])
+        key('Return');wait_until(lambda:data()['welcome_step']==1 and 'Echo app' in data()['welcome_apps'])
+        capture('welcome-apps.png')
+        click(*settled_point(lambda d:d['welcome_browse']));wait_until(lambda:data()['catalog_open'] and not data()['welcome_open'])
+        key('Escape');wait_until(lambda:not data()['catalog_open'])
         def app_pane(app_id):return next((p for p in data()['panes'] if p['app']==app_id),None)
         # The Apps panel lists running apps; Add applications opens the catalog.
         def open_catalog():
