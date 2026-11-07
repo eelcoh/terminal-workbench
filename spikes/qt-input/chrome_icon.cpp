@@ -13,6 +13,7 @@ void ChromeIcon::paint(QPainter *p) {
     else if(name_=="width") {p->drawLine(QPointF(3,6),QPointF(3,18));p->drawLine(QPointF(21,6),QPointF(21,18));p->drawLine(QPointF(7,12),QPointF(17,12));
         for(int s:{1,-1}){const qreal x=s>0?7:17;p->drawLine(QPointF(x,12),QPointF(x+3*s,9));p->drawLine(QPointF(x,12),QPointF(x+3*s,15));}}
     else if(name_=="full") {for(int sx:{1,-1})for(int sy:{1,-1}){const QPointF c(12-8*sx,12-8*sy);p->drawLine(c,c+QPointF(5*sx,0));p->drawLine(c,c+QPointF(0,5*sy));}}
+    else if(name_=="host") {p->drawEllipse(QPointF(12,12),8,8);p->drawEllipse(QPointF(12,12),3.5,8);p->drawLine(QPointF(4,12),QPointF(20,12));}
     else if(name_=="minimize") {p->drawLine(QPointF(6,16),QPointF(18,16));}
     else if(name_=="maximize") {p->drawRoundedRect(QRectF(6,6,12,12),1.5,1.5);}
     else if(name_=="restore") {p->drawRoundedRect(QRectF(6,9,9,9),1.5,1.5);p->drawLine(QPointF(9,6),QPointF(18,6));p->drawLine(QPointF(18,6),QPointF(18,15));}

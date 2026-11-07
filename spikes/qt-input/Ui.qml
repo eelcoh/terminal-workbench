@@ -384,6 +384,7 @@ ApplicationWindow {
         case "about": about.open(); break
         case "welcome": openWelcome(); break
         case "help": help.open(); break
+        default: if (id.startsWith("host:")) connectHost(id.slice(5)); break
         }
     }
     property var motionOverride: null
@@ -586,10 +587,37 @@ ApplicationWindow {
     readonly property var runningApps: {
         const revision = catalogRevision
         let result = []
-        for (let i = 0; i < terminalModel.count; ++i) { const item = terminalModel.get(i); if (item.appId !== "" && !endedApps[item.terminalId]) result.push(i) }
+        // Band's own panes (hosts, "_" IDs) are not apps.
+        for (let i = 0; i < terminalModel.count; ++i) { const item = terminalModel.get(i); if (item.appId !== "" && !item.appId.startsWith("_") && !endedApps[item.terminalId]) result.push(i) }
         return result.sort((a, b) => (terminalModel.get(a).spaceIndex - terminalModel.get(b).spaceIndex) || (terminalModel.get(a).ordinal - terminalModel.get(b).ordinal))
     }
     function showApps() { openNavigation("apps") }
+    // SSH hosts from config.conf ([host.ID]); a host pane runs ssh as a command
+    // terminal with the app ID "_host-ID" (then "_host-ID_2", …). See docs/hosts.md.
+    readonly property var hostDefinitions: studyConfiguration.hosts
+    function hostOf(appId) {
+        if (!appId.startsWith("_host-")) return null
+        const id = appId.slice(6).split("_")[0]
+        return hostDefinitions.find(host => host.id === id) || {id: id, name: id, destination: "", directory: ""}
+    }
+    function shellQuote(text) { return "'" + text.replace(/'/g, "'\\''") + "'" }
+    function hostCommand(host) {
+        let remote = ""
+        if (host.directory) {
+            const d = host.directory
+            const cd = d === "~" ? "cd" : d.startsWith("~/") ? "cd ~/" + shellQuote(d.slice(2)) : "cd " + shellQuote(d)
+            remote = " " + shellQuote(cd + " && exec \"$SHELL\" -l")
+        }
+        return "ssh -t -- " + shellQuote(host.destination) + remote
+    }
+    function connectHost(id) {
+        const host = hostDefinitions.find(item => item.id === id)
+        if (!host || spaces.length === 0 || !canCreateTerminal) return
+        let n = 1
+        while (runningApp(workspace, n === 1 ? "_host-" + id : "_host-" + id + "_" + n) >= 0) n++
+        if (drawer.visible) drawer.close()
+        studySession.startApp(spaceIds[workspace], {id: n === 1 ? "_host-" + id : "_host-" + id + "_" + n, name: host.name, command: hostCommand(host), directory: ""})
+    }
     function openCatalog() {
         if (spaces.length === 0 || appCatalog.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible) return
         if (drawer.visible) drawer.close()
@@ -615,6 +643,7 @@ ApplicationWindow {
     // which opens the app when it succeeds.
     // The welcome: open on a first run, and again from Commands.
     readonly property bool welcomeOpen: welcome.visible
+    readonly property bool helpOpen: help.visible
     property var welcomeQueue: []
     function openWelcome() { welcome.step = 0; welcome.picked = ({}); welcome.visible = true; welcome.forceActiveFocus() }
     function finishWelcome(apps, browse) {
@@ -812,9 +841,11 @@ ApplicationWindow {
     function paneIdentity(pane) {
         if (!pane) return {kind: "shell", icon: "shell", name: "", place: "", dirty: false}
         const f = pane.facts
-        const kind = pane.app ? "app" : f.agent ? "agent" : "shell"
-        return {kind: kind, icon: kind === "app" ? "apps" : kind === "agent" ? "agents" : "shell",
-            name: kind === "app" ? pane.appName : kind === "agent" ? f.agent : (f.process || ""), place: f.title || "Terminal", dirty: !!f.dirty}
+        const host = pane.app ? hostOf(pane.appId) : null
+        const kind = host ? "host" : pane.app ? "app" : f.agent ? "agent" : "shell"
+        return {kind: kind, icon: kind === "host" ? "host" : kind === "app" ? "apps" : kind === "agent" ? "agents" : "shell",
+            name: kind === "host" || kind === "app" ? pane.appName : kind === "agent" ? f.agent : (f.process || ""),
+            place: host ? host.destination + (host.directory ? " · " + host.directory : "") : f.title || "Terminal", dirty: !!f.dirty}
     }
     function paneWidth(i) { return Math.max(240, (deck.width + 12) * (fullWidths[i] ? 1 : widths[i]) - 12) }
     function left(i) { if (i < 0 || i >= terminalModel.count) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
@@ -1267,7 +1298,7 @@ ApplicationWindow {
                         Label {
                             width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 12
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).muted
-                            text: pane.appStopped ? (pane.lifecycle.output ? "Its last lines are below. Fix its command in config.conf, then start it again." : "Fix its command in config.conf, then start it again.") : pane.lifecycle.state === "stopped" ? "Start a new shell in this workspace’s folder. The previous process has ended." : terminal.attachment === "elsewhere" ? "Move this terminal here to continue with the same process." : "Reconnect keeps a running shell. Check again if its status has changed."
+                            text: pane.appStopped ? (pane.lifecycle.output ? "Its last lines are below. " : "") + (window.hostOf(pane.appId) ? "Check the host in config.conf or your ssh settings, then connect again." : "Fix its command in config.conf, then start it again.") : pane.lifecycle.state === "stopped" ? "Start a new shell in this workspace’s folder. The previous process has ended." : terminal.attachment === "elsewhere" ? "Move this terminal here to continue with the same process." : "Reconnect keeps a running shell. Check again if its status has changed."
                             visible: terminal.attachment !== "connecting"
                         }
                         Rectangle {
@@ -1285,7 +1316,7 @@ ApplicationWindow {
                             width: parent.width; spacing: 8; visible: terminal.attachment !== "connecting"
                             QuietButton {
                                 objectName: "terminalPrimary" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex))
-                                text: pane.appStopped ? "Start again" : pane.lifecycle.state === "stopped" ? "Start new shell" : terminal.attachment === "elsewhere" ? "Move here…" : "Reconnect"
+                                text: pane.appStopped ? (window.hostOf(pane.appId) ? "Connect again" : "Start again") : pane.lifecycle.state === "stopped" ? "Start new shell" : terminal.attachment === "elsewhere" ? "Move here…" : "Reconnect"
                                 visible: pane.lifecycle.state === "stopped" || pane.lifecycle.state === "running"
                                 enabled: !studySession.busy && !pane.lifecycle.busy && !window.overview
                                 onClicked: { if (pane.lifecycle.state === "stopped") studySession.recover(pane.terminalId); else if (terminal.attachment === "elsewhere") window.requestTerminalAction(pane.terminalId, "move"); else studySession.reconnect(terminal, pane.terminalId, false) }

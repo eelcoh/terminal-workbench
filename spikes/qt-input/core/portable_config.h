@@ -33,9 +33,33 @@ typedef struct {
     int count;PortableApp apps[PORTABLE_APP_MAX];
     PortableApp sections[PORTABLE_APP_SECTIONS];
 } PortableApps;
+/* SSH hosts ([host.ID], [linux.host.ID], [macos.host.ID]); see docs/hosts.md.
+ * IDs are letters, digits and dashes (at most 34) so pane app IDs "_host-ID"
+ * and "_host-ID_2" fit the runtime's 40-character app IDs unambiguously. */
+#define PORTABLE_HOST_MAX 32
+#define PORTABLE_HOST_SECTIONS (PORTABLE_HOST_MAX*3)
+typedef struct { char id[35],name[64],destination[256],directory[1024],theme[128]; } PortableHost;
+typedef struct {
+    int count;PortableHost hosts[PORTABLE_HOST_MAX];
+    PortableHost sections[PORTABLE_HOST_SECTIONS];
+} PortableHosts;
+static bool portable_host_id(const char *text)
+{
+    size_t length=strlen(text);if (!length || length>34) return false;
+    for (const char *p=text;*p;p++) if (!isalnum((unsigned char)*p) && *p!='-') return false;
+    return true;
+}
+/* An ssh destination: an alias, host or user@host; never an option. */
+static bool portable_destination(const char *text)
+{
+    size_t length=strlen(text);if (!length || length>255 || *text=='-') return false;
+    for (const char *p=text;*p;p++) if (!isalnum((unsigned char)*p) && !strchr("._-@:[]%",*p)) return false;
+    return true;
+}
 static bool portable_app_id(const char *text)
 {
-    size_t length=strlen(text);if (!length || length>40) return false;
+    /* A leading underscore is reserved for Band's own panes (hosts). */
+    size_t length=strlen(text);if (!length || length>40 || *text=='_') return false;
     for (const char *p=text;*p;p++) if (!isalnum((unsigned char)*p) && *p!='-' && *p!='_') return false;
     return true;
 }
@@ -69,22 +93,37 @@ static bool portable_theme(const char *config,const char *value,Theme *out,char 
 }
 /* Font-only clients validate fields without opening appearance assets they do not use.
  * When false, theme values are neither resolved nor advertised as loaded colors. */
-static bool portable_read_full(const char *path,bool apple,bool load_theme_files,PortableConfig *out,PortableApps *apps,char *error,size_t capacity)
+static bool portable_read_full(const char *path,bool apple,bool load_theme_files,PortableConfig *out,PortableApps *apps,PortableHosts *hosts,char *error,size_t capacity)
 {
     if (apps) apps->count=0;
+    if (hosts) hosts->count=0;
     PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default(),.terminal_width=0.5};
     if (!path) { *out=next;return true; }
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
     PortableLayer layers[3]={0};char line[2048];int section=-1,kind=0,number=1;
     struct { char id[41];int layer;bool name,command,directory,install,setup; } app_sections[PORTABLE_APP_SECTIONS];int app_count=0,app=-1;
+    struct { char id[35];int layer;bool name,destination,directory,theme; } host_sections[PORTABLE_HOST_SECTIONS];int host_count=0,host=-1;
     // Files written before the rename to Band keep their workbench header.
     bool valid=fgets(line,sizeof(line),file) && (!strcmp(line,"band-config-v1\n") || !strcmp(line,"workbench-config-v1\n"));
     while (valid && fgets(line,sizeof(line),file)) {
         number++;if (number>512 || !strchr(line,'\n')) {valid=false;break;}
         char *text=portable_trim(line);if (!*text || *text=='#') continue;
         if (*text=='[') {
-            app=-1;size_t length=strlen(text);
+            app=-1;host=-1;size_t length=strlen(text);
+            const char *host_prefixes[]={"[host.","[linux.host.","[macos.host."};int host_layer=-1;
+            for (int i=0;i<3;i++) if (!strncmp(text,host_prefixes[i],strlen(host_prefixes[i]))) host_layer=i;
+            if (host_layer>=0) {
+                char *id=text+strlen(host_prefixes[host_layer]);
+                if (text[length-1]!=']' || host_count>=PORTABLE_HOST_SECTIONS) {valid=false;break;}
+                text[length-1]=0;if (!portable_host_id(id)) {valid=false;break;}
+                for (int i=0;i<host_count;i++) if (host_sections[i].layer==host_layer && !strcmp(host_sections[i].id,id)) valid=false;
+                if (!valid) break;
+                host=host_count++;memset(&host_sections[host],0,sizeof(host_sections[host]));
+                strcpy(host_sections[host].id,id);host_sections[host].layer=host_layer;
+                if (hosts) {memset(&hosts->sections[host],0,sizeof(hosts->sections[host]));strcpy(hosts->sections[host].id,id);}
+                section=host_layer;kind=6;continue;
+            }
             const char *prefixes[]={"[app.","[linux.app.","[macos.app."};int layer=-1;
             for (int i=0;i<3;i++) if (!strncmp(text,prefixes[i],strlen(prefixes[i]))) layer=i;
             if (layer>=0) {
@@ -105,7 +144,15 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
         char *equal=strchr(text,'=');if (section<0 || !equal) {valid=false;break;}*equal++=0;
         char *key=portable_trim(text),*value=portable_trim(equal);PortableLayer *layer=&layers[section];
         if (!*value) {valid=false;break;}
-        if (kind==5) {
+        if (kind==6) {
+            bool *seen=NULL;char *target=NULL;size_t size=0;PortableHost *values=hosts ? &hosts->sections[host] : NULL;bool ok=true;
+            if (!strcmp(key,"name")) {seen=&host_sections[host].name;size=sizeof(values->name);if (values) target=values->name;}
+            else if (!strcmp(key,"destination")) {seen=&host_sections[host].destination;size=sizeof(values->destination);if (values) target=values->destination;ok=portable_destination(value);}
+            else if (!strcmp(key,"directory")) {seen=&host_sections[host].directory;size=sizeof(values->directory);if (values) target=values->directory;}
+            else if (!strcmp(key,"theme")) {seen=&host_sections[host].theme;size=sizeof(values->theme);if (values) target=values->theme;}
+            if (!seen || *seen || !ok || strlen(value)>=size || !portable_plain(value)) {valid=false;break;}
+            *seen=true;if (target) strcpy(target,value);
+        } else if (kind==5) {
             bool *seen=NULL;char *target=NULL;size_t size=0;PortableApp *values=apps ? &apps->sections[app] : NULL;
             if (!strcmp(key,"name")) {seen=&app_sections[app].name;size=sizeof(values->name);if (values) target=values->name;}
             else if (!strcmp(key,"command")) {seen=&app_sections[app].command;size=sizeof(values->command);if (values) target=values->command;}
@@ -175,6 +222,39 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
         if (!app_sections[i].command && (app_sections[i].layer==0 || base<0)) {snprintf(error,capacity,"App %s needs a command; preferences kept",app_sections[i].id);return false;}
     }
     if (distinct>PORTABLE_APP_MAX) {snprintf(error,capacity,"At most %d apps can be defined; preferences kept",PORTABLE_APP_MAX);return false;}
+    /* Hosts follow the same rule with a destination. */
+    int distinct_hosts=0;
+    for (int i=0;i<host_count;i++) {
+        int base=-1,first=i;
+        for (int j=0;j<host_count;j++) if (!strcmp(host_sections[j].id,host_sections[i].id)) {
+            if (host_sections[j].layer==0) base=j;
+            if (j<first) first=j;
+        }
+        if (first==i) distinct_hosts++;
+        if (!host_sections[i].destination && (host_sections[i].layer==0 || base<0)) {snprintf(error,capacity,"Host %s needs a destination; preferences kept",host_sections[i].id);return false;}
+    }
+    if (distinct_hosts>PORTABLE_HOST_MAX) {snprintf(error,capacity,"At most %d hosts can be defined; preferences kept",PORTABLE_HOST_MAX);return false;}
+    if (hosts) {
+        int layer=apple ? 2 : 1;
+        for (int i=0;i<host_count;i++) {
+            int base=-1,platform=-1,first=i;
+            for (int j=0;j<host_count;j++) if (!strcmp(host_sections[j].id,host_sections[i].id)) {
+                if (host_sections[j].layer==0) base=j;
+                if (host_sections[j].layer==layer) platform=j;
+                if (j<first) first=j;
+            }
+            if (first!=i || (base<0 && platform<0)) continue;
+            PortableHost *result=&hosts->hosts[hosts->count++];*result=hosts->sections[base>=0 ? base : platform];
+            if (platform>=0 && base>=0) {
+                const PortableHost *over=&hosts->sections[platform];
+                if (host_sections[platform].name) strcpy(result->name,over->name);
+                if (host_sections[platform].destination) strcpy(result->destination,over->destination);
+                if (host_sections[platform].directory) strcpy(result->directory,over->directory);
+                if (host_sections[platform].theme) strcpy(result->theme,over->theme);
+            }
+            if (!result->name[0]) memcpy(result->name,result->id,strlen(result->id)+1);
+        }
+    }
     if (apps) {
         int layer=apple ? 2 : 1;
         for (int i=0;i<app_count;i++) {
@@ -229,7 +309,7 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
 }
 static bool portable_read_with_theme_files(const char *path,bool apple,bool load_theme_files,PortableConfig *out,char *error,size_t capacity)
 {
-    return portable_read_full(path,apple,load_theme_files,out,NULL,error,capacity);
+    return portable_read_full(path,apple,load_theme_files,out,NULL,NULL,error,capacity);
 }
 /* The working viewer retains full theme validation and its transaction boundary. */
 static inline bool portable_read(const char *path,bool apple,PortableConfig *out,char *error,size_t capacity)

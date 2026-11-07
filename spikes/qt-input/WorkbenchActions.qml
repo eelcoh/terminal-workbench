@@ -57,6 +57,8 @@ QtObject {
         row("configuration-reload", "Reload configuration", "Read font and shortcut files without restarting terminals", !studyConfiguration.editing, "Close settings editors first"),
         row("welcome", "Welcome to Band", "Sidebar and motion, apps to open, and the keys worth knowing", true, ""),
         row("about", "About Band", "Show this client build and copy installation diagnostics", true, "")
-    ]
+    ].concat(host.hostDefinitions.map(saved => row("host:" + saved.id, "Connect to " + saved.name,
+        "ssh " + saved.destination + (saved.directory ? " · " + saved.directory : "") + " in this workspace", host.canCreateTerminal,
+        host.spaces.length === 0 ? "No workspace selected" : session.busy ? "Another change is in progress" : "Already at " + host.maxTerminals + " terminals")))
     function find(id) { return entries.find(entry => entry.id === id) }
 }

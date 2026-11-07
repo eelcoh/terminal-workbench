@@ -62,26 +62,36 @@ int main(void)
     write_text(path,"band-config-v1\n[app.lazygit]\nname = Lazygit\ncommand = lazygit\n[macos.app.lazygit]\ncommand = /opt/homebrew/bin/lazygit\n"
         "[app.btop]\ncommand = btop --utf-force\ndirectory = ~\n[linux.app.htop]\ncommand = htop\n[font]\nsize = 18\n");
     PortableApps *apps=calloc(1,sizeof(*apps));assert(apps);PortableConfig with_apps;
-    assert(portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)) && apps->count==3 && with_apps.font.size==18);
+    assert(portable_read_full(path,false,false,&with_apps,apps,NULL,error,sizeof(error)) && apps->count==3 && with_apps.font.size==18);
     assert(!strcmp(apps->apps[0].id,"lazygit") && !strcmp(apps->apps[0].name,"Lazygit") && !strcmp(apps->apps[0].command,"lazygit"));
     assert(!strcmp(apps->apps[1].name,"btop") && !strcmp(apps->apps[1].command,"btop --utf-force") && !strcmp(apps->apps[1].directory,"~"));
     assert(!strcmp(apps->apps[2].id,"htop"));
-    assert(portable_read_full(path,true,false,&with_apps,apps,error,sizeof(error)) && apps->count==2);
+    assert(portable_read_full(path,true,false,&with_apps,apps,NULL,error,sizeof(error)) && apps->count==2);
     assert(!strcmp(apps->apps[0].command,"/opt/homebrew/bin/lazygit") && !strcmp(apps->apps[0].name,"Lazygit"));
     /* install and setup: one each per section, overridden per platform. */
     write_text(path,"band-config-v1\n[app.tool]\ncommand = tool\ninstall = cargo install tool\nsetup = tool --init\n[macos.app.tool]\ninstall = brew install tool\n");
-    assert(portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)) && apps->count==1);
+    assert(portable_read_full(path,false,false,&with_apps,apps,NULL,error,sizeof(error)) && apps->count==1);
     assert(!strcmp(apps->apps[0].install,"cargo install tool") && !strcmp(apps->apps[0].setup,"tool --init"));
-    assert(portable_read_full(path,true,false,&with_apps,apps,error,sizeof(error)) && !strcmp(apps->apps[0].install,"brew install tool") && !strcmp(apps->apps[0].setup,"tool --init"));
+    assert(portable_read_full(path,true,false,&with_apps,apps,NULL,error,sizeof(error)) && !strcmp(apps->apps[0].install,"brew install tool") && !strcmp(apps->apps[0].setup,"tool --init"));
     write_text(path,"band-config-v1\n[app.tool]\ncommand = tool\nsetup = a\nsetup = b\n");
-    assert(!portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)));
+    assert(!portable_read_full(path,false,false,&with_apps,apps,NULL,error,sizeof(error)));
     write_text(path,"band-config-v1\n[app.lazygit]\nname = Lazygit\ncommand = lazygit\n[macos.app.lazygit]\ncommand = /opt/homebrew/bin/lazygit\n"
         "[app.btop]\ncommand = btop --utf-force\ndirectory = ~\n[linux.app.htop]\ncommand = htop\n[font]\nsize = 18\n");
     /* Readers that do not ask for apps still accept the file. */
     assert(portable_read(path,false,&with_apps,error,sizeof(error)));
     char many[8192]="band-config-v1\n";
     for(int i=0;i<=PORTABLE_APP_MAX;i++){char entry[64];snprintf(entry,sizeof(entry),"[app.a%d]\ncommand = true\n",i);strcat(many,entry);}
-    write_text(path,many);assert(!portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)) && strstr(error,"At most"));
+    write_text(path,many);assert(!portable_read_full(path,false,false,&with_apps,apps,NULL,error,sizeof(error)) && strstr(error,"At most"));
+    /* Hosts: a destination is required, never an option; platforms override fields. */
+    PortableHosts *hosts=calloc(1,sizeof(*hosts));assert(hosts);
+    write_text(path,"band-config-v1\n[host.build]\nname = Build box\ndestination = build\ndirectory = ~/src/band\ntheme = Dracula\n[macos.host.build]\ndestination = eelco@build.local\n[linux.host.lab]\ndestination = lab\n");
+    assert(portable_read_full(path,false,false,&with_apps,NULL,hosts,error,sizeof(error)) && hosts->count==2);
+    assert(!strcmp(hosts->hosts[0].destination,"build") && !strcmp(hosts->hosts[0].directory,"~/src/band") && !strcmp(hosts->hosts[0].theme,"Dracula") && !strcmp(hosts->hosts[1].name,"lab"));
+    assert(portable_read_full(path,true,false,&with_apps,NULL,hosts,error,sizeof(error)) && hosts->count==1 && !strcmp(hosts->hosts[0].destination,"eelco@build.local") && !strcmp(hosts->hosts[0].name,"Build box"));
+    const char *bad_hosts[]={"band-config-v1\n[host.x]\nname = X\n","band-config-v1\n[host.x]\ndestination = -oProxyCommand=evil\n","band-config-v1\n[host.x]\ndestination = a b\n",
+        "band-config-v1\n[host.under_score]\ndestination = x\n","band-config-v1\n[host.x]\ndestination = x\ndestination = y\n","band-config-v1\n[app._reserved]\ncommand = true\n"};
+    for (size_t i=0;i<sizeof(bad_hosts)/sizeof(*bad_hosts);i++){write_text(path,bad_hosts[i]);assert(!portable_read_full(path,false,false,&with_apps,NULL,hosts,error,sizeof(error)));}
+    free(hosts);
     write_text(path,"band-config-v1\n[macos.app.lazygit]\nname = Git\n");
     assert(!portable_read(path,false,&with_apps,error,sizeof(error)) && strstr(error,"needs a command"));
     free(apps);

@@ -33,6 +33,8 @@ fake_bin=Path(tempfile.mkdtemp(prefix='wb-ui-bin-',dir='/tmp'));os.environ['PATH
 # dnf is present everywhere here, so COPR and source choice are covered; the
 # refusing sudo keeps it from running.
 (fake_bin/'dnf').write_text('#!/bin/sh\nexit 0\n');(fake_bin/'dnf').chmod(0o755)
+# A stand-in ssh records its arguments, one per line, and stays connected.
+(fake_bin/'ssh').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > '+shlex.quote(str(fake_bin/'ssh-args'))+'\nprintf WB_SSH_READY\nexec cat\n');(fake_bin/'ssh').chmod(0o755)
 # Homebrew's installer is replaced by a script that writes the fake brew.
 fake_installer=fake_bin/'install-homebrew';os.environ['BAND_TEST_HOMEBREW_INSTALLER']=str(fake_installer)
 processes=[];sockets=[];client=None;xdisplay=None
@@ -1684,7 +1686,8 @@ while True:
         later_install=('printf \'#!/bin/sh\\nprintf WB_LATER_READY; exec cat\\n\' > '+shlex.quote(str(later_bin))+' && chmod +x '+shlex.quote(str(later_bin))).encode()
         managed.write_bytes(managed_bytes+b'\n[app.echo]\nname = Echo app\ncommand = printf WB_APP_READY; exec cat\nsetup = echo echo >> '+shlex.quote(str(setup_runs)).encode()+b'\n'
             b'[app.later]\nname = Later app\ncommand = wb-later\ninstall = '+later_install+b'\nsetup = echo later >> '+shlex.quote(str(setup_runs)).encode()+b'\n'
-            b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; echo run >> '+shlex.quote(str(runs)).encode()+b'; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n')
+            b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; echo run >> '+shlex.quote(str(runs)).encode()+b'; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n'
+            b'[host.lab]\nname = Lab\ndestination = lab-box\ndirectory = ~/src/x y\n')
         def entry(app_id):return next((e for e in data()['app_entries'] if e['id']==app_id),None)
         wait_until(lambda:entry('quick') and not data()['apps_checking'])
         assert [e['id'] for e in data()['app_entries'][:4]]==['echo','later','broken','quick'] and entry('lazygit')['builtin'] and len(data()['app_entries'])>100
@@ -1787,6 +1790,20 @@ while True:
         request(root,Path(runtime),root,'terminal.close',echo)
         wait_until(lambda:len(data()['panes'])==1)
         assert data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
+        # Hosts from config.conf: Connect opens a pane running ssh with the
+        # destination after --, a second Connect opens another; hosts are not apps.
+        command_search('Connect to Lab');key('Return')
+        wait_until(lambda:app_pane('_host-lab') and 'WB_SSH_READY' in app_pane('_host-lab')['text'],timeout=10)
+        assert not data()['help_open'],'connecting opened another dialog'
+        assert (fake_bin/'ssh-args').read_text().splitlines()==['-t','--','lab-box','cd ~/\'src/x y\' && exec "$SHELL" -l']
+        host_pane=app_pane('_host-lab')
+        assert host_pane['header']==['Lab','lab-box · ~/src/x y'] and data()['panes'].index(host_pane) not in data()['running_apps'],host_pane['header']
+        time.sleep(.3);capture('host-pane.png')
+        # A second Connect from the shell pane opens a second host pane.
+        key('super+alt+Left');wait_until(lambda:data()['panes'][0]['focus'])
+        command_search('Connect to Lab');key('Return');wait_until(lambda:app_pane('_host-lab_2') is not None,timeout=10)
+        for host_app in ('_host-lab_2','_host-lab'):
+            request(root,Path(runtime),root,'terminal.close',app_pane(host_app)['identity']);wait_until(lambda:app_pane(host_app) is None)
         # New workspace from a worktree: a folder in a repository offers its
         # worktrees and a branch field; a new branch adds a worktree beside the
         # main checkout and the workspace opens there.

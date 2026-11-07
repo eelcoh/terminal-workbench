@@ -1,7 +1,9 @@
 # SSH hosts (v0.3 design note, 2026-11-07)
 
-Status: proposal. Nothing here is built yet; the open questions at the end need
-the owner's answer before the first slice.
+Status: slice 1 built (2026-11-07): `[host.ID]` in config.conf, Connect to…
+in Commands, host panes with their own identity and outside the Apps list. The
+open questions at the end were not answered yet; slice 1 follows the
+recommendations, and hosts live in config.conf only for now.
 
 Rex treats hosts as the top level of its sidebar (This Mac, then remote hosts
 with a reachability mark). Band's v0.3 goal is the same everyday use, plain SSH

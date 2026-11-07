@@ -118,6 +118,28 @@ whichever recipe succeeds (joined with `&&`), and **Run setup** in the catalog
 runs it again for an installed app, in a pane of its own. Both are one line of
 at most 1023 bytes and follow the same platform overrides.
 
+## SSH hosts
+
+`[host.ID]` saves an SSH destination; **Connect to <name>** in Commands opens a
+pane running `ssh -t -- <destination>` in the current workspace (another
+Connect opens another pane). IDs are letters, digits and dashes, at most 34.
+
+```text
+[host.build]
+name = Build box
+destination = build          # an ~/.ssh/config alias, or user@host
+directory = ~/src/band       # optional: cd there, then a login shell
+theme = Dracula              # optional; not used yet
+```
+
+`destination` is required (in `[host.ID]`, or in full in a platform section)
+and may not start with `-` or contain spaces; every SSH option stays in
+`~/.ssh/config`. `[linux.host.ID]` and `[macos.host.ID]` override fields as for
+apps. When ssh exits normally the pane closes; when it fails the pane keeps its
+last lines and offers Connect again. Band never stores passwords or keys.
+App IDs that start with `_` are reserved for Band's own panes. See
+[SSH hosts](hosts.md).
+
 ## Terminal fonts
 
 `[font]` accepts `family = JetBrains Mono` or `family = Fira Code` and integer

@@ -308,10 +308,18 @@ mod tests {
         let (second, _second) = prepare(&state, &payload).unwrap();
         assert_ne!(second, first);
         assert!(first.is_dir());
-        // Once nothing holds the first copy, the next open removes it.
+        // Once nothing holds the first copy, the next open removes it. A child
+        // process started by another test can hold the lock between fork and
+        // exec; then a later open removes it, so allow a few opens.
         drop(guard);
         drop(_again);
-        prepare(&state, &payload).unwrap();
+        for _ in 0..50 {
+            prepare(&state, &payload).unwrap();
+            if !first.exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
         assert!(!first.exists() && second.is_dir());
         // Deleting the install leaves the copy in use intact.
         fs::remove_dir_all(&payload).unwrap();

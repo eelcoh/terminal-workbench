@@ -20,6 +20,7 @@ class UiConfiguration final : public QObject {
     Q_PROPERTY(bool integratedTitleBar READ integratedTitleBar NOTIFY changed)
     Q_PROPERTY(int themeIndex READ themeIndex NOTIFY changed)
     Q_PROPERTY(QVariantList apps READ apps NOTIFY changed)
+    Q_PROPERTY(QVariantList hosts READ hosts NOTIFY changed)
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString status READ status NOTIFY changed)
     Q_PROPERTY(QString managedPath READ managedPath CONSTANT)
@@ -34,6 +35,7 @@ public:
     bool reducedMotion() const {return view_.reducedMotion;}
     bool integratedTitleBar() const {return view_.integratedTitleBar;}
     QVariantList apps() const {return apps_.apps;}
+    QVariantList hosts() const {return apps_.hosts;}
     int themeIndex() const {return appearance_?appearance_->themeIndex():0;}
     QString error() const {return error_;}
     QString status() const {return status_;}
