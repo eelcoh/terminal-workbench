@@ -17,6 +17,20 @@ Item {
     // workspace shows its panes.
     property var expandedSpaces: ({})
     Connections { target: host; function onWorkspaceChanged() { navigation.expandedSpaces = ({}) } }
+    // The footer filter narrows Workspaces (names and panes) and Apps.
+    readonly property string filter: sidebarFilter.text.trim().toLocaleLowerCase()
+    onWorkspacesChanged: sidebarFilter.clear()
+    onAppsChanged: sidebarFilter.clear()
+    function paneText(i) {
+        const pane = host.panel(i), identity = host.paneIdentity(pane)
+        return [identity.name, identity.place, pane ? host.spaces[pane.spaceIndex] : ""].join(" ").toLocaleLowerCase()
+    }
+    function paneMatches(i) { return !filter || paneText(i).indexOf(filter) >= 0 }
+    readonly property var shownApps: host.runningApps.filter(i => navigation.paneMatches(i))
+    function focusFirstRow() {
+        if (navigation.apps) { focusApp(0); return }
+        for (let i = 0; i < host.spaces.length; ++i) { const row = workspaceRows.itemAt(i); if (row && row.visible) { focusWorkspace(i); return } }
+    }
     function setExpanded(identity, open) { let values = Object.assign({}, expandedSpaces); values[identity] = open; expandedSpaces = values }
     property var matches: []
     function focusSearch() { agentSearch.forceActiveFocus(Qt.TabFocusReason) }
@@ -57,11 +71,15 @@ Item {
         else if (row.y + row.height > list.contentY + list.height) list.contentY = Math.max(0, row.y + row.height - list.height)
         row.forceActiveFocus(Qt.TabFocusReason)
     }
-    function focusWorkspace(index) {
+    function focusWorkspace(index, direction) {
         const count = host.spaces.length
         if (!count) return
-        const row = workspaceRows.itemAt((index + count) % count)
-        if (!row) return
+        let row = null
+        for (let tries = 0; tries < count; ++tries, index += direction || 1) {
+            row = workspaceRows.itemAt(((index % count) + count) % count)
+            if (row && row.visible) break
+        }
+        if (!row || !row.visible) return
         if (row.y < list.contentY) list.contentY = row.y
         else if (row.y + row.height > list.contentY + list.height) list.contentY = Math.max(0, row.y + row.height - list.height)
         row.button.forceActiveFocus(Qt.TabFocusReason)
@@ -113,8 +131,12 @@ Item {
                     readonly property string identity: host.spaceIds[index] || ""
                     // Panes grouped by workspace: the current one is open, the
                     // others are one row each until opened.
-                    readonly property var panes: host.indices(index)
-                    readonly property bool expanded: navigation.expandedSpaces[identity] ?? index === host.workspace
+                    readonly property var allPanes: host.indices(index)
+                    readonly property bool nameMatches: !navigation.filter || (host.spaces[index] || "").toLocaleLowerCase().indexOf(navigation.filter) >= 0
+                    // While filtering: the matching panes, or all of a matching workspace's.
+                    readonly property var panes: nameMatches ? allPanes : allPanes.filter(i => navigation.paneMatches(i))
+                    visible: nameMatches || panes.length > 0
+                    readonly property bool expanded: navigation.filter ? panes.length > 0 && !nameMatches || (navigation.expandedSpaces[identity] ?? index === host.workspace) : navigation.expandedSpaces[identity] ?? index === host.workspace
                     width: body.width; height: 44 + (expanded && panes.length ? paneColumn.height + 4 : 0)
                     function focusPane(k) {
                         if (!panes.length) return
@@ -135,15 +157,15 @@ Item {
                     }
                     ChromeButton {
                         id: workspaceEntry
-                        Keys.onDownPressed: navigation.focusWorkspace(parent.index + 1)
-                        Keys.onUpPressed: navigation.focusWorkspace(parent.index - 1)
+                        Keys.onDownPressed: navigation.focusWorkspace(parent.index + 1, 1)
+                        Keys.onUpPressed: navigation.focusWorkspace(parent.index - 1, -1)
                         // Right opens the workspace's panes and moves into them;
                         // Left closes them.
                         Keys.onRightPressed: { navigation.setExpanded(workspaceRow.identity, true); Qt.callLater(function() { workspaceRow.focusPane(0) }) }
                         Keys.onLeftPressed: navigation.setExpanded(workspaceRow.identity, false)
                         Keys.onPressed: event => {
                             if (event.key === Qt.Key_Home) { navigation.focusWorkspace(0); event.accepted = true }
-                            else if (event.key === Qt.Key_End) { navigation.focusWorkspace(host.spaces.length - 1); event.accepted = true }
+                            else if (event.key === Qt.Key_End) { navigation.focusWorkspace(host.spaces.length - 1, -1); event.accepted = true }
                             else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.chooseWorkspace(parent.index); event.accepted = true }
                             else event.accepted = false
                         }
@@ -151,7 +173,10 @@ Item {
                         tones: host.chrome; x: 24; width: parent.width - 56; height: 44; leftAligned: true
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
                         readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
+                        // A closed workspace previews its panes in the tooltip.
                         hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "")
+                            + (workspaceRow.expanded ? "" : workspaceRow.allPanes.slice(0, 8).map(i => { const identity = host.paneIdentity(host.panel(i)); return "\n" + [identity.name, identity.place].filter(part => part).join(" · ") }).join("")
+                                + (workspaceRow.allPanes.length > 8 ? "\n…" : ""))
                         contentItem: Item {
                             Text { anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: totals.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: workspaceEntry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
                             Row {
@@ -233,7 +258,7 @@ Item {
             }
             Repeater {
                 // Running apps in every workspace, like agents (the "list" trial).
-                id: appRows; model: navigation.apps ? host.runningApps : []
+                id: appRows; model: navigation.apps ? navigation.shownApps : []
                 ChromeButton {
                     id: appRow
                     required property int index
@@ -266,7 +291,7 @@ Item {
             }
             Label {
                 width: body.width; visible: navigation.apps && appRows.count === 0
-                padding: 8; text: "No apps running\nAdd applications to open lazygit, btop and other terminal apps as panes."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
+                padding: 8; text: host.runningApps.length && navigation.filter ? "No matching apps" : "No apps running\nAdd applications to open lazygit, btop and other terminal apps as panes."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
             }
             Repeater {
                 id: agentRows; model: navigation.agents ? navigation.matches : []
@@ -309,17 +334,30 @@ Item {
                 padding: 8; text: host.agentIndices.length === 0 ? "No agents detected\nAgents in any workspace appear here." : navigation.needsOnly ? "No matching agents need input\nClear filters to see all agents." : "No matching agents\nTry another folder, workspace or agent."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
             }
             Label {
+                objectName: "navigationNoMatches"; width: body.width; padding: 8; color: host.chrome.muted; font.pixelSize: 13
+                visible: navigation.workspaces && navigation.filter.length > 0 && !host.spaces.some((name, i) => name.toLocaleLowerCase().indexOf(navigation.filter) >= 0 || host.indices(i).some(j => navigation.paneMatches(j)))
+                text: "No matching workspaces or panes"
+            }
+            Label {
                 width: body.width; visible: !session.savedSession
                 padding: 8; topPadding: 18; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 12
             }
         }
     }
     Item {
-        id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; height: 50
+        id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; height: 94
         visible: navigation.workspaces || navigation.apps
         Rectangle { width: parent.width; height: 1; color: host.chrome.border }
+        ContextSearch {
+            id: sidebarFilter; objectName: "navigationFilter"; y: 12; width: parent.width; tones: host.chrome
+            placeholderText: navigation.apps ? "Filter apps…" : "Filter workspaces and panes…"
+            Accessible.name: navigation.apps ? "Filter running apps by name or workspace" : "Filter workspaces and panes by name, program or folder"
+            onStepRequested: direction => navigation.focusFirstRow()
+            onAccepted: if (!inputMethodComposing) navigation.focusFirstRow()
+            onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
+        }
         ChromeButton {
-            id: addApplications; objectName: "addApplicationsButton"; y: 12; width: parent.width; height: 36; visible: navigation.apps
+            id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width; height: 36; visible: navigation.apps
             tones: host.chrome; text: "Add applications…"; enabled: host.spaces.length > 0
             keys: studyShortcuts.labels["apps"] || ""
             contentItem: Row {
@@ -334,7 +372,7 @@ Item {
             onClicked: host.openCatalog()
         }
         ChromeButton {
-            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 12; width: parent.width; height: 36
+            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 54; width: parent.width; height: 36
             tones: host.chrome; text: "New workspace…"; enabled: host.canCreateWorkspace
             keys: studyShortcuts.labels["new-workspace"] || ""
             contentItem: Row {

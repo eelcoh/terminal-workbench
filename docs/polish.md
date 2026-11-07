@@ -90,7 +90,11 @@ its own.
    default theme, which today is `application-theme` in config.conf.
 6. **Sidebar filter.** One filter field at the bottom of the sidebar across
    workspaces, panes, agents and apps; hover previews of a closed workspace's
-   panes.
+   panes. *Done (first pass):* a filter field in the footer of Workspaces
+   and Apps; it matches workspace names and each pane's program, folder and
+   workspace, opens workspaces to their matching panes, and Down or Return
+   moves to the first match. Agents keeps its own search at the top. A closed
+   workspace's tooltip lists its panes (up to eight) instead of a popover.
 7. **Window chrome.** Fold the top bar into the title bar (macOS traffic
    lights inline; client-side decorations on Linux). Platform work with risk;
    last.

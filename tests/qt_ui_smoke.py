@@ -521,6 +521,12 @@ while True:
         assert all(p['header']==[p['facts']['process'],p['facts']['title']] for p in shells),[p['header'] for p in shells]
         assert pane_rows(0)[0]['selected'] and all(r['kind']=='shell' and r['hint'].split(' · ')[0]==p['facts']['process'] for r,p in zip(pane_rows(0),sorted(shells,key=lambda p:p['ordinal']))),pane_rows(0)
         capture('navigation-panes.png')
+        # The footer filter narrows workspaces to matching panes and opens them.
+        all_rows=list(data()['navigation_workspace_rows'])
+        click(*data()['navigation_filter']);typed('/4')
+        wait_until(lambda:len(pane_rows(1))==1 and not pane_rows(0) and len(data()['navigation_workspace_rows'])==1)
+        capture('navigation-filter.png')
+        key('ctrl+a');key('BackSpace');wait_until(lambda:data()['navigation_workspace_rows']==all_rows and len(pane_rows(0))==3 and not pane_rows(1))
         click(*settled_point(lambda d:d['expand_workspace_1']));wait_until(lambda:len(pane_rows(1))==3)
         click(*settled_point(lambda d:next((r['point'] for r in d['navigation_panes'] if r['name']=='navigationPane1_1'),None)))
         wait_until(lambda:not data()['drawer_open'] and data()['workspace']==1 and data()['panes'][4]['focus'])
