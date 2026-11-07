@@ -46,7 +46,8 @@ int main(int argc,char **argv) {
     worktrees.inspect(repo);
     require(wait([&]{return worktrees.worktrees().size()==3;}),"worktree list refreshed");
     worktrees.add("feature/x");
-    require(wait([&]{return added.size()==3;}) && added[2]==added[0],"a branch with a worktree reuses it");
+    // Git reports resolved paths (macOS temporary folders are under a /var symlink).
+    require(wait([&]{return added.size()==3;}) && QFileInfo(added[2]).canonicalFilePath()==QFileInfo(added[0]).canonicalFilePath(),"a branch with a worktree reuses it");
     worktrees.add("bad name");require(!worktrees.error().isEmpty() && !worktrees.busy(),"invalid branch reported without running git");
     worktrees.add("main");
     require(wait([&]{return !worktrees.busy();}) && added.size()==4 && QFileInfo(added[3]).canonicalFilePath()==QFileInfo(repo).canonicalFilePath(),"the main branch reuses the main checkout");
