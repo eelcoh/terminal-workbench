@@ -1,6 +1,7 @@
 #include "runtime_facts.h"
 #include <QDir>
 #include <QFile>
+#include <QHash>
 #include <QStringDecoder>
 #include <QtEndian>
 #include "local_socket.h"
@@ -24,11 +25,12 @@ void RuntimeFeed::open(const QString &path) {
     failed_=false;deadline_.start();socket_.connectToServer(path,QIODevice::ReadWrite);
 }
 void RuntimeFeed::fail(bool initialClose) {
-    if(!failed_ && initialClose && !received_ && socket_.bytesAvailable()==0 && (sent_=="WAT4\n" || sent_=="WAT3\n") && ownedLocalSocket(path_)) {
+    static const QHash<QByteArray,QByteArray> previous{{"WAT4\n","WAT3\n"},{"WAT3\n","WAT2\n"},{"CTX2\n","CTX1\n"}};
+    if(!failed_ && initialClose && !received_ && socket_.bytesAvailable()==0 && previous.contains(sent_) && ownedLocalSocket(path_)) {
         // Older runtimes close unknown handshakes. Only an empty initial close
-        // permits a retry with the previous watch version (WAT4, WAT3, then the
-        // WAT2 baseline); malformed/partial streams never do.
-        sent_=sent_=="WAT4\n" ? QByteArray("WAT3\n") : QByteArray("WAT2\n");retryPending_=true;failed_=true;deadline_.stop();socket_.abort();
+        // permits a retry with the previous version (WAT4, WAT3, then the WAT2
+        // baseline; CTX2, then CTX1); malformed/partial streams never do.
+        sent_=previous.value(sent_);retryPending_=true;failed_=true;deadline_.stop();socket_.abort();
         QTimer::singleShot(0,this,[this]{retryPending_=false;failed_=false;deadline_.start();socket_.connectToServer(path_,QIODevice::ReadWrite);});return;
     }
     if(failed_)return;
@@ -48,22 +50,23 @@ void RuntimeFeed::drain() {
     }
 }
 RuntimeFacts::RuntimeFacts(const QString &path,QObject *parent):QObject(parent),path_(path),
-    contextFeed_("CTX1\n",10,this,[this](const auto &p){return context(p);},[this]{clearContext();}),
+    contextFeed_("CTX2\n",10,this,[this](const auto &p){return context(p);},[this]{clearContext();}),
     agentFeed_("WAT4\n",6,this,[this](const auto &p){return agent(p);},[this]{clearAgent();}) {
     // Defer until construction is complete; callbacks may emit changed().
     QTimer::singleShot(0,this,[this]{refresh();});
 }
 void RuntimeFacts::refresh() {contextFeed_.open(path_);agentFeed_.open(path_);}
 void RuntimeFacts::clearContext() {
-    if(!contextAvailable_ && !remote_ && !detached_ && cwd_.isEmpty() && repository_.isEmpty() && branch_.isEmpty() && worktree_.isEmpty())return;
-    cwd_.clear();repository_.clear();branch_.clear();worktree_.clear();contextAvailable_=remote_=detached_=false;Q_EMIT changed();
+    if(!contextAvailable_ && !remote_ && !detached_ && !dirty_ && cwd_.isEmpty() && repository_.isEmpty() && branch_.isEmpty() && worktree_.isEmpty())return;
+    cwd_.clear();repository_.clear();branch_.clear();worktree_.clear();contextAvailable_=remote_=detached_=dirty_=false;Q_EMIT changed();
 }
 void RuntimeFacts::clearAgent() {
     if(!agentAvailable_ && agent_==255 && state_==0 && process_.isEmpty())return;
     agentAvailable_=false;agent_=255;state_=0;process_.clear();Q_EMIT changed();
 }
 bool RuntimeFacts::context(const QByteArray &payload) {
-    if(payload.size()<10 || payload[0]!=1 || (quint8(payload[1])&~7))return false;
+    // CTX2 adds bit 3 (dirty state known) and bit 4 (uncommitted changes).
+    if(payload.size()<10 || payload[0]!=1 || (quint8(payload[1])&~31))return false;
     QString values[4];qsizetype offset=2;
     for(auto &value:values) {
         if(offset+2>payload.size())return false;
@@ -76,10 +79,10 @@ bool RuntimeFacts::context(const QByteArray &payload) {
         offset+=length;
     }
     if(offset!=payload.size())return false;
-    const auto flags=quint8(payload[1]);const bool available=(flags&1) && !(flags&4),remote=flags&4,detached=flags&2;
+    const auto flags=quint8(payload[1]);const bool available=(flags&1) && !(flags&4),remote=flags&4,detached=flags&2,dirty=available && (flags&8) && (flags&16);
     if(!available)for(auto &value:values)value.clear();
-    if(cwd_==values[0] && repository_==values[1] && branch_==values[2] && worktree_==values[3] && contextAvailable_==available && remote_==remote && detached_==detached)return true;
-    cwd_=values[0];repository_=values[1];branch_=values[2];worktree_=values[3];contextAvailable_=available;remote_=remote;detached_=detached;
+    if(cwd_==values[0] && repository_==values[1] && branch_==values[2] && worktree_==values[3] && contextAvailable_==available && remote_==remote && detached_==detached && dirty_==dirty)return true;
+    cwd_=values[0];repository_=values[1];branch_=values[2];worktree_=values[3];contextAvailable_=available;remote_=remote;detached_=detached;dirty_=dirty;
     Q_EMIT changed();return true;
 }
 bool RuntimeFacts::agent(const QByteArray &payload) {
@@ -108,7 +111,7 @@ QVariantMap RuntimeFacts::facts() const {
         }
     }
     return {{"title",title},{"cwd",cwd_},{"repository",repository_},{"branch",branch_},{"worktree",worktree_},
-        {"context_available",contextAvailable_},{"remote",remote_},{"detached",detached_},
+        {"context_available",contextAvailable_},{"remote",remote_},{"detached",detached_},{"dirty",dirty_},
         {"agent_available",agentAvailable_},{"process",process_},{"agent",agent_<=7 ? agents[agent_] : QString()},
         {"state",agent_>0 && agent_<=7 ? states[state_] : QString()},
         {"needs_input",agent_>0 && agent_<=7 && state_==2}};

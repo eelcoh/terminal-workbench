@@ -21,9 +21,9 @@ static QByteArray context(quint8 flags,const QStringList &fields) {
     return packet(10,result);
 }
 struct Server {
-    QLocalServer listener;QHash<QByteArray,QLocalSocket *> sockets;QHash<QLocalSocket *,QByteArray> received;int accepts=0,version=4;
+    QLocalServer listener;QHash<QByteArray,QLocalSocket *> sockets;QHash<QLocalSocket *,QByteArray> received;int accepts=0,version=4,contextVersion=2;
     // A runtime that knows watches up to `newest` closes newer handshakes.
-    explicit Server(const QString &path,int newest=4):version(newest) {
+    explicit Server(const QString &path,int newest=4,int context=2):version(newest),contextVersion(context) {
         require(listener.listen(path),"private metadata socket");
         QObject::connect(&listener,&QLocalServer::newConnection,&listener,[this]{
             while(listener.hasPendingConnections()) {
@@ -31,13 +31,14 @@ struct Server {
                 QObject::connect(socket,&QLocalSocket::readyRead,&listener,[this,socket]{
                     received[socket]+=socket->readAll();
                     const auto &got=received[socket];
-                    if((got=="WAT4\n" && version<4) || (got=="WAT3\n" && version<3))socket->disconnectFromServer();
+                    if((got=="WAT4\n" && version<4) || (got=="WAT3\n" && version<3) || (got=="CTX2\n" && contextVersion<2))socket->disconnectFromServer();
                     else if(received[socket].endsWith('\n'))sockets[received[socket]]=socket;
                 });
             }
         });
     }
-    bool ready(){return sockets.contains("CTX1\n") && sockets.contains(watch());}
+    bool ready(){return sockets.contains(context()) && sockets.contains(watch());}
+    QByteArray context() const {return contextVersion<2 ? "CTX1\n" : "CTX2\n";}
     QByteArray watch() const {return "WAT"+QByteArray::number(version)+"\n";}
     void send(const QByteArray &key,const QByteArray &bytes){auto *s=sockets.value(key);require(s,"subscription ready");s->write(bytes);s->flush();}
 };
@@ -50,13 +51,13 @@ int main(int argc,char **argv) {
     const auto cwd=temp.filePath("café <folder>\nsecond");
     const auto frame=context(1,{cwd,"repo","feature/test","worktree"});
     // Exercise every frame boundary, including Unicode byte boundaries.
-    for(char byte:frame){server.send("CTX1\n",QByteArray(1,byte));QCoreApplication::processEvents();}
+    for(char byte:frame){server.send("CTX2\n",QByteArray(1,byte));QCoreApplication::processEvents();}
     server.send("WAT4\n",packet(6,QByteArray::fromHex("0101")));
     require(wait([&]{return facts.facts()["agent"].toString()=="Codex" && facts.facts()["context_available"].toBool();}),"fragmented context and agent frames");
     require(facts.facts()["title"].toString()=="repo · feature/test · worktree","Git/worktree caption");
     require(!facts.facts()["cwd"].toString().contains('\n'),"control-safe display text");
     const int before=changes;
-    server.send("CTX1\n",frame+frame);server.send("WAT4\n",packet(6,QByteArray::fromHex("0101")));
+    server.send("CTX2\n",frame+frame);server.send("WAT4\n",packet(6,QByteArray::fromHex("0101")));
     QElapsedTimer settle;settle.start();while(settle.elapsed()<40)QCoreApplication::processEvents();
     require(changes==before,"identical metadata does not invalidate UI");
     server.send("WAT4\n",packet(6,QByteArray::fromHex("0102"))+packet(6,QByteArray::fromHex("0103")));
@@ -65,10 +66,10 @@ int main(int argc,char **argv) {
     require(wait([&]{return facts.facts()["needs_input"].toBool();}),"needs input is authoritative runtime state");
     server.send("WAT4\n",packet(6,QByteArray::fromHex("0602")+"zsh"));
     require(wait([&]{return facts.facts()["process"].toString()=="zsh";}),"WAT4 foreground process name");
-    server.send("CTX1\n",context(5,{cwd,"spoof","branch","tree"}));
+    server.send("CTX2\n",context(5,{cwd,"spoof","branch","tree"}));
     require(wait([&]{return facts.facts()["remote"].toBool();}),"remote unavailable");
     require(facts.facts()["cwd"].toString().isEmpty() && facts.facts()["title"]=="Remote session","remote never exposes local cwd fallback");
-    server.send("CTX1\n",packet(10,QByteArray::fromHex("01010001ff000000000000")));
+    server.send("CTX2\n",packet(10,QByteArray::fromHex("01010001ff000000000000")));
     require(wait([&]{return !facts.facts()["remote"].toBool();}),"malformed UTF8 clears only context");
     require(facts.facts()["agent"]=="Copilot" && facts.facts()["needs_input"].toBool(),"metadata failure isolates other feed");
     server.send("WAT4\n",packet(6,QByteArray::fromHex("0801")));
@@ -76,18 +77,18 @@ int main(int argc,char **argv) {
     require(facts.facts()["agent"].toString().isEmpty() && facts.facts()["state"].toString().isEmpty(),"stale agent labels cleared");
     facts.refresh();require(wait([&]{return server.accepts==4;}),"explicit refresh reconnects failed subscriptions");
     // Additional independent malformed-frame cases; no retries/polling after failure.
-    const QList<QByteArray> badContexts={packet(9,{}),QByteArray::fromHex("0a00010000"),context(8,{"a","b","c","d"}),context(1,{"a","b","c","d"})+QByteArray::fromHex("0a0000000101")};
+    const QList<QByteArray> badContexts={packet(9,{}),QByteArray::fromHex("0a00010000"),context(32,{"a","b","c","d"}),context(1,{"a","b","c","d"})+QByteArray::fromHex("0a0000000101")};
     int sequence=0;
     for(const auto &bad:badContexts) {
         const auto other=temp.filePath(QString("bad-%1.ctl").arg(sequence++));Server source(other);RuntimeFacts invalid(other);
-        require(wait([&]{return source.ready();}),"malformed test subscriptions");source.send("CTX1\n",bad);
-        require(wait([&]{return source.sockets["CTX1\n"]->state()==QLocalSocket::UnconnectedState;}),"bad frame closes bounded feed");
+        require(wait([&]{return source.ready();}),"malformed test subscriptions");source.send("CTX2\n",bad);
+        require(wait([&]{return source.sockets["CTX2\n"]->state()==QLocalSocket::UnconnectedState;}),"bad frame closes bounded feed");
         require(!invalid.facts()["context_available"].toBool(),"malformed stream cannot retain context");
     }
     {
         Server silent(temp.filePath("silent.ctl"));RuntimeFacts idle(temp.filePath("silent.ctl"));
         require(wait([&]{return silent.ready();}),"silent subscriptions connected");
-        require(wait([&]{return silent.sockets["CTX1\n"]->state()==QLocalSocket::UnconnectedState && silent.sockets["WAT4\n"]->state()==QLocalSocket::UnconnectedState;}),"bounded initial reply deadline");
+        require(wait([&]{return silent.sockets["CTX2\n"]->state()==QLocalSocket::UnconnectedState && silent.sockets["WAT4\n"]->state()==QLocalSocket::UnconnectedState;}),"bounded initial reply deadline");
         require(silent.accepts==2,"no reconnect timer");
     }
     {
@@ -96,6 +97,19 @@ int main(int argc,char **argv) {
         require(old.accepts==4,"bounded fallbacks (WAT3, then WAT2) without touching context");
         old.send("WAT2\n",packet(6,QByteArray::fromHex("0603")));
         require(wait([&]{return compatible.facts()["agent"].toString()=="Copilot";}),"old lifecycle feed remains useful");
+    }
+    {
+        // Uncommitted changes arrive as CTX2 flag bits; CTX1 runtimes still give context.
+        Server dirty(temp.filePath("dirty.ctl"));RuntimeFacts changes(temp.filePath("dirty.ctl"));
+        require(wait([&]{return dirty.ready();}),"CTX2 subscription");
+        dirty.send("CTX2\n",context(1|8|16,{"/tmp/repo","repo","main",""}));
+        require(wait([&]{return changes.facts()["dirty"].toBool();}),"dirty worktree flag");
+        dirty.send("CTX2\n",context(1|8,{"/tmp/repo","repo","main",""}));
+        require(wait([&]{return !changes.facts()["dirty"].toBool();}),"clean worktree flag");
+        Server older(temp.filePath("ctx1.ctl"),4,1);RuntimeFacts previousContext(temp.filePath("ctx1.ctl"));
+        require(wait([&]{return older.ready();}) && older.accepts==3,"one fallback to CTX1");
+        older.send("CTX1\n",context(1,{"/tmp/repo","repo","main",""}));
+        require(wait([&]{return previousContext.facts()["branch"].toString()=="main";}) && !previousContext.facts()["dirty"].toBool(),"CTX1 context without dirty state");
     }
     {
         Server named(temp.filePath("wat3.ctl"),3);RuntimeFacts previous(temp.filePath("wat3.ctl"));
@@ -125,5 +139,5 @@ int main(int argc,char **argv) {
     }
     const auto alias=temp.filePath("alias.ctl");require(QFile::link(path,alias),"symlink fixture");RuntimeFacts linked(alias);
     QCoreApplication::processEvents();require(server.accepts==4,"symlink metadata endpoint rejected");
-    std::puts("PASS: read-only bounded metadata feeds, fragments/coalescing, cached change notifications, Git/worktree labels, authoritative agent state, process names, WAT4/WAT3/WAT2 fallback, remote masking, malformed/timeout isolation, explicit refresh");
+    std::puts("PASS: read-only bounded metadata feeds, fragments/coalescing, cached change notifications, Git/worktree labels, authoritative agent state, process names, WAT4/WAT3/WAT2 fallback, CTX2 dirty state and CTX1 fallback, remote masking, malformed/timeout isolation, explicit refresh");
 }

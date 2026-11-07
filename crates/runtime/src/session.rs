@@ -50,7 +50,7 @@ enum Event {
     Unwatch(u64),
     ContextUpdated(crate::context::Context),
     ContextRead(UnixStream),
-    ContextWatch(u64, UnixStream),
+    ContextWatch(u64, UnixStream, u8),
 }
 
 fn frame(kind: u8, payload: &[u8]) -> Frame {
@@ -364,7 +364,7 @@ pub fn serve_with_shell_launch(
                 b"CAPS\n" => {
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let report = format!(
-                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\",\"runtime-origin\",\"agent-watch-v3\",\"agent-watch-v4\"],\"origin\":{}}}\n",
+                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\",\"runtime-origin\",\"agent-watch-v3\",\"agent-watch-v4\",\"terminal-context-v2\"],\"origin\":{}}}\n",
                         std::process::id(), runtime_origin
                     );
                     let _ = stream.write_all(report.as_bytes());
@@ -372,7 +372,8 @@ pub fn serve_with_shell_launch(
                 }
                 b"INFO\n" => Event::Inspect(stream),
                 b"CWD1\n" => Event::ContextRead(stream),
-                b"CTX1\n" => Event::ContextWatch(id as u64, stream),
+                b"CTX1\n" => Event::ContextWatch(id as u64, stream, 1),
+                b"CTX2\n" => Event::ContextWatch(id as u64, stream, 2),
                 b"TEXT\n" => Event::TerminalRead(stream, false),
                 b"SNAP\n" => Event::TerminalRead(stream, true),
                 b"ATS1\n" | b"ATM1\n" => {
@@ -467,7 +468,7 @@ pub fn serve_with_shell_launch(
     let mut attention = crate::attention::Attention::new();
     let mut watchers: AgentWatchers = Vec::new();
     let mut context = crate::context::Context::default();
-    let mut context_watchers: Vec<(u64, SyncSender<Frame>)> = Vec::new();
+    let mut context_watchers: Vec<(u64, SyncSender<Frame>, u8)> = Vec::new();
     let result = (|| -> Result<(), Failure> {
         for event in events_rx {
             let packet = match event {
@@ -625,8 +626,12 @@ pub fn serve_with_shell_launch(
                     continue;
                 }
                 Event::ContextUpdated(next) => {
-                    let packet = frame(10, &next.payload());
-                    context_watchers.retain(|(_, frames)| frames.try_send(packet.clone()).is_ok());
+                    // CTX1 subscribers skip changes they cannot see (dirty state only).
+                    let first = context.payload(1) != next.payload(1);
+                    context_watchers.retain(|(_, frames, version)| {
+                        (*version == 1 && !first)
+                            || frames.try_send(frame(10, &next.payload(*version))).is_ok()
+                    });
                     context = next;
                     continue;
                 }
@@ -635,21 +640,21 @@ pub fn serve_with_shell_launch(
                     let _ = stream.write_all(context.json().as_bytes());
                     continue;
                 }
-                Event::ContextWatch(id, stream) => {
+                Event::ContextWatch(id, stream, version) => {
                     if context_watchers.len() < 8 {
                         if let Ok(frames) = start_agent_watch(
                             id,
                             stream,
                             events_tx.clone(),
-                            frame(10, &context.payload()),
+                            frame(10, &context.payload(version)),
                         ) {
-                            context_watchers.push((id, frames));
+                            context_watchers.push((id, frames, version));
                         }
                     }
                     continue;
                 }
                 Event::Unwatch(id) => {
-                    context_watchers.retain(|(current, _)| *current != id);
+                    context_watchers.retain(|(current, _, _)| *current != id);
                     watchers.retain(|(current, _, _)| *current != id);
                     continue;
                 }

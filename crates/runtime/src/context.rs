@@ -1,8 +1,9 @@
 //! Cached local process/Git context. File discovery runs off the PTY event thread.
 use std::fs::{self, File};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -13,6 +14,8 @@ pub struct Context {
     pub worktree: String,
     pub detached: bool,
     pub remote: bool,
+    /// Uncommitted changes in the worktree, from `git status`; None when unknown.
+    pub dirty: Option<bool>,
 }
 
 fn bounded(text: &str, maximum: usize) -> String {
@@ -37,17 +40,23 @@ pub(crate) fn json_string(text: &str) -> String {
 }
 impl Context {
     pub fn json(&self) -> String {
-        format!("{{\"available\":{},\"source\":\"{}\",\"cwd\":{},\"repository\":{},\"branch\":{},\"worktree\":{},\"detached\":{}}}\n",
+        format!("{{\"available\":{},\"source\":\"{}\",\"cwd\":{},\"repository\":{},\"branch\":{},\"worktree\":{},\"detached\":{},\"dirty\":{}}}\n",
             !self.cwd.is_empty(),if self.remote {"remote-unavailable"} else {"local-process"},
-            json_string(&self.cwd),json_string(&self.repository),json_string(&self.branch),json_string(&self.worktree),self.detached)
+            json_string(&self.cwd),json_string(&self.repository),json_string(&self.branch),json_string(&self.worktree),self.detached,
+            self.dirty.map_or("null".to_owned(),|dirty| dirty.to_string()))
     }
-    pub fn payload(&self) -> Vec<u8> {
-        let mut result = vec![
-            1,
-            u8::from(!self.cwd.is_empty())
-                | (u8::from(self.detached) << 1)
-                | (u8::from(self.remote) << 2),
-        ];
+    /// CTX1 keeps its three flags; CTX2 adds bit 3 (dirty state known) and
+    /// bit 4 (uncommitted changes).
+    pub fn payload(&self, version: u8) -> Vec<u8> {
+        let mut flags = u8::from(!self.cwd.is_empty())
+            | (u8::from(self.detached) << 1)
+            | (u8::from(self.remote) << 2);
+        if version >= 2 {
+            if let Some(dirty) = self.dirty {
+                flags |= 8 | (u8::from(dirty) << 4);
+            }
+        }
+        let mut result = vec![1, flags];
         for field in [&self.cwd, &self.repository, &self.branch, &self.worktree] {
             result.extend_from_slice(&(field.len() as u16).to_be_bytes());
             result.extend_from_slice(field.as_bytes());
@@ -157,11 +166,69 @@ fn basename(path: &Path) -> String {
         512,
     )
 }
+/// Whether the worktree at `root` has uncommitted changes, including untracked
+/// files. Runs `git status` with a time limit; None when Git is missing, refuses
+/// the repository or is too slow. The fsmonitor hook is turned off so a
+/// repository's own configuration cannot make the check start other programs.
+fn uncommitted(root: &Path, limit: Duration) -> Option<bool> {
+    let mut child = Command::new("git")
+        .arg("-c")
+        .arg("core.fsmonitor=false")
+        .arg("--no-optional-locks")
+        .arg("-C")
+        .arg(root)
+        .args(["status", "--porcelain", "-z", "--ignore-submodules=dirty"])
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+    // Drain output on its own thread so a large status cannot block Git.
+    let mut stdout = child.stdout.take()?;
+    let reader = std::thread::spawn(move || {
+        struct Count(u64);
+        impl Write for Count {
+            fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+                self.0 += bytes.len() as u64;
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> io::Result<()> {
+                Ok(())
+            }
+        }
+        let mut count = Count(0);
+        io::copy(&mut stdout, &mut count)
+            .map(|_| count.0)
+            .unwrap_or(0)
+    });
+    let deadline = Instant::now() + limit;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break Some(status),
+            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(20)),
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+        }
+    };
+    let bytes = reader.join().unwrap_or(0);
+    status.filter(|status| status.success()).map(|_| bytes > 0)
+}
+
 #[derive(Default)]
 pub struct Cache {
     cwd: Option<PathBuf>,
     repo: Option<Repository>,
     checked: Option<Instant>,
+    // `git status` is rate-limited per worktree: at most every five seconds,
+    // and slower when it takes long (twenty times its duration, up to two minutes).
+    status_root: Option<PathBuf>,
+    status_next: Option<Instant>,
+    dirty: Option<bool>,
 }
 impl Cache {
     pub fn sample(&mut self, cwd: Option<PathBuf>, remote: bool) -> Context {
@@ -169,6 +236,8 @@ impl Cache {
             self.cwd = None;
             self.repo = None;
             self.checked = None;
+            self.status_root = None;
+            self.dirty = None;
             return Context {
                 remote,
                 ..Context::default()
@@ -201,9 +270,23 @@ impl Cache {
                 if repo.linked {
                     next.worktree = basename(&repo.root);
                 }
+                if self.status_root.as_ref() != Some(&repo.root)
+                    || self.status_next.is_none_or(|time| now >= time)
+                {
+                    let started = Instant::now();
+                    self.dirty = uncommitted(&repo.root, Duration::from_secs(2));
+                    let interval = (started.elapsed() * 20)
+                        .clamp(Duration::from_secs(5), Duration::from_secs(120));
+                    self.status_root = Some(repo.root.clone());
+                    self.status_next = Some(Instant::now() + interval);
+                }
+                next.dirty = self.dirty;
             } else {
                 self.checked = None;
             }
+        } else {
+            self.status_root = None;
+            self.dirty = None;
         }
         next
     }
@@ -258,11 +341,69 @@ mod tests {
             ..Context::default()
         };
         assert!(context.json().contains("/a\\\"b\\\\c\\u000ad"));
-        let packet = context.payload();
+        let packet = context.payload(1);
         assert_eq!(&packet[..2], &[1, 1]);
+        let dirty = Context {
+            dirty: Some(true),
+            ..context.clone()
+        };
+        assert_eq!(&dirty.payload(1)[..2], &[1, 1]);
+        assert_eq!(&dirty.payload(2)[..2], &[1, 1 | 8 | 16]);
+        assert_eq!(
+            &Context {
+                dirty: Some(false),
+                ..context.clone()
+            }
+            .payload(2)[..2],
+            &[1, 1 | 8]
+        );
+        assert!(
+            dirty.json().contains("\"dirty\":true") && context.json().contains("\"dirty\":null")
+        );
         assert_eq!(
             u16::from_be_bytes([packet[2], packet[3]]) as usize,
             context.cwd.len()
         );
+    }
+    #[test]
+    fn uncommitted_changes_come_from_git_status() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let root = std::env::temp_dir().join(format!("wb-dirty-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        let git = |args: &[&str]| {
+            assert!(Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .args(args)
+                .output()
+                .unwrap()
+                .status
+                .success())
+        };
+        git(&["init", "-q"]);
+        git(&[
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "fixture",
+        ]);
+        assert_eq!(uncommitted(&root, Duration::from_secs(5)), Some(false));
+        fs::write(root.join("notes.txt"), "draft").unwrap();
+        assert_eq!(uncommitted(&root, Duration::from_secs(5)), Some(true));
+        let mut cache = Cache::default();
+        assert_eq!(cache.sample(Some(root.clone()), false).dirty, Some(true));
+        assert_eq!(
+            uncommitted(&root.join("missing"), Duration::from_secs(5)),
+            None
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 }

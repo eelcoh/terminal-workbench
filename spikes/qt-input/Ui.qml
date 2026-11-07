@@ -798,11 +798,11 @@ ApplicationWindow {
     // What a pane runs and where, shared by pane headers and sidebar rows: its
     // kind, the app, agent or foreground program, and its folder or repository.
     function paneIdentity(pane) {
-        if (!pane) return {kind: "shell", icon: "shell", name: "", place: ""}
+        if (!pane) return {kind: "shell", icon: "shell", name: "", place: "", dirty: false}
         const f = pane.facts
         const kind = pane.app ? "app" : f.agent ? "agent" : "shell"
         return {kind: kind, icon: kind === "app" ? "apps" : kind === "agent" ? "agents" : "shell",
-            name: kind === "app" ? pane.appName : kind === "agent" ? f.agent : (f.process || ""), place: f.title || "Terminal"}
+            name: kind === "app" ? pane.appName : kind === "agent" ? f.agent : (f.process || ""), place: f.title || "Terminal", dirty: !!f.dirty}
     }
     function paneWidth(i) { return Math.max(240, (deck.width + 12) * (fullWidths[i] ? 1 : widths[i]) - 12) }
     function left(i) { if (i < 0 || i >= terminalModel.count) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
@@ -1146,7 +1146,7 @@ ApplicationWindow {
                 }
                 readonly property var identity: window.paneIdentity(pane)
                 // Room for the identity left of the state, colors swatch and menu.
-                readonly property real headerRoom: width - 51 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)
+                readonly property real headerRoom: width - 51 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0) - (dirtyMark.visible ? 14 : 0)
                 ChromeIcon {
                     id: paneKind; x: 12; y: 9; width: 15; height: 15; name: pane.identity.icon
                     color: pane.appStopped ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
@@ -1163,12 +1163,21 @@ ApplicationWindow {
                     text: pane.identity.place; textFormat: Text.PlainText; font.pixelSize: 12
                     color: paneName.visible ? studyThemes.theme(window.themeIndexFor(spaceIndex)).muted : studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground
                 }
+                // Uncommitted changes in this pane's Git worktree.
+                Rectangle {
+                    id: dirtyMark; objectName: "paneDirty"; visible: pane.identity.dirty
+                    x: paneTitle.x + paneTitle.width + 7; y: 15; width: 6; height: 6; radius: 3
+                    color: studyThemes.theme(window.themeIndexFor(spaceIndex)).accent
+                    Accessible.role: Accessible.StaticText; Accessible.name: "Uncommitted changes"
+                    MouseArea { id: dirtyArea; anchors.fill: parent; anchors.margins: -5; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+                    ToolTip.visible: dirtyArea.containsMouse; ToolTip.delay: 400; ToolTip.text: "Uncommitted changes"
+                }
                 // A swatch of the terminal's own palette; the frame keeps workspace colors.
                 Rectangle {
                     id: ownColors; objectName: "terminalOwnColors" + pane.terminalId
                     readonly property int own: appearance.visible && window.appearanceTerminal === pane.terminalId ? (window.previewDefault ? -1 : window.previewTheme) : window.ownTheme(pane.terminalId)
                     visible: own >= 0
-                    x: paneTitle.x + paneTitle.width + 8; y: 12; width: 12; height: 12; radius: 6
+                    x: (dirtyMark.visible ? dirtyMark.x + dirtyMark.width : paneTitle.x + paneTitle.width) + 8; y: 12; width: 12; height: 12; radius: 6
                     color: visible ? studyThemes.theme(own).background : "transparent"
                     border.width: 2; border.color: visible ? studyThemes.theme(own).accent : "transparent"
                     Accessible.role: Accessible.Button; Accessible.name: "Terminal colors: " + (visible ? studyThemes.theme(own).name : "")

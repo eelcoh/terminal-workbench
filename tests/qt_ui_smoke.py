@@ -1318,6 +1318,13 @@ while True:
         wait_until(lambda:data()['panes'][8]['facts'].get('branch')=='topic' and data()['panes'][8]['facts'].get('worktree'))
         assert data()['panes'][8]['facts']['cwd']==str(tree)
         assert 'topic' in data()['panes'][8]['facts']['title'] and 'Linked tree' in data()['panes'][8]['facts']['title']
+        # Uncommitted changes come from git status (CTX2) and show in the header.
+        wait_until(lambda:data()['panes'][8]['facts'].get('dirty') is False,timeout=15)
+        (tree/'notes.txt').write_text('draft\n')
+        wait_until(lambda:data()['panes'][8]['facts'].get('dirty') is True,timeout=20)
+        capture('metadata-dirty.png')
+        (tree/'notes.txt').unlink()
+        wait_until(lambda:data()['panes'][8]['facts'].get('dirty') is False,timeout=20)
         capture('metadata-worktree.png')
         fixture=root/'codex';shutil.copyfile('/usr/bin/sleep',fixture);fixture.chmod(0o700)
         typed("sh -c "+shlex.quote('echo $$ > '+shlex.quote(str(root/'agent.pid'))+'; exec '+shlex.quote(str(fixture))+' 120'));key('Return')

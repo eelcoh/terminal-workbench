@@ -172,7 +172,12 @@ designer's eye, planned as a design step in v0.4.
   commondir) and never starts `git`. Dirty state needs either a rate-limited,
   off-thread `git status --porcelain` per repository (shared by panes in the
   same worktree, run on directory change and after commands) or reading the
-  index itself; the first is the likely choice.
+  index itself; the first is the likely choice. *Done (2026-11-07):* the context worker
+  runs `git status --porcelain` with fsmonitor off, a two-second limit and
+  backoff, published through a CTX2 subscription; an accent dot marks pane
+  headers, sidebar pane rows and workspace rows ([terminal
+  context](terminal-context.md)). Not yet shared between panes of one worktree
+  or triggered after commands.
 - A remote runtime (the daemon on the remote machine, the client local) is
   evaluated after plain SSH panes.
 

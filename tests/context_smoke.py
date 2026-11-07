@@ -22,7 +22,10 @@ with tempfile.TemporaryDirectory(prefix='wb-context-test-') as directory:
     sub=repo/'src';sub.mkdir()
     tree=root/'topic tree';git('worktree','add','-b','topic',str(tree))
     fake=root/'bin';fake.mkdir();marker=root/'unexpected-git'
-    (fake/'git').write_text('#!/bin/sh\ntouch '+shlex.quote(str(marker))+'\nexit 1\n');(fake/'git').chmod(0o700)
+    # Branch and worktree never need Git; only the dirty check starts it, and
+    # always as a lock-free status with fsmonitor off. This stand-in fails, so
+    # dirty state stays unknown.
+    (fake/'git').write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> '+shlex.quote(str(marker))+'\nexit 1\n');(fake/'git').chmod(0o700)
     path=root/'session.sock';control=path.with_suffix('.ctl')
     log=(root/'server.log').open('w+')
     server=subprocess.Popen([binary,str(path),'/bin/sh'],cwd=repo,stderr=log,
@@ -69,7 +72,10 @@ with tempfile.TemporaryDirectory(prefix='wb-context-test-') as directory:
         # Detached readers continue following the same runtime without taking ownership.
         connection.close();connection=None
         assert context()['cwd']==str(root)
-        os.kill(int(pid),0);assert not marker.exists(),'context discovery spawned git'
+        os.kill(int(pid),0)
+        calls=marker.read_text().splitlines() if marker.exists() else []
+        assert context()['dirty'] is None,'a failing git status leaves dirty state unknown'
+        assert calls and all(c.startswith('-c core.fsmonitor=false --no-optional-locks -C ') and c.endswith(' status --porcelain -z --ignore-submodules=dirty') for c in calls),calls
         connection,_,sizes=attach(path)
         send(connection,16,b"printf '\\nCONTEXT_PID:%s\\n' \"$$\"\n")
         assert expect(connection,rb'\r?\nCONTEXT_PID:(\d+)\r?\n').group(1)==pid

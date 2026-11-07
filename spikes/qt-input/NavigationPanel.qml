@@ -173,8 +173,9 @@ Item {
                         tones: host.chrome; x: 24; width: parent.width - 56; height: 44; leftAligned: true
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
                         readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
+                        readonly property bool dirty: workspaceRow.allPanes.some(i => { const pane = host.panel(i); return pane && !!pane.facts.dirty })
                         // A closed workspace previews its panes in the tooltip.
-                        hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "")
+                        hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "") + (dirty ? " · uncommitted changes" : "")
                             + (workspaceRow.expanded ? "" : workspaceRow.allPanes.slice(0, 8).map(i => { const identity = host.paneIdentity(host.panel(i)); return "\n" + [identity.name, identity.place].filter(part => part).join(" · ") }).join("")
                                 + (workspaceRow.allPanes.length > 8 ? "\n…" : ""))
                         contentItem: Item {
@@ -186,6 +187,7 @@ Item {
                                     Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: host.chrome.waiting }
                                     Text { text: String(workspaceEntry.waiting); color: host.chrome.waiting; font.pixelSize: 12; anchors.verticalCenter: parent.verticalCenter }
                                 }
+                                Rectangle { objectName: "workspaceDirty" + workspaceRow.index; visible: workspaceEntry.dirty; width: 6; height: 6; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: host.chrome.accent }
                                 Text { text: workspaceEntry.trailingText; color: host.chrome.muted; font.pixelSize: 12; height: 18; verticalAlignment: Text.AlignVCenter }
                             }
                         }
@@ -212,7 +214,7 @@ Item {
                                 objectName: "navigationPane" + workspaceRow.index + "_" + index
                                 tones: host.chrome; width: paneColumn.width; height: 34
                                 selected: modelData === host.selected && !host.overview
-                                hint: [title, detail, paneState].filter(part => part).join(" · ")
+                                hint: [title, detail, paneState, identity.dirty ? "uncommitted changes" : ""].filter(part => part).join(" · ")
                                 Keys.onDownPressed: workspaceRow.focusPane(index + 1)
                                 Keys.onUpPressed: { if (index === 0) workspaceEntry.forceActiveFocus(Qt.TabFocusReason); else workspaceRow.focusPane(index - 1) }
                                 Keys.onLeftPressed: workspaceEntry.forceActiveFocus(Qt.TabFocusReason)
@@ -232,8 +234,12 @@ Item {
                                         width: Math.min(implicitWidth, parent.width - x - 8 - (paneRow.detail ? 48 : 0))
                                         text: paneRow.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.foreground; font.pixelSize: 13
                                     }
+                                    Rectangle {
+                                        id: paneDirty; visible: paneRow.identity.dirty; anchors.left: paneName.right; anchors.leftMargin: 6; anchors.verticalCenter: parent.verticalCenter
+                                        width: 6; height: 6; radius: 3; color: host.chrome.accent
+                                    }
                                     Text {
-                                        id: paneDetail; anchors.left: paneName.right; anchors.leftMargin: 8; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                        id: paneDetail; anchors.left: paneDirty.visible ? paneDirty.right : paneName.right; anchors.leftMargin: 8; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
                                         horizontalAlignment: Text.AlignRight; text: paneRow.detail; textFormat: Text.PlainText; elide: Text.ElideLeft; font.pixelSize: 11
                                         color: host.chrome.muted
                                     }

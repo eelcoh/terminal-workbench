@@ -34,7 +34,7 @@ private:
     void clearContext();
     void clearAgent();
     QString path_,cwd_,repository_,branch_,worktree_,process_;
-    bool contextAvailable_=false,remote_=false,detached_=false,agentAvailable_=false;
+    bool contextAvailable_=false,remote_=false,detached_=false,dirty_=false,agentAvailable_=false;
     quint8 agent_=255,state_=0;
     RuntimeFeed contextFeed_,agentFeed_;
 };

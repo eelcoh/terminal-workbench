@@ -35,8 +35,9 @@ process metadata has empty context; remote clients report `remote-unavailable`.
 Linux uses `/proc/PID/cwd`; Mac uses `proc_pidinfo`. The existing foreground
 process sample supplies the target PID. A runtime worker reads bounded Git
 `HEAD`, gitfile and `commondir` metadata, caches repository discovery for two
-seconds, and publishes only changed values. It never launches Git or walks
-process descendants. Ordinary checkouts, linked worktrees, submodules and unborn
+seconds, and publishes only changed values. It does not walk process
+descendants. Branch and worktree come from those files; only uncommitted
+changes start Git (below). Ordinary checkouts, linked worktrees, submodules and unborn
 branches are supported. Bare repositories and shell-specific `GIT_DIR` overrides
 are not inferred. Unreadable/malformed metadata falls back to the directory.
 
@@ -47,6 +48,26 @@ payload version 1, availability/detached/remote flag bits, then four UTF-8 strin
 Payloads are bounded to 8192 bytes. Separate bounded queues isolate slow readers;
 context errors never disconnect the PTY or agent watch. Existing INFO, agent
 watch, snapshot and PTY codecs remain unchanged.
+
+## Uncommitted changes (CTX2)
+
+`CTX2` subscriptions (capability `terminal-context-v2`) carry the same payload
+with two more flag bits: bit 3, dirty state known, and bit 4, uncommitted
+changes (including untracked files). `CTX1` subscribers keep the three original
+bits and receive no frames for dirty-only changes. The viewer asks for CTX2 and
+falls back to CTX1 when an older runtime closes the handshake. `CWD1` JSON adds
+`"dirty": true`, `false` or `null`.
+
+The context worker runs `git status --porcelain` in the pane's worktree on a
+change of worktree and then at most every five seconds, backing off to twenty
+times the time the last run took (up to two minutes). Each run has a two-second
+limit and is killed after it; Git missing, a refused repository (such as
+`safe.directory`) or a timeout leave the state unknown. It runs with
+`core.fsmonitor=false`, `--no-optional-locks` and no terminal prompt, so the
+check takes no index lock and a repository's fsmonitor hook does not run.
+Clean or smudge filters configured by the user can still run, as with any
+`git status`. Each pane's runtime checks on its own; panes in one worktree
+are not yet shared.
 
 Custom names use optional JSON `custom_name` metadata and a companion
 `terminal-labels.tsv` projection indexed by stable terminal ID. Existing catalog
