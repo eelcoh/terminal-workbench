@@ -721,6 +721,11 @@ pub(crate) fn ensure_sessions(
             let deadline = Instant::now() + Duration::from_secs(5);
             while !path.exists() {
                 let exited = child.try_wait().map_err(os)?.is_some();
+                // An app may run and end before its socket is seen; its
+                // lifecycle record then says it exited, so it did start.
+                if exited && app(terminal).is_some() && super::lifecycle::exited(&path) {
+                    break;
+                }
                 if exited || Instant::now() >= deadline {
                     if !exited {
                         terminate(&mut child);
@@ -729,7 +734,9 @@ pub(crate) fn ensure_sessions(
                 }
                 thread::sleep(Duration::from_millis(20));
             }
-            children.push((id(terminal).to_owned(), child));
+            if path.exists() {
+                children.push((id(terminal).to_owned(), child));
+            }
         }
     }
     Ok(())

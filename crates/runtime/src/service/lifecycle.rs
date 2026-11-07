@@ -109,6 +109,11 @@ fn read_record(socket: &Path) -> Option<Value> {
     Some(value)
 }
 
+/// Whether the runtime recorded that its shell or command ran and exited.
+pub(crate) fn exited(socket: &Path) -> bool {
+    read_record(socket).is_some_and(|value| value["event"] == "exited")
+}
+
 pub(crate) fn detail(socket: &Path, state: &str) -> Value {
     if state == "running" {
         return json!({"reason": "running", "message": "Shell is running."});
