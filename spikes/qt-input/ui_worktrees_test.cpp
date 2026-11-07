@@ -35,7 +35,10 @@ int main(int argc,char **argv) {
     worktrees.inspect("Repo café/sub",temp.path());
     require(wait([&]{return !worktrees.repository().isEmpty();}),"relative folder inside a repository");
     require(QFileInfo(worktrees.repository()).canonicalFilePath()==QFileInfo(repo).canonicalFilePath() && worktrees.worktrees().size()==1,"main worktree found from a subfolder");
-    require(worktrees.pathFor("feature/x").endsWith("/Repo café-feature-x"),"new worktrees go beside the main checkout");
+    // macOS may return the repository path in another Unicode form (é decomposed).
+    const auto beside=worktrees.pathFor("feature/x");
+    if(!beside.normalized(QString::NormalizationForm_C).endsWith(QStringLiteral("/Repo café-feature-x").normalized(QString::NormalizationForm_C)))std::fprintf(stderr,"path: %s\n",qPrintable(beside));
+    require(beside.normalized(QString::NormalizationForm_C).endsWith(QStringLiteral("/Repo café-feature-x").normalized(QString::NormalizationForm_C)),"new worktrees go beside the main checkout");
     worktrees.add("feature/x");
     require(wait([&]{return added.size()==1;}) && QFileInfo(added[0]+"/.git").exists() && worktrees.error().isEmpty(),"new branch worktree added");
     worktrees.add("existing");
