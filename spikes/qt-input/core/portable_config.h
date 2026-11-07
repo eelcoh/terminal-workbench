@@ -25,8 +25,9 @@ typedef struct {
 /* App definitions ([app.ID], [linux.app.ID], [macos.app.ID]); see docs/apps.md. */
 #define PORTABLE_APP_MAX 32
 #define PORTABLE_APP_SECTIONS (PORTABLE_APP_MAX*3)
-typedef struct { char id[41],name[64],command[1024],directory[1024]; } PortableApp;
-/* About 270 KB: callers that want apps allocate it; others pass NULL and only validate. */
+/* install: your own recipe; setup: run after Band installs the app, or by hand. */
+typedef struct { char id[41],name[64],command[1024],directory[1024],install[1024],setup[1024]; } PortableApp;
+/* About 520 KB: callers that want apps allocate it; others pass NULL and only validate. */
 typedef struct {
     int count;PortableApp apps[PORTABLE_APP_MAX];
     PortableApp sections[PORTABLE_APP_SECTIONS];
@@ -75,7 +76,7 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
     PortableLayer layers[3]={0};char line[2048];int section=-1,kind=0,number=1;
-    struct { char id[41];int layer;bool name,command,directory; } app_sections[PORTABLE_APP_SECTIONS];int app_count=0,app=-1;
+    struct { char id[41];int layer;bool name,command,directory,install,setup; } app_sections[PORTABLE_APP_SECTIONS];int app_count=0,app=-1;
     // Files written before the rename to Band keep their workbench header.
     bool valid=fgets(line,sizeof(line),file) && (!strcmp(line,"band-config-v1\n") || !strcmp(line,"workbench-config-v1\n"));
     while (valid && fgets(line,sizeof(line),file)) {
@@ -108,6 +109,8 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
             if (!strcmp(key,"name")) {seen=&app_sections[app].name;size=sizeof(values->name);if (values) target=values->name;}
             else if (!strcmp(key,"command")) {seen=&app_sections[app].command;size=sizeof(values->command);if (values) target=values->command;}
             else if (!strcmp(key,"directory")) {seen=&app_sections[app].directory;size=sizeof(values->directory);if (values) target=values->directory;}
+            else if (!strcmp(key,"install")) {seen=&app_sections[app].install;size=sizeof(values->install);if (values) target=values->install;}
+            else if (!strcmp(key,"setup")) {seen=&app_sections[app].setup;size=sizeof(values->setup);if (values) target=values->setup;}
             if (!seen || *seen || strlen(value)>=size || !portable_plain(value)) {valid=false;break;}
             *seen=true;if (target) strcpy(target,value);
         } else if (kind==4) {
@@ -186,6 +189,8 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
                 if (app_sections[platform].name) strcpy(result->name,over->name);
                 if (app_sections[platform].command) strcpy(result->command,over->command);
                 if (app_sections[platform].directory) strcpy(result->directory,over->directory);
+                if (app_sections[platform].install) strcpy(result->install,over->install);
+                if (app_sections[platform].setup) strcpy(result->setup,over->setup);
             }
             if (!result->name[0]) memcpy(result->name,result->id,strlen(result->id)+1); /* IDs fit names */
         }

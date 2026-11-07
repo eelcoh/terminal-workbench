@@ -628,6 +628,14 @@ ApplicationWindow {
         let installs = Object.assign({}, pendingInstalls); installs["homebrew-install"] = ""; pendingInstalls = installs
         studySession.startApp(spaceIds[workspace], {id: "homebrew-install", name: "Install Homebrew", command: studyApps.homebrew.install, directory: ""})
     }
+    // An app's setup from config.conf, again, in a pane of its own.
+    function runSetup(id) {
+        const entry = studyApps.entry(id)
+        if (!entry.setup || spaces.length === 0 || !canCreateTerminal) return
+        const pending = runningApp(workspace, id + "-setup")
+        if (pending >= 0) { enterPane(pending); return }
+        studySession.startApp(spaceIds[workspace], {id: id + "-setup", name: "Set up " + entry.name, command: entry.setup, directory: entry.directory || ""})
+    }
     function appFailed(life) { return life.reason === "signal" || life.reason === "startup_failed" || (life.reason === "exited" && life.exit_code !== undefined && life.exit_code !== 0) }
     function appFailure(name, life) {
         return life.reason === "signal" ? name + " was ended by " + life.signal + "."
@@ -1421,10 +1429,12 @@ ApplicationWindow {
         id: appCatalog; objectName: "appCatalog"; anchors.centerIn: parent; host: window
         onChosen: (id, install, via) => { window.pendingApp = {id: id, install: install, via: via}; close() }
         onHomebrewRequested: { window.pendingApp = {id: "", install: "", via: "homebrew"}; close() }
+        onSetupRequested: id => { window.pendingApp = {id: id, install: "", via: "setup"}; close() }
         onClosed: {
             const choice = window.pendingApp; window.pendingApp = null
             Qt.callLater(function() {
                 if (choice && choice.via === "homebrew") window.installHomebrew()
+                else if (choice && choice.via === "setup") window.runSetup(choice.id)
                 else if (choice) window.chooseApp(choice.id, choice.install)
                 else window.restoreAfterPopup()
             })

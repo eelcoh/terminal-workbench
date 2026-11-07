@@ -73,6 +73,17 @@ int main(int argc,char **argv){
     require(onLinux.entry("btop")["install"].toString().isEmpty() && onLinux.entry("btop")["needsHomebrew"].toBool() && onLinux.entry("btop")["hint"].toString().contains("Homebrew")
         && !onLinux.sources()[1].toMap()["found"].toBool() && onLinux.sources()[1].toMap()["detail"].toString().contains("Image-based") && onLinux.sources().size()==2,"no system packages on an image-based host");
 
+    // Your own recipe comes first and setup follows any recipe; a definition
+    // without install has no way to install from Band.
+    onLinux.setDefinitions({QVariantMap{{"id","later"},{"name","Later"},{"command","later"},{"directory",""},{"install","cargo install later"},{"setup","later --init"}},
+        QVariantMap{{"id","bare"},{"name","Bare"},{"command","bare"},{"directory",""}},
+        QVariantMap{{"id","btop"},{"name","btop"},{"command","btop"},{"directory",""},{"install","make install"},{"setup","btop --config"}}});
+    check(onLinux);
+    require(onLinux.entry("later")["install"]=="cargo install later && later --init" && onLinux.entry("later")["via"]=="your recipe" && onLinux.entry("later")["setup"]=="later --init","own recipe with setup");
+    require(onLinux.entry("bare")["install"].toString().isEmpty() && onLinux.entry("bare")["hint"].toString().contains("without install"),"a definition without install");
+    const auto btopOptions=onLinux.entry("btop")["options"].toList();
+    // (This host is image-based without brew by now, so only the own recipe is left.)
+    require(btopOptions.size()==1 && btopOptions[0].toMap()["install"]=="make install && btop --config" && !onLinux.entry("btop")["needsHomebrew"].toBool(),"own recipe for a catalog app, with setup");
     UiApps mac(true,shell,nullptr,marker,file,{},{});check(mac);
     require(sourceIds(mac)==QStringList({"brew"}),"Mac sources");
     require(!mac.entry("macmon").isEmpty() && onLinux.entry("macmon").isEmpty(),"platform-only apps");
@@ -82,5 +93,5 @@ int main(int argc,char **argv){
 
     UiApps missing(false,root.filePath("no-such-shell"),nullptr,marker,file,{},{});check(missing);
     require(missing.entry("lazygit")["installed"].toInt()==1,"falls back to this process's PATH");
-    std::puts("PASS: curated and shipped catalog, merge and overrides, installed check on the login PATH, Homebrew first, every source offered, sources on and off and saved, COPR off by default, Homebrew not loaded, system packages, image-based hosts, Mac, quoting, missing shell");
+    std::puts("PASS: curated and shipped catalog, merge and overrides, installed check on the login PATH, Homebrew first, every source offered, own install recipe and setup, sources on and off and saved, COPR off by default, Homebrew not loaded, system packages, image-based hosts, Mac, quoting, missing shell");
 }

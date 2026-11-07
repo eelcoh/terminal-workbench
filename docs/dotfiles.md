@@ -92,6 +92,11 @@ command = /opt/homebrew/bin/lazygit
 
 [linux.app.htop]
 command = htop
+
+[app.tool]
+command = tool
+install = cargo install tool
+setup = tool --init
 ```
 
 `command` (one line, at most 1023 bytes) runs through your login shell.
@@ -104,7 +109,14 @@ the whole file like any other invalid setting. Definitions reload live with the
 rest of the file. **Add applications** lists them before Band's catalog;
 choosing one opens it as a pane in the current workspace. A section named
 after a catalog app (`[app.lazygit]`) changes that entry instead, and keeps
-its install recipe.
+its install recipes.
+
+`install` is your own recipe: Band offers it first (as "your recipe") when the
+command is not found, running it in a visible pane like any install. Without
+it, an app of your own cannot be installed from Band. `setup` runs right after
+whichever recipe succeeds (joined with `&&`), and **Run setup** in the catalog
+runs it again for an installed app, in a pane of its own. Both are one line of
+at most 1023 bytes and follow the same platform overrides.
 
 ## Terminal fonts
 

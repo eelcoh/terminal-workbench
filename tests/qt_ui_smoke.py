@@ -1629,11 +1629,14 @@ while True:
         assert data()['runtime_info_report']=={} and data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
         # Apps from config.conf open as panes in the strip, in the current workspace.
         runs=root/'broken-runs'
-        managed.write_bytes(managed_bytes+b'\n[app.echo]\nname = Echo app\ncommand = printf WB_APP_READY; exec cat\n'
+        setup_runs=root/'setup-runs';later_bin=fake_bin/'wb-later'
+        later_install=('printf \'#!/bin/sh\\nprintf WB_LATER_READY; exec cat\\n\' > '+shlex.quote(str(later_bin))+' && chmod +x '+shlex.quote(str(later_bin))).encode()
+        managed.write_bytes(managed_bytes+b'\n[app.echo]\nname = Echo app\ncommand = printf WB_APP_READY; exec cat\nsetup = echo echo >> '+shlex.quote(str(setup_runs)).encode()+b'\n'
+            b'[app.later]\nname = Later app\ncommand = wb-later\ninstall = '+later_install+b'\nsetup = echo later >> '+shlex.quote(str(setup_runs)).encode()+b'\n'
             b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; echo run >> '+shlex.quote(str(runs)).encode()+b'; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n')
         def entry(app_id):return next((e for e in data()['app_entries'] if e['id']==app_id),None)
         wait_until(lambda:entry('quick') and not data()['apps_checking'])
-        assert [e['id'] for e in data()['app_entries'][:3]]==['echo','broken','quick'] and entry('lazygit')['builtin'] and len(data()['app_entries'])>100
+        assert [e['id'] for e in data()['app_entries'][:4]]==['echo','later','broken','quick'] and entry('lazygit')['builtin'] and len(data()['app_entries'])>100
         def app_pane(app_id):return next((p for p in data()['panes'] if p['app']==app_id),None)
         # The Apps panel lists running apps; Add applications opens the catalog.
         def open_catalog():
@@ -1676,6 +1679,17 @@ while True:
         choose('Quick app','quick')
         wait_until(lambda:app_pane('quick') and app_pane('quick')['ended'] and not app_pane('quick')['visible'])
         assert not data()['error'] and len([p for p in data()['panes'] if not p['ended']])==2
+        # Your own install recipe from config.conf, then its setup, then the app.
+        choose('Later app','later')
+        wait_until(lambda:data()['catalog_action_text']=='Install with your recipe' and data()['catalog_detail'].endswith('&& echo later >> '+shlex.quote(str(setup_runs))))
+        key('Return')
+        wait_until(lambda:app_pane('later') and app_pane('later')['ready'] and 'WB_LATER_READY' in app_pane('later')['text'],timeout=30)
+        assert setup_runs.read_text()=='later\n' and not data()['error']
+        request(root,Path(runtime),root,'terminal.close',app_pane('later')['identity']);wait_until(lambda:app_pane('later') is None)
+        # Run setup runs an installed app's setup again, in a pane that closes.
+        open_catalog();typed('Echo app');wait_until(lambda:data()['catalog_current']=='echo' and data()['catalog_setup'])
+        click(*settled_point(lambda d:d['catalog_setup']))
+        wait_until(lambda:setup_runs.read_text()=='later\necho\n' and (app_pane('echo-setup') or {'ended':True})['ended'])
         # Without Homebrew, a Homebrew-only app offers to set it up: Sources
         # shows Homebrew's installer, which runs in a pane; afterwards the
         # check finds brew and the app installs with it.
@@ -1718,7 +1732,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: panes grouped by workspace (current open, open/close, go to pane, keyboard), apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, Homebrew setup from Sources, sources on/off and per-app source choice, install behind its own button), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: panes grouped by workspace (current open, open/close, go to pane, keyboard), apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, own install recipe and setup, Run setup, Homebrew setup from Sources, sources on/off and per-app source choice, install behind its own button), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except SystemExit:
         raise
     except BaseException:

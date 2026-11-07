@@ -12,7 +12,8 @@ AppDefinitions AppDefinitions::read(const QString &path,bool apple)
     for(int i=0;i<count;i++) {
         const auto &app=apps[size_t(i)];
         result.apps.append(QVariantMap{{"id",QString::fromUtf8(app.id)},{"name",QString::fromUtf8(app.name)},
-            {"command",QString::fromUtf8(app.command)},{"directory",QString::fromUtf8(app.directory)}});
+            {"command",QString::fromUtf8(app.command)},{"directory",QString::fromUtf8(app.directory)},
+            {"install",QString::fromUtf8(app.install)},{"setup",QString::fromUtf8(app.setup)}});
     }
     return result;
 }

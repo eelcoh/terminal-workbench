@@ -34,6 +34,7 @@ Dialog {
     readonly property int matchCount: rows.filter(row => !row.header).length
     signal chosen(string appId, string install, string via)
     signal homebrewRequested()
+    signal setupRequested(string appId)
     width: Math.min(960, parent.width - 64); height: parent.height - 64
     padding: 16; modal: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
@@ -160,7 +161,7 @@ Dialog {
                 readonly property bool missing: entry.installed === 0 && !catalog.running(entry)
                 readonly property var picked: catalog.option(entry)
                 Column {
-                    x: 14; y: 12; width: parent.width - actionButton.width - 42; spacing: 4
+                    x: 14; y: 12; width: parent.width - actionButton.width - (setupButton.visible ? setupButton.width + 8 : 0) - 42; spacing: 4
                     Text { width: parent.width; elide: Text.ElideRight; text: (detail.entry.name || "") + (detail.entry.description ? " — " + detail.entry.description : ""); textFormat: Text.PlainText; color: catalog.tones.foreground; font.pixelSize: 13 }
                     Text {
                         objectName: "appCatalogDetail"; width: parent.width; elide: Text.ElideMiddle; textFormat: Text.PlainText; font.family: "monospace"; font.pixelSize: 12; color: catalog.tones.muted
@@ -168,7 +169,7 @@ Dialog {
                     }
                     Text {
                         width: parent.width; elide: Text.ElideRight; textFormat: Text.PlainText; font.pixelSize: 12; color: detail.missing && !detail.picked ? catalog.tones.waiting : catalog.tones.muted
-                        text: detail.missing ? (detail.picked ? "Installs in a pane you can watch; " + (detail.entry.name || "") + " opens when it is done." : (detail.entry.hint || "")) : catalog.running(detail.entry) ? "Running in this workspace." : ""
+                        text: detail.missing ? (detail.picked ? "Installs in a pane you can watch" + (detail.entry.setup ? ", then runs its setup" : "") + "; " + (detail.entry.name || "") + " opens when it is done." : (detail.entry.hint || "")) : catalog.running(detail.entry) ? "Running in this workspace." : detail.entry.setup ? "Setup: " + detail.entry.setup : ""
                     }
                     // More than one way to install: pick the source.
                     Row {
@@ -186,6 +187,14 @@ Dialog {
                             }
                         }
                     }
+                }
+                // Setup from config.conf runs after installing; this runs it again.
+                ChromeButton {
+                    id: setupButton; objectName: "appCatalogSetup"
+                    anchors.right: actionButton.left; anchors.rightMargin: 8; y: 24; height: 36
+                    visible: catalog.current !== null && !detail.missing && !!detail.entry.setup; tones: catalog.tones
+                    enabled: host.canCreateTerminal; text: "Run setup"; hint: detail.entry.setup || ""
+                    onClicked: if (catalog.current) catalog.setupRequested(catalog.current.entry.id)
                 }
                 ChromeButton {
                     id: actionButton; objectName: "appCatalogAction"

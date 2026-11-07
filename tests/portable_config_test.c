@@ -62,6 +62,15 @@ int main(void)
     assert(!strcmp(apps->apps[2].id,"htop"));
     assert(portable_read_full(path,true,false,&with_apps,apps,error,sizeof(error)) && apps->count==2);
     assert(!strcmp(apps->apps[0].command,"/opt/homebrew/bin/lazygit") && !strcmp(apps->apps[0].name,"Lazygit"));
+    /* install and setup: one each per section, overridden per platform. */
+    write_text(path,"band-config-v1\n[app.tool]\ncommand = tool\ninstall = cargo install tool\nsetup = tool --init\n[macos.app.tool]\ninstall = brew install tool\n");
+    assert(portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)) && apps->count==1);
+    assert(!strcmp(apps->apps[0].install,"cargo install tool") && !strcmp(apps->apps[0].setup,"tool --init"));
+    assert(portable_read_full(path,true,false,&with_apps,apps,error,sizeof(error)) && !strcmp(apps->apps[0].install,"brew install tool") && !strcmp(apps->apps[0].setup,"tool --init"));
+    write_text(path,"band-config-v1\n[app.tool]\ncommand = tool\nsetup = a\nsetup = b\n");
+    assert(!portable_read_full(path,false,false,&with_apps,apps,error,sizeof(error)));
+    write_text(path,"band-config-v1\n[app.lazygit]\nname = Lazygit\ncommand = lazygit\n[macos.app.lazygit]\ncommand = /opt/homebrew/bin/lazygit\n"
+        "[app.btop]\ncommand = btop --utf-force\ndirectory = ~\n[linux.app.htop]\ncommand = htop\n[font]\nsize = 18\n");
     /* Readers that do not ask for apps still accept the file. */
     assert(portable_read(path,false,&with_apps,error,sizeof(error)));
     char many[8192]="band-config-v1\n";

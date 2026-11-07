@@ -168,10 +168,15 @@ void UiApps::rebuild() {
         if(!entry.contains("section"))entry.insert("section",QString());
         // Every way to install it here, in order of preference; turned-off
         // sources are left out and named in the hint instead.
+        // Your own recipe ([app.ID] install) comes first; setup runs after
+        // whichever recipe succeeds.
+        const auto own=entry.value("install").toString(),setup=entry.value("setup").toString();
+        entry.insert("setup",setup);
         QVariantList options;QStringList off;
         const auto offer=[&](const QString &source,const QString &via,const QString &install){
-            if(enabled(source))options<<QVariantMap{{"source",source},{"via",via},{"install",install}};else off<<via;
+            if(enabled(source))options<<QVariantMap{{"source",source},{"via",via},{"install",setup.isEmpty() ? install : install+" && "+setup}};else off<<via;
         };
+        if(!own.isEmpty() && checked_)options<<QVariantMap{{"source","own"},{"via","your recipe"},{"install",setup.isEmpty() ? own : own+" && "+setup}};
         if(known && checked_) {
             if(managers_.contains("brew") && !known->brew.isEmpty())offer("brew","Homebrew","brew install "+known->brew);
             if(!apple_ && !image_) {
@@ -185,7 +190,7 @@ void UiApps::rebuild() {
         entry.insert("options",options);entry.insert("install",first["install"]);entry.insert("via",first["via"]);
         // Homebrew would offer it once set up (or loaded by the shell).
         entry.insert("needsHomebrew",known && checked_ && options.isEmpty() && !known->brew.isEmpty() && !managers_.contains("brew"));
-        entry.insert("hint",!known ? QStringLiteral("Defined in config.conf; install it yourself.")
+        entry.insert("hint",!known ? (options.isEmpty() && checked_ ? QStringLiteral("Defined in config.conf without install; add one to install it from Band.") : QString())
             : !options.isEmpty() || !checked_ ? QString()
             : !known->brew.isEmpty() && !managers_.contains("brew") ? (!brewOffPath_.isEmpty() ? QStringLiteral("Homebrew has it; Homebrew is installed but your shell does not load it yet. See Sources.") : QStringLiteral("Homebrew has it; set up Homebrew in Sources."))
                 + (off.isEmpty() ? QString() : QStringLiteral(" Also in %1, turned off in Sources.").arg(off.join(", ")))
@@ -199,7 +204,7 @@ void UiApps::rebuild() {
     for(const auto &id:order)if(std::none_of(known_.begin(),known_.end(),[&](const Catalog &c){return id==c.id;}))add(custom[id],nullptr);
     for(const auto &known:known_) {
         QVariantMap entry{{"id",known.id},{"name",known.name},{"command",known.command},{"directory",QString()},{"description",known.description},{"section",known.section}};
-        if(custom.contains(known.id))for(const auto &key:{"name","command","directory"})entry.insert(key,custom[known.id][key]);
+        if(custom.contains(known.id))for(const auto &key:{"name","command","directory","install","setup"})entry.insert(key,custom[known.id][key]);
         add(entry,&known);
     }
     // Sources: Homebrew everywhere; on Linux the system package manager found

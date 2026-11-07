@@ -261,7 +261,7 @@ int main(int argc,char **argv) {
                 {"app_entries",QJsonArray::fromVariantList(apps.entries())},{"apps_checking",apps.checking()},
                 {"apps_button",center("appsButton")},{"apps_visible",window->findChild<QQuickItem *>("appsButton") && window->findChild<QQuickItem *>("appsButton")->isVisible()},
                 {"catalog_open",window->property("appCatalogOpen").toBool()},{"catalog_current",window->property("appCatalogCurrent").toString()},{"catalog_count",window->property("appCatalogCount").toInt()},
-                {"catalog_action",center("appCatalogAction")},{"catalog_action_text",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogAction");return item ? item->property("text").toString() : QString();}()},
+                {"catalog_action",center("appCatalogAction")},{"catalog_setup",center("appCatalogSetup")},{"catalog_action_text",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogAction");return item ? item->property("text").toString() : QString();}()},
                 {"catalog_detail",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogDetail");return item ? item->property("text").toString() : QString();}()},
                 {"add_applications",center("addApplicationsButton")},{"sources_button",center("appSourcesButton")},{"sources_open",window->property("appSourcesOpen").toBool()},{"homebrew_install",center("homebrewInstall")},
                 {"source_toggle_brew",center("appSourceToggle_brew")},{"source_toggle_dnf",center("appSourceToggle_dnf")},{"source_toggle_copr",center("appSourceToggle_copr")},{"source_choice_copr",center("appSourceChoice_copr")},{"source_choice_brew",center("appSourceChoice_brew")},

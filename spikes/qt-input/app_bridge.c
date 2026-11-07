@@ -11,6 +11,7 @@ int workbench_app_definitions(const char *path,bool apple,WorkbenchApp *out,int 
             const PortableApp *app=&apps->apps[i];
             snprintf(out[i].id,sizeof(out[i].id),"%s",app->id);snprintf(out[i].name,sizeof(out[i].name),"%s",app->name);
             snprintf(out[i].command,sizeof(out[i].command),"%s",app->command);snprintf(out[i].directory,sizeof(out[i].directory),"%s",app->directory);
+            snprintf(out[i].install,sizeof(out[i].install),"%s",app->install);snprintf(out[i].setup,sizeof(out[i].setup),"%s",app->setup);
         }
     }
     free(apps);return count;

@@ -1,6 +1,6 @@
 # Apps (v0.2 plan)
 
-Plan (2026-11-05, revised 2026-11-06 and 2026-11-07). Slices 1–9 are implemented; see
+Plan (2026-11-05, revised 2026-11-06 and 2026-11-07). Slices 1–10 are implemented; see
 [app terminals](session-service.md#app-terminals) and
 [dotfiles](dotfiles.md#apps). Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
 TUIs such as lazygit and btop are first-class and one key away. Running apps
@@ -145,9 +145,13 @@ today.
      detected; Sources shows the `shellenv` line to copy.
    - Lists are re-read only when they change (separate notifications), so
      rows are not rebuilt under the pointer during a check.
-10. **Custom setup.** Beyond `[app.ID]`: an `install` recipe for your own apps,
-   a `setup` command run once after installing, and later Band-provided
-   configuration (themes) for catalog apps, after Omarchy.
+10. [x] **Custom setup.** `[app.ID]` takes `install` (your recipe, offered
+    first, also for catalog apps) and `setup` (run after any recipe succeeds;
+    **Run setup** in the catalog runs it again). See
+    [dotfiles](dotfiles.md#apps). C parser, app list and UI tests.
+11. **Band-provided configuration** for catalog apps (themes matching Band's,
+    after Omarchy). Not started: it writes into other programs' config
+    folders, so it needs its own design (opt-in, backups, undo).
 
 Each slice ships on its own and keeps both platforms green.
 
