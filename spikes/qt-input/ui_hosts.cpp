@@ -6,9 +6,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRegularExpression>
+#include <QProcess>
 #include <QSaveFile>
+#include <QTcpSocket>
+#include <QTimer>
 
-UiHosts::UiHosts(QString path,QString sshConfig,QObject *parent):QObject(parent),path_(std::move(path)),sshConfig_(std::move(sshConfig)) {
+UiHosts::UiHosts(QString path,QString sshConfig,QObject *parent,QString ssh):QObject(parent),path_(std::move(path)),sshConfig_(std::move(sshConfig)),ssh_(std::move(ssh)) {
     // Other windows save too: follow the file and its folder (for creation).
     connect(&watcher_,&QFileSystemWatcher::fileChanged,this,[this]{load();});
     connect(&watcher_,&QFileSystemWatcher::directoryChanged,this,[this]{load();});
@@ -113,4 +116,45 @@ QStringList UiHosts::suggestions() const {
     QFile file(sshConfig_);
     if(sshConfig_.isEmpty() || !file.open(QIODevice::ReadOnly))return {};
     return aliases(file.read(1<<20));
+}
+QVariantMap UiHosts::resolved(const QByteArray &output) {
+    QVariantMap result{{"port",22},{"proxied",false}};
+    for(const auto &raw:output.split('\n')) {
+        const auto line=QString::fromUtf8(raw).trimmed();const auto key=line.section(' ',0,0).toLower(),value=line.section(' ',1).trimmed();
+        if(key=="hostname")result["host"]=value;
+        else if(key=="port")result["port"]=value.toInt();
+        else if((key=="proxyjump" || key=="proxycommand") && !value.isEmpty() && value!="none")result["proxied"]=true;
+    }
+    return result;
+}
+void UiHosts::mark(const QString &id,const QString &state) {
+    if(state!="checking")pending_.remove(id);
+    if(reachability_.value(id).toString()==state)return;
+    reachability_.insert(id,state);Q_EMIT reachabilityChanged();
+}
+void UiHosts::check(const QVariantList &hosts) {
+    for(const auto &item:hosts) {
+        const auto host=item.toMap();const auto id=host.value("id").toString(),destination=host.value("destination").toString();
+        if(!validDestination(destination) || pending_.contains(id))continue;
+        pending_.insert(id);
+        if(!reachability_.contains(id))mark(id,"checking");
+        auto *resolve=new QProcess(this);
+        resolve->setStandardInputFile(QProcess::nullDevice());
+        connect(resolve,&QProcess::finished,resolve,&QObject::deleteLater);
+        connect(resolve,&QProcess::errorOccurred,this,[this,resolve,id](QProcess::ProcessError error){if(error==QProcess::FailedToStart){mark(id,"unknown");resolve->deleteLater();}});
+        connect(resolve,&QProcess::finished,this,[this,resolve,id](int code,QProcess::ExitStatus status){
+            const auto target=resolved(resolve->readAllStandardOutput());
+            const auto address=target.value("host").toString();const int port=target.value("port").toInt();
+            if(code!=0 || status!=QProcess::NormalExit || target.value("proxied").toBool() || address.isEmpty() || port<1 || port>65535){mark(id,"unknown");return;}
+            auto *socket=new QTcpSocket(this);auto *limit=new QTimer(socket);limit->setSingleShot(true);
+            const auto finish=[this,socket,id](const QString &state){if(socket->property("done").toBool())return;socket->setProperty("done",true);mark(id,state);socket->abort();socket->deleteLater();};
+            connect(socket,&QTcpSocket::connected,this,[finish]{finish("reachable");});
+            connect(socket,&QTcpSocket::errorOccurred,this,[finish]{finish("unreachable");});
+            connect(limit,&QTimer::timeout,this,[finish]{finish("unreachable");});
+            limit->start(2000);socket->connectToHost(address,quint16(port));
+        });
+        // A stuck ssh -G (a slow resolver in its config) is stopped after five seconds.
+        QTimer::singleShot(5000,resolve,[resolve]{resolve->kill();});
+        resolve->start(ssh_,{"-G","--",destination});
+    }
 }

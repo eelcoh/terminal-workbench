@@ -5,6 +5,7 @@ import os
 import re
 from pathlib import Path
 import select
+import socket
 import shutil
 import uuid
 import shlex
@@ -36,7 +37,10 @@ fake_bin=Path(tempfile.mkdtemp(prefix='wb-ui-bin-',dir='/tmp'));os.environ['PATH
 # New host… suggests aliases from this stand-in ~/.ssh/config (test mode only).
 (fake_bin/'ssh_config').write_text('Host alpha beta\nHost *.wild\n');os.environ['BAND_TEST_SSH_CONFIG']=str(fake_bin/'ssh_config')
 # A stand-in ssh records its arguments, one per line, and stays connected.
-(fake_bin/'ssh').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > '+shlex.quote(str(fake_bin/'ssh-args'))+'\nprintf WB_SSH_READY\nexec cat\n');(fake_bin/'ssh').chmod(0o755)
+# For reachability, ssh -G resolves lab-box to a local listener and anything
+# else to a closed port.
+reach_listener=socket.socket();reach_listener.bind(('127.0.0.1',0));reach_listener.listen(8)
+(fake_bin/'ssh').write_text('#!/bin/sh\nif [ "$1" = -G ]; then\n  case "$3" in lab-box) port='+str(reach_listener.getsockname()[1])+';; *) port=1;; esac\n  printf "hostname 127.0.0.1\\nport %s\\n" "$port"; exit 0\nfi\nprintf "%s\\n" "$@" > '+shlex.quote(str(fake_bin/'ssh-args'))+'\nprintf WB_SSH_READY\nexec cat\n');(fake_bin/'ssh').chmod(0o755)
 # Homebrew's installer is replaced by a script that writes the fake brew.
 fake_installer=fake_bin/'install-homebrew';os.environ['BAND_TEST_HOMEBREW_INSTALLER']=str(fake_installer)
 processes=[];sockets=[];client=None;xdisplay=None
@@ -1807,6 +1811,7 @@ while True:
         # opens a second pane on the same host.
         click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
         wait_until(lambda:any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']) and len(data()['navigation_host_panes'])==1)
+        wait_until(lambda:data()['host_reachability'].get('lab')=='reachable',timeout=10)
         click(*settled_point(lambda d:d['connect_host_0']));wait_until(lambda:app_pane('_host-lab_2') is not None,timeout=10)
         click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
         time.sleep(.3);capture('hosts-panel.png')
@@ -1816,6 +1821,7 @@ while True:
         click(*data()['host_suggestion_0']);time.sleep(.2);capture('host-dialog.png');click(*data()['save_host_button'])
         wait_until(lambda:not data()['host_dialog_open'] and [h['id'] for h in data()['saved_hosts']]==['alpha'] and (root/'ui'/'hosts.json').exists())
         click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and any(h.startswith('alpha · alpha') for h in data()['navigation_hosts']) and len(data()['remove_host_1'])==2)
+        wait_until(lambda:data()['host_reachability'].get('alpha')=='unreachable',timeout=10);capture('hosts-reachability.png')
         click(*settled_point(lambda d:d['remove_host_1']));wait_until(lambda:not data()['saved_hosts'] and not any(h.startswith('alpha') for h in data()['navigation_hosts']))
         key('Escape');wait_until(lambda:not data()['drawer_open'])
         for host_app in ('_host-lab_2','_host-lab'):

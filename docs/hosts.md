@@ -8,7 +8,12 @@ Status (2026-11-07): slices 1–3 built, plus Band's own host list.
 - New host…, which writes `ui/hosts.json` and suggests `~/.ssh/config`
   aliases. Hosts Band saved can be removed from the panel.
 
-Next are reachability and a theme per host. The owner's decisions are at the
+- Reachability in the Hosts panel: `ssh -G`, then a two-second TCP
+  connection, on opening and every minute while the panel is open. A ready
+  dot means reachable, a waiting dot means not reachable, and no dot means
+  unknown (proxied, or the lookup failed).
+
+Next is a theme per host. The owner's decisions are at the
 end.
 
 Rex treats hosts as the top level of its sidebar (This Mac, then remote hosts

@@ -23,6 +23,11 @@ Item {
     onWorkspacesChanged: sidebarFilter.clear()
     onAppsChanged: sidebarFilter.clear()
     onHostsChanged: sidebarFilter.clear()
+    // Reachability while the Hosts panel is open: on opening, then every minute.
+    Timer {
+        interval: 60000; repeat: true; triggeredOnStart: true; running: navigation.hosts && navigation.visible && host.hostDefinitions.length > 0
+        onTriggered: studyHosts.check(host.hostDefinitions)
+    }
     readonly property var shownHosts: host.hostDefinitions.filter(saved => !navigation.filter || (saved.name + " " + saved.destination).toLocaleLowerCase().indexOf(navigation.filter) >= 0)
     function focusHost(index) {
         const count = hostRows.count
@@ -329,11 +334,13 @@ Item {
                     required property var modelData
                     property alias button: hostEntry
                     readonly property var panes: host.hostPanes(modelData.id)
+                    readonly property string reach: studyHosts.reachability[modelData.id] || ""
                     width: body.width; height: 52 + (panes.length ? hostPaneColumn.height + 4 : 0)
                     ChromeButton {
                         id: hostEntry; objectName: "navigationHost" + hostRow.index
                         tones: host.chrome; width: parent.width; height: 52; padding: 10
                         hint: hostRow.modelData.name + " · " + hostRow.modelData.destination + (hostRow.panes.length ? " · " + hostRow.panes.length + " open" : "")
+                            + (hostRow.reach === "reachable" ? " · reachable" : hostRow.reach === "unreachable" ? " · not reachable" : hostRow.reach === "unknown" ? " · reachability unknown" : "")
                         Keys.onDownPressed: navigation.focusHost(hostRow.index + 1)
                         Keys.onUpPressed: { if (hostRow.index === 0) sidebarFilter.forceActiveFocus(Qt.TabFocusReason); else navigation.focusHost(hostRow.index - 1) }
                         Keys.onPressed: event => {
@@ -342,6 +349,12 @@ Item {
                         }
                         contentItem: Item {
                             ChromeIcon { id: hostIcon; x: 0; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; name: "host"; color: host.chrome.muted }
+                            // Reachable: a ready dot; not reachable: a waiting dot; unknown: none.
+                            Rectangle {
+                                objectName: "hostReach" + hostRow.index; x: hostIcon.x + 12; y: hostIcon.y + 11; width: 8; height: 8; radius: 4
+                                visible: hostRow.reach === "reachable" || hostRow.reach === "unreachable"; border.width: 1.5; border.color: host.chrome.surface
+                                color: hostRow.reach === "reachable" ? host.chrome.ready : host.chrome.waiting
+                            }
                             Column {
                                 anchors.left: hostIcon.right; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 64 : 34; anchors.verticalCenter: parent.verticalCenter; spacing: 3
                                 Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
