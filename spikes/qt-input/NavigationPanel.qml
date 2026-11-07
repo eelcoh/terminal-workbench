@@ -10,7 +10,8 @@ Item {
     required property var session
     readonly property bool agents: host.navigationSection === "agents"
     readonly property bool apps: host.navigationSection === "apps"
-    readonly property bool workspaces: !agents && !apps
+    readonly property bool hosts: host.navigationSection === "hosts"
+    readonly property bool workspaces: !agents && !apps && !hosts
     readonly property bool searchFocused: navigation.agents && agentSearch.activeFocus
     property bool needsOnly: false
     // Workspace ID → opened or closed by hand; otherwise only the current
@@ -21,6 +22,16 @@ Item {
     readonly property string filter: sidebarFilter.text.trim().toLocaleLowerCase()
     onWorkspacesChanged: sidebarFilter.clear()
     onAppsChanged: sidebarFilter.clear()
+    onHostsChanged: sidebarFilter.clear()
+    readonly property var shownHosts: host.hostDefinitions.filter(saved => !navigation.filter || (saved.name + " " + saved.destination).toLocaleLowerCase().indexOf(navigation.filter) >= 0)
+    function focusHost(index) {
+        const count = hostRows.count
+        if (!count) { sidebarFilter.forceActiveFocus(Qt.TabFocusReason); return }
+        const row = hostRows.itemAt(Math.max(0, Math.min(count - 1, index)))
+        if (row.y < list.contentY) list.contentY = row.y
+        else if (row.y + row.height > list.contentY + list.height) list.contentY = Math.max(0, row.y + row.height - list.height)
+        row.button.forceActiveFocus(Qt.TabFocusReason)
+    }
     function paneText(i) {
         const pane = host.panel(i), identity = host.paneIdentity(pane)
         return [identity.name, identity.place, pane ? host.spaces[pane.spaceIndex] : ""].join(" ").toLocaleLowerCase()
@@ -29,6 +40,7 @@ Item {
     readonly property var shownApps: host.runningApps.filter(i => navigation.paneMatches(i))
     function focusFirstRow() {
         if (navigation.apps) { focusApp(0); return }
+        if (navigation.hosts) { focusHost(0); return }
         for (let i = 0; i < host.spaces.length; ++i) { const row = workspaceRows.itemAt(i); if (row && row.visible) { focusWorkspace(i); return } }
     }
     function setExpanded(identity, open) { let values = Object.assign({}, expandedSpaces); values[identity] = open; expandedSpaces = values }
@@ -89,7 +101,7 @@ Item {
         // Each rail icon owns this panel's content; the title names it.
         Label {
             objectName: "navigationTitle"; width: 184; height: 28; leftPadding: 8; verticalAlignment: Text.AlignVCenter
-            text: navigation.agents ? "Agents" : navigation.apps ? "Apps" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: 14; font.weight: Font.DemiBold
+            text: navigation.agents ? "Agents" : navigation.apps ? "Apps" : navigation.hosts ? "Hosts" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: 14; font.weight: Font.DemiBold
         }
         ChromeButton {
             objectName: "navigationPin"; tones: host.chrome; iconName: "pin"; selected: host.navigationPinned
@@ -117,7 +129,7 @@ Item {
         Label { width: parent.width; text: navigation.matches.length + " / " + host.agentIndices.length + " agents"; color: host.chrome.muted; font.pixelSize: 12 }
     }
     Flickable {
-        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps ? createFooter.y - y - 12 : parent.height - y - 14)
+        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps || navigation.hosts ? createFooter.y - y - 12 : parent.height - y - 14)
         clip: true; contentHeight: body.height; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Column {
@@ -309,6 +321,68 @@ Item {
                 padding: 8; text: host.runningApps.length && navigation.filter ? "No matching apps" : "No apps running\nAdd applications to open lazygit, btop and other terminal apps as panes."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
             }
             Repeater {
+                // Saved hosts, each with its open panes in any workspace.
+                id: hostRows; model: navigation.hosts ? navigation.shownHosts : []
+                Item {
+                    id: hostRow
+                    required property int index
+                    required property var modelData
+                    property alias button: hostEntry
+                    readonly property var panes: host.hostPanes(modelData.id)
+                    width: body.width; height: 52 + (panes.length ? hostPaneColumn.height + 4 : 0)
+                    ChromeButton {
+                        id: hostEntry; objectName: "navigationHost" + hostRow.index
+                        tones: host.chrome; width: parent.width; height: 52; padding: 10
+                        hint: hostRow.modelData.name + " · " + hostRow.modelData.destination + (hostRow.panes.length ? " · " + hostRow.panes.length + " open" : "")
+                        Keys.onDownPressed: navigation.focusHost(hostRow.index + 1)
+                        Keys.onUpPressed: { if (hostRow.index === 0) sidebarFilter.forceActiveFocus(Qt.TabFocusReason); else navigation.focusHost(hostRow.index - 1) }
+                        Keys.onPressed: event => {
+                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.connectHost(hostRow.modelData.id); event.accepted = true }
+                            else event.accepted = false
+                        }
+                        contentItem: Item {
+                            ChromeIcon { id: hostIcon; x: 0; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; name: "host"; color: host.chrome.muted }
+                            Column {
+                                anchors.left: hostIcon.right; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: 34; anchors.verticalCenter: parent.verticalCenter; spacing: 3
+                                Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
+                                Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.muted; font.pixelSize: 12 }
+                            }
+                        }
+                        onClicked: host.connectHost(hostRow.modelData.id)
+                    }
+                    ChromeButton {
+                        objectName: "connectHost" + hostRow.index; z: 2
+                        anchors.right: hostEntry.right; anchors.rightMargin: 4; anchors.verticalCenter: hostEntry.verticalCenter
+                        tones: host.chrome; iconName: "plus"; focusPolicy: Qt.NoFocus; enabled: host.canCreateTerminal
+                        hint: "Connect to " + hostRow.modelData.name + " in this workspace"
+                        onClicked: host.connectHost(hostRow.modelData.id)
+                    }
+                    Column {
+                        id: hostPaneColumn; x: 28; y: 54; width: parent.width - 28; spacing: 2
+                        Repeater {
+                            model: hostRow.panes
+                            ChromeButton {
+                                required property int index
+                                required property int modelData
+                                readonly property var pane: host.panel(modelData)
+                                objectName: "navigationHostPane" + hostRow.index + "_" + index
+                                tones: host.chrome; width: hostPaneColumn.width; height: 30; leftAligned: true
+                                selected: modelData === host.selected && !host.overview
+                                // The host is the row above; a pane row names its workspace, numbered when there are several.
+                                text: pane ? (host.spaces[pane.spaceIndex] || "") + (hostRow.panes.length > 1 ? " · " + (index + 1) : "") : ""
+                                hint: (pane ? pane.appName + " in " : "") + text
+                                onClicked: host.choosePane(modelData)
+                            }
+                        }
+                    }
+                }
+            }
+            Label {
+                width: body.width; visible: navigation.hosts && hostRows.count === 0
+                padding: 8; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
+                text: host.hostDefinitions.length && navigation.filter ? "No matching hosts" : "No hosts yet\nAdd [host.ID] sections with a destination to config.conf; see SSH hosts in the docs."
+            }
+            Repeater {
                 id: agentRows; model: navigation.agents ? navigation.matches : []
                 ChromeButton {
                     id: agentRow
@@ -361,15 +435,25 @@ Item {
     }
     Item {
         id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; height: 94
-        visible: navigation.workspaces || navigation.apps
+        visible: navigation.workspaces || navigation.apps || navigation.hosts
         Rectangle { width: parent.width; height: 1; color: host.chrome.border }
         ContextSearch {
             id: sidebarFilter; objectName: "navigationFilter"; y: 12; width: parent.width; tones: host.chrome
-            placeholderText: navigation.apps ? "Filter apps…" : "Filter workspaces and panes…"
+            placeholderText: navigation.apps ? "Filter apps…" : navigation.hosts ? "Filter hosts…" : "Filter workspaces and panes…"
             Accessible.name: navigation.apps ? "Filter running apps by name or workspace" : "Filter workspaces and panes by name, program or folder"
             onStepRequested: direction => navigation.focusFirstRow()
             onAccepted: if (!inputMethodComposing) navigation.focusFirstRow()
             onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
+        }
+        ChromeButton {
+            objectName: "editHostsButton"; visible: navigation.hosts; y: 54; width: parent.width; height: 36
+            tones: host.chrome; text: "Hosts are in config.conf…"; hint: "Open the configuration folder; add [host.ID] sections there"
+            contentItem: Row {
+                spacing: 8; leftPadding: 8
+                Item { width: 18; height: 36; ChromeIcon { anchors.centerIn: parent; width: 18; height: 18; name: "plus"; color: host.chrome.accent } }
+                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "Hosts are in config.conf…"; color: host.chrome.accent; font.pixelSize: 13 }
+            }
+            onClicked: studyConfiguration.openDirectory()
         }
         ChromeButton {
             id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width; height: 36; visible: navigation.apps

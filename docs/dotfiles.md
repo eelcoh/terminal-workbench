@@ -122,7 +122,9 @@ at most 1023 bytes and follow the same platform overrides.
 
 `[host.ID]` saves an SSH destination; **Connect to <name>** in Commands opens a
 pane running `ssh -t -- <destination>` in the current workspace (another
-Connect opens another pane). IDs are letters, digits and dashes, at most 34.
+Connect opens another pane). The **Hosts** panel (globe icon in the rail, shown
+once a host exists) lists hosts with their open panes and a Connect button.
+IDs are letters, digits and dashes, at most 34.
 
 ```text
 [host.build]

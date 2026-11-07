@@ -204,7 +204,7 @@ ApplicationWindow {
         if (navigationDocked) drawer.close()
         Qt.callLater(function() { if (!overview && selected >= 0) reveal() })
     }
-    function focusNavigation() { if (navigationSection === "workspaces") navigation.focusWorkspace(workspace); else if (navigationSection === "apps") navigation.focusApp(0); else navigation.focusSearch() }
+    function focusNavigation() { if (navigationSection === "workspaces") navigation.focusWorkspace(workspace); else if (navigationSection === "apps") navigation.focusApp(0); else if (navigationSection === "hosts") navigation.focusHost(0); else navigation.focusSearch() }
     function openNavigation(section) {
         navigationSection = section
         navigationHidden = false
@@ -610,6 +610,16 @@ ApplicationWindow {
         }
         return "ssh -t -- " + shellQuote(host.destination) + remote
     }
+    // Open panes of a host across workspaces, in strip order.
+    function hostPanes(id) {
+        const revision = catalogRevision
+        let result = []
+        for (let i = 0; i < terminalModel.count; ++i) {
+            const item = terminalModel.get(i)
+            if ((item.appId === "_host-" + id || item.appId.startsWith("_host-" + id + "_")) && !endedApps[item.terminalId]) result.push(i)
+        }
+        return result.sort((a, b) => (terminalModel.get(a).spaceIndex - terminalModel.get(b).spaceIndex) || (terminalModel.get(a).ordinal - terminalModel.get(b).ordinal))
+    }
     function connectHost(id) {
         const host = hostDefinitions.find(item => item.id === id)
         if (!host || spaces.length === 0 || !canCreateTerminal) return
@@ -1003,6 +1013,12 @@ ApplicationWindow {
             hint: "Apps"; keys: studyShortcuts.labels["apps"] || ""
             selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "apps"
             onClicked: window.toggleSection("apps")
+        }
+        QuietButton {
+            objectName: "hostsButton"; height: 28; iconName: "host"; visible: window.hostDefinitions.length > 0 || window.navigationSection === "hosts"
+            hint: "Hosts"
+            selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "hosts"
+            onClicked: window.toggleSection("hosts")
         }
         QuietButton {
             objectName: "agentsButton"; height: 28; iconName: "agents"; visible: window.agentsSeen || window.navigationSection === "agents"

@@ -1,9 +1,12 @@
 # SSH hosts (v0.3 design note, 2026-11-07)
 
-Status: slice 1 built (2026-11-07): `[host.ID]` in config.conf, Connect to…
-in Commands, host panes with their own identity and outside the Apps list. The
-open questions at the end were not answered yet; slice 1 follows the
-recommendations, and hosts live in config.conf only for now.
+Status (2026-11-07): slices 1–3 built. `[host.ID]` in config.conf, Connect
+to… in Commands, host panes with their own identity and outside the Apps list,
+and the Hosts panel (sidebar shape A: a rail icon shown when hosts exist,
+saved hosts with their open panes in any workspace, Connect, the footer
+filter, and a link to config.conf for now). The owner's decisions are at the
+end; next are Band's own host list with New host… (suggesting `~/.ssh/config`
+aliases), reachability, and a theme per host.
 
 Rex treats hosts as the top level of its sidebar (This Mac, then remote hosts
 with a reachability mark). Band's v0.3 goal is the same everyday use, plain SSH
@@ -112,18 +115,21 @@ Each slice ships with tests: parser and validation in C, the reachability
 check against a local listener, the UI test with a fake `ssh` on PATH, and
 by-hand runs against a real host on both platforms.
 
-## Open questions for the owner
+## Decisions (owner, 2026-11-07)
 
-1. **Where hosts live.** Options:
-   - only `[host.ID]` in config.conf, which Band reads but never writes;
-   - a host list Band saves itself, beside the font, shortcut and theme
-     files, which New host… can then write;
-   - both, as with the default theme, where Band's file takes precedence.
-
-   Recommendation: both.
-2. **Suggest from `~/.ssh/config`.** Offer its `Host` aliases (no wildcards)
-   in New host…, read only? Recommendation: yes.
-3. **Sidebar shape.** A (typed Hosts view) or B (host level in Workspaces)?
-   Recommendation: A.
-4. **After a restart.** Host panes come back stopped and connect on Start
-   again, like shells (recommended), or reconnect automatically?
+1. **Where hosts live:** both. `[host.ID]` in config.conf, which Band reads
+   and never writes, and a host list Band saves itself (beside the font,
+   shortcut and theme files) that New host… writes. Band's list wins for the
+   same ID, as with the default theme.
+2. **`~/.ssh/config`:** New host… suggests its `Host` aliases (no wildcards),
+   read only.
+3. **Sidebar shape:** it depends on what Band restores.
+   - **Plain ssh panes (v0.3):** a host pane belongs to its workspace, like
+     any terminal, so hosts are a typed view (shape A, built). Workspaces stay
+     local and may mix panes from several hosts.
+   - **A Band daemon on the remote host (later):** Band restores the
+     connection to that runtime rather than an ssh process. Then a host holds
+     its own workspaces, and the host level in the sidebar (shape B) should be
+     reconsidered together with the remote runtime.
+4. **After a restart:** host panes come back stopped and connect on Connect
+   again, like shells; no automatic reconnect.

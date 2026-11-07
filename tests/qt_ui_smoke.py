@@ -992,7 +992,8 @@ while True:
         drop_file.write_bytes(drop_bytes);(root/'themes'/'invalid.default').write_text('background = #invalid\n')
         appearance();typed('Folder Fixture');wait_until(lambda:data()['theme_matches']==1 and data()['theme_catalog_count']==8)
         key('Down');wait_until(lambda:data()['chrome_background']=='#214365')
-        folder_index=data()['panes'][3]['theme'];assert theme_state(folder_index,'#214365','#aa1133')
+        # Panes repaint a report after the chrome; wait for both.
+        wait_until(lambda:theme_state(data()['panes'][3]['theme'],'#214365','#aa1133'));folder_index=data()['panes'][3]['theme']
         capture('theme-directory-preview.png');key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
         appearance();typed('Folder Fixture');key('Down');wait_until(lambda:data()['chrome_background']=='#214365');key('Return')
         wait_until(lambda:not data()['appearance_open'] and theme_state(folder_index,'#214365','#aa1133'))
@@ -1051,7 +1052,8 @@ while True:
             window=cmd('search','--sync','--name','^Band · disposable sessions$').splitlines()[0];cmd('windowfocus',window)
         wait_until(lambda:data()['overview'] and data()['workspace']==1 and data()['selected']==4 and data()['reduced_motion'] and sizes()==saved_geometry)
         assert data()['navigation_docked'] and not data()['view_error'] and data()['chrome_background']=='#214365'
-        folder_index=data()['panes'][3]['theme'];assert theme_state(folder_index,'#214365','#aa1133')
+        # Panes repaint a report after the chrome; wait for both.
+        wait_until(lambda:theme_state(data()['panes'][3]['theme'],'#214365','#aa1133'));folder_index=data()['panes'][3]['theme']
         managed.write_bytes(managed_bytes.replace(b'terminal-theme = Workbench Night',b'terminal-theme = Workbench Dawn'))
         wait_until(lambda:data()['theme_default_index']==1 and all(p['theme']==1 for p in data()['panes'][:3]))
         assert theme_state(folder_index,'#214365','#aa1133'),'restore lost the distinction between inherited and explicit themes'
@@ -1500,7 +1502,7 @@ while True:
         target_identity=data()['panes'][8]['identity'];target_socket=root/(target_identity+'.sock')
         typed('exit 42');key('Return');wait_until(lambda:not data()['panes'][8]['ready'])
         wait_until(lambda:request(root,Path(runtime),root,'terminal.lifecycle',target_identity)['state']=='stopped')
-        click(*data()['panes'][8]['check_action'])
+        click(*settled_point(lambda d:d['panes'][8]['check_action']))
         wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='stopped' and '42' in data()['panes'][8]['lifecycle'].get('message',''))
         capture('lifecycle-exit-42.png')
         stopped_details_attempts=data()['panes'][8]['attachment_attempts']
@@ -1516,10 +1518,10 @@ while True:
         assert not data()['panes'][8]['ready'] and data()['panes'][8]['attachment_attempts']==stopped_attempts and request(root,Path(runtime),root,'terminal.lifecycle',target_identity)['state']=='stopped','search recovered or reattached a stopped shell'
 
         evidence=target_socket.with_suffix('.lifecycle');record=evidence.read_bytes();evidence.unlink()
-        click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('reason')=='unknown')
+        click(*settled_point(lambda d:d['panes'][8]['check_action']));wait_until(lambda:data()['panes'][8]['lifecycle'].get('reason')=='unknown')
         assert 'no exit reason' in data()['panes'][8]['lifecycle']['message']
         evidence.write_bytes(record);evidence.chmod(0o600)
-        click(*data()['panes'][8]['primary_action']);wait_until(lambda:data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
+        click(*settled_point(lambda d:d['panes'][8]['primary_action']));wait_until(lambda:data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
         recovered_pid=root/'recovered-pid';typed('echo $$ > '+shlex.quote(str(recovered_pid)));key('Return');wait_until(recovered_pid.exists)
         assert recovered_pid.read_text()!=(root/'metadata-shell-pid').read_text()
         wait_until(lambda:data()['panes'][8]['facts'].get('cwd')==str(project))
@@ -1536,7 +1538,7 @@ while True:
             key('Escape');wait_until(lambda:not data()['runtime_info_open'])
             assert data()['panes'][8]['attachment']=='elsewhere' and [received(i) for i in range(6)]==owned_input,'runtime inspection transferred ownership or typed input'
 
-            click(*data()['panes'][8]['primary_action']);wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='move')
+            click(*settled_point(lambda d:d['panes'][8]['primary_action']));wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='move')
             key('Return');time.sleep(.1)  # Cancel has initial focus; Enter cannot confirm.
             if data()['terminal_action_open']:key('Escape')
             wait_until(lambda:not data()['terminal_action_open'])
@@ -1544,7 +1546,7 @@ while True:
             send(peer,16,b"printf WB_OWNER_RETAINED\n")
             from session_smoke import expect
             expect(peer,b'WB_OWNER_RETAINED')
-            click(*data()['panes'][8]['primary_action']);wait_until(lambda:data()['terminal_action_open'])
+            click(*settled_point(lambda d:d['panes'][8]['primary_action']));wait_until(lambda:data()['terminal_action_open'])
             capture('lifecycle-transfer-confirm.png');click(*data()['confirm_terminal_action'])
             wait_until(lambda:data()['panes'][8]['ready'] and not data()['terminal_action_open']);revoked(peer)
         finally:peer.close()
@@ -1553,15 +1555,15 @@ while True:
         try:
             wait_until(lambda:data()['panes'][8]['attachment']=='elsewhere')
             request(root,Path(runtime),root,'service.shutdown')
-            click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='unavailable' and not data()['panes'][8]['lifecycle'].get('busy'))
+            click(*settled_point(lambda d:d['panes'][8]['check_action']));wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='unavailable' and not data()['panes'][8]['lifecycle'].get('busy'))
             assert not (root/'service.rpc').exists() and workspace_catalog.load(root)==life_catalog
             request(root,Path(runtime),root)  # Explicit test-owned service restart.
-            click(*data()['panes'][8]['check_action']);wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='running' and not data()['panes'][8]['lifecycle'].get('busy'))
+            click(*settled_point(lambda d:d['panes'][8]['check_action']));wait_until(lambda:data()['panes'][8]['lifecycle'].get('state')=='running' and not data()['panes'][8]['lifecycle'].get('busy'))
             attempts=data()['panes'][8]['attachment_attempts']
             click(*settled_point(lambda d:None if d['panes'][8]['lifecycle'].get('busy') else d['panes'][8]['reconnect_action']));wait_until(lambda:data()['panes'][8]['attachment_attempts']>attempts and data()['panes'][8]['attachment']=='elsewhere')
             send(peer,16,b"printf WB_RECONNECT_DID_NOT_STEAL\n");expect(peer,b'WB_RECONNECT_DID_NOT_STEAL')
         finally:peer.close()
-        time.sleep(.15);click(*data()['panes'][8]['reconnect_action']);wait_until(lambda:data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
+        time.sleep(.15);click(*settled_point(lambda d:d['panes'][8]['reconnect_action']));wait_until(lambda:data()['panes'][8]['ready'] and data()['panes'][8]['focus'])
         after_reconnect=root/'after-reconnect-pid';typed('echo $$ > '+shlex.quote(str(after_reconnect)));key('Return');wait_until(after_reconnect.exists)
         assert after_reconnect.read_bytes()==recovered_pid.read_bytes()
         assert sizes()==metadata_sizes and {p['identity']:p['instance'] for p in data()['panes']}==life_ids
@@ -1799,9 +1801,13 @@ while True:
         host_pane=app_pane('_host-lab')
         assert host_pane['header']==['Lab','lab-box · ~/src/x y'] and data()['panes'].index(host_pane) not in data()['running_apps'],host_pane['header']
         time.sleep(.3);capture('host-pane.png')
-        # A second Connect from the shell pane opens a second host pane.
-        key('super+alt+Left');wait_until(lambda:data()['panes'][0]['focus'])
-        command_search('Connect to Lab');key('Return');wait_until(lambda:app_pane('_host-lab_2') is not None,timeout=10)
+        # The Hosts panel lists saved hosts with their open panes; its Connect
+        # opens a second pane on the same host.
+        click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
+        wait_until(lambda:any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']) and len(data()['navigation_host_panes'])==1)
+        click(*settled_point(lambda d:d['connect_host_0']));wait_until(lambda:app_pane('_host-lab_2') is not None,timeout=10)
+        click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
+        time.sleep(.3);capture('hosts-panel.png');key('Escape');wait_until(lambda:not data()['drawer_open'])
         for host_app in ('_host-lab_2','_host-lab'):
             request(root,Path(runtime),root,'terminal.close',app_pane(host_app)['identity']);wait_until(lambda:app_pane(host_app) is None)
         # New workspace from a worktree: a folder in a repository offers its
