@@ -160,7 +160,8 @@ designer's eye, planned as a design step in v0.4.
 ## v0.3: SSH hosts and worktrees
 
 - **Hosts panel.** Saved SSH hosts. A host pane is a runtime terminal running
-  `ssh`, remembered so it reconnects after a restart.
+  `ssh`, remembered so it reconnects after a restart. Design note with open questions:
+  [SSH hosts](hosts.md).
 - **A colour theme per host.** A host can be pinned to a terminal theme, so every
   pane on that host is recognisable at a glance. It uses the existing
   per-terminal colours; an explicit per-terminal choice still wins.
