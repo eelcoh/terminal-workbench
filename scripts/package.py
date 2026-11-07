@@ -71,6 +71,7 @@ def payload_files(payload, runtime, *, qt_bundled):
     notices.mkdir()
     shutil.copy2(ROOT / 'LICENSE', notices / 'LICENSE')
     shutil.copy2(ROOT / 'crates/runtime/native/LICENSE.libghostty-vt', notices / 'LICENSE.libghostty-vt')
+    shutil.copy2(ROOT / 'spikes/qt-input/apps-catalog.md', notices / 'app-catalog.md')
     for name in ('fonts', 'themes'):
         for path in (ROOT / name).rglob('*'):
             if path.is_file() and path.name in ('LICENSE', 'OFL.txt', 'README.md'):

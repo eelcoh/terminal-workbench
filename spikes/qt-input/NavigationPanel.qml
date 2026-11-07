@@ -46,7 +46,7 @@ Item {
     }
     function focusApp(index) {
         const count = appRows.count
-        if (!count) { host.contentItem.forceActiveFocus(); return }
+        if (!count) { addApplications.forceActiveFocus(Qt.TabFocusReason); return }
         const row = appRows.itemAt(Math.max(0, Math.min(count - 1, index)))
         if (row.y < list.contentY) list.contentY = row.y
         else if (row.y + row.height > list.contentY + list.height) list.contentY = Math.max(0, row.y + row.height - list.height)
@@ -94,7 +94,7 @@ Item {
         Label { width: parent.width; text: navigation.matches.length + " / " + host.agentIndices.length + " agents"; color: host.chrome.muted; font.pixelSize: 12 }
     }
     Flickable {
-        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.workspaces ? createFooter.y - y - 12 : parent.height - y - 14)
+        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps ? createFooter.y - y - 12 : parent.height - y - 14)
         clip: true; contentHeight: body.height; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Column {
@@ -102,10 +102,12 @@ Item {
             Repeater {
                 id: workspaceRows; model: navigation.workspaces ? host.spaces.length : 0
                 Item {
+                    id: workspaceRow
                     required property int index
                     property alias button: workspaceEntry
                     readonly property string identity: host.spaceIds[index] || ""
-                    width: body.width; height: 44
+                    readonly property var apps: host.appsSidebar === "workspaces" ? host.appsIn(index) : []
+                    width: body.width; height: 44 + (apps.length ? 28 : 0)
                     ChromeButton {
                         id: workspaceEntry
                         Keys.onDownPressed: navigation.focusWorkspace(parent.index + 1)
@@ -117,7 +119,7 @@ Item {
                             else event.accepted = false
                         }
                         objectName: "navigationWorkspace" + parent.index
-                        tones: host.chrome; width: parent.width - 32; height: parent.height; leftAligned: true
+                        tones: host.chrome; width: parent.width - 32; height: 44; leftAligned: true
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
                         readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
                         hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "")
@@ -135,9 +137,30 @@ Item {
                         }
                         onClicked: host.chooseWorkspace(parent.index)
                     }
+                    Flow {
+                        x: 4; y: 44; width: parent.width - 36; height: 26; clip: true; spacing: 2
+                        Repeater {
+                            model: workspaceRow.apps
+                            ChromeButton {
+                                required property int index
+                                required property int modelData
+                                readonly property var pane: host.panel(modelData)
+                                objectName: "workspaceApp" + workspaceRow.index + "_" + index
+                                tones: host.chrome; height: 24; text: pane ? pane.appName : ""
+                                selected: modelData === host.selected && !host.overview
+                                hint: "Go to " + text + (pane && pane.appStopped ? " · Stopped" : "")
+                                contentItem: Row {
+                                    spacing: 5; leftPadding: 6; rightPadding: 6
+                                    Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: parent.parent.pane && parent.parent.pane.appStopped ? host.chrome.waiting : host.chrome.ready }
+                                    Text { height: 24; verticalAlignment: Text.AlignVCenter; text: parent.parent.text; textFormat: Text.PlainText; color: host.chrome.foreground; font.pixelSize: 12 }
+                                }
+                                onClicked: host.chooseRunningApp(modelData)
+                            }
+                        }
+                    }
                     ChromeButton {
                         objectName: "removeWorkspace" + parent.index
-                        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right; y: 22 - height / 2
                         tones: host.chrome; iconName: "close"; opacity: hovered || visualFocus ? 1 : 0.65
                         hint: "Remove " + (host.spaces[parent.index] || "workspace") + "…"
                         enabled: !session.busy && host.dragSlot < 0
@@ -149,47 +172,42 @@ Item {
                     }
                 }
             }
-            Label {
-                width: body.width; visible: navigation.apps && appRows.count > 0; leftPadding: 8; bottomPadding: 4
-                text: "Starts in " + (host.spaces[host.workspace] || "this workspace"); textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12
-            }
             Repeater {
-                // A count, not the list: rows survive installed checks, so the
-                // focused row and the pointer's target stay put.
-                id: appRows; model: navigation.apps ? host.appEntries.length : 0
+                // Running apps in every workspace, like agents (the "list" trial).
+                id: appRows; model: navigation.apps ? host.runningApps : []
                 ChromeButton {
                     id: appRow
                     required property int index
-                    readonly property var modelData: host.appEntries[index] || ({id: "", name: "", command: "", description: ""})
-                    readonly property bool running: { const revision = host.catalogRevision; return host.runningApp(host.workspace, modelData.id) >= 0 }
+                    required property int modelData
+                    readonly property var pane: host.panel(modelData)
+                    readonly property string space: pane ? host.spaces[pane.spaceIndex] || "" : ""
+                    readonly property bool failed: pane ? pane.appStopped : false
                     objectName: "navigationApp" + index
                     tones: host.chrome; width: body.width; height: 52; padding: 10
-                    selected: { const revision = host.catalogRevision; const pane = host.runningApp(host.workspace, modelData.id); return pane >= 0 && pane === host.selected && !host.overview }
-                    readonly property string appStatus: running ? "Running" : modelData.installed === 0 ? (modelData.install ? "Install" : "Not installed") : ""
-                    hint: modelData.name + " · " + modelData.command + (appStatus ? " · " + appStatus : "") + (modelData.installed === 0 && modelData.install ? " · " + modelData.install : "") + (modelData.installed === 0 && modelData.hint ? " · " + modelData.hint : "")
+                    selected: modelData === host.selected && !host.overview
+                    hint: (pane ? pane.appName : "") + " · " + space + (failed ? " · Stopped" : "")
                     Keys.onDownPressed: navigation.focusApp(index + 1)
                     Keys.onUpPressed: navigation.focusApp(index - 1)
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Home) { navigation.focusApp(0); event.accepted = true }
                         else if (event.key === Qt.Key_End) { navigation.focusApp(appRows.count - 1); event.accepted = true }
-                        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.chooseApp(modelData.id); event.accepted = true }
+                        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.chooseRunningApp(modelData); event.accepted = true }
                         else event.accepted = false
                     }
                     contentItem: Item {
                         Column {
                             anchors.left: parent.left; anchors.right: appState.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; spacing: 3
-                            Text { width: parent.width; text: appRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
-                            Text { width: parent.width; text: appRow.modelData.description || appRow.modelData.command; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12 }
+                            Text { width: parent.width; text: appRow.pane ? appRow.pane.appName : ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
+                            Text { width: parent.width; text: appRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12 }
                         }
-                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.appStatus; color: appRow.running ? host.chrome.ready : appRow.appStatus === "Install" ? host.chrome.accent : host.chrome.muted; font.pixelSize: 12 }
+                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.failed ? "Stopped" : ""; color: host.chrome.waiting; font.pixelSize: 12 }
                     }
-                    onClicked: host.chooseApp(modelData.id)
+                    onClicked: host.chooseRunningApp(modelData)
                 }
             }
             Label {
-                objectName: "appNotice"; width: body.width; visible: navigation.apps && text.length > 0; padding: 8
-                text: host.appNotice || studyApps.note || (studyApps.checking ? "Checking which apps are installed…" : "")
-                wrapMode: Text.Wrap; textFormat: Text.PlainText; color: host.appNotice ? host.chrome.waiting : host.chrome.muted; font.pixelSize: 12
+                width: body.width; visible: navigation.apps && appRows.count === 0
+                padding: 8; text: "No apps running\nAdd applications to open lazygit, btop and other terminal apps as panes."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
             }
             Repeater {
                 id: agentRows; model: navigation.agents ? navigation.matches : []
@@ -239,10 +257,25 @@ Item {
     }
     Item {
         id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; height: 50
-        visible: navigation.workspaces
+        visible: navigation.workspaces || navigation.apps
         Rectangle { width: parent.width; height: 1; color: host.chrome.border }
         ChromeButton {
-            objectName: "newWorkspaceButton"; y: 12; width: parent.width; height: 36
+            id: addApplications; objectName: "addApplicationsButton"; y: 12; width: parent.width; height: 36; visible: navigation.apps
+            tones: host.chrome; text: "Add applications…"; enabled: host.spaces.length > 0
+            hint: text + (studyShortcuts.labels["apps"] ? " · " + studyShortcuts.labels["apps"] : "")
+            contentItem: Row {
+                spacing: 8; leftPadding: 8
+                Item { width: 18; height: 36; ChromeIcon { anchors.centerIn: parent; width: 18; height: 18; name: "plus"; color: host.chrome.accent } }
+                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "Add applications…"; color: host.chrome.accent; font.pixelSize: 13 }
+            }
+            Keys.onPressed: event => {
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.openCatalog(); event.accepted = true }
+                else event.accepted = false
+            }
+            onClicked: host.openCatalog()
+        }
+        ChromeButton {
+            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 12; width: parent.width; height: 36
             tones: host.chrome; text: "New workspace…"; enabled: host.canCreateWorkspace
             hint: text + (studyShortcuts.labels["new-workspace"] ? " · " + studyShortcuts.labels["new-workspace"] : "")
             contentItem: Row {

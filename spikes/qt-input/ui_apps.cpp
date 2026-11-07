@@ -1,23 +1,28 @@
 #include "ui_apps.h"
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcessEnvironment>
 #include <QRegularExpression>
 
 namespace {
-// Package names checked against Homebrew, Fedora 43, Debian and Arch (2026-11-06);
+// Curated: package names checked against Homebrew, Fedora 43, Debian and Arch (2026-11-06);
 // empty where that manager has no package.
-const QList<UiApps::Catalog> builtIn{
-    {"lazygit","Lazygit","lazygit","Git in the terminal: stage, commit, rebase","lazygit","lazygit","lazygit","lazygit"},
-    {"lazydocker","Lazydocker","lazydocker","Containers, images and logs","lazydocker","","","lazydocker"},
-    {"btop","btop","btop","Processes, CPU, memory, disks and network","btop","btop","btop","btop"},
-    {"htop","htop","htop","Interactive process viewer","htop","htop","htop","htop"},
-    {"yazi","Yazi","yazi","File manager with previews","yazi","","","yazi"},
-    {"neovim","Neovim","nvim","Editor","neovim","neovim","neovim","neovim"},
-    {"k9s","k9s","k9s","Kubernetes clusters","k9s","k9s","","k9s"},
-    {"tig","tig","tig","Git history browser","tig","tig","tig","tig"},
-    {"ncdu","ncdu","ncdu","Disk usage by folder","ncdu","ncdu","ncdu","ncdu"},
-    {"gitui","GitUI","gitui","Git in the terminal, keyboard first","gitui","gitui","","gitui"},
+struct Curated {const char *id,*name,*command,*description,*section,*brew,*dnf,*apt,*pacman;};
+const Curated curated[]{
+    {"lazygit","Lazygit","lazygit","Git in the terminal: stage, commit, rebase","Development","lazygit","lazygit","lazygit","lazygit"},
+    {"lazydocker","Lazydocker","lazydocker","Containers, images and logs","Docker/LXC/K8s","lazydocker","","","lazydocker"},
+    {"btop","btop","btop","Processes, CPU, memory, disks and network","Dashboards","btop","btop","btop","btop"},
+    {"htop","htop","htop","Interactive process viewer","Dashboards","htop","htop","htop","htop"},
+    {"yazi","Yazi","yazi","File manager with previews","File Managers","yazi","","","yazi"},
+    {"neovim","Neovim","nvim","Editor","Editors","neovim","neovim","neovim","neovim"},
+    {"k9s","k9s","k9s","Kubernetes clusters","Docker/LXC/K8s","k9s","k9s","","k9s"},
+    {"tig","tig","tig","Git history browser","Development","tig","tig","tig","tig"},
+    {"ncdu","ncdu","ncdu","Disk usage by folder","Miscellaneous","ncdu","ncdu","ncdu","ncdu"},
+    {"gitui","GitUI","gitui","Git in the terminal, keyboard first","Development","gitui","gitui","","gitui"},
 };
 bool loginShell(const QString &shell) {
     static const QStringList names{"zsh","bash","sh","fish","ksh","dash","csh","tcsh","nu"};
@@ -26,10 +31,22 @@ bool loginShell(const QString &shell) {
 QString quoted(const QString &text) {return "'"+QString(text).replace("'","'\\''")+"'";}
 }
 
-const QList<UiApps::Catalog> &UiApps::catalog() {return builtIn;}
+QList<UiApps::Catalog> UiApps::catalog(bool apple,const QString &file) {
+    QList<Catalog> result;QSet<QString> ids;
+    for(const auto &c:curated){result.append({c.id,c.name,c.command,c.description,c.section,c.brew,c.dnf,c.apt,c.pacman,true});ids.insert(c.id);}
+    QFile source(file);
+    if(!source.open(QIODevice::ReadOnly))return result;
+    for(const auto &value:QJsonDocument::fromJson(source.readAll()).object()["apps"].toArray()) {
+        const auto app=value.toObject();const auto id=app["id"].toString();
+        if(id.isEmpty() || ids.contains(id) || !app[apple ? "mac" : "linux"].toBool(true) || program(app["command"].toString()).isEmpty())continue;
+        ids.insert(id);
+        result.append({id,app["name"].toString(id),app["command"].toString(),app["description"].toString(),app["section"].toString(),app["brew"].toString(),{},{},{},false});
+    }
+    return result;
+}
 
-UiApps::UiApps(bool apple,QString shell,QObject *parent,QString imageMarker)
-    :QObject(parent),apple_(apple),shell_(std::move(shell)),imageMarker_(std::move(imageMarker)) {
+UiApps::UiApps(bool apple,QString shell,QObject *parent,QString imageMarker,QString catalogFile)
+    :QObject(parent),apple_(apple),shell_(std::move(shell)),imageMarker_(std::move(imageMarker)),known_(catalog(apple,catalogFile)) {
     deadline_.setSingleShot(true);deadline_.setInterval(15000);
     connect(&deadline_,&QTimer::timeout,this,[this]{if(process_)process_->kill();});
     rebuild();
@@ -113,13 +130,15 @@ void UiApps::rebuild() {
         // Unknown until a check has looked at this program.
         entry.insert("installed",!checked_ || !installed_.contains(run) ? -1 : installed_[run] ? 1 : 0);
         entry.insert("builtin",known!=nullptr);
+        entry.insert("featured",known && known->featured);
+        if(!entry.contains("section"))entry.insert("section",QString());
         QString install,via;
         if(known && checked_) {
-            if(managers_.contains("brew") && *known->brew){install="brew install "+QLatin1String(known->brew);via="Homebrew";}
+            if(managers_.contains("brew") && !known->brew.isEmpty()){install="brew install "+known->brew;via="Homebrew";}
             else if(!apple_ && !image_) {
-                if(managers_.contains("dnf") && *known->dnf){install="sudo dnf install "+QLatin1String(known->dnf);via="dnf";}
-                else if(managers_.contains("apt-get") && *known->apt){install="sudo apt install "+QLatin1String(known->apt);via="apt";}
-                else if(managers_.contains("pacman") && *known->pacman){install="sudo pacman -S "+QLatin1String(known->pacman);via="pacman";}
+                if(managers_.contains("dnf") && !known->dnf.isEmpty()){install="sudo dnf install "+known->dnf;via="dnf";}
+                else if(managers_.contains("apt-get") && !known->apt.isEmpty()){install="sudo apt install "+known->apt;via="apt";}
+                else if(managers_.contains("pacman") && !known->pacman.isEmpty()){install="sudo pacman -S "+known->pacman;via="pacman";}
             }
         }
         entry.insert("install",install);entry.insert("via",via);
@@ -127,14 +146,15 @@ void UiApps::rebuild() {
             : !install.isEmpty() || !checked_ ? QString()
             : apple_ ? QStringLiteral("Install Homebrew (brew.sh) to install it from Band.")
             : image_ ? QStringLiteral("On an image-based system, install Homebrew or use a toolbox.")
-            : QStringLiteral("Not packaged for this system's package manager; Homebrew has it."));
+            : known->featured ? QStringLiteral("Not packaged for this system's package manager; Homebrew has it.")
+            : QStringLiteral("Install Homebrew (brew.sh) to install it from Band."));
         result<<entry;
     };
     // Your own definitions first, then the catalog; a definition with a
     // catalog ID overrides its name, command and folder.
-    for(const auto &id:order)if(std::none_of(builtIn.begin(),builtIn.end(),[&](const Catalog &c){return id==QLatin1String(c.id);}))add(custom[id],nullptr);
-    for(const auto &known:builtIn) {
-        QVariantMap entry{{"id",known.id},{"name",known.name},{"command",known.command},{"directory",QString()},{"description",known.description}};
+    for(const auto &id:order)if(std::none_of(known_.begin(),known_.end(),[&](const Catalog &c){return id==c.id;}))add(custom[id],nullptr);
+    for(const auto &known:known_) {
+        QVariantMap entry{{"id",known.id},{"name",known.name},{"command",known.command},{"directory",QString()},{"description",known.description},{"section",known.section}};
         if(custom.contains(known.id))for(const auto &key:{"name","command","directory"})entry.insert(key,custom[known.id][key]);
         add(entry,&known);
     }

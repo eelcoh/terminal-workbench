@@ -1608,26 +1608,39 @@ while True:
         runs=root/'broken-runs'
         managed.write_bytes(managed_bytes+b'\n[app.echo]\nname = Echo app\ncommand = printf WB_APP_READY; exec cat\n'
             b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; echo run >> '+shlex.quote(str(runs)).encode()+b'; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n')
-        wait_until(lambda:data()['apps_visible'])
-        # The icon has just appeared; the rail below it moves.
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_third_app'] and not data()['apps_checking'])
-        capture('apps-panel.png')
-        click(*settled_point(lambda d:d['navigation_first_app']))
+        def entry(app_id):return next((e for e in data()['app_entries'] if e['id']==app_id),None)
+        wait_until(lambda:entry('quick') and not data()['apps_checking'])
+        assert [e['id'] for e in data()['app_entries'][:3]]==['echo','broken','quick'] and entry('lazygit')['builtin'] and len(data()['app_entries'])>100
         def app_pane(app_id):return next((p for p in data()['panes'] if p['app']==app_id),None)
+        # The Apps panel lists running apps; Add applications opens the catalog.
+        def open_catalog():
+            if data()['apps_sidebar']=='workspaces':key('super+alt+a')
+            else:
+                key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
+                click(*settled_point(lambda d:d['add_applications']))
+            wait_until(lambda:data()['catalog_open'] and not data()['apps_checking'] and data()['catalog_count']>0)
+        def choose(text,app_id):
+            open_catalog();typed(text);wait_until(lambda:data()['catalog_current']==app_id);key('Return')
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['add_applications'] and not data()['navigation_first_app'])
+        capture('apps-panel-empty.png')
+        click(*settled_point(lambda d:d['add_applications']));wait_until(lambda:data()['catalog_open'] and not data()['apps_checking'] and data()['catalog_count']>100)
+        capture('app-catalog.png')
+        typed('Echo app');wait_until(lambda:data()['catalog_current']=='echo' and data()['catalog_action_text']=='Open');key('Return')
         wait_until(lambda:app_pane('echo') and app_pane('echo')['ready'] and 'WB_APP_READY' in app_pane('echo')['text'] and app_pane('echo')['focus'])
         echo=app_pane('echo')['identity']
-        assert len(data()['panes'])==2 and not data()['drawer_open'] and data()['panes'][0]['identity']==survivor
+        assert len(data()['panes'])==2 and not data()['drawer_open'] and not data()['catalog_open'] and data()['panes'][0]['identity']==survivor
         assert app_pane('echo')['visible'] and app_pane('echo')['left']>data()['panes'][0]['right'],'the app is the next pane in the strip'
         typed('app-input');key('Return');wait_until(lambda:re.sub(r'\s','',app_pane('echo')['text']).count('app-input')>=2)
-        # Choosing a running app goes to its pane; Super+Alt+A opens the list.
+        # Super+Alt+A lists the running app; Return goes to its pane.
         key('super+alt+Left');wait_until(lambda:data()['panes'][0]['focus'])
-        key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
+        key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_first_app'])
+        capture('apps-panel.png')
         time.sleep(.2);key('Return');wait_until(lambda:app_pane('echo')['focus'] and not data()['drawer_open'])
         assert len(data()['panes'])==2 and app_pane('echo')['identity']==echo
         capture('app-pane.png')
         # A failed app keeps its pane with the exit code and last lines.
         # Start again runs it again; Close pane removes it.
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_second_app'] and not data()['apps_checking']);click(*settled_point(lambda d:d['navigation_second_app']))
+        choose('Broken app','broken')
         def failed():
             pane=app_pane('broken')
             return pane and not pane['lifecycle'].get('busy') and pane['lifecycle'].get('state')=='stopped' and 'code 7' in pane['app_message'] and 'WB_BROKEN_OUTPUT' in pane['app_output']
@@ -1639,27 +1652,36 @@ while True:
         assert app_pane('broken')['identity']==broken
         click(*settled_point(lambda d:(app_pane('broken') or {}).get('exited_close_action')));wait_until(lambda:app_pane('broken') is None)
         # A normal exit closes the pane without a notice.
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_third_app'] and not data()['apps_checking']);click(*settled_point(lambda d:d['navigation_third_app']))
+        choose('Quick app','quick')
         wait_until(lambda:app_pane('quick') and app_pane('quick')['ended'] and not app_pane('quick')['visible'])
         assert not data()['error'] and len([p for p in data()['panes'] if not p['ended']])==2
-        # The catalog: a missing app shows Install; installing runs visibly in
-        # its own pane, which closes when it succeeds and opens the app.
-        def entry(app_id):return next(e for e in data()['app_entries'] if e['id']==app_id)
-        assert [e['id'] for e in data()['app_entries'][:3]]==['echo','broken','quick'] and entry('lazygit')['builtin']
-        wait_until(lambda:not data()['apps_checking'] and entry('yazi')['installed']==0)
+        # Installing takes its own button: Return on a missing app moves there
+        # and starts nothing. The install runs visibly in its own pane, which
+        # closes when it succeeds and opens the app.
+        wait_until(lambda:entry('yazi')['installed']==0)
         (fake_bin/'brew').write_text('#!/bin/sh\necho "WB_FAKE_BREW $*"\nprintf "#!/bin/sh\\nprintf WB_YAZI_READY; exec cat\\n" > '+shlex.quote(str(fake_bin/'yazi'))+'\nchmod +x '+shlex.quote(str(fake_bin/'yazi'))+'\n')
         (fake_bin/'brew').chmod(0o755)
-        key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
-        wait_until(lambda:not data()['apps_checking'] and entry('yazi')['install']=='brew install yazi')
-        yazi_row=[e['id'] for e in data()['app_entries']].index('yazi')
-        time.sleep(.2)
-        for _ in range(yazi_row):key('Down')
+        choose('yazi','yazi')
+        wait_until(lambda:data()['catalog_action_text']=='Install with Homebrew' and data()['catalog_detail']=='brew install yazi')
+        time.sleep(.3);assert data()['catalog_open'] and not app_pane('yazi-install') and not (fake_bin/'yazi').exists()
+        capture('app-catalog-install.png')
         key('Return')
         wait_until(lambda:app_pane('yazi') and app_pane('yazi')['ready'] and 'WB_YAZI_READY' in app_pane('yazi')['text'] and app_pane('yazi')['focus'],timeout=30)
         assert (app_pane('yazi-install') or {'ended':True})['ended'] and entry('yazi')['installed']==1 and not data()['error']
         capture('app-installed.png')
         request(root,Path(runtime),root,'terminal.close',app_pane('yazi')['identity'])
         wait_until(lambda:app_pane('yazi') is None)
+        # The other sidebar trial: running apps on workspace rows, and the Apps
+        # icon and Super+Alt+A open the catalog.
+        open_catalog();click(*settled_point(lambda d:d['trial_workspaces']));wait_until(lambda:data()['apps_sidebar']=='workspaces');key('Escape')
+        wait_until(lambda:not data()['catalog_open'])
+        focus_pane=lambda:next((p for p in data()['panes'] if p['focus']),None)
+        while focus_pane() is None or focus_pane()['identity']!=survivor:key('super+alt+Left');time.sleep(.3)
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and data()['workspace_first_app'])
+        capture('apps-on-workspaces.png')
+        click(*settled_point(lambda d:d['workspace_first_app']));wait_until(lambda:app_pane('echo')['focus'] and not data()['drawer_open'])
+        key('super+alt+a');wait_until(lambda:data()['catalog_open'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['trial_list']));wait_until(lambda:data()['apps_sidebar']=='list');key('Escape');wait_until(lambda:not data()['catalog_open'])
         # Closing the app removes it; the ended app leaves with that catalog change.
         request(root,Path(runtime),root,'terminal.close',echo)
         wait_until(lambda:len(data()['panes'])==1)
@@ -1669,7 +1691,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (start, go to running, Super+Alt+A, failed start kept and started again, normal exit, catalog install), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, install behind its own button, apps on workspace rows), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except SystemExit:
         raise
     except BaseException:

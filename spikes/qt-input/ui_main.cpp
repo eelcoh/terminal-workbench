@@ -111,6 +111,8 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyAgentInfo",&agentInfo);
     engine.rootContext()->setContextProperty("studyRuntimeInfo",&runtimeInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
+    // Temporary: which sidebar layout for running apps to try (docs/apps.md).
+    engine.rootContext()->setContextProperty("appsSidebarTrial",qEnvironmentVariable("BAND_APPS_SIDEBAR")=="workspaces" ? QStringLiteral("workspaces") : QStringLiteral("list"));
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
     engine.rootContext()->setContextProperty("studyTerminalAppearance",&terminalAppearance);
@@ -258,6 +260,11 @@ int main(int argc,char **argv) {
                 {"navigation_hidden",window->property("navigationHidden").toBool()},
                 {"app_entries",QJsonArray::fromVariantList(apps.entries())},{"apps_checking",apps.checking()},
                 {"apps_button",center("appsButton")},{"apps_visible",window->findChild<QQuickItem *>("appsButton") && window->findChild<QQuickItem *>("appsButton")->isVisible()},
+                {"catalog_open",window->property("appCatalogOpen").toBool()},{"catalog_current",window->property("appCatalogCurrent").toString()},{"catalog_count",window->property("appCatalogCount").toInt()},
+                {"catalog_action",center("appCatalogAction")},{"catalog_action_text",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogAction");return item ? item->property("text").toString() : QString();}()},
+                {"catalog_detail",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogDetail");return item ? item->property("text").toString() : QString();}()},
+                {"add_applications",center("addApplicationsButton")},{"apps_sidebar",window->property("appsSidebar").toString()},
+                {"trial_list",center("appsTrialList")},{"trial_workspaces",center("appsTrialWorkspaces")},{"workspace_first_app",center(qPrintable("workspaceApp"+QString::number(window->property("workspace").toInt())+"_0"))},
                 {"navigation_first_app",center("navigationApp0")},{"navigation_second_app",center("navigationApp1")},{"navigation_third_app",center("navigationApp2")},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},
                 {"drop_allowed",window->property("dropAllowed").toBool()},

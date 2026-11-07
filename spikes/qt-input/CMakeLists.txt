@@ -80,7 +80,7 @@ if(BAND_TERMINAL_PROBE)
     target_compile_options(band-ui PRIVATE -Wall -Wextra)
     target_include_directories(band-ui PRIVATE "${VT_ROOT}/include" "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(band-ui PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
-    qt_add_resources(band-ui "ui" PREFIX "/" FILES Ui.qml TerminalInformation.qml ContextSearch.qml AgentInformation.qml Configuration.qml About.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml TerminalSearch.qml)
+    qt_add_resources(band-ui "ui" PREFIX "/" FILES Ui.qml TerminalInformation.qml ContextSearch.qml AgentInformation.qml Configuration.qml About.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml TerminalSearch.qml AppCatalog.qml apps-catalog.json)
     qt_add_resources(band-ui "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
         FILES "../../fonts/jetbrains-mono/JetBrainsMono-Regular.ttf" "../../fonts/jetbrains-mono/OFL.txt" "../../fonts/adwaita-sans/AdwaitaSans-Regular.ttf" "../../fonts/adwaita-sans/OFL.txt" "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")

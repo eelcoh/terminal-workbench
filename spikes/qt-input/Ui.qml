@@ -196,7 +196,6 @@ ApplicationWindow {
     function focusNavigation() { if (navigationSection === "workspaces") navigation.focusWorkspace(workspace); else if (navigationSection === "apps") navigation.focusApp(0); else navigation.focusSearch() }
     function openNavigation(section) {
         navigationSection = section
-        if (section === "apps") { appNotice = ""; studyApps.refresh() }
         navigationHidden = false
         // A rail click focuses its icon; switching sections returns focus to the panel.
         if (!navigationDocked && !drawer.visible) drawer.open()
@@ -344,7 +343,7 @@ ApplicationWindow {
         case "new-workspace": newWorkspace(); break
         case "overview": toggleOverview(); break
         case "agents": openAgents(); break
-        case "apps": openNavigation("apps"); break
+        case "apps": showApps(); break
         case "waiting-agents": showWaitingAgents(); break
         case "next-waiting": jumpWaiting(1); break
         case "previous-waiting": jumpWaiting(-1); break
@@ -565,7 +564,29 @@ ApplicationWindow {
     // Install panes that open their app when they finish: install ID → app ID.
     property var pendingInstalls: ({})
     property string openAfterCheck: ""
-    property string appNotice: ""
+    // Temporary trial (docs/apps.md): "list" keeps running apps in the Apps
+    // panel, like agents; "workspaces" shows them on workspace rows and the
+    // Apps icon opens the catalog.
+    property string appsSidebar: appsSidebarTrial
+    property string pendingApp: ""
+    readonly property bool appCatalogOpen: appCatalog.visible
+    readonly property string appCatalogCurrent: appCatalog.currentId
+    readonly property int appCatalogCount: appCatalog.matchCount
+    onAppsSidebarChanged: if (appsSidebar === "workspaces" && navigationSection === "apps") navigationSection = "workspaces"
+    readonly property var runningApps: {
+        const revision = catalogRevision
+        let result = []
+        for (let i = 0; i < terminalModel.count; ++i) { const item = terminalModel.get(i); if (item.appId !== "" && !endedApps[item.terminalId]) result.push(i) }
+        return result.sort((a, b) => (terminalModel.get(a).spaceIndex - terminalModel.get(b).spaceIndex) || (terminalModel.get(a).ordinal - terminalModel.get(b).ordinal))
+    }
+    function appsIn(space) { return runningApps.filter(i => terminalModel.get(i).spaceIndex === space) }
+    function showApps() { if (appsSidebar === "workspaces") openCatalog(); else openNavigation("apps") }
+    function openCatalog() {
+        if (spaces.length === 0 || appCatalog.visible || terminalAction.visible || createDialog.visible || appearance.visible || commands.visible) return
+        if (drawer.visible) drawer.close()
+        studyApps.refresh(); appCatalog.open()
+    }
+    function chooseRunningApp(i) { if (drawer.visible) drawer.close(); Qt.callLater(function() { enterPane(i) }) }
     Connections {
         target: studyApps
         function onChecked() {
@@ -582,13 +603,12 @@ ApplicationWindow {
     // Choosing an app already in this workspace goes to its pane; a missing one
     // is installed in a pane of its own, which opens the app when it succeeds.
     function chooseApp(id) {
-        appNotice = ""
         const running = runningApp(workspace, id)
         if (running >= 0) { if (drawer.visible) drawer.close(); Qt.callLater(function() { enterPane(running) }); return }
         const entry = studyApps.entry(id)
         if (!entry.id || spaces.length === 0 || !canCreateTerminal) return
         if (entry.installed === 0) {
-            if (!entry.install) { appNotice = entry.name + " is not installed. " + entry.hint; return }
+            if (!entry.install) return
             const install = id + "-install", pending = runningApp(workspace, install)
             if (drawer.visible) drawer.close()
             if (pending >= 0) { Qt.callLater(function() { enterPane(pending) }); return }
@@ -712,7 +732,7 @@ ApplicationWindow {
             pendingTerminalColors = false; Qt.callLater(showTerminalColors)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible && !appCatalog.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -869,8 +889,10 @@ ApplicationWindow {
         x: 8; y: 52; spacing: 14
         QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }
         QuietButton {
-            objectName: "appsButton"; height: 28; iconName: "apps"; visible: window.appEntries.length > 0
-            hint: "Apps"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "apps"; onClicked: window.toggleSection("apps")
+            objectName: "appsButton"; height: 28; iconName: "apps"
+            hint: window.appsSidebar === "workspaces" ? "Add applications" : "Apps"
+            selected: window.appsSidebar === "workspaces" ? appCatalog.visible : (drawer.visible || window.navigationDocked) && window.navigationSection === "apps"
+            onClicked: window.appsSidebar === "workspaces" ? window.openCatalog() : window.toggleSection("apps")
         }
         QuietButton {
             objectName: "agentsButton"; height: 28; iconName: "agents"; visible: window.agentsSeen || window.navigationSection === "agents"
@@ -1385,6 +1407,14 @@ ApplicationWindow {
         visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0 || studyView.error.length > 0 || studyConfiguration.error.length > 0 || studyWorkspaceAppearance.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
         QuietButton { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Dismiss"; onClicked: window.fontWarningDismissed = true }
         Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyWorkspaceAppearance.error, studyConfiguration.error, studyFonts.error, studyShortcuts.error, studyView.error].filter(value => value.length > 0).join("\n") }
+    }
+    AppCatalog {
+        id: appCatalog; objectName: "appCatalog"; anchors.centerIn: parent; host: window
+        onChosen: id => { window.pendingApp = id; close() }
+        onClosed: {
+            const id = window.pendingApp; window.pendingApp = ""
+            Qt.callLater(function() { if (id) window.chooseApp(id); else window.restoreAfterPopup() })
+        }
     }
     CommandPalette {
         id: commands; objectName: "commandPalette"; anchors.centerIn: parent
