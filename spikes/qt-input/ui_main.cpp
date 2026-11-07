@@ -185,7 +185,7 @@ int main(int argc,char **argv) {
                 if(!item)return QJsonArray();
                 const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
             const auto box=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto rect=item->mapRectToScene(item->boundingRect());return QJsonArray{rect.left(),rect.top(),rect.right(),rect.bottom()};};
-            QJsonArray folderChoices;QJsonArray folderAccept;QJsonArray folderList;QJsonArray navigationAgents;bool folderMoving=false;
+            QJsonArray folderChoices;QJsonArray folderAccept;QJsonArray folderList;QJsonArray navigationAgents;QJsonArray navigationPanes;bool folderMoving=false;
             // Observe the installed fallback controls; no test actions enter production QML.
             QList<QQuickItem *> pending{window->contentItem()};
             while(!pending.isEmpty()) {
@@ -197,6 +197,7 @@ int main(int argc,char **argv) {
                 for(auto *parent=item->parentItem();parent;parent=parent->parentItem())
                     if(parent->clip() && !parent->mapRectToScene(parent->boundingRect()).contains(point)) {unclipped=false;break;}
                 if(unclipped && item->objectName().startsWith("navigationAgent") && item->objectName()!="navigationAgents")navigationAgents.append(item->property("hint").toString());
+                if(unclipped && item->objectName().startsWith("navigationPane"))navigationPanes.append(QJsonObject{{"name",item->objectName()},{"hint",item->property("hint").toString()},{"kind",item->property("kind").toString()},{"selected",item->property("selected").toBool()},{"focus",item->hasActiveFocus()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->objectName()=="folderDialogListView") {folderList=QJsonArray{point.x(),point.y()};folderMoving=item->property("moving").toBool();}
                 if(unclipped && item->objectName().startsWith("folderDialogDelegate"))folderChoices.append(QJsonObject{{"name",item->property("fileName").toString()},{"selected",item->property("highlighted").toBool()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->property("text").toString()=="Choose folder" && item->inherits("QQuickAbstractButton"))folderAccept=QJsonArray{point.x(),point.y()};
@@ -301,7 +302,7 @@ int main(int argc,char **argv) {
                 {"form_submit_enabled",window->findChild<QQuickItem *>("submitWorkspaceButton")->isEnabled()},
                 {"creation_open",window->property("creationOpen").toBool()},
                 {"navigation_pinned",window->property("navigationPinned").toBool()},{"navigation_docked",window->property("navigationDocked").toBool()},
-                {"navigation_agent_labels",navigationAgents},{"navigation_section",window->property("navigationSection").toString()},{"navigation_pin",center("navigationPin")},
+                {"navigation_agent_labels",navigationAgents},{"navigation_panes",navigationPanes},{"expand_workspace_0",center("expandWorkspace0")},{"expand_workspace_1",center("expandWorkspace1")},{"navigation_section",window->property("navigationSection").toString()},{"navigation_pin",center("navigationPin")},
                 {"navigation_search",center("navigationAgentSearch")},{"navigation_search_focus",window->property("navigationSearchFocused").toBool()},
                 {"navigation_matches",QJsonArray::fromVariantList(listProperty(window,"navigationMatches"))},{"navigation_needs_only",window->property("navigationNeedsOnly").toBool()},
                 {"navigation_needs_filter",center("navigationNeedsFilter")},{"navigation_clear_filters",center("navigationClearFilters")},

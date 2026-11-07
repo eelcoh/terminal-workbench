@@ -583,7 +583,8 @@ ApplicationWindow {
         if (drawer.visible) drawer.close()
         studyApps.refresh(); appCatalog.open()
     }
-    function chooseRunningApp(i) { if (drawer.visible) drawer.close(); Qt.callLater(function() { enterPane(i) }) }
+    // From the sidebar: go to a pane in any workspace.
+    function choosePane(i) { if (drawer.visible) drawer.close(); Qt.callLater(function() { enterPane(i) }) }
     Connections {
         target: studyApps
         function onChecked() {

@@ -13,6 +13,11 @@ Item {
     readonly property bool workspaces: !agents && !apps
     readonly property bool searchFocused: navigation.agents && agentSearch.activeFocus
     property bool needsOnly: false
+    // Workspace ID → opened or closed by hand; otherwise only the current
+    // workspace shows its panes.
+    property var expandedSpaces: ({})
+    Connections { target: host; function onWorkspaceChanged() { navigation.expandedSpaces = ({}) } }
+    function setExpanded(identity, open) { let values = Object.assign({}, expandedSpaces); values[identity] = open; expandedSpaces = values }
     property var matches: []
     function focusSearch() { agentSearch.forceActiveFocus(Qt.TabFocusReason) }
     function rebuildMatches() {
@@ -102,14 +107,40 @@ Item {
             Repeater {
                 id: workspaceRows; model: navigation.workspaces ? host.spaces.length : 0
                 Item {
+                    id: workspaceRow
                     required property int index
                     property alias button: workspaceEntry
                     readonly property string identity: host.spaceIds[index] || ""
-                    width: body.width; height: 44
+                    // Panes grouped by workspace: the current one is open, the
+                    // others are one row each until opened.
+                    readonly property var panes: host.indices(index)
+                    readonly property bool expanded: navigation.expandedSpaces[identity] ?? index === host.workspace
+                    width: body.width; height: 44 + (expanded && panes.length ? paneColumn.height + 4 : 0)
+                    function focusPane(k) {
+                        if (!panes.length) return
+                        const row = paneRows.itemAt(Math.max(0, Math.min(panes.length - 1, k)))
+                        if (!row) return
+                        const top = workspaceRow.y + paneColumn.y + row.y
+                        if (top < list.contentY) list.contentY = top
+                        else if (top + row.height > list.contentY + list.height) list.contentY = Math.max(0, top + row.height - list.height)
+                        row.forceActiveFocus(Qt.TabFocusReason)
+                    }
+                    ChromeButton {
+                        objectName: "expandWorkspace" + parent.index
+                        x: 0; anchors.verticalCenter: workspaceEntry.verticalCenter; width: 24; height: 28
+                        visible: workspaceRow.panes.length > 0; tones: host.chrome; iconName: "chevron"; rotation: workspaceRow.expanded ? 0 : -90
+                        focusPolicy: Qt.NoFocus
+                        hint: (workspaceRow.expanded ? "Hide panes of " : "Show panes of ") + (host.spaces[parent.index] || "workspace")
+                        onClicked: navigation.setExpanded(workspaceRow.identity, !workspaceRow.expanded)
+                    }
                     ChromeButton {
                         id: workspaceEntry
                         Keys.onDownPressed: navigation.focusWorkspace(parent.index + 1)
                         Keys.onUpPressed: navigation.focusWorkspace(parent.index - 1)
+                        // Right opens the workspace's panes and moves into them;
+                        // Left closes them.
+                        Keys.onRightPressed: { navigation.setExpanded(workspaceRow.identity, true); Qt.callLater(function() { workspaceRow.focusPane(0) }) }
+                        Keys.onLeftPressed: navigation.setExpanded(workspaceRow.identity, false)
                         Keys.onPressed: event => {
                             if (event.key === Qt.Key_Home) { navigation.focusWorkspace(0); event.accepted = true }
                             else if (event.key === Qt.Key_End) { navigation.focusWorkspace(host.spaces.length - 1); event.accepted = true }
@@ -117,7 +148,7 @@ Item {
                             else event.accepted = false
                         }
                         objectName: "navigationWorkspace" + parent.index
-                        tones: host.chrome; width: parent.width - 32; height: parent.height; leftAligned: true
+                        tones: host.chrome; x: 24; width: parent.width - 56; height: 44; leftAligned: true
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
                         readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
                         hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "")
@@ -135,9 +166,55 @@ Item {
                         }
                         onClicked: host.chooseWorkspace(parent.index)
                     }
+                    Column {
+                        id: paneColumn; x: 24; y: 48; width: parent.width - 24; spacing: 2
+                        visible: workspaceRow.expanded
+                        Repeater {
+                            id: paneRows; model: workspaceRow.expanded ? workspaceRow.panes : []
+                            ChromeButton {
+                                id: paneRow
+                                required property int index
+                                required property int modelData
+                                readonly property var pane: host.panel(modelData)
+                                readonly property var facts: pane ? pane.facts : ({title: "", agent: "", state: ""})
+                                readonly property string kind: pane && pane.app ? "app" : facts.agent ? "agent" : "shell"
+                                readonly property string title: kind === "app" ? pane.appName : (facts.title || "Terminal")
+                                readonly property string folder: (facts.cwd || "").replace(/^\/(var\/)?home\/[^\/]+/, "~")
+                                // A shell's folder, unless its title already shows it.
+                                readonly property string detail: kind === "app" ? (pane.appStopped ? "Stopped" : "App")
+                                    : kind === "agent" ? facts.agent + " · " + facts.state
+                                    : title.indexOf(folder) >= 0 || title.indexOf(facts.cwd || "") >= 0 ? "" : folder
+                                objectName: "navigationPane" + workspaceRow.index + "_" + index
+                                tones: host.chrome; width: paneColumn.width; height: 34
+                                selected: modelData === host.selected && !host.overview
+                                hint: title + (detail ? " · " + detail : "")
+                                Keys.onDownPressed: workspaceRow.focusPane(index + 1)
+                                Keys.onUpPressed: { if (index === 0) workspaceEntry.forceActiveFocus(Qt.TabFocusReason); else workspaceRow.focusPane(index - 1) }
+                                Keys.onLeftPressed: workspaceEntry.forceActiveFocus(Qt.TabFocusReason)
+                                Keys.onPressed: event => {
+                                    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.choosePane(modelData); event.accepted = true }
+                                    else event.accepted = false
+                                }
+                                contentItem: Item {
+                                    Rectangle {
+                                        id: paneMark; x: 8; anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; radius: 3
+                                        color: paneRow.kind === "agent" ? (paneRow.facts.needs_input ? host.chrome.waiting : paneRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.accent)
+                                            : paneRow.kind === "app" ? (paneRow.pane && paneRow.pane.appStopped ? host.chrome.waiting : host.chrome.ready) : host.chrome.muted
+                                    }
+                                    Text { anchors.left: paneMark.right; anchors.leftMargin: 8; anchors.right: paneDetail.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: paneRow.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.foreground; font.pixelSize: 13 }
+                                    Text {
+                                        id: paneDetail; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                        width: Math.min(implicitWidth, parent.width * 0.45); text: paneRow.detail; textFormat: Text.PlainText; elide: Text.ElideLeft; font.pixelSize: 11
+                                        color: paneRow.kind === "agent" && paneRow.facts.needs_input ? host.chrome.waiting : host.chrome.muted
+                                    }
+                                }
+                                onClicked: host.choosePane(modelData)
+                            }
+                        }
+                    }
                     ChromeButton {
                         objectName: "removeWorkspace" + parent.index
-                        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right; anchors.verticalCenter: workspaceEntry.verticalCenter
                         tones: host.chrome; iconName: "close"; opacity: hovered || visualFocus ? 1 : 0.65
                         hint: "Remove " + (host.spaces[parent.index] || "workspace") + "…"
                         enabled: !session.busy && host.dragSlot < 0
@@ -168,7 +245,7 @@ Item {
                     Keys.onPressed: event => {
                         if (event.key === Qt.Key_Home) { navigation.focusApp(0); event.accepted = true }
                         else if (event.key === Qt.Key_End) { navigation.focusApp(appRows.count - 1); event.accepted = true }
-                        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.chooseRunningApp(modelData); event.accepted = true }
+                        else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.choosePane(modelData); event.accepted = true }
                         else event.accepted = false
                     }
                     contentItem: Item {
@@ -179,7 +256,7 @@ Item {
                         }
                         Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.failed ? "Stopped" : ""; color: host.chrome.waiting; font.pixelSize: 12 }
                     }
-                    onClicked: host.chooseRunningApp(modelData)
+                    onClicked: host.choosePane(modelData)
                 }
             }
             Label {

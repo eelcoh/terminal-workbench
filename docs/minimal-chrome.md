@@ -143,3 +143,16 @@ a cell boundary without changing its preferred fraction.
 
 Linux validation is recorded in the UX spike. The browser sketch remains a
 sample-data reference; native Overview uses the existing spatial preview flow.
+
+## Workspaces panel: panes by workspace (2026-11-07)
+
+Each workspace row can list its panes: a dot (agent state, app running or
+stopped, grey for a shell), the title, and the agent and state, "App", or a
+shell's folder when its title does not already show it. Only the current
+workspace is open; the chevron opens or closes another, and changing workspace
+closes the ones opened by hand. Clicking a pane goes to it in any workspace.
+Keyboard: Up and Down move between workspaces as before; Right opens a
+workspace and moves into its panes, Up and Down move between them, Left goes
+back, Return goes to the pane. The typed lists (Agents, Apps) are the other
+way in, across workspaces.
+

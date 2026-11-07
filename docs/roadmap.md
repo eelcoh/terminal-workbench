@@ -128,19 +128,23 @@ Goal: TUIs such as lazygit and btop live next to the strip and are one key away.
   clicking the active icon closes it. Pinning keeps working as now. Fixed icons,
   top to bottom: Workspaces, Apps, Hosts (v0.3) and Agents, which appears only
   once an agent has been seen and keeps its waiting badge.
-- **App definitions** in the dotfile: name, command, arguments and a working
-  directory that defaults to the workspace folder.
-- **Apps panel.** Lists the configured apps; choosing one starts it. A running
-  app is shown in the side panel as a live terminal with its own width, beside
-  the strip rather than in it.
-- **The rail as a dock.** Each running app gets a small icon under the fixed
-  ones. Clicking it brings that app into the side panel; clicking again hides it
-  while it keeps running. Command-P / Super-P lists apps and does the same.
+- **App definitions** in the dotfile: name, command and a working directory
+  that defaults to the workspace folder.
+- **Apps are strip panes** (revised 2026-11-06; [apps](apps.md)). No side
+  panel or dock: an app is an ordinary pane in its workspace. What makes it
+  first-class is **Add applications**, a catalog of TUIs (curated, plus
+  awesome-tuis entries Homebrew installs) with installed checks, installs in a
+  visible pane through Homebrew, the system package manager or COPR, and a
+  Sources view that can set up Homebrew.
+- **Two ways to navigate** (owner, 2026-11-07): typed lists across workspaces
+  (Agents, Apps; Shells if needed) and the Workspaces panel grouped by
+  workspace, where only the current workspace lists its panes. Sized for about
+  10 panes in a workspace and 50 in all; a flat typed list with search and
+  closed workspaces keep 50 readable. Hundreds are not a goal.
 - An app pane is an ordinary runtime terminal, so it survives detach and
-  restart. Its placement and visibility are client state. When the program
-  exits, its pane closes instead of dropping to a shell.
-- Running apps belong to their workspace (owner, 2026-11-05): each workspace
-  has its own apps, and the dock shows the current workspace's apps.
+  restart. When the program exits normally, its pane closes; after a failure
+  it stays with its last lines.
+- Running apps belong to their workspace (owner, 2026-11-05).
 
 ## v0.3: SSH hosts and worktrees
 

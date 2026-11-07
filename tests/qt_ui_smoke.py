@@ -500,6 +500,24 @@ while True:
         key('End');key('Down');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['workspace']==0 and data()['panes'][0]['focus'])
         assert not data()['creation_open'] and workspace_catalog.load(root)==before_navigation
         assert [received(i) for i in range(6)]==before_input
+        # Panes grouped by workspace: the current one lists its panes, the
+        # others stay closed until opened; a pane row goes to that pane.
+        def pane_rows(w):return sorted((r for r in data()['navigation_panes'] if r['name'].startswith(f'navigationPane{w}_')),key=lambda r:int(r['name'].rsplit('_',1)[1]))
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open'] and len(pane_rows(0))==3 and not pane_rows(1));time.sleep(.3)
+        assert pane_rows(0)[0]['selected'] and all(r['kind']=='shell' and ' · ' not in r['hint'] for r in pane_rows(0)),pane_rows(0)
+        capture('navigation-panes.png')
+        click(*settled_point(lambda d:d['expand_workspace_1']));wait_until(lambda:len(pane_rows(1))==3)
+        click(*settled_point(lambda d:next((r['point'] for r in d['navigation_panes'] if r['name']=='navigationPane1_1'),None)))
+        wait_until(lambda:not data()['drawer_open'] and data()['workspace']==1 and data()['panes'][4]['focus'])
+        # The new current workspace is open and the others closed again;
+        # Right moves into its panes, Return goes to one.
+        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open'] and len(pane_rows(1))==3 and not pane_rows(0));time.sleep(.3)
+        key('Right');wait_until(lambda:pane_rows(1)[0]['focus']);key('Down');key('Down');wait_until(lambda:pane_rows(1)[2]['focus'])
+        key('Return');wait_until(lambda:not data()['drawer_open'] and data()['panes'][5]['focus'])
+        # Leave workspace 1 remembering its first pane, as later steps expect.
+        key('super+alt+Left');wait_until(lambda:data()['panes'][4]['focus']);key('super+alt+Left');wait_until(lambda:data()['panes'][3]['focus'])
+        key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['panes'][0]['focus'])
+        assert workspace_catalog.load(root)==before_navigation and [received(i) for i in range(6)]==before_input
         # Closing another row does not select it; Enter initially activates Cancel.
         click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*data()['remove_workspace_1']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
@@ -1700,7 +1718,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, Homebrew setup from Sources, sources on/off and per-app source choice, install behind its own button), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: panes grouped by workspace (current open, open/close, go to pane, keyboard), apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, Homebrew setup from Sources, sources on/off and per-app source choice, install behind its own button), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except SystemExit:
         raise
     except BaseException:
