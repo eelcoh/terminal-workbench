@@ -181,6 +181,8 @@ while True:
                 previous=current
                 return point if ready else None
             return wait_until(stable)
+        # Clicks on reported controls go through settled_point: a position must be
+        # the same in two reports, so panes, dialogs and buttons have stopped moving.
         def click(x,y,button=1):
             move(x,y);(host if wayland else cmd)('click',button)
         def show_preview(slot):
@@ -219,11 +221,11 @@ while True:
                 if cancel:capture('drag-eight-terminal-workspace.png');key('Escape');wait_until(lambda:data()['drag_slot']==-1)
             finally:button('mouseup')
         def workspace_form(mode):
-            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-            click(*data()['rename_workspace_item' if mode=='rename' else 'workspace_folder_item'])
+            click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+            click(*settled_point(lambda d:d['rename_workspace_item' if mode=='rename' else 'workspace_folder_item']))
             wait_until(lambda:data()['creation_open'] and data()['workspace_form_mode']==mode and data()['name_focus' if mode=='rename' else 'folder_focus'])
         def browse_folder(expected):
-            click(*data()['browse_folder_button'])
+            click(*settled_point(lambda d:d['browse_folder_button']))
             wait_until(lambda:data()['folder_browser_open'] and data()['folder_browser_location']==str(expected))
         def choose_folder(name):
             wait_until(lambda:len(data()['folder_list'])==2)
@@ -232,7 +234,7 @@ while True:
             point=wait_until(lambda:next((choice['point'] for choice in data()['folder_choices'] if choice['name']==name),None))
             click(*point)
             wait_until(lambda:len(data()['folder_accept'])==2)
-            click(*data()['folder_accept']);wait_until(lambda:not data()['folder_browser_open'] and data()['folder_focus'] and not data()['folder_accept'])
+            click(*settled_point(lambda d:d['folder_accept']));wait_until(lambda:not data()['folder_browser_open'] and data()['folder_focus'] and not data()['folder_accept'])
         def received(i):
             path=root/str(i)/'input';return path.read_bytes() if path.exists() else b''
         def sizes():return [(p['columns'],p['rows']) for p in data()['panes']]
@@ -291,23 +293,23 @@ while True:
         raw_key('super+alt+Right');raw_key('super+alt+o');time.sleep(.1)
         assert data()['selected']==0 and not data()['overview'],'terminal details leaked application shortcuts'
         click(*settled_point(lambda d:d['runtime_info_copy']));wait_until(lambda:data()['runtime_info_clipboard_matches'])
-        click(*data()['runtime_info_expand']);time.sleep(.1);capture('terminal-details-runtime.png')
-        click(*data()['runtime_info_refresh']);wait_until(lambda:data()['runtime_info_report'].get('state')=='available')
+        click(*settled_point(lambda d:d['runtime_info_expand']));time.sleep(.1);capture('terminal-details-runtime.png')
+        click(*settled_point(lambda d:d['runtime_info_refresh']));wait_until(lambda:data()['runtime_info_report'].get('state')=='available')
         key('Escape');wait_until(lambda:not data()['runtime_info_open'] and data()['panes'][0]['focus'])
         assert data()['runtime_info_report']=={},'closing terminal details retained an inspection'
         assert workspace_catalog.load(root)==details_catalog and sizes()==details_grids and [p['instance'] for p in data()['panes']]==details_objects
         assert [received(i) for i in range(6)]==details_inputs,'terminal details or copying typed into a terminal'
         # About is modal and client-only: copying diagnostics never types into PTYs.
         about_input=[received(i) for i in range(6)];about_sizes=sizes()
-        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-        click(*data()['about_menu']);wait_until(lambda:data()['about_open'] and not data()['application_menu_open'])
-        click(*data()['about_copy']);wait_until(lambda:data()['about_clipboard_matches'])
+        click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+        click(*settled_point(lambda d:d['about_menu']));wait_until(lambda:data()['about_open'] and not data()['application_menu_open'])
+        click(*settled_point(lambda d:d['about_copy']));wait_until(lambda:data()['about_clipboard_matches'])
         click(*settled_point(lambda d:d['about_details']));wait_until(lambda:data()['about_details_ready']);time.sleep(.2);capture('about-details.png')
         raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==0,'About leaked navigation shortcut'
         key('Escape');wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
         key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('About Band')
         wait_until(lambda:len(data()['command_matches'])==1 and data()['command_matches'][0]['id']=='about');key('Return');wait_until(lambda:data()['about_open'])
-        click(*data()['about_close']);wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
+        click(*settled_point(lambda d:d['about_close']));wait_until(lambda:not data()['about_open'] and data()['panes'][0]['focus'])
         assert [received(i) for i in range(6)]==about_input and sizes()==about_sizes,'About altered input or grids'
         if '--about-only' in sys.argv[3:]:
             assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in About regression'
@@ -316,10 +318,10 @@ while True:
         # The configuration panel is modal; managed reload is transactional and
         # defers external updates until a font/shortcut editor closes.
         config_inputs=[received(i) for i in range(6)];config_instances=[p['instance'] for p in data()['panes']];config_sizes=sizes()
-        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-        click(*data()['configuration_menu']);wait_until(lambda:data()['configuration_open'])
+        click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+        click(*settled_point(lambda d:d['configuration_menu']));wait_until(lambda:data()['configuration_open'])
         capture('configuration.png');raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==0
-        click(*data()['configuration_reload']);wait_until(lambda:data()['configuration_status']=='Preferences reloaded')
+        click(*settled_point(lambda d:d['configuration_reload']));wait_until(lambda:data()['configuration_status']=='Preferences reloaded')
         key('Escape');wait_until(lambda:not data()['configuration_open'] and data()['panes'][0]['focus'])
         changed_config=managed_bytes.replace(b'commands = F10',b'commands = F11').replace(b'[linux.font]\nsize = 16',b'[linux.font]\nsize = 18')
         managed.write_bytes(changed_config)
@@ -336,7 +338,7 @@ while True:
         managed.write_text('broken configuration\n')
         wait_until(lambda:bool(data()['configuration_error']))
         assert data()['font_preferences']['size']==18 and data()['shortcut_sequences']['commands']=='F11','invalid reload discarded last valid preferences'
-        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open']);click(*data()['font_menu_item']);wait_until(lambda:data()['font_settings_open'])
+        click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open']);click(*settled_point(lambda d:d['font_menu_item']));wait_until(lambda:data()['font_settings_open'])
         click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:data()['font_preferences']['size']==19)
         managed.write_bytes(managed_bytes);time.sleep(.4)
         assert data()['font_preferences']['size']==19,'external update discarded an open font draft'
@@ -348,7 +350,7 @@ while True:
         managed.write_bytes(managed_bytes+b'\n[view]\nnavigation-pinned = true\nreduced-motion = true\n')
         wait_until(lambda:data()['navigation_pinned'] and data()['reduced_motion'])
         wait_until(lambda:json.loads((root/'qt-view.json').read_text()).get('navigation_default') is True)
-        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and not data()['navigation_default'])
+        click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:not data()['navigation_pinned'] and not data()['navigation_default'])
         key('Escape');wait_until(lambda:not data()['drawer_open'])
         key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('enable animations');key('Return')
         wait_until(lambda:not data()['commands_open'] and not data()['reduced_motion'] and not data()['motion_default'])
@@ -358,7 +360,7 @@ while True:
         wait_until(lambda:data()['managed_navigation_pinned'] and data()['managed_reduced_motion'])
         assert not data()['navigation_pinned'] and not data()['reduced_motion'],'managed defaults replaced explicit window choices'
         key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('configuration');key('Return');wait_until(lambda:data()['configuration_open'])
-        click(*data()['configuration_view_defaults'])
+        click(*settled_point(lambda d:d['configuration_view_defaults']))
         wait_until(lambda:data()['navigation_default'] and data()['motion_default'] and data()['navigation_pinned'] and data()['reduced_motion'])
         key('Escape');wait_until(lambda:not data()['configuration_open'])
         wait_until(lambda:json.loads((root/'qt-view.json').read_text()).get('motion_default') is True)
@@ -448,7 +450,7 @@ while True:
         key('Tab');key('Return');wait_until(lambda:data()['terminal_search_state']['selected']==2)
         key('Tab');key('Return');wait_until(lambda:data()['terminal_search_state']['selected']==3)
         key('shift+Tab');key('space');wait_until(lambda:data()['terminal_search_state']['selected']==2)
-        click(*data()['terminal_search_next']);wait_until(lambda:data()['terminal_search_state']['selected']==3)
+        click(*settled_point(lambda d:d['terminal_search_next']));wait_until(lambda:data()['terminal_search_state']['selected']==3)
         key('Escape');wait_until(lambda:not data()['terminal_search_open'] and data()['panes'][0]['focus'] and data()['panes'][0]['text']==search_start)
         raw_key('super+alt+s');wait_until(lambda:data()['terminal_search_focus'])
         typed('not-present-here');wait_until(lambda:not data()['terminal_search_state']['busy'] and data()['terminal_search_state']['count']==0)
@@ -459,22 +461,22 @@ while True:
         wait_until(lambda:data()['terminal_search_state']['count']==4 and not data()['terminal_search_state']['busy'])
         # Options rescan retained text locally and follow new output without input.
         key('ctrl+a');typed('qt-find-needle');wait_until(lambda:not data()['terminal_search_state']['busy'] and data()['terminal_search_state']['count']==0)
-        click(*data()['terminal_search_match_case']);wait_until(lambda:not data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==4 and data()['terminal_search_focus'])
-        click(*data()['terminal_search_whole_word']);wait_until(lambda:data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==4)
+        click(*settled_point(lambda d:d['terminal_search_match_case']));wait_until(lambda:not data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==4 and data()['terminal_search_focus'])
+        click(*settled_point(lambda d:d['terminal_search_whole_word']));wait_until(lambda:data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==4)
         (root/'0'/'cursor').write_bytes('\r\nQT-FIND-NEEDLEish _QT-FIND-NEEDLE QT-FIND-NEEDLE_ qt-find-needle.\r\nÉCOLE école École'.encode())
         wait_until(lambda:data()['terminal_search_state']['count']==5 and not data()['terminal_search_state']['busy'])
         capture('terminal-search-options.png')
-        click(*data()['terminal_search_whole_word']);wait_until(lambda:not data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==8)
-        click(*data()['terminal_search_match_case']);wait_until(lambda:data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==1)
+        click(*settled_point(lambda d:d['terminal_search_whole_word']));wait_until(lambda:not data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==8)
+        click(*settled_point(lambda d:d['terminal_search_match_case']));wait_until(lambda:data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==1)
         key('ctrl+a');pasted('école');wait_until(lambda:data()['terminal_search_state']['count']==1)
-        click(*data()['terminal_search_match_case']);wait_until(lambda:not data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==3)
-        click(*data()['terminal_search_whole_word']);wait_until(lambda:data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==3)
+        click(*settled_point(lambda d:d['terminal_search_match_case']));wait_until(lambda:not data()['terminal_search_state']['match_case'] and data()['terminal_search_state']['count']==3)
+        click(*settled_point(lambda d:d['terminal_search_whole_word']));wait_until(lambda:data()['terminal_search_state']['whole_word'] and data()['terminal_search_state']['count']==3)
         # Return to default modes for the remaining broad workflow checks.
         for _ in range(4):key('Tab')
         key('Return');wait_until(lambda:data()['terminal_search_state']['match_case'] and data()['terminal_search_focus'] and not data()['terminal_search_state']['busy'] and data()['terminal_search_state']['count']==1)
         for _ in range(5):key('Tab')
         key('space');wait_until(lambda:not data()['terminal_search_state']['whole_word'] and data()['terminal_search_focus'])
-        click(*data()['terminal_search_close']);wait_until(lambda:not data()['terminal_search_open'] and data()['panes'][0]['focus'])
+        click(*settled_point(lambda d:d['terminal_search_close']));wait_until(lambda:not data()['terminal_search_open'] and data()['panes'][0]['focus'])
         assert [received(i) for i in range(6)]==search_input and sizes()==search_sizes and [p['instance'] for p in data()['panes']]==search_instances,'search changed shell input, grids or reader identity'
         (root/'0'/'cursor').write_bytes(b'\x1b[3J\x1b[2J\x1b[HUI-READY\r\n\x1b[31mR\x1b[0m\x1b[38;2;1;2;3mT\x1b[0m\x1b[32mG\x1b[0m')
         wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.2)
@@ -487,10 +489,10 @@ while True:
             sys.exit(0)
         # Pinning reserves layout space; navigation stays usable without modal focus.
         nav_sizes=sizes();nav_instances=[p['instance'] for p in data()['panes']]
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-        click(*data()['navigation_pin']);wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'] and all(p['geometry_ready'] for p in data()['panes']))
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'] and all(p['geometry_ready'] for p in data()['panes']))
         capture('navigation-pinned.png')
-        click(*data()['navigation_workspace_1']);wait_until(lambda:data()['workspace']==1 and data()['panes'][3]['focus'])
+        click(*settled_point(lambda d:d['navigation_workspace_1']));wait_until(lambda:data()['workspace']==1 and data()['panes'][3]['focus'])
         assert data()['navigation_docked'] and not data()['drawer_open']
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['panes'][0]['focus'])
         # The Agents icon waits for the first agent; Commands still opens the panel.
@@ -499,28 +501,28 @@ while True:
         assert not data()['overview'] and not data()['navigation_agent_indices']
         capture('navigation-agents-empty.png')
         # The active icon hides the pinned column without unpinning; another icon shows it again.
-        click(*data()['agents_button']);wait_until(lambda:data()['navigation_hidden'] and not data()['navigation_docked'] and data()['navigation_pinned'])
+        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['navigation_hidden'] and not data()['navigation_docked'] and data()['navigation_pinned'])
         wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']) and not data()['drawer_open'])
-        click(*data()['workspaces_button']);wait_until(lambda:data()['navigation_docked'] and data()['navigation_section']=='workspaces')
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_docked'] and data()['navigation_section']=='workspaces')
         # Unpinned, the active icon closes the drawer it opened.
-        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open'])
-        click(*data()['workspaces_button']);wait_until(lambda:not data()['drawer_open'])
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-        click(*data()['navigation_pin']);wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open'])
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:not data()['drawer_open'])
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'])
         if wayland:run('niri','msg','action','set-window-width','680')
         else:cmd('windowsize','--sync',window,680,760)
         wait_until(lambda:data()['window_width']==680 and not data()['navigation_docked'])
         assert data()['navigation_pinned']
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);key('Escape');wait_until(lambda:not data()['drawer_open'])
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);key('Escape');wait_until(lambda:not data()['drawer_open'])
         if wayland:run('niri','msg','action','set-window-width','1240')
         else:cmd('windowsize','--sync',window,1240,760)
         wait_until(lambda:data()['navigation_docked'])
-        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open']);key('Escape')
+        click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open']);key('Escape')
         wait_until(lambda:not data()['drawer_open'] and data()['panes'][0]['focus'] and sizes()==nav_sizes)
         assert [p['instance'] for p in data()['panes']]==nav_instances and received(0)==b'first'
         # Workspace arrows stay inside real entries; creation is a separate action.
         before_navigation=workspace_catalog.load(root);before_input=[received(i) for i in range(6)]
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         key('End');key('Down');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['workspace']==0 and data()['panes'][0]['focus'])
         assert not data()['creation_open'] and workspace_catalog.load(root)==before_navigation
         assert [received(i) for i in range(6)]==before_input
@@ -528,7 +530,7 @@ while True:
         # others stay closed until opened; a pane row goes to that pane.
         def pane_rows(w):return sorted((r for r in data()['navigation_panes'] if r['name'].startswith(f'navigationPane{w}_')),key=lambda r:int(r['name'].rsplit('_',1)[1]))
         # Rows and headers name the foreground program (WAT4) before the folder.
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open'] and len(pane_rows(0))==3 and not pane_rows(1));time.sleep(.3)
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and len(pane_rows(0))==3 and not pane_rows(1));time.sleep(.3)
         wait_until(lambda:all(p['facts'].get('process') for p in data()['panes'][:3]))
         shells=[p for p in data()['panes'] if p['workspace']==0]
         assert all(p['header']==[p['facts']['process'],p['facts']['title']] for p in shells),[p['header'] for p in shells]
@@ -536,7 +538,7 @@ while True:
         capture('navigation-panes.png')
         # The footer filter narrows workspaces to matching panes and opens them.
         all_rows=list(data()['navigation_workspace_rows'])
-        click(*data()['navigation_filter']);typed('/4')
+        click(*settled_point(lambda d:d['navigation_filter']));typed('/4')
         wait_until(lambda:len(pane_rows(1))==1 and not pane_rows(0) and len(data()['navigation_workspace_rows'])==1)
         capture('navigation-filter.png')
         key('ctrl+a');key('BackSpace');wait_until(lambda:data()['navigation_workspace_rows']==all_rows and len(pane_rows(0))==3 and not pane_rows(1))
@@ -545,7 +547,7 @@ while True:
         wait_until(lambda:not data()['drawer_open'] and data()['workspace']==1 and data()['panes'][4]['focus'])
         # The new current workspace is open and the others closed again;
         # Right moves into its panes, Return goes to one.
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open'] and len(pane_rows(1))==3 and not pane_rows(0));time.sleep(.3)
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and len(pane_rows(1))==3 and not pane_rows(0));time.sleep(.3)
         key('Right');wait_until(lambda:pane_rows(1)[0]['focus']);key('Down');key('Down');wait_until(lambda:pane_rows(1)[2]['focus'])
         key('Return');wait_until(lambda:not data()['drawer_open'] and data()['panes'][5]['focus'])
         # Leave workspace 1 remembering its first pane, as later steps expect.
@@ -553,8 +555,8 @@ while True:
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['panes'][0]['focus'])
         assert workspace_catalog.load(root)==before_navigation and [received(i) for i in range(6)]==before_input
         # Closing another row does not select it; Enter initially activates Cancel.
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-        click(*data()['remove_workspace_1']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['remove_workspace_1']));wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
         assert data()['terminal_action_kind']=='workspace-close' and data()['terminal_action_target']=='workspace-1'
         assert data()['workspace_removal_context']=='Side project · 3 terminals' and data()['workspace']==0
         wait_until(lambda:data()['confirmation_cancel_focus']);capture('workspace-remove-confirm.png');key('Return');wait_until(lambda:not data()['terminal_action_open'] and data()['panes'][0]['focus'])
@@ -587,23 +589,23 @@ while True:
         # Real chord recording is modal; drafts and failures never reach the PTY.
         shortcut_grid=sizes();shortcut_input=[received(i) for i in range(6)]
         def shortcut_settings():
-            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-            click(*data()['shortcut_settings_menu']);wait_until(lambda:data()['shortcut_settings_open'] and not data()['application_menu_open'])
+            click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+            click(*settled_point(lambda d:d['shortcut_settings_menu']));wait_until(lambda:data()['shortcut_settings_open'] and not data()['application_menu_open'])
         def record_key(value):
-            click(*data()['shortcut_record']);wait_until(lambda:data()['shortcut_recording']);raw_key(value)
+            click(*settled_point(lambda d:d['shortcut_record']));wait_until(lambda:data()['shortcut_recording']);raw_key(value)
         shortcut_settings();record_key('F9');wait_until(lambda:bool(data()['shortcut_edit_error']))
         assert data()['shortcut_recording'] and data()['shortcut_sequences']['commands']=='F10'
         raw_key('ctrl+c');wait_until(lambda:'reserved' in data()['shortcut_edit_error'].lower())
         raw_key('Escape');wait_until(lambda:not data()['shortcut_recording'] and data()['shortcut_settings_open'])
         record_key('F7');wait_until(lambda:not data()['shortcut_recording'] and data()['shortcut_draft_labels']['commands']=='F7')
-        capture('shortcut-editor.png');click(*data()['shortcut_cancel']);wait_until(lambda:not data()['shortcut_settings_open'])
+        capture('shortcut-editor.png');click(*settled_point(lambda d:d['shortcut_cancel']));wait_until(lambda:not data()['shortcut_settings_open'])
         assert data()['shortcut_sequences']['commands']=='F10' and not (root/'ui/linux/shortcuts.conf').exists()
         shortcut_settings();record_key('F7');wait_until(lambda:not data()['shortcut_recording'])
-        click(*data()['shortcut_apply']);wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F7')
+        click(*settled_point(lambda d:d['shortcut_apply']));wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F7')
         raw_key('F7');wait_until(lambda:data()['commands_open']);raw_key('Escape');wait_until(lambda:not data()['commands_open'])
-        shortcut_settings();click(*data()['shortcut_clear']);wait_until(lambda:not data()['shortcut_draft_labels']['commands'])
-        click(*data()['shortcut_reset']);wait_until(lambda:data()['shortcut_draft_labels']['commands']=='F10')
-        click(*data()['shortcut_apply']);wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F10')
+        shortcut_settings();click(*settled_point(lambda d:d['shortcut_clear']));wait_until(lambda:not data()['shortcut_draft_labels']['commands'])
+        click(*settled_point(lambda d:d['shortcut_reset']));wait_until(lambda:data()['shortcut_draft_labels']['commands']=='F10')
+        click(*settled_point(lambda d:d['shortcut_apply']));wait_until(lambda:not data()['shortcut_settings_open'] and data()['shortcut_sequences']['commands']=='F10')
         assert (root/'ui/linux/shortcuts.conf').read_text()=='band-shortcuts-v1\n'
         assert managed.read_bytes()==managed_bytes and sizes()==shortcut_grid and [received(i) for i in range(6)]==shortcut_input
         # One-shot forwarding is tied to the focused reader and bypasses app chords.
@@ -615,14 +617,14 @@ while True:
         forwarding_input=received(0);raw_key('F6');wait_until(lambda:data()['forwarding_armed'])
         raw_key('Escape');wait_until(lambda:not data()['forwarding_armed']);time.sleep(.1);assert received(0)==forwarding_input
         raw_key('F6');wait_until(lambda:data()['forwarding_armed'])
-        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'] and not data()['forwarding_armed'])
+        click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'] and not data()['forwarding_armed'])
         key('Escape');wait_until(lambda:not data()['application_menu_open'])
         # Native clipboard chords must go through the encoder once, not invoke Copy.
         raw_key('F6');wait_until(lambda:data()['forwarding_armed']);raw_key('ctrl+shift+c')
         wait_until(lambda:received(0)==forwarding_input+b'\x1b[99;6u' and not data()['forwarding_armed'])
         forwarding_input=received(0)
         # No key is sent by cancelling with the explicit control or by timeout.
-        raw_key('F6');wait_until(lambda:data()['forwarding_armed']);click(*data()['forward_cancel'])
+        raw_key('F6');wait_until(lambda:data()['forwarding_armed']);click(*settled_point(lambda d:d['forward_cancel']))
         wait_until(lambda:not data()['forwarding_armed']);assert received(0)==forwarding_input
         # Clicking another terminal cancels instead of retargeting the pending key.
         raw_key('F6');wait_until(lambda:data()['forwarding_armed'])
@@ -632,8 +634,8 @@ while True:
         assert received(0)==forwarding_input
         # The menu arms the terminal after its popup has released keyboard focus.
         def forward_menu():
-            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-            click(*data()['forward_menu']);wait_until(lambda:data()['forwarding_armed'] and not data()['application_menu_open'])
+            click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+            click(*settled_point(lambda d:d['forward_menu']));wait_until(lambda:data()['forwarding_armed'] and not data()['application_menu_open'])
         # Application-requested key-release reporting is retained when forwarding.
         (root/'0'/'cursor').write_bytes(b'\x1b[>3u');wait_until(lambda:not (root/'0'/'cursor').exists());time.sleep(.15)
         forward_menu();raw_key('F10');wait_until(lambda:len(received(0))>len(forwarding_input));time.sleep(.15)
@@ -655,8 +657,8 @@ while True:
             def pane(snapshot,identity):return next(p for p in snapshot['panes'] if p['identity']==identity)
             def open_stop(menu=False):
                 if menu:
-                    click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-                    click(*data()['session_stop_item'])
+                    click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+                    click(*settled_point(lambda d:d['session_stop_item']))
                 else:command_search('stop all terminals');key('Return')
                 wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='session-stop' and data()['confirmation_cancel_focus'])
             base=workspace_catalog.load(root);count=len(data()['panes'])
@@ -673,7 +675,7 @@ while True:
             wait_until(lambda:len(data()['panes'])==count+1)
             open_stop();request(root,Path(runtime),root,'terminal.close',transient)
             wait_until(lambda:not data()['session_stop_valid'] and not data()['confirm_terminal_action_enabled'])
-            click(*data()['confirm_terminal_action']);time.sleep(.1);assert data()['terminal_action_open']
+            click(*settled_point(lambda d:d['confirm_terminal_action']));time.sleep(.1);assert data()['terminal_action_open']
             capture('session-stop-stale.png');key('Escape');wait_until(lambda:not data()['terminal_action_open'] and len(data()['panes'])==count)
             # A second window owns one confirmed terminal; stop applies across owners.
             peer_report=artifacts/'stop-peer.json';peer_report.unlink(missing_ok=True)
@@ -706,7 +708,7 @@ while True:
                 send(excluded_owner,16,('WB_EXCLUDED=survives; printf "%s:%s" "$$" "$WB_EXCLUDED" > '+shlex.quote(str(marker))+'\n').encode());wait_until(lambda:marker.exists() and marker.read_text())
                 inode=(root/(excluded+'.sock')).stat().st_ino
                 before_stop=workspace_catalog.load(root);capture('session-stop-confirm.png')
-                click(*data()['confirm_terminal_action']);wait_until(lambda:not data()['terminal_action_open'],timeout=30)
+                click(*settled_point(lambda d:d['confirm_terminal_action']));wait_until(lambda:not data()['terminal_action_open'],timeout=30)
                 wait_until(lambda:all(not pane(data(),identity)['ready'] and pane(data(),identity)['lifecycle'].get('state')=='stopped' for identity in frozen),timeout=20)
                 wait_until(lambda:all(not pane(peer_data(),identity)['ready'] and pane(peer_data(),identity)['lifecycle'].get('state')=='stopped' for identity in frozen),timeout=20)
                 assert workspace_catalog.load(root)==before_stop and not data()['error']
@@ -750,8 +752,8 @@ while True:
             client.wait(timeout=5);assert client.returncode==0
             assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in shutdown regression'
             sys.exit(0)
-        click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-        click(*data()['commands_menu_item']);wait_until(lambda:data()['commands_open'] and data()['command_search_focus'] and not data()['application_menu_open'])
+        click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+        click(*settled_point(lambda d:d['commands_menu_item']));wait_until(lambda:data()['commands_open'] and data()['command_search_focus'] and not data()['application_menu_open'])
         typed('definitely-no-such-command');wait_until(lambda:not data()['command_matches'])
         key('Return');key('Down');key('Up');time.sleep(.1)
         assert data()['commands_open'] and not data()['creation_open']
@@ -762,7 +764,7 @@ while True:
         # Shortcuts show as key chips from the live keymap, with the palette's own keys in its footer.
         assert {'Up','Down','Enter','Esc'}<=set(data()['key_chips']) and any(k.startswith('Super+') for k in data()['key_chips']),data()['key_chips']
         capture('commands-search.png');key('Escape');wait_until(lambda:not data()['commands_open'])
-        command_search('reduce motion');wait_until(lambda:len(data()['command_first_row'])==2);click(*data()['command_first_row']);wait_until(lambda:not data()['commands_open'] and data()['reduced_motion'])
+        command_search('reduce motion');wait_until(lambda:len(data()['command_first_row'])==2);click(*settled_point(lambda d:d['command_first_row']));wait_until(lambda:not data()['commands_open'] and data()['reduced_motion'])
         command_search('enable animations');key('Return');wait_until(lambda:not data()['commands_open'] and not data()['reduced_motion'])
         command_search('terminal');key('Tab');wait_until(lambda:not data()['command_search_focus'])
         key('shift+Tab');wait_until(lambda:data()['command_search_focus'])
@@ -793,29 +795,29 @@ while True:
         def settled_font(family,size):
             return data()['font_preferences']=={'family':family,'size':size} and all(p['font']=={'family':family,'size':size} and p['geometry_ready'] for p in data()['panes'])
         def font_menu():
-            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
-            click(*data()['font_menu_item']);wait_until(lambda:data()['font_settings_open'] and not data()['application_menu_open'])
+            click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
+            click(*settled_point(lambda d:d['font_menu_item']));wait_until(lambda:data()['font_settings_open'] and not data()['application_menu_open'])
         font_menu();key('super+alt+t');key('super+alt+Right');time.sleep(.1)
         assert len(data()['panes'])==6 and data()['selected']==0,'global shortcut escaped font dialog'
         click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:settled_font('Fira Code',17))
         assert sizes()!=font_grid,'text size did not change the real PTY grid'
-        click(*data()['font_jetbrains']);wait_until(lambda:settled_font('JetBrains Mono',17));capture('font-preview.png')
+        click(*settled_point(lambda d:d['font_jetbrains']));wait_until(lambda:settled_font('JetBrains Mono',17));capture('font-preview.png')
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('Fira Code',16) and sizes()==font_grid and data()['panes'][0]['focus'])
         assert not (root/'ui/linux/terminal-font.json').exists(),'cancel persisted font preview'
         command_search('bundled font');key('Return');wait_until(lambda:data()['font_settings_open'] and not data()['commands_open'])
-        click(*data()['font_jetbrains']);click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:settled_font('JetBrains Mono',17))
-        click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
+        click(*settled_point(lambda d:d['font_jetbrains']));click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:settled_font('JetBrains Mono',17))
+        click(*settled_point(lambda d:d['font_apply']));wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
         wait_until(lambda:all(p['requested_family']=='JetBrains Mono' and p['requested_points']==17 for p in display_data().get('panes',[])) and len(display_data().get('panes',[]))==6)
         font_layer=root/'ui/linux/terminal-font.json';font_saved=font_layer.read_bytes()
         assert json.loads(font_saved)=={'version':1,'family':'JetBrains Mono','size':17}
-        font_menu();click(*data()['font_defaults_button']);wait_until(lambda:settled_font('Fira Code',16))
+        font_menu();click(*settled_point(lambda d:d['font_defaults_button']));wait_until(lambda:settled_font('Fira Code',16))
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
         assert font_layer.read_bytes()==font_saved,'cancel changed saved font'
         key('super+alt+0');wait_until(lambda:settled_font('JetBrains Mono',16))
         key('super+alt+equal');wait_until(lambda:settled_font('JetBrains Mono',17))
         key('super+alt+minus');wait_until(lambda:settled_font('JetBrains Mono',16))
-        font_menu();click(*data()['font_defaults_button']);wait_until(lambda:settled_font('Fira Code',16))
-        click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and sizes()==font_grid and data()['panes'][0]['focus'])
+        font_menu();click(*settled_point(lambda d:d['font_defaults_button']));wait_until(lambda:settled_font('Fira Code',16))
+        click(*settled_point(lambda d:d['font_apply']));wait_until(lambda:not data()['font_settings_open'] and sizes()==font_grid and data()['panes'][0]['focus'])
         assert json.loads(font_layer.read_text())=={'version':1} and not data()['font_edit_error']
         assert [p['instance'] for p in data()['panes']]==font_items and [received(i) for i in range(6)]==font_input
         assert managed.read_bytes()==managed_bytes,'font UI rewrote managed settings'
@@ -862,10 +864,10 @@ while True:
             if wayland:run('niri','msg','action','focus-window','--id',window)
             else:cmd('windowraise',window);cmd('windowfocus',window)
         assert data()['chrome_background']=='#f4f1eb','peer update replaced an open appearance draft'
-        click(*data()['theme_apply_button'])
+        click(*settled_point(lambda d:d['theme_apply_button']))
         wait_until(lambda:data()['appearance_open'] and 'changed in another window' in data()['workspace_appearance_error'])
         key('Escape');wait_until(lambda:not data()['appearance_open'] and data()['chrome_background']=='#282a36' and not data()['workspace_appearance_error'])
-        owner_appearance();click(*data()['theme_default_button']);click(*data()['theme_apply_button'])
+        owner_appearance();click(*settled_point(lambda d:d['theme_default_button']));click(*settled_point(lambda d:d['theme_apply_button']))
         wait_until(lambda:not data()['appearance_open'] and data()['chrome_background']=='#15191f' and peer_data()['chrome_background']=='#15191f')
         shared_file=Path(data()['workspace_appearance_directory'])/'workspace-0.json'
         assert json.loads(shared_file.read_text())=={'version':1,'default':True}
@@ -892,19 +894,19 @@ while True:
         removing=request(root,Path(runtime),root,'workspace.create_at',title='Remove target',project_directory=str(root))['data']['workspaces'][-1]
         removal_id=removing['id'];removal_terminal=removing['terminals'][0]['id']
         wait_until(lambda:data()['workspace_count']==4 and peer_data()['workspace_count']==4)
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-        click(*data()['remove_workspace_3']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['remove_workspace_3']));wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
         request(root,Path(runtime),root,'workspace.rename',removal_id,'Renamed removal target')
         wait_until(lambda:data()['workspace_removal_context']=='Renamed removal target · 1 terminal')
         key('super+alt+Down');key('super+alt+t');time.sleep(.1)
         assert data()['workspace']==0 and data()['terminal_action_target']==removal_id and len(data()['panes'])==7
-        click(*data()['confirm_terminal_action']);wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==3 and peer_data()['workspace_count']==3)
+        click(*settled_point(lambda d:d['confirm_terminal_action']));wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==3 and peer_data()['workspace_count']==3)
         assert data()['workspace']==0 and not (root/(removal_terminal+'.sock')).exists()
         # External deletion dismisses the confirmation without targeting its successor.
         removed=request(root,Path(runtime),root,'workspace.create_at',title='Deleted elsewhere',project_directory=str(root))['data']['workspaces'][-1]['id']
         wait_until(lambda:data()['workspace_count']==4)
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-        click(*data()['remove_workspace_3']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['remove_workspace_3']));wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
         request(root,Path(runtime),root,'workspace.close',removed)
         wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==3 and peer_data()['workspace_count']==3)
         # A foreign deletion closes an editor for that ID, without retargeting it.
@@ -961,15 +963,15 @@ while True:
         # Preview changes existing indexed/default colors, preserves explicit RGB and PTYs.
         theme_catalog_before=(root/'workspaces.json').read_bytes();theme_sizes=sizes()
         def appearance():
-            click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open'])
+            click(*settled_point(lambda d:d['application_menu_button']));wait_until(lambda:data()['application_menu_open'])
             if not (artifacts/'chrome-menu.png').exists():capture('chrome-menu.png')
-            click(*data()['appearance_menu_item']);wait_until(lambda:data()['appearance_open'] and data()['theme_search_focus'])
+            click(*settled_point(lambda d:d['appearance_menu_item']));wait_until(lambda:data()['appearance_open'] and data()['theme_search_focus'])
         def theme_state(index,background,red):
             value=data()
             return value['panes'][3]['sample_green']=='#112233' and value['chrome_background']==background and all(p['theme']==index and p['background']==background and p['sample_red']==red and p['sample_rgb']=='#010203' for p in value['panes'][3:6])
-        appearance();click(*data()['theme_help_button']);wait_until(lambda:data()['theme_help_open']);capture('theme-help.png')
+        appearance();click(*settled_point(lambda d:d['theme_help_button']));wait_until(lambda:data()['theme_help_open']);capture('theme-help.png')
         key('Escape');wait_until(lambda:not data()['theme_help_open'] and data()['appearance_open'])
-        click(*data()['theme_search_field']);typed('Workbench Dawn');wait_until(lambda:data()['theme_matches']==1);key('Down')
+        click(*settled_point(lambda d:d['theme_search_field']));typed('Workbench Dawn');wait_until(lambda:data()['theme_matches']==1);key('Down')
         wait_until(lambda:theme_state(1,'#f4f1eb','#a93f4a'))
         assert all(p['theme']==0 and p['background']=='#15191f' for p in data()['panes'][:3])
         assert sizes()==theme_sizes;capture('theme-light-preview.png')
@@ -981,9 +983,9 @@ while True:
         assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'appearance mutated runtime organization'
         # Returning to the managed default is a draft until Apply; explicit
         # project themes stay unchanged when the managed default changes.
-        appearance();click(*data()['theme_default_button']);wait_until(lambda:theme_state(0,'#15191f','#e49b9b'))
+        appearance();click(*settled_point(lambda d:d['theme_default_button']));wait_until(lambda:theme_state(0,'#15191f','#e49b9b'))
         key('Escape');wait_until(lambda:not data()['appearance_open'] and theme_state(2,'#282a36','#ff5555'))
-        appearance();click(*data()['theme_default_button']);click(*data()['theme_apply_button'])
+        appearance();click(*settled_point(lambda d:d['theme_default_button']));click(*settled_point(lambda d:d['theme_apply_button']))
         wait_until(lambda:not data()['appearance_open'] and theme_state(0,'#15191f','#e49b9b') and data()['workspace_themes'][1]==-1)
         managed.write_bytes(managed_bytes.replace(b'terminal-theme = Workbench Night',b'terminal-theme = Workbench Dawn'))
         wait_until(lambda:theme_state(1,'#f4f1eb','#a93f4a') and all(p['theme']==1 for p in data()['panes'][:3]))
@@ -1015,7 +1017,7 @@ while True:
                 and all(value['panes'][i]['background']=='#214365' for i in (3,5)))
         def terminal_colors():
             click(*settled_point(lambda d:d['panes'][4]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
-            click(*data()['terminal_colors_menu']);wait_until(lambda:data()['appearance_open'] and data()['appearance_terminal']==own_id and data()['theme_search_focus'])
+            click(*settled_point(lambda d:d['terminal_colors_menu']));wait_until(lambda:data()['appearance_open'] and data()['appearance_terminal']==own_id and data()['theme_search_focus'])
         terminal_colors();assert 'frame keeps the workspace colors' in data()['appearance_note']
         typed('Dracula');wait_until(lambda:data()['theme_matches']==1);key('Down')
         wait_until(lambda:own_state('#282a36') and data()['panes'][4]['own_colors']);capture('terminal-colors-preview.png')
@@ -1026,14 +1028,14 @@ while True:
         assert json.loads(own_file.read_text())['default'] is False and not data()['terminal_appearance_error']
         appearance();wait_until(lambda:data()['appearance_note']=='1 terminal here keeps its own colors.');capture('workspace-with-terminal-colors.png')
         key('Escape');wait_until(lambda:not data()['appearance_open'] and own_state('#282a36'))
-        click(*data()['panes'][4]['own_colors']);wait_until(lambda:data()['appearance_open'] and data()['appearance_terminal']==own_id)
-        click(*data()['theme_default_button']);wait_until(lambda:own_state('#214365') and not data()['panes'][4]['own_colors'])
-        click(*data()['theme_apply_button']);wait_until(lambda:not data()['appearance_open'] and own_state('#214365'))
+        click(*settled_point(lambda d:d['panes'][4]['own_colors']));wait_until(lambda:data()['appearance_open'] and data()['appearance_terminal']==own_id)
+        click(*settled_point(lambda d:d['theme_default_button']));wait_until(lambda:own_state('#214365') and not data()['panes'][4]['own_colors'])
+        click(*settled_point(lambda d:d['theme_apply_button']));wait_until(lambda:not data()['appearance_open'] and own_state('#214365'))
         assert json.loads(own_file.read_text())=={'version':1,'default':True} and sizes()==theme_sizes
         assert (root/'workspaces.json').read_bytes()==theme_catalog_before,'terminal colors mutated runtime organization'
         # Save pin preference with the existing layout/theme view profile.
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-        click(*data()['navigation_pin']);wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'])
         # Save a non-default layout/Overview and an immutable color snapshot.
         key('super+alt+r');key('super+alt+f');wait_until(lambda:data()['panes'][4]['columns']>data()['panes'][3]['columns'])
         command_search('reduce motion');key('Return');wait_until(lambda:data()['reduced_motion'])
@@ -1068,7 +1070,7 @@ while True:
         assert [received(i) for i in range(6)]==preserved_input
         for i,pid in enumerate(pids):assert (root/str(i)/'pid').read_text()==pid;os.kill(int(pid),0)
         capture('view-restored.png');key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
-        click(*data()['navigation_pin']);wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open']);key('Escape');wait_until(lambda:not data()['drawer_open'])
+        click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open']);key('Escape');wait_until(lambda:not data()['drawer_open'])
         key('super+alt+f');key('super+alt+r');key('super+alt+r')
         command_search('enable animations');key('Return');wait_until(lambda:not data()['reduced_motion'] and sizes()==theme_sizes)
         appearance();wait_until(lambda:data()['theme_catalog_count']==8)
@@ -1157,7 +1159,7 @@ while True:
         key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][4]['focus'])
         assert sizes()==keyboard_sizes,'keyboard move resized a terminal'
         time.sleep(.3);click(*settled_point(lambda d:d['panes'][4]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
-        click(*data()['move_right_item']);wait_until(lambda:order(1)==['terminal-3','terminal-5','terminal-4'] and not data()['layout_menu_open'] and data()['panes'][4]['focus'])
+        click(*settled_point(lambda d:d['move_right_item']));wait_until(lambda:order(1)==['terminal-3','terminal-5','terminal-4'] and not data()['layout_menu_open'] and data()['panes'][4]['focus'])
         key('super+alt+shift+Left');wait_until(lambda:workspace_catalog.load(root)==keyboard_catalog and not data()['busy'])
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0)
         key('super+alt+Left');wait_until(lambda:data()['selected']==0)
@@ -1203,8 +1205,8 @@ while True:
         capture('invalid-folder.png')
         # Failed Create keeps fields editable; replace the invalid folder in place.
         key('Escape');wait_until(lambda:not data()['creation_open'])
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3);capture('chrome-workspaces.png')
-        click(*data()['new_workspace_button']);wait_until(lambda:data()['creation_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3);capture('chrome-workspaces.png')
+        click(*settled_point(lambda d:d['new_workspace_button']));wait_until(lambda:data()['creation_open']);time.sleep(.3)
         assert data()['name_focus'],'closing the drawer stole dialog focus'
         typed('Project test');key('Tab');key('ctrl+a');typed(str(root/'missing'/'nested'))
         picker_catalog=workspace_catalog.load(root)
@@ -1381,7 +1383,7 @@ while True:
         raw_key('super+alt+j');wait_until(lambda:data()['selected']==8)
         raw_key('super+alt+k');time.sleep(.1);assert data()['selected']==8,'single waiting result did not wrap to itself'
         key('super+alt+o');wait_until(lambda:data()['overview'])
-        click(*data()['agent_filter_button']);click(*data()['state_filter_button']);wait_until(lambda:data()['agents_only'] and data()['needs_only'] and data()['overview_matches']==1)
+        click(*settled_point(lambda d:d['agent_filter_button']));click(*settled_point(lambda d:d['state_filter_button']));wait_until(lambda:data()['agents_only'] and data()['needs_only'] and data()['overview_matches']==1)
         raw_key('super+alt+j');wait_until(lambda:not data()['overview'] and data()['selected']==8)
         assert data()['agents_only'] and data()['needs_only'],'queue navigation rewrote Overview filters'
         key('super+alt+o');wait_until(lambda:data()['overview'])
@@ -1389,10 +1391,10 @@ while True:
         wait_until(lambda:data()['drawer_open'] and data()['navigation_needs_only'] and data()['navigation_matches']==[8])
         assert data()['overview'] and data()['agents_only'] and data()['needs_only'],'waiting list rewrote Overview context'
         capture('attention-waiting-agents.png')
-        click(*data()['navigation_clear_filters']);wait_until(lambda:not data()['navigation_needs_only'] and len(data()['navigation_matches'])==2)
-        click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='workspaces');time.sleep(.25);capture('attention-workspace-counts.png')
+        click(*settled_point(lambda d:d['navigation_clear_filters']));wait_until(lambda:not data()['navigation_needs_only'] and len(data()['navigation_matches'])==2)
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='workspaces');time.sleep(.25);capture('attention-workspace-counts.png')
         key('Escape');wait_until(lambda:not data()['drawer_open'])
-        click(*data()['overview_clear_filters']);wait_until(lambda:not data()['agents_only'] and not data()['needs_only']);key('Escape');wait_until(lambda:not data()['overview'])
+        click(*settled_point(lambda d:d['overview_clear_filters']));wait_until(lambda:not data()['agents_only'] and not data()['needs_only']);key('Escape');wait_until(lambda:not data()['overview'])
         request(root,Path(runtime),root,'terminal.close',extra_id);wait_until(lambda:len(data()['panes'])==14 and data()['navigation_agent_indices']==[8])
         hook('UserPromptSubmit','Working');wait_until(lambda:data()['waiting_count']==0 and not data()['waiting_identities'])
         before_empty=data()['selected'];raw_key('super+alt+j');raw_key('super+alt+k');time.sleep(.1)
@@ -1400,7 +1402,7 @@ while True:
         assert workspace_catalog.load(root)==attention_base and sizes()==metadata_sizes and [p['instance'] for p in data()['panes']]==attention_objects
         assert [received(i) for i in range(6)]==attention_input,'attention navigation typed input into a shell'
         # The left agent list is separate from the spatial Overview.
-        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_agent_indices']==[8]);time.sleep(.3)
+        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_agent_indices']==[8]);time.sleep(.3)
         assert not data()['overview']
         wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
         capture('navigation-agent-working.png')
@@ -1413,18 +1415,18 @@ while True:
         key('Escape');wait_until(lambda:data()['navigation_matches']==[8])
         typed('CoDeX');wait_until(lambda:data()['navigation_matches']==[8])
         key('Down');key('End');key('Home');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
-        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_search_focus']);time.sleep(.3)
+        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_search_focus']);time.sleep(.3)
         key('Escape');wait_until(lambda:data()['navigation_matches']==[8])
-        click(*data()['navigation_needs_filter']);wait_until(lambda:data()['navigation_needs_only'] and not data()['navigation_matches'])
+        click(*settled_point(lambda d:d['navigation_needs_filter']));wait_until(lambda:data()['navigation_needs_only'] and not data()['navigation_matches'])
         hook('PermissionRequest','Needs input');wait_until(lambda:data()['navigation_matches']==[8])
         hook('UserPromptSubmit','Working');wait_until(lambda:not data()['navigation_matches'])
-        click(*data()['navigation_clear_filters']);wait_until(lambda:not data()['navigation_needs_only'] and data()['navigation_matches']==[8])
+        click(*settled_point(lambda d:d['navigation_clear_filters']));wait_until(lambda:not data()['navigation_needs_only'] and data()['navigation_matches']==[8])
         assert not data()['agents_only'] and not data()['needs_only'] and not data()['overview']
         assert workspace_catalog.load(root)==nav_catalog and [p['instance'] for p in data()['panes']]==nav_objects
         assert [received(i) for i in range(6)]==nav_input,'agent search or result navigation typed into terminals'
         capture('navigation-agent-search.png')
         info_inputs=[received(i) for i in range(6)];info_instances=[p['instance'] for p in data()['panes']];info_sizes=sizes();info_catalog=workspace_catalog.load(root)
-        click(*data()['navigation_agent_info']);wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['navigation_agent_info']));wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
         assert data()['agent_info_target']==data()['panes'][8]['identity'] and data()['agent_info_details']['heading']=='Working'
         raw_key('super+alt+Right');raw_key('super+alt+o');time.sleep(.1)
         assert data()['selected']==8 and not data()['overview'],'agent details leaked a global shortcut'
@@ -1439,22 +1441,22 @@ while True:
         assert workspace_catalog.load(root)==info_catalog and sizes()==info_sizes and [p['instance'] for p in data()['panes']]==info_instances
         assert [received(i) for i in range(6)]==info_inputs,'agent details or copying typed into a terminal'
         hook('UserPromptSubmit','Working')
-        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
 
         hook('PermissionRequest','Needs input');wait_until(lambda:any('Codex · Needs input' in label for label in data()['navigation_agent_labels']))
         capture('navigation-agent-needs.png')
         hook('UserPromptSubmit','Working');wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
-        click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
+        click(*settled_point(lambda d:d['navigation_first_agent']));wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
-        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         background_selected=data()['selected'];background_workspace=data()['workspace']
-        click(*data()['navigation_agent_info']);wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
+        click(*settled_point(lambda d:d['navigation_agent_info']));wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
         assert data()['selected']==background_selected and data()['workspace']==background_workspace,'inspecting a background agent navigated to it'
         click(*settled_point(lambda d:d['agent_info_runtime']));wait_until(lambda:data()['runtime_info_open'] and not data()['agent_info_open'])
         assert data()['runtime_info_target']==data()['panes'][8]['identity'] and data()['selected']==background_selected and data()['workspace']==background_workspace
         key('Escape');wait_until(lambda:not data()['runtime_info_open'] and data()['panes'][background_selected]['focus'])
-        click(*data()['agents_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-        click(*data()['navigation_first_agent']);wait_until(lambda:not data()['drawer_open'] and data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'])
+        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        click(*settled_point(lambda d:d['navigation_first_agent']));wait_until(lambda:not data()['drawer_open'] and data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'])
         key('super+alt+o');wait_until(lambda:data()['overview'])
         search_input=[received(i) for i in range(6)];search_catalog=workspace_catalog.load(root);search_objects=[p['instance'] for p in data()['panes']]
         key('super+alt+s');wait_until(lambda:data()['overview_search_focus'])
@@ -1462,19 +1464,19 @@ while True:
         raw_key('super+alt+Right');time.sleep(.1);assert data()['selected']==8 and data()['overview_search_focus']
         key('Down');key('Return');wait_until(lambda:not data()['overview'] and data()['panes'][8]['focus'])
         key('super+alt+o');wait_until(lambda:data()['overview'] and data()['overview_matches']==1)
-        click(*data()['overview_search']);key('ctrl+a');typed('no-such-terminal-739');wait_until(lambda:data()['overview_matches']==0)
+        click(*settled_point(lambda d:d['overview_search']));key('ctrl+a');typed('no-such-terminal-739');wait_until(lambda:data()['overview_matches']==0)
         key('Return');time.sleep(.1);assert data()['overview']
         key('Escape');wait_until(lambda:data()['overview_matches']==14 and data()['overview_search_focus'])
         # Match multiple metadata terms across workspace and process fields.
         typed('Codex '+data()['workspace_names'][data()['panes'][8]['workspace']]);wait_until(lambda:data()['overview_matches']==1)
         capture('overview-context-search.png')
-        click(*data()['overview_clear_filters']);wait_until(lambda:data()['overview_matches']==14)
+        click(*settled_point(lambda d:d['overview_clear_filters']));wait_until(lambda:data()['overview_matches']==14)
         assert workspace_catalog.load(root)==search_catalog and [p['instance'] for p in data()['panes']]==search_objects
         assert [received(i) for i in range(6)]==search_input,'Overview search typed into terminals'
-        click(*data()['agent_filter_button']);wait_until(lambda:data()['agents_only'] and data()['overview_matches']==1)
+        click(*settled_point(lambda d:d['agent_filter_button']));wait_until(lambda:data()['agents_only'] and data()['overview_matches']==1)
         assert [i for i,p in enumerate(data()['panes']) if p['visible']]==[8]
         assert sizes()==metadata_sizes,'metadata/filter presentation resized the PTY'
-        click(*data()['state_filter_button']);wait_until(lambda:data()['needs_only'] and data()['overview_matches']==0)
+        click(*settled_point(lambda d:d['state_filter_button']));wait_until(lambda:data()['needs_only'] and data()['overview_matches']==0)
         capture('metadata-no-needs.png')
         hook('PermissionRequest','Needs input');wait_until(lambda:data()['overview_matches']==1 and data()['waiting_count']==1)
         assert data()['panes'][8]['visible']
@@ -1485,8 +1487,8 @@ while True:
         drag_workspace(8,2);wait_until(lambda:data()['drag_slot']==-1)
         assert workspace_catalog.load(root)==metadata_catalog,'filtered no-op reordered hidden terminals'
         hook('Stop','Ready');wait_until(lambda:data()['overview_matches']==0 and data()['waiting_count']==0)
-        click(*data()['state_filter_button']);wait_until(lambda:not data()['needs_only'] and data()['overview_matches']==1)
-        click(*data()['agent_filter_button']);wait_until(lambda:not data()['agents_only'] and data()['overview_matches']==14)
+        click(*settled_point(lambda d:d['state_filter_button']));wait_until(lambda:not data()['needs_only'] and data()['overview_matches']==1)
+        click(*settled_point(lambda d:d['agent_filter_button']));wait_until(lambda:not data()['agents_only'] and data()['overview_matches']==14)
         key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][8]['focus'])
         key('ctrl+c');wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='')
         # Pi uses a new metadata subscription; older clients retain Unknown.
@@ -1494,7 +1496,7 @@ while True:
         typed('sh -c '+shlex.quote('echo $$ > '+shlex.quote(str(root/'pi.pid'))+'; exec '+shlex.quote(str(pi_fixture))+' 120'));key('Return')
         wait_until(lambda:data()['panes'][8]['facts'].get('agent')=='Pi');wait_until((root/'pi.pid').exists)
         click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
-        click(*data()['agent_info_menu']);wait_until(lambda:data()['agent_info_open'] and not data()['layout_menu_open'])
+        click(*settled_point(lambda d:d['agent_info_menu']));wait_until(lambda:data()['agent_info_open'] and not data()['layout_menu_open'])
         assert data()['agent_info_details']['agent']=='Pi' and data()['agent_info_details']['launcher']=='band-pi' and data()['agent_info_details']['heading']=='Status unknown'
         key('Escape');wait_until(lambda:not data()['agent_info_open'] and data()['panes'][8]['focus'])
         key('super+alt+p');wait_until(lambda:data()['commands_open']);typed('Agent details');key('Return');wait_until(lambda:data()['agent_info_open'])
@@ -1513,7 +1515,7 @@ while True:
         capture('lifecycle-exit-42.png')
         stopped_details_attempts=data()['panes'][8]['attachment_attempts']
         click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
-        click(*data()['runtime_info_menu']);wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='unavailable')
+        click(*settled_point(lambda d:d['runtime_info_menu']));wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='unavailable')
         assert data()['runtime_info_ownership']=='Stopped' and '42' in data()['panes'][8]['lifecycle']['message']
         capture('terminal-details-stopped.png');key('Escape');wait_until(lambda:not data()['runtime_info_open'])
         assert data()['panes'][8]['attachment_attempts']==stopped_details_attempts and workspace_catalog.load(root)==life_catalog,'stopped inspection recovered or reattached a shell'
@@ -1539,7 +1541,7 @@ while True:
             wait_until(lambda:data()['panes'][8]['attachment']=='elsewhere' and data()['panes'][8]['lifecycle'].get('state')=='running')
             owned_input=[received(i) for i in range(6)]
             click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
-            click(*data()['runtime_info_menu']);wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='available')
+            click(*settled_point(lambda d:d['runtime_info_menu']));wait_until(lambda:data()['runtime_info_open'] and data()['runtime_info_report'].get('state')=='available')
             assert data()['runtime_info_ownership']=='Attached in another window'
             key('Escape');wait_until(lambda:not data()['runtime_info_open'])
             assert data()['panes'][8]['attachment']=='elsewhere' and [received(i) for i in range(6)]==owned_input,'runtime inspection transferred ownership or typed input'
@@ -1553,7 +1555,7 @@ while True:
             from session_smoke import expect
             expect(peer,b'WB_OWNER_RETAINED')
             click(*settled_point(lambda d:d['panes'][8]['primary_action']));wait_until(lambda:data()['terminal_action_open'])
-            capture('lifecycle-transfer-confirm.png');click(*data()['confirm_terminal_action'])
+            capture('lifecycle-transfer-confirm.png');click(*settled_point(lambda d:d['confirm_terminal_action']))
             wait_until(lambda:data()['panes'][8]['ready'] and not data()['terminal_action_open']);revoked(peer)
         finally:peer.close()
         # Reconnect is non-stealing, read-only status never resurrects the service.
@@ -1576,14 +1578,14 @@ while True:
         # Cancel/Enter never closes a terminal; confirm removes one stable identity.
         def close_menu():
             click(*settled_point(lambda d:d['panes'][8]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
-            click(*data()['terminal_close_item']);wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='close')
+            click(*settled_point(lambda d:d['terminal_close_item']));wait_until(lambda:data()['terminal_action_open'] and data()['terminal_action_kind']=='close')
             key('super+alt+Up');key('super+alt+t');time.sleep(.1)
             assert data()['selected']==8 and data()['workspace']==2 and len(data()['panes'])==14,'global actions escaped confirmation scope'
         close_menu();key('Return');time.sleep(.1)
         if data()['terminal_action_open']:key('Escape')
         wait_until(lambda:not data()['terminal_action_open'])
         assert workspace_catalog.load(root)==life_catalog and len(data()['panes'])==14
-        close_menu();capture('lifecycle-close-confirm.png');click(*data()['confirm_terminal_action'])
+        close_menu();capture('lifecycle-close-confirm.png');click(*settled_point(lambda d:d['confirm_terminal_action']))
         wait_until(lambda:not data()['terminal_action_open'] and len(data()['panes'])==13 and data()['selected']==-1)
         assert data()['workspace']==2 and not target_socket.exists()
         remaining={p['identity']:p['instance'] for p in data()['panes']}
@@ -1614,9 +1616,9 @@ while True:
         assert chosen['top']>=95 and chosen['bottom']+45<=748,'keyboard selection/caption remained outside viewport'
         capture('overview-narrow.png')
         assert sizes()==overview_sizes and [p['instance'] for p in data()['panes']]==overview_ids
-        click(*data()['agent_filter_button']);wait_until(lambda:data()['agents_only'] and data()['overview_matches']==0)
+        click(*settled_point(lambda d:d['agent_filter_button']));wait_until(lambda:data()['agents_only'] and data()['overview_matches']==0)
         capture('overview-narrow-empty.png')
-        click(*data()['overview_clear_filters']);wait_until(lambda:not data()['agents_only'] and not data()['needs_only'] and data()['overview_matches']==13)
+        click(*settled_point(lambda d:d['overview_clear_filters']));wait_until(lambda:not data()['agents_only'] and not data()['needs_only'] and data()['overview_matches']==13)
         key('Escape');wait_until(lambda:not data()['overview'] and data()['panes'][data()['selected']]['focus'])
         font_menu();capture('font-narrow.png');key('Escape');wait_until(lambda:not data()['font_settings_open'])
         command_search('workspace');capture('commands-narrow.png')
@@ -1633,8 +1635,8 @@ while True:
         # Removing the last workspace leaves a usable empty window, not seeded shells.
         while data()['workspace_count']:
             remaining=data()['workspace_count']
-            click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open']);time.sleep(.3)
-            click(*data()['remove_workspace_0']);wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
+            click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+            click(*settled_point(lambda d:d['remove_workspace_0']));wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
             # Popup visibility precedes its entered animation and final geometry.
             wait_until(lambda:data()['terminal_action_ready'])
             click(*settled_point(lambda d:d['confirm_terminal_action']));wait_until(lambda:not data()['terminal_action_open'] and data()['workspace_count']==remaining-1)
@@ -1674,7 +1676,7 @@ while True:
             raw_key('ctrl+d');wait_until(lambda:not data()['panes'][1]['ready'] and data()['panes'][1]['lifecycle'].get('state')=='stopped')
             if entry=='menu':
                 click(*settled_point(lambda d:d['panes'][1]['layout_button']));wait_until(lambda:data()['layout_menu_open'])
-                click(*data()['terminal_close_item'])
+                click(*settled_point(lambda d:d['terminal_close_item']))
             else:
                 command_search('Close pane');key('Return')
             wait_until(lambda:len(data()['panes'])==1 and data()['panes'][0]['ready'])
@@ -1812,18 +1814,18 @@ while True:
         time.sleep(.3);capture('host-pane.png')
         # The Hosts panel lists saved hosts with their open panes; its Connect
         # opens a second pane on the same host.
-        click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
+        click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
         wait_until(lambda:any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']) and len(data()['navigation_host_panes'])==1)
         wait_until(lambda:data()['host_reachability'].get('lab')=='reachable',timeout=10)
         click(*settled_point(lambda d:d['connect_host_0']));wait_until(lambda:app_pane('_host-lab_2') is not None,timeout=10)
-        click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
+        click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
         time.sleep(.3);capture('hosts-panel.png')
         # New host… saves to Band's own list with an alias from ~/.ssh/config;
         # a saved host can be removed again, config.conf hosts cannot.
         click(*settled_point(lambda d:d['new_host_button']));wait_until(lambda:data()['host_dialog_open'] and len(data()['host_suggestion_0'])==2)
-        click(*data()['host_suggestion_0']);time.sleep(.2);capture('host-dialog.png');click(*data()['save_host_button'])
+        click(*settled_point(lambda d:d['host_suggestion_0']));time.sleep(.2);capture('host-dialog.png');click(*settled_point(lambda d:d['save_host_button']))
         wait_until(lambda:not data()['host_dialog_open'] and [h['id'] for h in data()['saved_hosts']]==['alpha'] and (root/'ui'/'hosts.json').exists())
-        click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and any(h.startswith('alpha · alpha') for h in data()['navigation_hosts']) and len(data()['remove_host_1'])==2)
+        click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and any(h.startswith('alpha · alpha') for h in data()['navigation_hosts']) and len(data()['remove_host_1'])==2)
         wait_until(lambda:data()['host_reachability'].get('alpha')=='unreachable',timeout=10);capture('hosts-reachability.png')
         click(*settled_point(lambda d:d['remove_host_1']));wait_until(lambda:not data()['saved_hosts'] and not any(h.startswith('alpha') for h in data()['navigation_hosts']))
         key('Escape');wait_until(lambda:not data()['drawer_open'])
