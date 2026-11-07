@@ -177,17 +177,17 @@ Item {
                                 required property int modelData
                                 readonly property var pane: host.panel(modelData)
                                 readonly property var facts: pane ? pane.facts : ({title: "", agent: "", state: ""})
-                                readonly property string kind: pane && pane.app ? "app" : facts.agent ? "agent" : "shell"
-                                readonly property string title: kind === "app" ? pane.appName : (facts.title || "Terminal")
-                                readonly property string folder: (facts.cwd || "").replace(/^\/(var\/)?home\/[^\/]+/, "~")
-                                // A shell's folder, unless its title already shows it.
-                                readonly property string detail: kind === "app" ? (pane.appStopped ? "Stopped" : "App")
-                                    : kind === "agent" ? facts.agent + " · " + facts.state
-                                    : title.indexOf(folder) >= 0 || title.indexOf(facts.cwd || "") >= 0 ? "" : folder
+                                readonly property var identity: host.paneIdentity(pane)
+                                readonly property string kind: identity.kind
+                                // The program leads and the folder follows, as in pane headers;
+                                // without a program name the folder leads.
+                                readonly property string title: identity.name || identity.place
+                                readonly property string detail: identity.name ? identity.place : ""
+                                readonly property string paneState: kind === "agent" ? facts.state : kind === "app" && pane.appStopped ? "Stopped" : ""
                                 objectName: "navigationPane" + workspaceRow.index + "_" + index
                                 tones: host.chrome; width: paneColumn.width; height: 34
                                 selected: modelData === host.selected && !host.overview
-                                hint: title + (detail ? " · " + detail : "")
+                                hint: [title, detail, paneState].filter(part => part).join(" · ")
                                 Keys.onDownPressed: workspaceRow.focusPane(index + 1)
                                 Keys.onUpPressed: { if (index === 0) workspaceEntry.forceActiveFocus(Qt.TabFocusReason); else workspaceRow.focusPane(index - 1) }
                                 Keys.onLeftPressed: workspaceEntry.forceActiveFocus(Qt.TabFocusReason)
@@ -196,16 +196,21 @@ Item {
                                     else event.accepted = false
                                 }
                                 contentItem: Item {
-                                    Rectangle {
-                                        id: paneMark; x: 8; anchors.verticalCenter: parent.verticalCenter; width: 6; height: 6; radius: 3
+                                    ChromeIcon {
+                                        id: paneMark; x: 4; anchors.verticalCenter: parent.verticalCenter; width: 15; height: 15; name: paneRow.identity.icon
                                         color: paneRow.kind === "agent" ? (paneRow.facts.needs_input ? host.chrome.waiting : paneRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.accent)
                                             : paneRow.kind === "app" ? (paneRow.pane && paneRow.pane.appStopped ? host.chrome.waiting : host.chrome.ready) : host.chrome.muted
                                     }
-                                    Text { anchors.left: paneMark.right; anchors.leftMargin: 8; anchors.right: paneDetail.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: paneRow.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.foreground; font.pixelSize: 13 }
+                                    // The program keeps its width; the folder gives way, keeping its end.
                                     Text {
-                                        id: paneDetail; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                                        width: Math.min(implicitWidth, parent.width * 0.45); text: paneRow.detail; textFormat: Text.PlainText; elide: Text.ElideLeft; font.pixelSize: 11
-                                        color: paneRow.kind === "agent" && paneRow.facts.needs_input ? host.chrome.waiting : host.chrome.muted
+                                        id: paneName; anchors.left: paneMark.right; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                        width: Math.min(implicitWidth, parent.width - x - 8 - (paneRow.detail ? 48 : 0))
+                                        text: paneRow.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.foreground; font.pixelSize: 13
+                                    }
+                                    Text {
+                                        id: paneDetail; anchors.left: paneName.right; anchors.leftMargin: 8; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                        horizontalAlignment: Text.AlignRight; text: paneRow.detail; textFormat: Text.PlainText; elide: Text.ElideLeft; font.pixelSize: 11
+                                        color: host.chrome.muted
                                     }
                                 }
                                 onClicked: host.choosePane(modelData)

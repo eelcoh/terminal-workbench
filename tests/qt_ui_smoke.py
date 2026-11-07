@@ -503,8 +503,12 @@ while True:
         # Panes grouped by workspace: the current one lists its panes, the
         # others stay closed until opened; a pane row goes to that pane.
         def pane_rows(w):return sorted((r for r in data()['navigation_panes'] if r['name'].startswith(f'navigationPane{w}_')),key=lambda r:int(r['name'].rsplit('_',1)[1]))
+        # Rows and headers name the foreground program (WAT4) before the folder.
         click(*data()['workspaces_button']);wait_until(lambda:data()['drawer_open'] and len(pane_rows(0))==3 and not pane_rows(1));time.sleep(.3)
-        assert pane_rows(0)[0]['selected'] and all(r['kind']=='shell' and ' · ' not in r['hint'] for r in pane_rows(0)),pane_rows(0)
+        wait_until(lambda:all(p['facts'].get('process') for p in data()['panes'][:3]))
+        shells=[p for p in data()['panes'] if p['workspace']==0]
+        assert all(p['header']==[p['facts']['process'],p['facts']['title']] for p in shells),[p['header'] for p in shells]
+        assert pane_rows(0)[0]['selected'] and all(r['kind']=='shell' and r['hint'].split(' · ')[0]==p['facts']['process'] for r,p in zip(pane_rows(0),sorted(shells,key=lambda p:p['ordinal']))),pane_rows(0)
         capture('navigation-panes.png')
         click(*settled_point(lambda d:d['expand_workspace_1']));wait_until(lambda:len(pane_rows(1))==3)
         click(*settled_point(lambda d:next((r['point'] for r in d['navigation_panes'] if r['name']=='navigationPane1_1'),None)))

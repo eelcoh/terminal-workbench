@@ -768,6 +768,15 @@ ApplicationWindow {
     readonly property color accent: chrome.accent
     readonly property int motion: reducedMotion ? 0 : 220
     function panel(i) { return panels.itemAt(i) }
+    // What a pane runs and where, shared by pane headers and sidebar rows: its
+    // kind, the app, agent or foreground program, and its folder or repository.
+    function paneIdentity(pane) {
+        if (!pane) return {kind: "shell", icon: "shell", name: "", place: ""}
+        const f = pane.facts
+        const kind = pane.app ? "app" : f.agent ? "agent" : "shell"
+        return {kind: kind, icon: kind === "app" ? "apps" : kind === "agent" ? "agents" : "shell",
+            name: kind === "app" ? pane.appName : kind === "agent" ? f.agent : (f.process || ""), place: f.title || "Terminal"}
+    }
     function paneWidth(i) { return Math.max(240, (deck.width + 12) * (fullWidths[i] ? 1 : widths[i]) - 12) }
     function left(i) { if (i < 0 || i >= terminalModel.count) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
     function stripWidth() { const items = indices(workspace); return items.length === 0 ? deck.width : Math.max(deck.width, left(items[items.length - 1]) + paneWidth(items[items.length - 1])) }
@@ -1094,7 +1103,25 @@ ApplicationWindow {
                     anchors.fill: parent; enabled: !window.overview
                     onClicked: window.focusPane(pane.index)
                 }
-                Text { id: paneTitle; x: 14; y: 10; width: Math.min(implicitWidth, parent.width - 65 - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)); elide: Text.ElideMiddle; text: pane.app ? pane.appName : pane.facts.title; textFormat: Text.PlainText; font.pixelSize: 12; color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground }
+                readonly property var identity: window.paneIdentity(pane)
+                // Room for the identity left of the state, colors swatch and menu.
+                readonly property real headerRoom: width - 51 - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)
+                ChromeIcon {
+                    id: paneKind; x: 12; y: 9; width: 15; height: 15; name: pane.identity.icon
+                    color: pane.appStopped ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
+                }
+                Text {
+                    id: paneName; objectName: "paneName"; x: 33; y: 10; visible: text.length > 0
+                    width: Math.min(implicitWidth, Math.max(0, (pane.headerRoom - x) * 0.5)); elide: Text.ElideRight
+                    text: pane.identity.name; textFormat: Text.PlainText; font.pixelSize: 12; font.weight: Font.DemiBold
+                    color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground
+                }
+                Text {
+                    id: paneTitle; objectName: "paneTitle"; x: paneName.visible ? paneName.x + paneName.width + 7 : 33; y: 10
+                    width: Math.min(implicitWidth, Math.max(0, pane.headerRoom - x)); elide: Text.ElideMiddle
+                    text: pane.identity.place; textFormat: Text.PlainText; font.pixelSize: 12
+                    color: paneName.visible ? studyThemes.theme(window.themeIndexFor(spaceIndex)).muted : studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground
+                }
                 // A swatch of the terminal's own palette; the frame keeps workspace colors.
                 Rectangle {
                     id: ownColors; objectName: "terminalOwnColors" + pane.terminalId
@@ -1113,7 +1140,7 @@ ApplicationWindow {
                 }
                 Text {
                     id: headerState; x: parent.width - 48 - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
-                    text: pane.facts.agent ? pane.facts.agent + " · " + pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
+                    text: pane.facts.agent ? pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
                     color: pane.facts.needs_input ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : pane.facts.state === "Ready" ? studyThemes.theme(window.themeIndexFor(spaceIndex)).ready : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
                 }
                 QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: 3; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); window.paneMenuTarget = pane.terminalId; const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }

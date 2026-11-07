@@ -163,6 +163,8 @@ int main(int argc,char **argv) {
                     {"exited_close_action",actionPoint("terminalCloseExited"+QString::number(panes.size()))},
                     {"exited_close_visible",exitedClose && exitedClose->isVisible()},
                     {"reconnect_action",actionPoint("terminalReconnect"+QString::number(panes.size()))},
+                    {"header",[item]{const auto *name=item->parentItem()->findChild<QQuickItem *>("paneName");const auto *place=item->parentItem()->findChild<QQuickItem *>("paneTitle");
+                        return QJsonArray{name && name->isVisible() ? name->property("text").toString() : QString(),place ? place->property("text").toString() : QString()};}()},
                     {"caption",caption ? caption->property("text").toString() : QString()},{"caption_visible",caption && caption->isVisible()},
                     {"facts",QJsonObject::fromVariantMap(item->property("runtimeFacts").toMap())},{"visible",item->parentItem()->isVisible()},
                     {"selection",item->accessibleSnapshot().selectionStart>=0},

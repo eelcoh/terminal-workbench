@@ -47,8 +47,9 @@ its own.
 ## Proposed polish, in order
 
 1. **Pane identity.** A kind icon (shell, agent, app) and "process · folder"
-   in pane headers and sidebar rows, one component for both. Today headers
-   show the terminal title only.
+   in pane headers and sidebar rows, one component for both. *Done:* the
+   runtime's WAT4 watch adds the foreground executable's file name; headers
+   and Workspaces rows show icon, program and folder.
 2. **Key chips everywhere.** Shortcuts as chips in the command palette, menus,
    tooltips and the shortcut help, from the live keymap.
 3. **One accent and selection style.** A single accent per theme for primary

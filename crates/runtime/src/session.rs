@@ -147,10 +147,15 @@ type AgentWatchers = Vec<(u64, SyncSender<Frame>, u8)>;
 fn attention_frame(attention: &crate::attention::Attention, version: u8) -> Frame {
     // Existing subscriptions retain their published tag range. Pi is exposed
     // only through WAT3; old clients get their existing Unknown fallback.
+    // WAT4 appends the foreground executable's file name.
     let tag = attention.agent.tag();
     let supported = version >= 3 || tag <= 6;
     let tag = if supported { tag } else { 255 };
-    if version >= 2 {
+    if version >= 4 {
+        let mut payload = vec![tag, attention.status.tag()];
+        payload.extend_from_slice(attention.process.as_bytes());
+        frame(6, &payload)
+    } else if version >= 2 {
         frame(
             6,
             &[tag, if supported { attention.status.tag() } else { 0 }],
@@ -163,15 +168,35 @@ fn publish_attention(
     watchers: &mut AgentWatchers,
     attention: &crate::attention::Attention,
     identity_changed: bool,
+    process_only: bool,
 ) {
     watchers.retain(|(_, frames, version)| {
-        if *version == 1 && !identity_changed {
+        if (*version == 1 && !identity_changed) || (*version < 4 && process_only) {
             return true;
         }
         frames
             .try_send(attention_frame(attention, *version))
             .is_ok()
     });
+}
+
+fn sample_foreground(
+    group: Option<i32>,
+    context_pid: &AtomicI32,
+    shell_pid: i32,
+    attention: &mut crate::attention::Attention,
+    watchers: &mut AgentWatchers,
+) {
+    let process = crate::platform::identity(group);
+    context_target(context_pid, group, shell_pid, process.as_ref());
+    let renamed = attention.set_process(crate::agent::process_name(process.as_ref()));
+    let next = crate::agent::identify(process);
+    let old = attention.agent;
+    if attention.sample(next, group) {
+        publish_attention(watchers, attention, old != next, false);
+    } else if renamed {
+        publish_attention(watchers, attention, false, true);
+    }
 }
 
 fn start_agent_watch(
@@ -339,7 +364,7 @@ pub fn serve_with_shell_launch(
                 b"CAPS\n" => {
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let report = format!(
-                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\",\"runtime-origin\",\"agent-watch-v3\"],\"origin\":{}}}\n",
+                        "{{\"protocol\":1,\"runtime_pid\":{},\"capabilities\":[\"snapshot\",\"transfer\",\"terminal-read\",\"terminal-context\",\"terminal-lifecycle\",\"runtime-origin\",\"agent-watch-v3\",\"agent-watch-v4\"],\"origin\":{}}}\n",
                         std::process::id(), runtime_origin
                     );
                     let _ = stream.write_all(report.as_bytes());
@@ -367,6 +392,7 @@ pub fn serve_with_shell_launch(
                 b"WATCH" => Event::Watch(id as u64, stream, 1),
                 b"WAT2\n" => Event::Watch(id as u64, stream, 2),
                 b"WAT3\n" => Event::Watch(id as u64, stream, 3),
+                b"WAT4\n" => Event::Watch(id as u64, stream, 4),
                 b"STATE" => {
                     let mut report = [0; 30];
                     if stream.read_exact(&mut report).is_err() {
@@ -529,24 +555,24 @@ pub fn serve_with_shell_launch(
                 }
                 Event::AgentTick => {
                     let group = pair.master.process_group_leader();
-                    let process = crate::platform::identity(group);
-                    context_target(&context_pid, group, shell_pid, process.as_ref());
-                    let next = crate::agent::identify(process);
-                    let old = attention.agent;
-                    if attention.sample(next, group) {
-                        publish_attention(&mut watchers, &attention, old != next);
-                    }
+                    sample_foreground(
+                        group,
+                        &context_pid,
+                        shell_pid,
+                        &mut attention,
+                        &mut watchers,
+                    );
                     continue;
                 }
                 Event::Signal(mut stream, report) => {
                     let group = pair.master.process_group_leader();
-                    let process = crate::platform::identity(group);
-                    context_target(&context_pid, group, shell_pid, process.as_ref());
-                    let next = crate::agent::identify(process);
-                    let old = attention.agent;
-                    if attention.sample(next, group) {
-                        publish_attention(&mut watchers, &attention, old != next);
-                    }
+                    sample_foreground(
+                        group,
+                        &context_pid,
+                        shell_pid,
+                        &mut attention,
+                        &mut watchers,
+                    );
                     let reported_group =
                         i32::from_be_bytes([report[2], report[3], report[4], report[5]]);
                     let mut run = [0; 16];
@@ -564,7 +590,7 @@ pub fn serve_with_shell_launch(
                             )
                         });
                     if accepted {
-                        publish_attention(&mut watchers, &attention, false);
+                        publish_attention(&mut watchers, &attention, false, false);
                     }
                     let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
                     let _ = stream.write_all(if accepted { b"OK\n" } else { b"ERROR\n" });
@@ -775,6 +801,12 @@ mod tests {
         assert_eq!(&*attention_frame(&attention, 1), &[5, 0, 0, 0, 1, 255]);
         assert_eq!(&*attention_frame(&attention, 2), &[6, 0, 0, 0, 2, 255, 0]);
         assert_eq!(&*attention_frame(&attention, 3), &[6, 0, 0, 0, 2, 7, 1]);
+        attention.set_process("node".into());
+        assert_eq!(&*attention_frame(&attention, 3), &[6, 0, 0, 0, 2, 7, 1]);
+        assert_eq!(
+            &*attention_frame(&attention, 4),
+            &[6, 0, 0, 0, 6, 7, 1, b'n', b'o', b'd', b'e']
+        );
         attention.sample(Agent::Copilot, Some(10));
         attention.status = Status::Ready;
         assert_eq!(

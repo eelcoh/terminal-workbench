@@ -57,6 +57,18 @@ impl Agent {
     }
 }
 
+/// The executable's file name, shown beside a pane's folder. Never its path,
+/// arguments or environment; empty when unavailable, longer than 64 bytes, not
+/// UTF-8, or containing control characters.
+pub fn process_name(process: Option<&ProcessIdentity>) -> String {
+    process
+        .and_then(|process| process.executable.file_name())
+        .and_then(|name| name.to_str())
+        .filter(|name| name.len() <= 64 && !name.chars().any(char::is_control))
+        .unwrap_or("")
+        .to_owned()
+}
+
 pub fn identify(process: Option<ProcessIdentity>) -> Agent {
     let Some(process) = process else {
         return Agent::Unknown;
@@ -143,6 +155,20 @@ mod tests {
             script: script.map(Into::into),
             invocation: None,
         })
+    }
+    #[test]
+    fn process_names_are_bounded_file_names() {
+        assert_eq!(process_name(process("/usr/bin/zsh", None).as_ref()), "zsh");
+        assert_eq!(
+            process_name(process("/bin/node", Some("/pkg/cli.js")).as_ref()),
+            "node"
+        );
+        assert_eq!(process_name(None), "");
+        assert_eq!(process_name(process("/bin/a\nb", None).as_ref()), "");
+        assert_eq!(
+            process_name(process(&format!("/bin/{}", "x".repeat(65)), None).as_ref()),
+            ""
+        );
     }
     #[test]
     fn identification_uses_executable_and_launcher_boundaries() {

@@ -22,6 +22,8 @@ Copilot npm-loader.js layout without exposing prompts or environment through the
 API. Oversized or unavailable arguments leave script recognition unavailable.
 Native macOS agent recognition remains unverified. Other Unix targets return
 unavailable. No system process arguments or prompts are exposed by the API.
+The WAT4 watch adds the leader's executable file name (such as `zsh` or
+`node`), bounded and without its path, so the viewer can show what a pane runs.
 
 The JSON snapshot is available through `band-session inspect SOCKET`:
 

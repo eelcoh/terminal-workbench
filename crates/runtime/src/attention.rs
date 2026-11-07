@@ -39,6 +39,9 @@ impl Status {
 pub struct Attention {
     pub agent: Agent,
     pub status: Status,
+    /// The foreground executable's file name, for display only; see
+    /// [`crate::agent::process_name`].
+    pub process: String,
     group: Option<i32>,
     run: Option<[u8; 16]>,
     sequence: u64,
@@ -48,6 +51,7 @@ impl Attention {
         Self {
             agent: Agent::Unknown,
             status: Status::Unknown,
+            process: String::new(),
             group: None,
             run: None,
             sequence: 0,
@@ -62,6 +66,11 @@ impl Attention {
             self.run = None;
             self.sequence = 0;
         }
+        changed
+    }
+    pub fn set_process(&mut self, process: String) -> bool {
+        let changed = self.process != process;
+        self.process = process;
         changed
     }
     pub fn report(

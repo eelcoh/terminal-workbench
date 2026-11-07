@@ -67,6 +67,13 @@ not enter legacy subscriptions or terminal replay. The viewer tries WAT2 then
 WATCH once if an older control server rejects it. A lost subscription clears
 its evidence to Unknown without disconnecting the terminal.
 
+`WAT4\n` (capability `agent-watch-v4`) sends the same two bytes followed by the
+foreground executable's file name, at most 64 bytes of UTF-8 without control
+characters, or nothing when it is unavailable. Never its path, arguments or
+environment. A name change alone updates WAT4 subscriptions only. The viewer
+tries WAT4, then WAT3, then WAT2 when an older runtime closes the handshake
+without a reply.
+
 `STATE` followed by 30 bytes reports agent tag (u8), status tag (u8), foreground
 process group (big endian i32), invocation token (16 nonzero bytes), and sequence
 (big endian u64). The runtime refreshes identity/group before validation. Only a

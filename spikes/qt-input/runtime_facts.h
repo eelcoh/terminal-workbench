@@ -15,9 +15,9 @@ public:
 private:
     void drain();
     void fail(bool initialClose=false);
-    QByteArray request_,buffer_;QString path_;quint8 kind_;QLocalSocket socket_;QTimer deadline_;
+    QByteArray request_,sent_,buffer_;QString path_;quint8 kind_;QLocalSocket socket_;QTimer deadline_;
     std::function<bool(const QByteArray &)> consume_;std::function<void()> unavailable_;
-    bool failed_=true,received_=false,legacy_=false,retryPending_=false;
+    bool failed_=true,received_=false,retryPending_=false;
 };
 class RuntimeFacts final : public QObject {
     Q_OBJECT
@@ -33,7 +33,7 @@ private:
     bool agent(const QByteArray &payload);
     void clearContext();
     void clearAgent();
-    QString path_,cwd_,repository_,branch_,worktree_;
+    QString path_,cwd_,repository_,branch_,worktree_,process_;
     bool contextAvailable_=false,remote_=false,detached_=false,agentAvailable_=false;
     quint8 agent_=255,state_=0;
     RuntimeFeed contextFeed_,agentFeed_;
