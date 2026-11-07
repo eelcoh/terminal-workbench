@@ -83,6 +83,18 @@ int main(int argc,char **argv){
     write(appearancePath,"band-config-v1\n[macos.appearance]\nterminal-theme = Dracula\n[linux.appearance]\nterminal-theme = Workbench Dawn\n[appearance]\nterminal-theme = Workbench Night\n");
     UiAppearance mac(appearancePath,true,themes),linuxAppearance(appearancePath,false,themes);
     require(mac.themeIndex()==2 && linuxAppearance.themeIndex()==1,"platform appearance override wins regardless of section order");
+    // A default theme saved by Band takes precedence until it is removed.
+    const auto savedPath=root.filePath("settings/ui/linux/appearance.json");
+    UiAppearance chosen(appearancePath,false,themes,nullptr,savedPath);
+    require(!chosen.saved() && chosen.themeIndex()==1,"config.conf theme until Band saves one");
+    require(chosen.saveDefault(2) && chosen.saved() && chosen.themeIndex()==2,"saved default theme used at once");
+    UiAppearance reopened(appearancePath,false,themes,nullptr,savedPath);
+    require(reopened.themeIndex()==2 && reopened.error().isEmpty(),"saved default theme survives a restart without a new slot");
+    require(chosen.useConfigured() && !chosen.saved() && !QFileInfo::exists(savedPath) && chosen.themeIndex()==1,"removing Band's choice returns to config.conf");
+    write(savedPath,"{\"version\":1,\"default-theme\":{\"name\":\"\"}}");
+    UiAppearance invalid(appearancePath,false,themes,nullptr,savedPath);
+    require(!invalid.error().isEmpty() && invalid.themeIndex()==0,"invalid saved theme is reported, not guessed");
+    QFile::remove(savedPath);
     // Creation preferences never probe project folders during reload; the
     // existing session-service Create boundary checks availability explicitly.
     const auto creationPath=root.filePath("settings/creation.conf");
@@ -130,5 +142,5 @@ int main(int argc,char **argv){
     write(creationPath,"band-config-v1\n[font]\nsize = 23\n[app.lazygit]\nname = Lazygit\n");
     require(!creationSettings.reload() && size(creationFonts)==22 && creationSettings.apps().size()==2 && creationSettings.error().contains("needs a command"),"an app without a command keeps the live transaction");
     QFile::remove(creationPath);require(wait([&]{return creationSettings.apps().isEmpty();}),"removed managed file removes apps");
-    std::puts("PASS: app definitions, creation folders/widths, Unicode/home paths, platform field precedence, transaction rollback, deferred drafts,  managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement");
+    std::puts("PASS: app definitions, creation folders/widths, Unicode/home paths, platform field precedence, transaction rollback, deferred drafts,  managed workspace themes, watched Ghostty files, platform precedence, immutable colors, atomic font/shortcut reload, invalid last-valid retention, independent zoom, peer updates, editor deferral, override deletion and symlink replacement, saved default theme");
 }

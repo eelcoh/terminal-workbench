@@ -9,6 +9,8 @@ UiConfiguration::UiConfiguration(UiFonts &fonts,UiShortcuts &shortcuts,bool watc
     :QObject(parent),appearance_(appearance),apple_(apple),creation_(CreationDefaults::read(fonts.managedPath(),apple)),view_(ViewDefaults::read(fonts.managedPath(),apple)),apps_(AppDefinitions::read(fonts.managedPath(),apple)),fonts_(fonts),shortcuts_(shortcuts),watching_(watch)
 {
     if(appearance_)error_=appearance_->error();
+    // A default theme saved from the UI changes themeIndex without a reload.
+    if(appearance_)connect(appearance_,&UiAppearance::changed,this,&UiConfiguration::changed);
     if(!creation_.error.isEmpty())error_+=(error_.isEmpty()?QString():QString(" "))+creation_.error;
     if(!view_.error.isEmpty() && !error_.contains(view_.error))error_+=(error_.isEmpty()?QString():QString(" "))+view_.error;
     if(!apps_.error.isEmpty() && !error_.contains(apps_.error))error_+=(error_.isEmpty()?QString():QString(" "))+apps_.error;
@@ -20,7 +22,7 @@ UiConfiguration::UiConfiguration(UiFonts &fonts,UiShortcuts &shortcuts,bool watc
 }
 QStringList UiConfiguration::sources() const
 {
-    QStringList paths{managedPath(),fontPath(),shortcutPath()};if(appearance_)paths.append(appearance_->sourcePath());paths.removeAll(QString());paths.removeDuplicates();return paths;
+    QStringList paths{managedPath(),fontPath(),shortcutPath()};if(appearance_){paths.append(appearance_->sourcePath());paths.append(appearance_->overridesPath());}paths.removeAll(QString());paths.removeDuplicates();return paths;
 }
 QMap<QString,QByteArray> UiConfiguration::snapshot() const
 {

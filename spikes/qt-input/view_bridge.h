@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-bool workbench_view_defaults(const char *path,bool apple,bool *pinned,bool *motion,char *error,size_t capacity);
+bool workbench_view_defaults(const char *path,bool apple,bool *pinned,bool *motion,bool *title,char *error,size_t capacity);
 #ifdef __cplusplus
 }
 #endif

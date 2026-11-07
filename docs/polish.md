@@ -86,8 +86,10 @@ its own.
    keys worth knowing as chips from the keymap. It opens once per state
    directory (a `qt/welcomed` marker written by finishing or skipping; only
    saved-session launchers pass one) and again from Commands (Welcome to Band).
-   It never writes config.conf. Open: whether the welcome should set the
-   default theme, which today is `application-theme` in config.conf.
+   It never writes config.conf. The first step's theme cards save Band's own
+   default theme (`ui/<platform>/appearance.json`, a color snapshot that takes
+   precedence over `terminal-theme` in config.conf; Use config.conf removes
+   it), and Appearance gained Set as default for any theme.
 6. **Sidebar filter.** One filter field at the bottom of the sidebar across
    workspaces, panes, agents and apps; hover previews of a closed workspace's
    panes. *Done (first pass):* a filter field in the footer of Workspaces
@@ -97,7 +99,13 @@ its own.
    workspace's tooltip lists its panes (up to eight) instead of a popover.
 7. **Window chrome.** Fold the top bar into the title bar (macOS traffic
    lights inline; client-side decorations on Linux). Platform work with risk;
-   last.
+   last. *Done (opt-in):* `integrated-title-bar = true` in `[view]`. Linux:
+   frameless window, Band's own minimize/maximize/close, drag and double click
+   on empty top-bar space, resize from edges and corners (tested under X11 and
+   Wayland in the UI test, frameless flag and buttons only; moving and resizing
+   by hand not yet tried on GNOME or KDE). macOS: `ExpandedClientAreaHint` with
+   the traffic lights in a 72 px inset; unverified on a Mac. Off by default
+   until both are tried by hand.
 8. **Hosts (v0.3).** When SSH hosts arrive: a host level in the Workspaces
    panel with reachability, and a host filter.
 

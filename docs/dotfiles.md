@@ -211,6 +211,12 @@ ignore unused appearance assets. The Qt workspace theme adapter reads only
 syntax-checked but do not introduce additional color layers. Qt chrome follows
 the workspace palette.
 
+A default theme chosen in Band (the welcome's theme cards, or Set as default in
+Appearance) is saved as a color snapshot in `ui/<platform>/appearance.json`
+beside the font and shortcut settings, and takes precedence over
+`terminal-theme`. Use config.conf in the welcome removes it; deleting the file
+does the same. Band never edits `config.conf` itself.
+
 Terminal text settings preview changes across the window; Apply saves sparse
 platform UI font defaults in `ui/<platform>/terminal-font.json`. Cancel leaves
 the saved defaults untouched. Qt application shortcuts load the existing
@@ -444,7 +450,13 @@ reduced-motion = false
 reduced-motion = true
 ```
 
-Both fields accept only `true` or `false`; built-in defaults are false. Platform
+`integrated-title-bar = true` folds the window's title bar into Band's top bar.
+On Linux the window is frameless: Band draws minimize, maximize and close at the
+top right, empty top-bar space moves the window (double click maximizes) and the
+edges resize it. On macOS the traffic lights sit in the top bar (Qt 6.9 or
+later; not yet tried on a Mac). It applies live and is off by default.
+
+These fields accept only `true` or `false`; built-in defaults are false. Platform
 fields override shared fields independently, regardless of section order. They
 join the existing live configuration transaction: malformed values keep all
 previous valid settings, and open settings editors defer updates.

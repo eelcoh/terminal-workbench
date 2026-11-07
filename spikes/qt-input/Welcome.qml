@@ -79,14 +79,39 @@ FocusScope {
                 objectName: "welcomeMotion"; label: "Motion"; options: ["Animations", "Reduced motion"]; current: welcome.host.reducedMotion ? 1 : 0
                 onChosen: index => welcome.host.motionOverride = index === 1
             }
+            Text { text: "Colors"; color: welcome.tones.foreground; font.pixelSize: 14 }
+            // Built-in themes as cards; choosing one saves Band's default theme.
+            Flow {
+                width: parent.width; spacing: 8
+                Repeater {
+                    model: studyThemes.catalog.filter(theme => !theme.imported && !theme.source)
+                    Rectangle {
+                        id: card
+                        required property var modelData
+                        required property int index
+                        readonly property bool current: studyConfiguration.themeIndex === modelData.index
+                        objectName: "welcomeTheme" + index
+                        width: 146; height: 74; radius: 8; color: modelData.background
+                        border.width: current ? 2 : 1; border.color: current ? welcome.tones.accent : welcome.tones.border
+                        Accessible.role: Accessible.Button; Accessible.name: modelData.name + (current ? ", default" : "")
+                        Text { x: 10; y: 10; width: parent.width - 20; elide: Text.ElideRight; text: card.modelData.name; textFormat: Text.PlainText; color: card.modelData.foreground; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        Row {
+                            x: 10; y: 44; spacing: 4
+                            Repeater { model: card.modelData.swatches.slice(1, 7); Rectangle { required property string modelData; width: 14; height: 14; radius: 3; color: modelData } }
+                        }
+                        ChromeIcon { anchors.right: parent.right; anchors.rightMargin: 8; y: 8; width: 16; height: 16; name: "check"; color: card.modelData.accent; visible: card.current }
+                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: studyAppearance.saveDefault(card.modelData.index) }
+                    }
+                }
+            }
             Row {
                 spacing: 8
-                Text { width: 150; anchors.verticalCenter: parent.verticalCenter; text: "Colors"; color: welcome.tones.foreground; font.pixelSize: 14 }
-                ChromeButton { objectName: "welcomeColors"; tones: welcome.tones; text: "Choose colors…"; focusPolicy: Qt.NoFocus; enabled: welcome.host.spaces.length > 0; onClicked: welcome.host.openAppearance() }
+                ChromeButton { objectName: "welcomeColors"; tones: welcome.tones; text: "More colors…"; hint: "Themes from your themes folder and imports, for this workspace"; focusPolicy: Qt.NoFocus; enabled: welcome.host.spaces.length > 0; onClicked: welcome.host.openAppearance() }
+                ChromeButton { objectName: "welcomeUseConfigured"; tones: welcome.tones; text: "Use config.conf"; visible: studyAppearance.saved; hint: "Remove Band's choice; terminal-theme in config.conf applies again"; focusPolicy: Qt.NoFocus; onClicked: studyAppearance.useConfigured() }
             }
             Text {
                 width: parent.width; wrapMode: Text.Wrap; color: welcome.tones.muted; font.pixelSize: 12
-                text: "Colors apply to this workspace. The default for new workspaces is application-theme in config.conf."
+                text: "The theme you choose is the default for new workspaces and those without their own colors. Band saves it beside your font and shortcut settings; it takes precedence over terminal-theme in config.conf."
             }
         }
 

@@ -52,6 +52,12 @@ int main(void)
     assert(portable_read(path,true,&view,error,sizeof(error)) && view.navigation_pinned && !view.reduced_motion);
     assert(portable_read(path,false,&view,error,sizeof(error)) && !view.navigation_pinned && view.reduced_motion);
     assert(portable_read(NULL,false,&view,error,sizeof(error)) && !view.navigation_pinned && !view.reduced_motion);
+    write_text(path,"band-config-v1\n[view]\nintegrated-title-bar = true\n[macos.view]\nintegrated-title-bar = false\n");
+    assert(portable_read(path,false,&view,error,sizeof(error)) && view.integrated_title_bar);
+    assert(portable_read(path,true,&view,error,sizeof(error)) && !view.integrated_title_bar);
+    assert(portable_read(NULL,false,&view,error,sizeof(error)) && !view.integrated_title_bar);
+    write_text(path,"band-config-v1\n[view]\nintegrated-title-bar = yes\n");
+    assert(!portable_read(path,false,&view,error,sizeof(error)));
     /* Apps: platform sections override [app.ID] fields or define a platform-only app. */
     write_text(path,"band-config-v1\n[app.lazygit]\nname = Lazygit\ncommand = lazygit\n[macos.app.lazygit]\ncommand = /opt/homebrew/bin/lazygit\n"
         "[app.btop]\ncommand = btop --utf-force\ndirectory = ~\n[linux.app.htop]\ncommand = htop\n[font]\nsize = 18\n");

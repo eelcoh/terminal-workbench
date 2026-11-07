@@ -7,6 +7,17 @@ ApplicationWindow {
     id: window
     width: 1240; height: 760; minimumWidth: 680; minimumHeight: 440
     visible: true; title: studySession.savedSession ? "Band" : "Band · disposable sessions"; color: chrome.background
+    // integrated-title-bar in config.conf folds the title bar into Band's top
+    // bar: on Linux a frameless window with Band's own window buttons and
+    // resize edges, on macOS the traffic lights inside the top bar (Qt 6.9+).
+    readonly property bool appleTitle: studyConfiguration.integratedTitleBar && Qt.platform.os === "osx" && Qt.ExpandedClientAreaHint !== undefined
+    readonly property bool ownTitle: studyConfiguration.integratedTitleBar && Qt.platform.os !== "osx"
+    readonly property bool titleIntegrated: appleTitle || ownTitle
+    // Room for the macOS traffic lights at the top left.
+    readonly property int titleInset: appleTitle ? 72 : 0
+    readonly property bool maximized: visibility === Window.Maximized || visibility === Window.FullScreen
+    flags: appleTitle ? (Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint) : ownTitle ? (Qt.Window | Qt.FramelessWindowHint) : Qt.Window
+    function toggleMaximized() { if (maximized) showNormal(); else showMaximized() }
     property int workspace: 0
     property int selected: 0
     property bool overview: false
@@ -926,7 +937,21 @@ ApplicationWindow {
     }
     Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.surface }
     Rectangle { x: 0; y: 40; width: 44; height: parent.height - 40; color: window.chrome.surface }
-    QuietButton { objectName: "applicationMenuButton"; x: 8; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
+    // With an integrated title bar, empty top bar space moves the window and a
+    // double click maximizes it; controls above it keep their own input.
+    Item {
+        objectName: "titleDragArea"; x: 0; y: 0; width: parent.width; height: 40; enabled: window.titleIntegrated
+        DragHandler { target: null; onActiveChanged: if (active) window.startSystemMove() }
+        TapHandler { onDoubleTapped: window.toggleMaximized() }
+    }
+    Row {
+        id: windowButtons; objectName: "windowButtons"; visible: window.ownTitle
+        anchors.right: parent.right; anchors.rightMargin: 6; y: 6; spacing: 2
+        QuietButton { objectName: "windowMinimize"; height: 28; iconName: "minimize"; hint: "Minimize"; focusPolicy: Qt.NoFocus; onClicked: window.showMinimized() }
+        QuietButton { objectName: "windowMaximize"; height: 28; iconName: window.maximized ? "restore" : "maximize"; hint: window.maximized ? "Restore" : "Maximize"; focusPolicy: Qt.NoFocus; onClicked: window.toggleMaximized() }
+        QuietButton { objectName: "windowClose"; height: 28; iconName: "close"; hint: "Close window"; focusPolicy: Qt.NoFocus; onClicked: window.close() }
+    }
+    QuietButton { objectName: "applicationMenuButton"; x: 8 + window.titleInset; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
     Column {
         x: 8; y: 52; spacing: 14
         QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }
@@ -948,7 +973,7 @@ ApplicationWindow {
     }
     QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; keys: studyShortcuts.labels["help"] || ""; onClicked: help.open() }
     Item {
-        id: topbar; x: window.navigationEdge; y: 4; width: parent.width - x - 12; height: 32
+        id: topbar; x: Math.max(window.navigationEdge, window.titleInset + 44); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0); height: 32
         // Markers that fit between the side controls; past that, a window follows the selection.
         readonly property int markerCount: window.counts[window.workspace] || 0
         // The row is centred: half its width must clear the workspace name on the left and
@@ -1464,6 +1489,9 @@ ApplicationWindow {
         followsDefault: window.previewDefault
         defaultName: studyThemes.theme(terminalMode ? (targetSpace >= 0 ? window.effectiveTheme(targetSpace) : 0) : studyConfiguration.themeIndex).name
         onDefaultRequested: { window.previewTheme = terminalMode && targetSpace >= 0 ? window.effectiveTheme(targetSpace) : studyConfiguration.themeIndex; window.previewDefault = true }
+        // Saves the selection as Band's default; this workspace then follows it.
+        canMakeDefault: !terminalMode
+        onMakeDefaultRequested: { if (studyAppearance.saveDefault(window.previewTheme)) { window.previewDefault = true; applySelected() } }
         onApplySelected: {
             const theme = window.previewDefault ? ({}) : studyThemes.snapshot(window.previewTheme)
             if (terminalMode) {
@@ -1697,5 +1725,20 @@ ApplicationWindow {
     }
     Shortcut { sequence: "Escape"; enabled: window.overview && !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
+    // A frameless window on Linux resizes from its edges and corners.
+    Repeater {
+        model: window.ownTitle && !window.maximized ? [
+            {edges: Qt.LeftEdge, x: 0, y: 6, w: 5, h: -12, cursor: Qt.SizeHorCursor}, {edges: Qt.RightEdge, x: -5, y: 6, w: 5, h: -12, cursor: Qt.SizeHorCursor},
+            {edges: Qt.TopEdge, x: 6, y: 0, w: -12, h: 4, cursor: Qt.SizeVerCursor}, {edges: Qt.BottomEdge, x: 6, y: -5, w: -12, h: 5, cursor: Qt.SizeVerCursor},
+            {edges: Qt.TopEdge | Qt.LeftEdge, x: 0, y: 0, w: 6, h: 6, cursor: Qt.SizeFDiagCursor}, {edges: Qt.BottomEdge | Qt.RightEdge, x: -6, y: -6, w: 6, h: 6, cursor: Qt.SizeFDiagCursor},
+            {edges: Qt.TopEdge | Qt.RightEdge, x: -6, y: 0, w: 6, h: 6, cursor: Qt.SizeBDiagCursor}, {edges: Qt.BottomEdge | Qt.LeftEdge, x: 0, y: -6, w: 6, h: 6, cursor: Qt.SizeBDiagCursor}
+        ] : []
+        MouseArea {
+            required property var modelData
+            z: 100; x: modelData.x < 0 ? window.width + modelData.x : modelData.x; y: modelData.y < 0 ? window.height + modelData.y : modelData.y
+            width: modelData.w <= 0 ? window.width + modelData.w : modelData.w; height: modelData.h <= 0 ? window.height + modelData.h : modelData.h
+            cursorShape: modelData.cursor; onPressed: window.startSystemResize(modelData.edges)
+        }
+    }
     Component.onCompleted: { studyApps.setDefinitions(window.appDefinitions); window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (studyWelcome.due) window.openWelcome(); else if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

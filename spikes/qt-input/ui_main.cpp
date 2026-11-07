@@ -91,7 +91,9 @@ int main(int argc,char **argv) {
     if(!shortcuts.error().isEmpty())std::fprintf(stderr,"Qt UI shortcut settings: %s\n",qPrintable(shortcuts.error()));
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
-    UiAppearance appearance(configuration["preferences"].toString(),apple,themes);
+    // Band's saved default theme lives beside its font and shortcut settings.
+    const auto fontOverrides=configuration["font_overrides"].toString();
+    UiAppearance appearance(configuration["preferences"].toString(),apple,themes,nullptr,fontOverrides.isEmpty()?QString():QFileInfo(fontOverrides).dir().filePath("appearance.json"));
     UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance,apple);
     // Apps run through the login shell; check them with the same one.
     QString shell=qEnvironmentVariable("SHELL");
@@ -114,6 +116,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyRuntimeInfo",&runtimeInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
     engine.rootContext()->setContextProperty("studyView",&view);
+    engine.rootContext()->setContextProperty("studyAppearance",&appearance);
     engine.rootContext()->setContextProperty("studyWelcome",&welcome);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
     engine.rootContext()->setContextProperty("studyTerminalAppearance",&terminalAppearance);
@@ -245,8 +248,11 @@ int main(int argc,char **argv) {
                 {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},
                 {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},
                 {"commands_open",window->property("commandsOpen").toBool()},
-                {"welcome_open",window->property("welcomeOpen").toBool()},{"welcome_step",[window]{const auto *item=window->findChild<QQuickItem *>("welcome");return item ? item->property("step").toInt() : -1;}()},
-                {"welcome_continue",center("welcomeContinue")},{"welcome_back",center("welcomeBack")},{"welcome_browse",center("welcomeBrowse")},{"welcome_sidebar_pinned",center("welcomeSidebar")},
+                {"welcome_open",window->property("welcomeOpen").toBool()},
+                {"title_integrated",window->property("titleIntegrated").toBool()},{"window_frameless",window->flags().testFlag(Qt::FramelessWindowHint)},
+                {"window_buttons",[window]{const auto *row=window->findChild<QQuickItem *>("windowButtons");return row && row->isVisible();}()},{"window_minimize",center("windowMinimize")},{"welcome_step",[window]{const auto *item=window->findChild<QQuickItem *>("welcome");return item ? item->property("step").toInt() : -1;}()},
+                {"welcome_continue",center("welcomeContinue")},{"welcome_theme_1",center("welcomeTheme1")},{"welcome_use_configured",center("welcomeUseConfigured")},
+                {"default_theme",settings.themeIndex()},{"default_theme_saved",appearance.saved()},{"welcome_back",center("welcomeBack")},{"welcome_browse",center("welcomeBrowse")},{"welcome_sidebar_pinned",center("welcomeSidebar")},
                 {"command_first_row",center("commandRow0")},{"reduced_motion",window->property("reducedMotion").toBool()},
                 {"command_current",window->property("commandCurrent").toInt()},
                 {"command_search_focus",window->property("commandSearchFocus").toBool()},

@@ -9,6 +9,9 @@ Dialog {
     property bool followsDefault: false
     property string defaultName: ""
     signal defaultRequested()
+    // Makes the selected theme Band's default for new workspaces.
+    property bool canMakeDefault: false
+    signal makeDefaultRequested()
     property string workspaceName: ""
     // Workspace colors by default; the terminal mode changes only these texts.
     property string heading: "Appearance"
@@ -163,6 +166,7 @@ Dialog {
         Label { x: defaultButton.x + defaultButton.width + 12; y: 10; width: parent.width - x - 20; text: picker.defaultName; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: "#9caabd" }
         Row {
             anchors.right: parent.right; anchors.rightMargin: 20; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; spacing: 8
+            ActionButton { objectName: "workspaceThemeMakeDefault"; visible: picker.canMakeDefault; implicitWidth: contentItem.implicitWidth + 28; text: "Set as default"; onClicked: picker.makeDefaultRequested() }
             ActionButton { text: "Cancel"; onClicked: picker.close() }
             ActionButton { objectName: "workspaceThemeApply"; text: "Apply"; primary: true; onClicked: picker.applySelected() }
         }

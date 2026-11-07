@@ -242,9 +242,14 @@ while True:
         wait_until(lambda:data()['welcome_open'] and data()['welcome_step']==0)
         assert not any(p['focus'] for p in data()['panes']) and not (root/'qt'/'welcomed').exists()
         capture('welcome-look.png')
+        # A theme card saves Band's default theme; Use config.conf removes it.
+        configured_theme=data()['default_theme']
+        click(*settled_point(lambda d:d['welcome_theme_1']));wait_until(lambda:data()['default_theme_saved'] and data()['default_theme']!=configured_theme and (root/'ui/linux/appearance.json').exists())
+        capture('welcome-theme.png')
+        click(*settled_point(lambda d:d['welcome_use_configured']));wait_until(lambda:not data()['default_theme_saved'] and data()['default_theme']==configured_theme and not (root/'ui/linux/appearance.json').exists())
         key('Return');wait_until(lambda:data()['welcome_step']==1)
-        click(*data()['welcome_back']);wait_until(lambda:data()['welcome_step']==0)
-        click(*data()['welcome_continue']);wait_until(lambda:data()['welcome_step']==1)
+        click(*settled_point(lambda d:d['welcome_back']));wait_until(lambda:data()['welcome_step']==0)
+        click(*settled_point(lambda d:d['welcome_continue']));wait_until(lambda:data()['welcome_step']==1)
         key('Return');wait_until(lambda:data()['welcome_step']==2 and 'F10' in data()['key_chips'])
         capture('welcome-keys.png')
         key('Return');wait_until(lambda:not data()['welcome_open'] and (root/'qt'/'welcomed').exists())
@@ -919,10 +924,13 @@ while True:
         # The focused pane alone shows width, full width and close; the others are dimmed.
         assert data()['panes'][1]['header_actions'] and not data()['panes'][0]['header_actions'] and not data()['panes'][2]['header_actions']
         assert data()['panes'][0]['dimmed'] and not data()['panes'][1]['dimmed']
+        time.sleep(.4)  # let the strip finish its width animation
         click(*settled_point(lambda d:d['panes'][1]['full_action']));wait_until(lambda:sizes()[1][0]>wide[1][0])
         time.sleep(.5);capture('pane-actions.png')
+        time.sleep(.4)  # let the strip finish its width animation
         click(*settled_point(lambda d:d['panes'][1]['full_action']));wait_until(lambda:sizes()==wide)
         assert data()['panes'][1]['focus'],'a header action took keyboard focus from the terminal'
+        time.sleep(.4)  # let the strip finish its width animation
         click(*settled_point(lambda d:d['panes'][1]['width_action']));wait_until(lambda:sizes()[1][0]!=wide[1][0])
         for _ in range(6):
             if sizes()[1][0]==wide[1][0]:break
@@ -1772,12 +1780,20 @@ while True:
         request(root,Path(runtime),root,'terminal.close',echo)
         wait_until(lambda:len(data()['panes'])==1)
         assert data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
+        # integrated-title-bar folds the title bar into Band's top bar: a frameless
+        # window with Band's own window buttons on Linux. Turning it off restores it.
+        before_title=managed.read_bytes()
+        managed.write_bytes(before_title+b'\n[linux.view]\nintegrated-title-bar = true\n')
+        wait_until(lambda:data()['title_integrated'] and data()['window_frameless'] and data()['window_buttons'],timeout=10)
+        time.sleep(.3);capture('integrated-title-bar.png')
+        managed.write_bytes(before_title)
+        wait_until(lambda:not data()['title_integrated'] and not data()['window_frameless'] and not data()['window_buttons'],timeout=10)
         managed.write_bytes(managed_bytes);wait_until(lambda:data()['creation_width']==0.5)
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: panes grouped by workspace (current open, open/close, go to pane, keyboard), apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, own install recipe and setup, Run setup, Homebrew setup from Sources, sources on/off and per-app source choice, install behind its own button), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: panes grouped by workspace (current open, open/close, go to pane, keyboard), apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, own install recipe and setup, Run setup, integrated title bar on and off, Homebrew setup from Sources, sources on/off and per-app source choice, install behind its own button), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except SystemExit:
         raise
     except BaseException:
