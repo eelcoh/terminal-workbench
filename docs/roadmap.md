@@ -146,6 +146,15 @@ Goal: TUIs such as lazygit and btop live next to the strip and are one key away.
   it stays with its last lines.
 - Running apps belong to their workspace (owner, 2026-11-05).
 
+## Polish (after v0.2; notes 2026-11-07)
+
+Rex shows how far polish can carry this kind of app; Band's edge is apps, the
+scrolling strip and Linux. [Polish notes](polish.md) list what to learn, in
+order: pane identity (kind icon, process and folder), key chips, one accent
+and selection style, actions on the focused pane, a first-run flow in a pane
+(with picking apps), a sidebar filter, and window chrome last. Not scheduled
+yet; the owner picks the order.
+
 ## v0.3: SSH hosts and worktrees
 
 - **Hosts panel.** Saved SSH hosts. A host pane is a runtime terminal running
