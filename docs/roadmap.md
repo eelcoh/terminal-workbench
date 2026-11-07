@@ -165,7 +165,11 @@ designer's eye, planned as a design step in v0.4.
   pane on that host is recognisable at a glance. It uses the existing
   per-terminal colours; an explicit per-terminal choice still wins.
 - **Worktrees** in the Workspaces panel: create or pick a Git worktree and open a
-  workspace on it, with the worktree shown per workspace.
+  workspace on it, with the worktree shown per workspace. *Done (2026-11-07):* in New
+  workspace, a folder inside a repository lists its worktrees and takes a branch
+  for a new one (`git worktree add`, beside the main checkout); the workspace
+  row shows a linked worktree's branch ([workspace
+  folders](workspace-directories.md)).
 - **Uncommitted changes.** Mark a pane's caption and its workspace in the
   Workspaces panel when the working tree has changes that are not committed.
   Today the runtime reads only small Git metadata files (HEAD, gitfile,

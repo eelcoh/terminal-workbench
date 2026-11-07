@@ -1787,6 +1787,22 @@ while True:
         request(root,Path(runtime),root,'terminal.close',echo)
         wait_until(lambda:len(data()['panes'])==1)
         assert data()['panes'][0]['identity']==survivor and data()['panes'][0]['instance']==survivor_instance
+        # New workspace from a worktree: a folder in a repository offers its
+        # worktrees and a branch field; a new branch adds a worktree beside the
+        # main checkout and the workspace opens there.
+        workspaces_before=data()['workspace_count']
+        key('super+alt+n');wait_until(lambda:data()['creation_open'])
+        # Typed through an ASCII link: the Wayland test keyboard cannot type é.
+        repo_link=root/'repo-link'
+        if not repo_link.exists():repo_link.symlink_to(repo)
+        key('Tab');key('ctrl+a');typed(str(repo_link))
+        wait_until(lambda:data()['worktree_repository'] and os.path.realpath(data()['worktree_repository'])==os.path.realpath(repo),timeout=10)
+        click(*settled_point(lambda d:d['workspace_branch_input']));typed('wt-test')
+        time.sleep(.2);capture('worktree-form.png');key('Return')
+        expected_tree=os.path.realpath(repo)+'-wt-test'
+        wait_until(lambda:data()['workspace_count']==workspaces_before+1 and not data()['creation_open'],timeout=15)
+        assert Path(expected_tree,'.git').exists() and any(os.path.realpath(d)==expected_tree for d in data()['workspace_directories']),data()['workspace_directories']
+        assert 'wt-test' in git('worktree','list')
         # integrated-title-bar folds the title bar into Band's top bar: a frameless
         # window with Band's own window buttons on Linux. Turning it off restores it.
         before_title=managed.read_bytes()

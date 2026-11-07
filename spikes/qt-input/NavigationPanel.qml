@@ -174,12 +174,21 @@ Item {
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
                         readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
                         readonly property bool dirty: workspaceRow.allPanes.some(i => { const pane = host.panel(i); return pane && !!pane.facts.dirty })
+                        // The branch of a linked worktree one of its panes is in.
+                        readonly property string worktreeBranch: { for (const i of workspaceRow.allPanes) { const pane = host.panel(i); if (pane && pane.facts.worktree) return pane.facts.branch || pane.facts.worktree } return "" }
                         // A closed workspace previews its panes in the tooltip.
-                        hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "") + (dirty ? " · uncommitted changes" : "")
+                        hint: text + (worktreeBranch ? " · worktree " + worktreeBranch : "") + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "") + (dirty ? " · uncommitted changes" : "")
                             + (workspaceRow.expanded ? "" : workspaceRow.allPanes.slice(0, 8).map(i => { const identity = host.paneIdentity(host.panel(i)); return "\n" + [identity.name, identity.place].filter(part => part).join(" · ") }).join("")
                                 + (workspaceRow.allPanes.length > 8 ? "\n…" : ""))
                         contentItem: Item {
-                            Text { anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: totals.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: workspaceEntry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
+                            Row {
+                                anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: totals.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; spacing: 6
+                                Text { id: workspaceName; width: Math.min(implicitWidth, parent.width - (workspaceBranch.visible ? Math.min(workspaceBranch.implicitWidth, parent.width * 0.45) + 6 : 0)); text: workspaceEntry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
+                                Text {
+                                    id: workspaceBranch; objectName: "workspaceBranch" + workspaceRow.index; visible: workspaceEntry.worktreeBranch.length > 0; anchors.baseline: workspaceName.baseline
+                                    width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: workspaceEntry.worktreeBranch; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12
+                                }
+                            }
                             Row {
                                 id: totals; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; spacing: 8
                                 Row {

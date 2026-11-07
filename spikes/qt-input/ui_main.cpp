@@ -16,6 +16,7 @@
 #include "ui_fonts.h"
 #include "ui_view_state.h"
 #include "ui_welcome.h"
+#include "ui_worktrees.h"
 #include "ui_shortcuts.h"
 #include "ui_apps.h"
 #include <pwd.h>
@@ -81,6 +82,7 @@ int main(int argc,char **argv) {
     UiRuntimeInfo runtimeInfo(configuration["state"].toString(),configuration["runtime"].toString());
     UiViewState view(configuration["view_state"].toString());
     UiWelcome welcome(configuration["welcome_marker"].toString());
+    UiWorktrees worktrees;
 #if defined(Q_OS_MACOS)
     constexpr bool apple=true;
 #else
@@ -118,6 +120,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyAppearance",&appearance);
     engine.rootContext()->setContextProperty("studyWelcome",&welcome);
+    engine.rootContext()->setContextProperty("studyWorktrees",&worktrees);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
     engine.rootContext()->setContextProperty("studyTerminalAppearance",&terminalAppearance);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
@@ -249,6 +252,7 @@ int main(int argc,char **argv) {
                 {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},
                 {"commands_open",window->property("commandsOpen").toBool()},
                 {"welcome_open",window->property("welcomeOpen").toBool()},
+                {"worktree_repository",worktrees.repository()},{"worktree_busy",worktrees.busy()},{"worktree_error",worktrees.error()},{"workspace_branch_input",center("workspaceBranchInput")},
                 {"title_integrated",window->property("titleIntegrated").toBool()},{"window_frameless",window->flags().testFlag(Qt::FramelessWindowHint)},
                 {"window_buttons",[window]{const auto *row=window->findChild<QQuickItem *>("windowButtons");return row && row->isVisible();}()},{"window_minimize",center("windowMinimize")},{"welcome_step",[window]{const auto *item=window->findChild<QQuickItem *>("welcome");return item ? item->property("step").toInt() : -1;}()},
                 {"welcome_continue",center("welcomeContinue")},{"welcome_theme_1",center("welcomeTheme1")},{"welcome_use_configured",center("welcomeUseConfigured")},

@@ -119,3 +119,20 @@ On Mac, open Change project folder, choose Browse, cancel once, then select a
 folder. Confirm the value remains editable before Save and existing shells keep
 their working directory. Repeat with New workspace; its first shell should start
 in the chosen folder. Also close a disposable window while its picker is open.
+
+## Git worktrees
+
+In **New workspace**, a folder inside a Git repository (typed, pasted or chosen)
+shows **Git worktree**: the repository's worktrees, main checkout first, as
+choices that fill in the folder and an empty name. **Or a branch for a new
+worktree** takes a branch name instead. Create then runs `git worktree add`
+beside the main checkout (`<repository>-<branch>`, slashes become dashes),
+checking out the branch when it exists and creating it from `HEAD` when it does
+not, and opens the workspace there; the name defaults to the branch. A branch
+that already has a worktree reuses it, and an existing folder at the target is
+never overwritten. Git runs from the window with `core.fsmonitor=false` and no
+terminal prompt; its last error line shows in the form.
+
+A workspace row in the sidebar shows the branch of a linked worktree that one
+of its panes is in.
+

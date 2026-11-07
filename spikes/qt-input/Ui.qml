@@ -709,6 +709,8 @@ ApplicationWindow {
         studySession.clearError()
         newName.text = workspaceFormMode === "create" ? "" : spaces[target]
         newFolder.text = (workspaceFormMode === "create" ? studyConfiguration.workspaceDirectory : "") || directories[target] || studySession.defaultDirectory
+        newBranch.text = ""; studyWorktrees.clear()
+        if (workspaceFormMode === "create") studyWorktrees.inspect(newFolder.text, studySession.defaultDirectory)
         createDialog.open()
     }
     function browseWorkspaceFolder() {
@@ -722,7 +724,17 @@ ApplicationWindow {
     function submitWorkspaceForm() {
         if (workspaceFormMode === "rename") studySession.renameWorkspace(editingWorkspace, newName.text)
         else if (workspaceFormMode === "folder") studySession.setWorkspaceDirectory(editingWorkspace, newFolder.text)
+        // A branch first adds (or finds) its worktree; the workspace opens there.
+        else if (newBranch.visible && newBranch.text.trim().length) studyWorktrees.add(newBranch.text)
         else studySession.createWorkspace(newName.text, newFolder.text)
+    }
+    Connections {
+        target: studyWorktrees
+        function onAdded(path) {
+            if (!createDialog.visible || window.workspaceFormMode !== "create") return
+            newFolder.text = path
+            studySession.createWorkspace(newName.text.trim() || newBranch.text.trim(), path)
+        }
     }
     property bool pendingSearch: false
     readonly property bool terminalSearchOpen: terminalSearch.visible
@@ -1613,18 +1625,53 @@ ApplicationWindow {
             Label { text: "Folder"; visible: window.workspaceFormMode !== "rename"; color: "#c2c9d4" }
             Row {
                 width: parent.width; spacing: 8; visible: window.workspaceFormMode !== "rename"
-                ProjectField { id: newFolder; objectName: "workspaceFolderInput"; width: parent.width - browseFolder.width - parent.spacing; enabled: !studySession.busy; onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked() }
+                ProjectField {
+                    id: newFolder; objectName: "workspaceFolderInput"; width: parent.width - browseFolder.width - parent.spacing; enabled: !studySession.busy && !studyWorktrees.busy
+                    onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked()
+                    onTextChanged: if (createDialog.visible && window.workspaceFormMode === "create") worktreeLookup.restart()
+                    Timer { id: worktreeLookup; interval: 300; onTriggered: studyWorktrees.inspect(newFolder.text, studySession.defaultDirectory) }
+                }
                 QuietButton { id: browseFolder; objectName: "browseWorkspaceFolderButton"; fixedPalette: true; text: "Browse…"; hint: "Choose a folder"; enabled: !studySession.busy; onClicked: window.browseWorkspaceFolder() }
             }
             Label { width: parent.width; visible: window.workspaceFormMode !== "rename"; text: "Used by new terminals. Running terminals keep their current folders."; wrapMode: Text.Wrap; color: "#a5afbe"; font.pixelSize: 12 }
+            // In a Git repository: open a worktree, or add one on a new branch.
+            Column {
+                width: parent.width; spacing: 8; visible: window.workspaceFormMode === "create" && studyWorktrees.repository.length > 0
+                Label { text: "Git worktree"; color: "#c2c9d4" }
+                Flow {
+                    width: parent.width; spacing: 6
+                    Repeater {
+                        model: studyWorktrees.worktrees
+                        QuietButton {
+                            required property var modelData
+                            required property int index
+                            objectName: "worktreeChoice" + index; fixedPalette: true; focusPolicy: Qt.NoFocus
+                            text: modelData.branch || modelData.path.split("/").pop(); hint: modelData.path
+                            selected: newFolder.text === modelData.path
+                            onClicked: { newFolder.text = modelData.path; newBranch.text = ""; if (!newName.text.trim()) newName.text = text }
+                        }
+                    }
+                }
+                ProjectField {
+                    id: newBranch; objectName: "workspaceBranchInput"; width: parent.width; enabled: !studySession.busy && !studyWorktrees.busy
+                    placeholderText: "Or a branch for a new worktree"
+                    onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked()
+                }
+                Label {
+                    width: parent.width; wrapMode: Text.Wrap; color: studyWorktrees.error ? "#e3bf91" : "#a5afbe"; font.pixelSize: 12
+                    text: studyWorktrees.error || (newBranch.text.trim() ? "Adds a worktree at " + (studyWorktrees.pathFor(newBranch.text.trim()) || "…") + " (git worktree add)." : "")
+                    visible: text.length > 0
+                }
+            }
             Label { width: parent.width; text: studySession.error; visible: text.length > 0; wrapMode: Text.Wrap; color: "#e3bf91" }
             Row {
                 spacing: 8
                 QuietButton { fixedPalette: true; text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
                 QuietButton {
                     id: submitWorkspace; objectName: "submitWorkspaceButton"; fixedPalette: true; primary: true
-                    text: studySession.busy ? (window.workspaceFormMode === "create" ? "Creating…" : "Saving…") : window.workspaceFormMode === "create" ? "Create" : "Save"
-                    enabled: !studySession.busy && (window.workspaceFormMode === "folder" || newName.text.trim().length > 0) && (window.workspaceFormMode === "rename" || newFolder.text.trim().length > 0)
+                    readonly property bool withBranch: newBranch.visible && newBranch.text.trim().length > 0
+                    text: studyWorktrees.busy ? "Adding worktree…" : studySession.busy ? (window.workspaceFormMode === "create" ? "Creating…" : "Saving…") : window.workspaceFormMode === "create" ? "Create" : "Save"
+                    enabled: !studySession.busy && !studyWorktrees.busy && (window.workspaceFormMode === "folder" || newName.text.trim().length > 0 || withBranch) && (window.workspaceFormMode === "rename" || newFolder.text.trim().length > 0)
                     onClicked: window.submitWorkspaceForm()
                 }
             }

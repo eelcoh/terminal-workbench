@@ -232,6 +232,10 @@ toolkit-view-state-test: runtime-build
 toolkit-apps-test:
     python3 scripts/toolkit-probe.py apps-test
 
+# Mac/Linux: Git worktrees for the New workspace form, against real git.
+toolkit-worktrees-test:
+    python3 scripts/toolkit-probe.py worktrees-test
+
 # Mac/Linux: saved launcher lifecycle/reattachment without a display.
 toolkit-saved-session-test: runtime-build
     python3 tests/qt_saved_launcher_test.py target/debug/band-session
