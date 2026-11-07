@@ -56,6 +56,7 @@ def main():
         return
     if args.mode=="view-state-test":
         subprocess.run([str(build/"workbench-view-state-test")],check=True,timeout=30)
+        return
     if args.mode=="apps-test":
         subprocess.run([str(build/"workbench-apps-test")],check=True,timeout=120)
         return
