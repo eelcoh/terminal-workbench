@@ -62,7 +62,7 @@ Dialog {
                     Text { x: 8; y: 27; width: parent.width - 16; elide: Text.ElideRight; text: modelData.available ? modelData.detail : modelData.reason; textFormat: Text.PlainText; font.pixelSize: 12; color: commandPopup.tones.muted }
                     KeyChips { id: shortcut; anchors.right: parent.right; anchors.rightMargin: 8; y: 5; keys: modelData.key; tones: commandPopup.tones }
                 }
-                background: Rectangle { radius: 6; color: parent.highlighted || parent.hovered ? commandPopup.tones.hover : "transparent"; border.width: parent.visualFocus ? 1 : 0; border.color: commandPopup.tones.accent }
+                background: Rectangle { radius: 6; color: parent.highlighted ? commandPopup.tones.selected : parent.hovered ? commandPopup.tones.hover : "transparent"; border.width: parent.visualFocus ? 1 : 0; border.color: commandPopup.tones.accent }
             }
             Label { anchors.centerIn: parent; visible: commandPopup.matches.length === 0; text: "No matching commands"; color: commandPopup.tones.muted }
         }

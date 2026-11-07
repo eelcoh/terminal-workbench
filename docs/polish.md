@@ -57,6 +57,14 @@ its own.
 3. **One accent and selection style.** A single accent per theme for primary
    actions, selection and focus; pill rows in the sidebar; line icons extended
    to the actions we show (split/width, zoom, filter, host).
+   *Done (first pass):* a primary button style filled with the theme's accent
+   (text in whichever theme color contrasts more) for the one main action of a
+   view (catalog Open/Install, Install Homebrew, Apply, Create/Save); the current
+   row in lists uses the accent-tinted selection the sidebar already used, hover
+   stays neutral, keyboard focus is an accent ring; the catalog footer uses key
+   chips. Confirmations of destructive actions keep a quiet confirm button.
+   Still open: icons for pane actions (with item 4), and the Appearance and
+   theme-import dialogs, which still use fixed colors.
 4. **Pane actions on the focused pane.** Width, zoom (full width) and close as
    small header buttons on the focused pane, beside the existing menu; dim
    unfocused panes a little (respecting reduced motion and contrast).

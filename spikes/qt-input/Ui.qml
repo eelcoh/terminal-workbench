@@ -1542,7 +1542,7 @@ ApplicationWindow {
                 spacing: 8
                 QuietButton { fixedPalette: true; text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
                 QuietButton {
-                    id: submitWorkspace; objectName: "submitWorkspaceButton"; fixedPalette: true
+                    id: submitWorkspace; objectName: "submitWorkspaceButton"; fixedPalette: true; primary: true
                     text: studySession.busy ? (window.workspaceFormMode === "create" ? "Creating…" : "Saving…") : window.workspaceFormMode === "create" ? "Create" : "Save"
                     enabled: !studySession.busy && (window.workspaceFormMode === "folder" || newName.text.trim().length > 0) && (window.workspaceFormMode === "rename" || newFolder.text.trim().length > 0)
                     onClicked: window.submitWorkspaceForm()

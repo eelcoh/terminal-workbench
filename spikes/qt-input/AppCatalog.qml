@@ -145,7 +145,7 @@ Dialog {
                                 Text { anchors.right: parent.right; text: appItem.entry.section || (appItem.entry.builtin === false ? "config.conf" : ""); font.pixelSize: 11; color: catalog.tones.muted }
                             }
                         }
-                        background: Rectangle { radius: 6; color: parent.highlighted || parent.hovered ? catalog.tones.hover : "transparent"; border.width: parent.highlighted && results.activeFocus ? 1 : 0; border.color: catalog.tones.accent }
+                        background: Rectangle { radius: 6; color: parent.highlighted ? catalog.tones.selected : parent.hovered ? catalog.tones.hover : "transparent"; border.width: parent.highlighted && results.activeFocus ? 1 : 0; border.color: catalog.tones.accent }
                     }
                 }
                 Label {
@@ -199,7 +199,7 @@ Dialog {
                 ChromeButton {
                     id: actionButton; objectName: "appCatalogAction"
                     anchors.right: parent.right; anchors.rightMargin: 14; y: 24; height: 36
-                    tones: catalog.tones; selected: true
+                    tones: catalog.tones; primary: true
                     enabled: catalog.current !== null && (!detail.missing || !!detail.picked || !!detail.entry.needsHomebrew) && host.canCreateTerminal
                     text: catalog.running(detail.entry) ? "Go to" : !detail.missing ? "Open" : detail.picked ? (sourceRow.visible ? "Install" : "Install with " + detail.picked.via) : detail.entry.needsHomebrew ? "Set up Homebrew…" : "Not available"
                     KeyNavigation.tab: doneButton; KeyNavigation.backtab: results
@@ -255,7 +255,7 @@ Dialog {
                             text: "Runs Homebrew's official installer from GitHub in a pane, where it asks for your password and confirmation" + (Qt.platform.os === "osx" ? "." : ". On Linux it needs curl, git and a compiler, and it prints a line to add to your shell profile.")
                         }
                         ChromeButton {
-                            objectName: sourceRowItem.brew ? "homebrewInstall" : ""; height: 32; tones: catalog.tones; selected: true; text: "Install Homebrew"
+                            objectName: sourceRowItem.brew ? "homebrewInstall" : ""; height: 32; tones: catalog.tones; primary: true; text: "Install Homebrew"
                             enabled: host.canCreateTerminal
                             onClicked: catalog.homebrewRequested()
                         }
@@ -280,7 +280,18 @@ Dialog {
         implicitHeight: 48
         Label {
             x: 20; anchors.verticalCenter: parent.verticalCenter; font.pixelSize: 12; color: catalog.tones.muted
-            text: catalog.showSources ? "Choices are saved for this computer." : "↑ ↓ choose · Enter open · Esc close · " + catalog.matchCount + (catalog.matchCount === 1 ? " app" : " apps")
+            visible: catalog.showSources; text: "Choices are saved for this computer."
+        }
+        Row {
+            x: 20; anchors.verticalCenter: parent.verticalCenter; spacing: 6; visible: !catalog.showSources
+            Accessible.role: Accessible.StaticText; Accessible.name: "Up and Down choose, Enter opens, Escape closes. " + appCount.text
+            KeyChips { keys: "Up"; tones: catalog.tones } KeyChips { keys: "Down"; tones: catalog.tones }
+            Text { text: "choose"; font.pixelSize: 12; color: catalog.tones.muted; rightPadding: 8 }
+            KeyChips { keys: "Enter"; tones: catalog.tones }
+            Text { text: "open"; font.pixelSize: 12; color: catalog.tones.muted; rightPadding: 8 }
+            KeyChips { keys: "Esc"; tones: catalog.tones }
+            Text { text: "close"; font.pixelSize: 12; color: catalog.tones.muted; rightPadding: 8 }
+            Text { id: appCount; text: catalog.matchCount + (catalog.matchCount === 1 ? " app" : " apps"); font.pixelSize: 12; color: catalog.tones.muted }
         }
         ChromeButton { id: doneButton; Keys.onReturnPressed: catalog.close(); Keys.onEnterPressed: catalog.close(); KeyNavigation.tab: search; anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: "Done"; tones: catalog.tones; onClicked: catalog.close() }
     }

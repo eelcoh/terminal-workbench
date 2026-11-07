@@ -52,7 +52,7 @@ Dialog {
         Row {
             anchors.right: parent.right; anchors.rightMargin: 20; anchors.verticalCenter: parent.verticalCenter; spacing: 8
             ChromeButton { id: cancel; objectName: "shortcutCancel"; tones: popup.tones; text: "Cancel"; onClicked: popup.close() }
-            ChromeButton { objectName: "shortcutApply"; tones: popup.tones; text: "Apply"; enabled: !popup.recordingActive; onClicked: if (popup.preferences.apply()) popup.close() }
+            ChromeButton { objectName: "shortcutApply"; tones: popup.tones; primary: true; text: "Apply"; enabled: !popup.recordingActive; onClicked: if (popup.preferences.apply()) popup.close() }
         }
     }
     Popup {

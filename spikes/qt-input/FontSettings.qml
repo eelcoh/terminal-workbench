@@ -30,7 +30,7 @@ Dialog {
             width: parent.width; spacing: 8
             ChromeButton { objectName: "fontDefaults"; tones: popup.tones; text: "Use dotfile defaults"; onClicked: popup.preferences.useDefaults() }
             ChromeButton { id: cancelButton; tones: popup.tones; text: "Cancel"; onClicked: popup.close() }
-            ChromeButton { objectName: "fontApply"; tones: popup.tones; text: "Apply"; onClicked: if (popup.preferences.apply()) popup.close() }
+            ChromeButton { objectName: "fontApply"; tones: popup.tones; primary: true; text: "Apply"; onClicked: if (popup.preferences.apply()) popup.close() }
         }
     }
     onOpened: cancelButton.forceActiveFocus()
