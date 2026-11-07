@@ -1105,7 +1105,7 @@ ApplicationWindow {
                 }
                 readonly property var identity: window.paneIdentity(pane)
                 // Room for the identity left of the state, colors swatch and menu.
-                readonly property real headerRoom: width - 51 - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)
+                readonly property real headerRoom: width - 51 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0)
                 ChromeIcon {
                     id: paneKind; x: 12; y: 9; width: 15; height: 15; name: pane.identity.icon
                     color: pane.appStopped ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
@@ -1139,9 +1139,23 @@ ApplicationWindow {
                     ToolTip.text: "Own colors: " + (visible ? studyThemes.theme(own).name : "") + " · click to change"
                 }
                 Text {
-                    id: headerState; x: parent.width - 48 - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
+                    id: headerState; x: (paneActions.visible ? paneActions.x - 8 : parent.width - 36) - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
                     text: pane.facts.agent ? pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
                     color: pane.facts.needs_input ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : pane.facts.state === "Ready" ? studyThemes.theme(window.themeIndexFor(spaceIndex)).ready : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
+                }
+                // The focused pane's own actions; they leave keyboard focus in the terminal.
+                readonly property bool focusedPane: window.selected === index && !window.overview
+                Row {
+                    id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 0; spacing: 2; visible: pane.focusedPane
+                    QuietButton { objectName: "paneWidthButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: window.dispatchCommand("cycle-width") }
+                    QuietButton {
+                        objectName: "paneFullButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "full"; selected: !!window.fullWidths[pane.index]
+                        hint: window.fullWidths[pane.index] ? "Restore width" : "Full width"; keys: studyShortcuts.labels["full-width"] || ""; onClicked: window.dispatchCommand("full-width")
+                    }
+                    QuietButton {
+                        objectName: "paneCloseButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "close"; enabled: !studySession.busy
+                        hint: window.exitedTerminal(pane.terminalId) ? "Close pane" : "Close terminal…"; keys: studyShortcuts.labels["close-terminal"] || ""; onClicked: window.closePane(pane.terminalId)
+                    }
                 }
                 QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: 3; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); window.paneMenuTarget = pane.terminalId; const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
@@ -1166,6 +1180,13 @@ ApplicationWindow {
                         let items = window.terminalItems.slice(); items.push(terminal); window.terminalItems = items
                     }
                     onActiveFocusChanged: if (activeFocus && !window.overview) window.focusPane(index)
+                }
+                // Unfocused panes recede a little: a veil of the terminal's own
+                // background, so its background is unchanged and text loses some contrast.
+                Rectangle {
+                    objectName: "paneDim"; anchors.fill: terminal; visible: opacity > 0
+                    color: studyThemes.theme(terminal.themeIndex).background
+                    opacity: !window.overview && window.selected >= 0 && window.selected !== pane.index ? 0.18 : 0
                 }
                 readonly property var lifecycle: studySession.lifecycle[terminalId] || ({state: "unavailable", message: "Checking terminal status…", busy: false})
                 onLifecycleChanged: if (app && lifecycle.state === "stopped" && !lifecycle.busy) window.appEnded(index)

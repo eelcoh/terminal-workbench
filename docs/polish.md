@@ -67,7 +67,13 @@ its own.
    theme-import dialogs, which still use fixed colors.
 4. **Pane actions on the focused pane.** Width, zoom (full width) and close as
    small header buttons on the focused pane, beside the existing menu; dim
-   unfocused panes a little (respecting reduced motion and contrast).
+   unfocused panes a little (respecting reduced motion and contrast). *Done:* width, full width
+   (selected while full) and close as icon buttons on the focused pane's
+   header, with key chips in their tooltips; they never take keyboard focus.
+   Unfocused panes get a veil of the terminal's own background (18%), which
+   lowers text contrast and leaves the background itself unchanged; it switches
+   instantly, so reduced motion needs nothing extra. A setting to turn the dim
+   off is not there yet.
 5. **First run in a pane.** Appearance (Auto/Light/Dark, theme cards with live
    previews, sidebar pinned or not), agent launchers, *pick your apps* from the
    catalog (Band's own step), and the keys worth knowing from the keymap.

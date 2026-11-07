@@ -161,6 +161,9 @@ int main(int argc,char **argv) {
                     {"primary_action",actionPoint("terminalPrimary"+QString::number(panes.size()))},
                     {"check_action",actionPoint("terminalCheck"+QString::number(panes.size()))},
                     {"exited_close_action",actionPoint("terminalCloseExited"+QString::number(panes.size()))},
+                    {"header_actions",[item]{const auto *row=item->parentItem()->findChild<QQuickItem *>("paneActions");return row && row->isVisible();}()},
+                    {"width_action",actionPoint("paneWidthButton")},{"full_action",actionPoint("paneFullButton")},{"close_action",actionPoint("paneCloseButton")},
+                    {"dimmed",[item]{const auto *veil=item->parentItem()->findChild<QQuickItem *>("paneDim");return veil && veil->isVisible();}()},
                     {"exited_close_visible",exitedClose && exitedClose->isVisible()},
                     {"reconnect_action",actionPoint("terminalReconnect"+QString::number(panes.size()))},
                     {"header",[item]{const auto *name=item->parentItem()->findChild<QQuickItem *>("paneName");const auto *place=item->parentItem()->findChild<QQuickItem *>("paneTitle");

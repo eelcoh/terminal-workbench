@@ -899,6 +899,19 @@ while True:
         original=sizes();key('super+alt+r');wait_until(lambda:sizes()[1][0]>original[1][0]);wide=sizes()
         assert all(wide[i]==original[i] for i in (0,2,3,4,5)),'width changed a sibling'
         key('super+alt+f');wait_until(lambda:sizes()[1][0]>wide[1][0]);key('super+alt+f');wait_until(lambda:sizes()==wide)
+        # The focused pane alone shows width, full width and close; the others are dimmed.
+        assert data()['panes'][1]['header_actions'] and not data()['panes'][0]['header_actions'] and not data()['panes'][2]['header_actions']
+        assert data()['panes'][0]['dimmed'] and not data()['panes'][1]['dimmed']
+        click(*settled_point(lambda d:d['panes'][1]['full_action']));wait_until(lambda:sizes()[1][0]>wide[1][0])
+        time.sleep(.5);capture('pane-actions.png')
+        click(*settled_point(lambda d:d['panes'][1]['full_action']));wait_until(lambda:sizes()==wide)
+        assert data()['panes'][1]['focus'],'a header action took keyboard focus from the terminal'
+        click(*settled_point(lambda d:d['panes'][1]['width_action']));wait_until(lambda:sizes()[1][0]!=wide[1][0])
+        for _ in range(6):
+            if sizes()[1][0]==wide[1][0]:break
+            key('super+alt+r');time.sleep(.2)
+        assert sizes()==wide,'cycling width did not return to the earlier width'
+        assert data()['panes'][1]['focus'],'a header action took keyboard focus from the terminal'
         key('super+alt+Down');wait_until(lambda:data()['workspace']==1 and data()['panes'][3]['focus']);typed('peer');wait_until(lambda:received(3)==b'peer')
         hidden_rows=data()['panes'][0]['rasterized_rows']
         (root/'0'/'update').touch();wait_until(lambda:'HIDDEN-UPDATE' in data()['panes'][0]['text'])
@@ -1680,6 +1693,8 @@ while True:
         click(*settled_point(lambda d:(app_pane('broken') or {}).get('primary_action')))
         wait_until(lambda:runs.exists() and runs.read_text().count('run')==2);wait_until(failed)
         assert app_pane('broken')['identity']==broken
+        # Close pane is disabled until the session finishes starting it again.
+        wait_until(lambda:not data()['busy'])
         click(*settled_point(lambda d:(app_pane('broken') or {}).get('exited_close_action')));wait_until(lambda:app_pane('broken') is None)
         # A normal exit closes the pane without a notice.
         choose('Quick app','quick')

@@ -10,6 +10,9 @@ void ChromeIcon::paint(QPainter *p) {
     else if(name_=="agents") {QPainterPath path;path.moveTo(2,12);path.lineTo(6,12);path.lineTo(9,5);path.lineTo(14,19);path.lineTo(18,12);path.lineTo(22,12);p->drawPath(path);}
     else if(name_=="shell") {p->drawLine(QPointF(5,7),QPointF(10,12));p->drawLine(QPointF(10,12),QPointF(5,17));p->drawLine(QPointF(13,17),QPointF(19,17));}
     else if(name_=="apps") {for(int x:{4,14})for(int y:{4,14})p->drawRoundedRect(QRectF(x,y,6,6),1.5,1.5);}
+    else if(name_=="width") {p->drawLine(QPointF(3,6),QPointF(3,18));p->drawLine(QPointF(21,6),QPointF(21,18));p->drawLine(QPointF(7,12),QPointF(17,12));
+        for(int s:{1,-1}){const qreal x=s>0?7:17;p->drawLine(QPointF(x,12),QPointF(x+3*s,9));p->drawLine(QPointF(x,12),QPointF(x+3*s,15));}}
+    else if(name_=="full") {for(int sx:{1,-1})for(int sy:{1,-1}){const QPointF c(12-8*sx,12-8*sy);p->drawLine(c,c+QPointF(5*sx,0));p->drawLine(c,c+QPointF(0,5*sy));}}
     else if(name_=="close") {p->drawLine(QPointF(7,7),QPointF(17,17));p->drawLine(QPointF(17,7),QPointF(7,17));}
     else if(name_=="plus") {p->drawLine(QPointF(5,12),QPointF(19,12));p->drawLine(QPointF(12,5),QPointF(12,19));}
     else if(name_=="more") {p->setPen(Qt::NoPen);p->setBrush(color_);for(int x:{5,12,19})p->drawEllipse(QPointF(x,12),1,1);}
