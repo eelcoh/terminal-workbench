@@ -30,6 +30,11 @@ os.environ['SHELL']='/bin/sh'
 fake_bin=Path(tempfile.mkdtemp(prefix='wb-ui-bin-',dir='/tmp'));os.environ['PATH']=str(fake_bin)+os.pathsep+os.environ['PATH']
 # A stray click on a system-package row must never reach the real sudo.
 (fake_bin/'sudo').write_text('#!/bin/sh\necho "WB_FAKE_SUDO refused $*"\nexit 1\n');(fake_bin/'sudo').chmod(0o755)
+# dnf is present everywhere here, so COPR and source choice are covered; the
+# refusing sudo keeps it from running.
+(fake_bin/'dnf').write_text('#!/bin/sh\nexit 0\n');(fake_bin/'dnf').chmod(0o755)
+# Homebrew's installer is replaced by a script that writes the fake brew.
+fake_installer=fake_bin/'install-homebrew';os.environ['BAND_TEST_HOMEBREW_INSTALLER']=str(fake_installer)
 processes=[];sockets=[];client=None;xdisplay=None
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:
     root=Path(directory);project=root/'Project folder';project.mkdir();child=project/'child';child.mkdir();chosen=project/'café #100% &';chosen.mkdir()
@@ -1614,10 +1619,8 @@ while True:
         def app_pane(app_id):return next((p for p in data()['panes'] if p['app']==app_id),None)
         # The Apps panel lists running apps; Add applications opens the catalog.
         def open_catalog():
-            if data()['apps_sidebar']=='workspaces':key('super+alt+a')
-            else:
-                key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
-                click(*settled_point(lambda d:d['add_applications']))
+            key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
+            click(*settled_point(lambda d:d['add_applications']))
             wait_until(lambda:data()['catalog_open'] and not data()['apps_checking'] and data()['catalog_count']>0)
         def choose(text,app_id):
             open_catalog();typed(text);wait_until(lambda:data()['catalog_current']==app_id);key('Return')
@@ -1655,33 +1658,39 @@ while True:
         choose('Quick app','quick')
         wait_until(lambda:app_pane('quick') and app_pane('quick')['ended'] and not app_pane('quick')['visible'])
         assert not data()['error'] and len([p for p in data()['panes'] if not p['ended']])==2
-        # Installing takes its own button: Return on a missing app moves there
-        # and starts nothing. The install runs visibly in its own pane, which
-        # closes when it succeeds and opens the app.
-        wait_until(lambda:entry('yazi')['installed']==0)
-        (fake_bin/'brew').write_text('#!/bin/sh\necho "WB_FAKE_BREW $*"\nprintf "#!/bin/sh\\nprintf WB_YAZI_READY; exec cat\\n" > '+shlex.quote(str(fake_bin/'yazi'))+'\nchmod +x '+shlex.quote(str(fake_bin/'yazi'))+'\n')
-        (fake_bin/'brew').chmod(0o755)
+        # Without Homebrew, a Homebrew-only app offers to set it up: Sources
+        # shows Homebrew's installer, which runs in a pane; afterwards the
+        # check finds brew and the app installs with it.
+        wait_until(lambda:entry('yazi')['installed']==0 and entry('yazi')['needsHomebrew'] and not data()['homebrew']['found'])
+        brew_script='#!/bin/sh\necho "WB_FAKE_BREW $*"\nprintf "#!/bin/sh\\nprintf WB_YAZI_READY; exec cat\\n" > '+shlex.quote(str(fake_bin/'yazi'))+'\nchmod +x '+shlex.quote(str(fake_bin/'yazi'))+'\n'
+        fake_installer.write_text('#!/bin/sh\necho WB_FAKE_HOMEBREW_INSTALLER\ncat > '+shlex.quote(str(fake_bin/'brew'))+' <<\'EOF\'\n'+brew_script+'EOF\nchmod +x '+shlex.quote(str(fake_bin/'brew'))+'\n');fake_installer.chmod(0o755)
         choose('yazi','yazi')
-        wait_until(lambda:data()['catalog_action_text']=='Install with Homebrew' and data()['catalog_detail']=='brew install yazi')
-        time.sleep(.3);assert data()['catalog_open'] and not app_pane('yazi-install') and not (fake_bin/'yazi').exists()
-        capture('app-catalog-install.png')
-        key('Return')
+        wait_until(lambda:data()['catalog_action_text']=='Set up Homebrew…')
+        # choose()'s Return on the row only moved to the button; a second Return acts.
+        time.sleep(.3);assert data()['catalog_open'] and not data()['sources_open'] and not app_pane('yazi-install')
+        key('Return');wait_until(lambda:data()['sources_open'] and data()['homebrew_install'])
+        assert [s['id'] for s in data()['app_sources']]==['brew','dnf','copr'] and not data()['app_sources'][2]['enabled']
+        capture('app-sources.png')
+        click(*settled_point(lambda d:d['homebrew_install']))
+        wait_until(lambda:not data()['catalog_open'] and data()['homebrew']['found'] and entry('yazi')['install']=='brew install yazi',timeout=30)
+        assert (app_pane('homebrew-install') or {'ended':True})['ended'] and not data()['error']
+        # Turning COPR on offers a second source; the choice picks the recipe.
+        open_catalog();click(*settled_point(lambda d:d['sources_button']));wait_until(lambda:data()['sources_open'] and data()['source_toggle_copr'])
+        click(*settled_point(lambda d:d['source_toggle_copr']));wait_until(lambda:data()['app_sources'][2]['enabled'] and len(entry('yazi')['options'])==2)
+        click(*settled_point(lambda d:d['sources_button']));wait_until(lambda:not data()['sources_open'])
+        typed('yazi');wait_until(lambda:data()['catalog_current']=='yazi' and data()['source_choice_copr'])
+        click(*settled_point(lambda d:d['source_choice_copr']));wait_until(lambda:data()['catalog_detail']=='sudo dnf copr enable lihaohong/yazi && sudo dnf install yazi' and data()['catalog_action_text']=='Install')
+        capture('app-catalog-sources.png')
+        click(*settled_point(lambda d:d['source_choice_brew']));wait_until(lambda:data()['catalog_detail']=='brew install yazi' and data()['catalog_action_text']=='Install')
+        # The install runs visibly in its own pane, which closes when it
+        # succeeds and opens the app.
+        assert data()['catalog_open'] and not app_pane('yazi-install') and not (fake_bin/'yazi').exists()
+        click(*settled_point(lambda d:d['catalog_action']))
         wait_until(lambda:app_pane('yazi') and app_pane('yazi')['ready'] and 'WB_YAZI_READY' in app_pane('yazi')['text'] and app_pane('yazi')['focus'],timeout=30)
         assert (app_pane('yazi-install') or {'ended':True})['ended'] and entry('yazi')['installed']==1 and not data()['error']
         capture('app-installed.png')
         request(root,Path(runtime),root,'terminal.close',app_pane('yazi')['identity'])
         wait_until(lambda:app_pane('yazi') is None)
-        # The other sidebar trial: running apps on workspace rows, and the Apps
-        # icon and Super+Alt+A open the catalog.
-        open_catalog();click(*settled_point(lambda d:d['trial_workspaces']));wait_until(lambda:data()['apps_sidebar']=='workspaces');key('Escape')
-        wait_until(lambda:not data()['catalog_open'])
-        focus_pane=lambda:next((p for p in data()['panes'] if p['focus']),None)
-        while focus_pane() is None or focus_pane()['identity']!=survivor:key('super+alt+Left');time.sleep(.3)
-        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and data()['workspace_first_app'])
-        capture('apps-on-workspaces.png')
-        click(*settled_point(lambda d:d['workspace_first_app']));wait_until(lambda:app_pane('echo')['focus'] and not data()['drawer_open'])
-        key('super+alt+a');wait_until(lambda:data()['catalog_open'] and not data()['drawer_open'])
-        click(*settled_point(lambda d:d['trial_list']));wait_until(lambda:data()['apps_sidebar']=='list');key('Escape');wait_until(lambda:not data()['catalog_open'])
         # Closing the app removes it; the ended app leaves with that catalog change.
         request(root,Path(runtime),root,'terminal.close',echo)
         wait_until(lambda:len(data()['panes'])==1)
@@ -1691,7 +1700,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, install behind its own button, apps on workspace rows), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (catalog open, running apps panel, Super+Alt+A, failed start kept and started again, normal exit, Homebrew setup from Sources, sources on/off and per-app source choice, install behind its own button), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except SystemExit:
         raise
     except BaseException:

@@ -102,12 +102,10 @@ Item {
             Repeater {
                 id: workspaceRows; model: navigation.workspaces ? host.spaces.length : 0
                 Item {
-                    id: workspaceRow
                     required property int index
                     property alias button: workspaceEntry
                     readonly property string identity: host.spaceIds[index] || ""
-                    readonly property var apps: host.appsSidebar === "workspaces" ? host.appsIn(index) : []
-                    width: body.width; height: 44 + (apps.length ? 28 : 0)
+                    width: body.width; height: 44
                     ChromeButton {
                         id: workspaceEntry
                         Keys.onDownPressed: navigation.focusWorkspace(parent.index + 1)
@@ -119,7 +117,7 @@ Item {
                             else event.accepted = false
                         }
                         objectName: "navigationWorkspace" + parent.index
-                        tones: host.chrome; width: parent.width - 32; height: 44; leftAligned: true
+                        tones: host.chrome; width: parent.width - 32; height: parent.height; leftAligned: true
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
                         readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
                         hint: text + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "")
@@ -137,30 +135,9 @@ Item {
                         }
                         onClicked: host.chooseWorkspace(parent.index)
                     }
-                    Flow {
-                        x: 4; y: 44; width: parent.width - 36; height: 26; clip: true; spacing: 2
-                        Repeater {
-                            model: workspaceRow.apps
-                            ChromeButton {
-                                required property int index
-                                required property int modelData
-                                readonly property var pane: host.panel(modelData)
-                                objectName: "workspaceApp" + workspaceRow.index + "_" + index
-                                tones: host.chrome; height: 24; text: pane ? pane.appName : ""
-                                selected: modelData === host.selected && !host.overview
-                                hint: "Go to " + text + (pane && pane.appStopped ? " · Stopped" : "")
-                                contentItem: Row {
-                                    spacing: 5; leftPadding: 6; rightPadding: 6
-                                    Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: parent.parent.pane && parent.parent.pane.appStopped ? host.chrome.waiting : host.chrome.ready }
-                                    Text { height: 24; verticalAlignment: Text.AlignVCenter; text: parent.parent.text; textFormat: Text.PlainText; color: host.chrome.foreground; font.pixelSize: 12 }
-                                }
-                                onClicked: host.chooseRunningApp(modelData)
-                            }
-                        }
-                    }
                     ChromeButton {
                         objectName: "removeWorkspace" + parent.index
-                        anchors.right: parent.right; y: 22 - height / 2
+                        anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter
                         tones: host.chrome; iconName: "close"; opacity: hovered || visualFocus ? 1 : 0.65
                         hint: "Remove " + (host.spaces[parent.index] || "workspace") + "…"
                         enabled: !session.busy && host.dragSlot < 0

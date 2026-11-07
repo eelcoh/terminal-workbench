@@ -94,7 +94,7 @@ int main(int argc,char **argv) {
     // Apps run through the login shell; check them with the same one.
     QString shell=qEnvironmentVariable("SHELL");
     if(!QFileInfo(shell).isExecutable()){const auto *account=getpwuid(getuid());shell=account && account->pw_shell ? QString::fromLocal8Bit(account->pw_shell) : QStringLiteral("/bin/sh");}
-    UiApps apps(apple,shell);
+    UiApps apps(apple,shell,nullptr,QStringLiteral("/run/ostree-booted"),QStringLiteral(":/apps-catalog.json"),QDir(configuration["state"].toString()).filePath("qt/app-sources.json"));
     UiAgentInfo agentInfo;
     UiWorkspaceAppearance workspaceAppearance(QDir(configuration["state"].toString()).filePath("qt/workspace-appearance"),!checking);
     UiWorkspaceAppearance terminalAppearance(QDir(configuration["state"].toString()).filePath("qt/terminal-appearance"),!checking,nullptr,true);
@@ -111,14 +111,13 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyAgentInfo",&agentInfo);
     engine.rootContext()->setContextProperty("studyRuntimeInfo",&runtimeInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);
-    // Temporary: which sidebar layout for running apps to try (docs/apps.md).
-    engine.rootContext()->setContextProperty("appsSidebarTrial",qEnvironmentVariable("BAND_APPS_SIDEBAR")=="workspaces" ? QStringLiteral("workspaces") : QStringLiteral("list"));
     engine.rootContext()->setContextProperty("studyView",&view);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
     engine.rootContext()->setContextProperty("studyTerminalAppearance",&terminalAppearance);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
     engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
+    if(args.contains("--test-report") && qEnvironmentVariableIsSet("BAND_TEST_HOMEBREW_INSTALLER"))apps.setHomebrewInstaller(qEnvironmentVariable("BAND_TEST_HOMEBREW_INSTALLER"));
     engine.rootContext()->setContextProperty("studyApps",&apps);
     engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));
     if(checking) {
@@ -263,8 +262,9 @@ int main(int argc,char **argv) {
                 {"catalog_open",window->property("appCatalogOpen").toBool()},{"catalog_current",window->property("appCatalogCurrent").toString()},{"catalog_count",window->property("appCatalogCount").toInt()},
                 {"catalog_action",center("appCatalogAction")},{"catalog_action_text",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogAction");return item ? item->property("text").toString() : QString();}()},
                 {"catalog_detail",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogDetail");return item ? item->property("text").toString() : QString();}()},
-                {"add_applications",center("addApplicationsButton")},{"apps_sidebar",window->property("appsSidebar").toString()},
-                {"trial_list",center("appsTrialList")},{"trial_workspaces",center("appsTrialWorkspaces")},{"workspace_first_app",center(qPrintable("workspaceApp"+QString::number(window->property("workspace").toInt())+"_0"))},
+                {"add_applications",center("addApplicationsButton")},{"sources_button",center("appSourcesButton")},{"sources_open",window->property("appSourcesOpen").toBool()},{"homebrew_install",center("homebrewInstall")},
+                {"source_toggle_brew",center("appSourceToggle_brew")},{"source_toggle_dnf",center("appSourceToggle_dnf")},{"source_toggle_copr",center("appSourceToggle_copr")},{"source_choice_copr",center("appSourceChoice_copr")},{"source_choice_brew",center("appSourceChoice_brew")},
+                {"app_sources",QJsonArray::fromVariantList(apps.sources())},{"homebrew",QJsonObject::fromVariantMap(apps.homebrew())},
                 {"navigation_first_app",center("navigationApp0")},{"navigation_second_app",center("navigationApp1")},{"navigation_third_app",center("navigationApp2")},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},
                 {"drop_allowed",window->property("dropAllowed").toBool()},

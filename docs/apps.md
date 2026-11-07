@@ -1,6 +1,6 @@
 # Apps (v0.2 plan)
 
-Plan (2026-11-05, revised 2026-11-06 and 2026-11-07). Slices 1–7 are implemented; see
+Plan (2026-11-05, revised 2026-11-06 and 2026-11-07). Slices 1–9 are implemented; see
 [app terminals](session-service.md#app-terminals) and
 [dotfiles](dotfiles.md#apps). Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
 TUIs such as lazygit and btop are first-class and one key away. Running apps
@@ -14,8 +14,8 @@ panel shipped in slice 4 and an uncommitted dock were dropped.
 
 Revision (owner, 2026-11-07): the sidebar shows only running apps, with **Add
 applications**, which opens a catalog: installed apps on top, then apps to
-install. Limited to TUIs, taken from lists such as awesome-tuis. Two sidebar
-layouts are on trial (slice 8).
+install. Limited to TUIs, taken from lists such as awesome-tuis. Of two
+sidebar layouts tried, the owner kept the Apps list, like Agents (slice 8).
 
 ## Model
 
@@ -118,14 +118,34 @@ today.
    Those install with Homebrew only; apps without a Linux or macOS bottle are
    left out on that platform. Argument-only tools (delta, viu, helm) are
    skipped.
-8. **Sidebar trial.** Running apps are shown one of two ways, switched with
-   **Sidebar trial** in the catalog's header (or `BAND_APPS_SIDEBAR=workspaces`
-   at start): *Apps list*, the Apps panel lists running apps from every
-   workspace, like Agents, with Add applications at the bottom; *On
-   workspaces*, each workspace row lists its running apps, and the Apps icon
-   and Show apps open the catalog. The choice is not saved. One stays once the
-   owner has tried both.
-9. **Custom setup.** Beyond `[app.ID]`: an `install` recipe for your own apps,
+8. [x] **Running apps in the sidebar.** The Apps panel lists running apps from
+   every workspace, like Agents, with their workspace and a Stopped mark for a
+   failed one; choosing one goes to its pane. **Add applications…** sits at
+   the bottom. (Tried against apps on workspace rows, 2026-11-07.)
+9. [x] **Sources.** Owner feedback from a Fedora 44 box: lazygit failed with
+   dnf (Fedora has no lazygit package; the earlier check was wrong), and
+   Homebrew-only apps had no way forward without Homebrew. Now:
+   - **Every source is offered.** An app lists each way to install it here
+     (Homebrew, dnf, apt, pacman, COPR), Homebrew first; when there is more
+     than one, *Install from* in the detail strip picks it.
+   - **Sources view** (header button in the catalog): Homebrew, the system
+     package manager found, and on dnf systems COPR repositories, each with
+     Turn on / Turn off, saved in `state/qt/app-sources.json`. COPR is
+     third-party and starts off; curated apps name their project
+     (`dejan/lazygit`, `lihaohong/yazi`, both current on 2026-11-07; the
+     older `atim/lazygit` is unmaintained and lazydocker's COPR stale since
+     2024), and the recipe is `sudo dnf copr enable PROJECT && sudo dnf
+     install APP`.
+   - **Install Homebrew.** Without Homebrew, a Homebrew-only app shows *Set up
+     Homebrew…*, which opens Sources; **Install Homebrew** runs Homebrew's
+     official installer (`curl` from raw.githubusercontent.com over HTTPS,
+     the user's choice at run time) in a visible pane, and the check runs
+     again when it ends. Homebrew installed in a standard prefix but not
+     loaded by the shell (Linux, before the profile line is added) is
+     detected; Sources shows the `shellenv` line to copy.
+   - Lists are re-read only when they change (separate notifications), so
+     rows are not rebuilt under the pointer during a check.
+10. **Custom setup.** Beyond `[app.ID]`: an `install` recipe for your own apps,
    a `setup` command run once after installing, and later Band-provided
    configuration (themes) for catalog apps, after Omarchy.
 

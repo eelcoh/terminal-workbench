@@ -38,7 +38,10 @@ int main(int argc,char **argv){
     require(UiApps::program("~/bin/tool")==QDir::home().filePath("bin/tool"),"home program");
     require(UiApps::probeScript({"it's"},marker).contains("'it'\\''s'"),"quoted program");
 
-    UiApps onLinux(false,shell,nullptr,marker,file);
+    // Homebrew installed in a fixture prefix the shell does not load.
+    const QString offPath=root.filePath("linuxbrew/bin/brew"),sources=root.filePath("state/app-sources.json");
+    require(QDir().mkpath(root.filePath("linuxbrew/bin")),"brew prefix");executable(offPath,"#!/bin/sh\nexit 0\n");
+    UiApps onLinux(false,shell,nullptr,marker,file,sources,{root.filePath("missing/brew"),offPath});
     require(onLinux.entries().size()==curatedCount+1 && onLinux.entry("lazygit")["installed"].toInt()==-1,"unchecked catalog");
     onLinux.setDefinitions({QVariantMap{{"id","mine"},{"name","Mine"},{"command","mine --flag"},{"directory",""}},
         QVariantMap{{"id","lazygit"},{"name","LG"},{"command","lazygit -p ~"},{"directory","~"}}});
@@ -47,23 +50,37 @@ int main(int argc,char **argv){
     require(onLinux.entry("lazygit")["name"]=="LG" && onLinux.entry("lazygit")["command"]=="lazygit -p ~" && onLinux.entry("lazygit")["installed"].toInt()==1,"definition overrides a catalog entry");
     require(onLinux.entry("lazygit")["description"].toString().contains("Git"),"catalog description kept");
     require(onLinux.entry("btop")["installed"].toInt()==0 && onLinux.entry("btop")["install"]=="sudo dnf install btop" && onLinux.entry("btop")["via"]=="dnf","system package");
-    require(onLinux.entry("yazi")["install"].toString().isEmpty() && onLinux.entry("yazi")["hint"].toString().contains("Homebrew"),"not packaged");
-    require(onLinux.entry("glow")["install"].toString().isEmpty() && onLinux.entry("glow")["hint"].toString().contains("brew.sh") && onLinux.entry("glow")["section"]=="Productivity","shipped apps install with Homebrew only");
+    require(onLinux.entry("lazygit")["options"].toList().isEmpty() || onLinux.entry("lazygit")["installed"].toInt()==1,"lazygit has no Fedora package");
+    require(onLinux.entry("yazi")["install"].toString().isEmpty() && onLinux.entry("yazi")["hint"].toString().contains("COPR lihaohong/yazi") && onLinux.entry("yazi")["hint"].toString().contains("turned off"),"third-party repositories start off");
+    require(onLinux.entry("glow")["install"].toString().isEmpty() && onLinux.entry("glow")["needsHomebrew"].toBool() && onLinux.entry("glow")["hint"].toString().contains("does not load it")
+        && onLinux.entry("glow")["section"]=="Productivity","shipped apps install with Homebrew only");
+    require(onLinux.homebrew()["path"]==offPath && onLinux.homebrew()["shellenv"]=="eval \"$("+offPath+" shellenv)\"" && !onLinux.homebrew()["found"].toBool() && onLinux.homebrew()["install"].toString().contains("Homebrew/install"),"Homebrew installed but not loaded");
+    const auto sourceIds=[&](UiApps &apps){QStringList ids;for(const auto &value:apps.sources())ids<<value.toMap()["id"].toString();return ids;};
+    require(sourceIds(onLinux)==QStringList({"brew","dnf","copr"}),"sources found here");
+    onLinux.setSourceEnabled("copr",true);
+    require(onLinux.entry("yazi")["install"]=="sudo dnf copr enable lihaohong/yazi && sudo dnf install yazi" && onLinux.entry("yazi")["via"]=="COPR lihaohong/yazi","a turned-on repository is offered");
+    {QFile saved(sources);require(saved.open(QIODevice::ReadOnly) && saved.readAll().contains("\"copr\": true"),"source choices saved");}
 
     onLinux.setDefinitions({QVariantMap{{"id","later"},{"name","Later"},{"command","later"},{"directory",""}}});
     require(onLinux.entry("later")["installed"].toInt()==-1,"unknown until checked, not missing");
     executable(bin+"/brew","#!/bin/sh\nexit 0\n");check(onLinux);
     require(onLinux.entry("btop")["install"]=="brew install btop" && onLinux.entry("yazi")["install"]=="brew install yazi" && onLinux.entry("glow")["install"]=="brew install glow","Homebrew first on Linux");
+    require(onLinux.entry("btop")["options"].toList().size()==2 && onLinux.entry("yazi")["options"].toList().size()==2,"every source offered");
+    onLinux.setSourceEnabled("brew",false);
+    require(onLinux.entry("btop")["install"]=="sudo dnf install btop" && onLinux.entry("glow")["hint"].toString().contains("Homebrew") && onLinux.entry("glow")["hint"].toString().contains("turned off"),"a turned-off source is not offered");
+    onLinux.setSourceEnabled("brew",true);
     QFile::remove(bin+"/brew");executable(marker,"");check(onLinux);
-    require(onLinux.entry("btop")["install"].toString().isEmpty() && onLinux.entry("btop")["hint"].toString().contains("image-based"),"no system packages on an image-based host");
+    require(onLinux.entry("btop")["install"].toString().isEmpty() && onLinux.entry("btop")["needsHomebrew"].toBool() && onLinux.entry("btop")["hint"].toString().contains("Homebrew")
+        && !onLinux.sources()[1].toMap()["found"].toBool() && onLinux.sources()[1].toMap()["detail"].toString().contains("Image-based") && onLinux.sources().size()==2,"no system packages on an image-based host");
 
-    UiApps mac(true,shell,nullptr,marker,file);check(mac);
+    UiApps mac(true,shell,nullptr,marker,file,{},{});check(mac);
+    require(sourceIds(mac)==QStringList({"brew"}),"Mac sources");
     require(!mac.entry("macmon").isEmpty() && onLinux.entry("macmon").isEmpty(),"platform-only apps");
     require(mac.entry("btop")["install"].toString().isEmpty() && mac.note().contains("Homebrew"),"Mac needs Homebrew");
     executable(bin+"/brew","#!/bin/sh\nexit 0\n");check(mac);
     require(mac.entry("btop")["install"]=="brew install btop" && mac.note().isEmpty(),"Mac installs with Homebrew");
 
-    UiApps missing(false,root.filePath("no-such-shell"),nullptr,marker);check(missing);
+    UiApps missing(false,root.filePath("no-such-shell"),nullptr,marker,file,{},{});check(missing);
     require(missing.entry("lazygit")["installed"].toInt()==1,"falls back to this process's PATH");
-    std::puts("PASS: curated and shipped catalog, merge and overrides, installed check on the login PATH, Homebrew first, system packages, image-based hosts, Mac, quoting, missing shell");
+    std::puts("PASS: curated and shipped catalog, merge and overrides, installed check on the login PATH, Homebrew first, every source offered, sources on and off and saved, COPR off by default, Homebrew not loaded, system packages, image-based hosts, Mac, quoting, missing shell");
 }
