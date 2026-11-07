@@ -384,6 +384,7 @@ ApplicationWindow {
         case "about": about.open(); break
         case "welcome": openWelcome(); break
         case "help": help.open(); break
+        case "new-host": newHost(); break
         default: if (id.startsWith("host:")) connectHost(id.slice(5)); break
         }
     }
@@ -594,7 +595,15 @@ ApplicationWindow {
     function showApps() { openNavigation("apps") }
     // SSH hosts from config.conf ([host.ID]); a host pane runs ssh as a command
     // terminal with the app ID "_host-ID" (then "_host-ID_2", …). See docs/hosts.md.
-    readonly property var hostDefinitions: studyConfiguration.hosts
+    // config.conf hosts with Band's saved hosts over them (marked "saved").
+    readonly property var hostDefinitions: { const own = studyHosts.saved; return studyHosts.merge(studyConfiguration.hosts) }
+    readonly property bool hostDialogOpen: hostDialog.visible
+    function newHost() {
+        if (hostDialog.visible || createDialog.visible || terminalAction.visible) return
+        if (drawer.visible) drawer.close()
+        hostName.text = ""; hostDestination.text = ""; hostFolder.text = ""; hostDialog.suggestions = studyHosts.suggestions().filter(alias => !hostDefinitions.some(item => item.destination === alias))
+        hostDialog.open()
+    }
     function hostOf(appId) {
         if (!appId.startsWith("_host-")) return null
         const id = appId.slice(6).split("_")[0]
@@ -1015,7 +1024,7 @@ ApplicationWindow {
             onClicked: window.toggleSection("apps")
         }
         QuietButton {
-            objectName: "hostsButton"; height: 28; iconName: "host"; visible: window.hostDefinitions.length > 0 || window.navigationSection === "hosts"
+            objectName: "hostsButton"; height: 28; iconName: "host"
             hint: "Hosts"
             selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "hosts"
             onClicked: window.toggleSection("hosts")
@@ -1648,6 +1657,54 @@ ApplicationWindow {
         selectByMouse: true; color: "#e0e6ef"; selectionColor: window.accent; selectedTextColor: "#101318"
         placeholderTextColor: "#7d899c"; padding: 10
         background: Rectangle { radius: 6; color: "#101318"; border.color: parent.activeFocus ? window.accent : "#3a4657" }
+    }
+    // New host: a name, an ssh destination (with ~/.ssh/config aliases to pick)
+    // and an optional remote folder, saved in Band's own host list.
+    Dialog {
+        id: hostDialog; objectName: "hostDialog"
+        property var suggestions: []
+        implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: 20
+        title: "New host"
+        background: Rectangle { color: "#1b2029"; radius: 10; border.color: "#3a4657" }
+        header: Label { text: hostDialog.title; padding: 20; bottomPadding: 6; color: "#e0e6ef"; font.pixelSize: 18 }
+        onOpened: hostDestination.forceActiveFocus()
+        function save() {
+            const id = studyHosts.freeId(hostName.text.trim() || hostDestination.text.trim(), window.hostDefinitions)
+            if (studyHosts.save({id: id, name: hostName.text.trim(), destination: hostDestination.text.trim(), directory: hostFolder.text.trim()})) hostDialog.close()
+        }
+        contentItem: Column {
+            spacing: 12
+            Label { text: "Destination"; color: "#c2c9d4" }
+            ProjectField { id: hostDestination; objectName: "hostDestinationInput"; width: parent.width; placeholderText: "An ssh alias, host or user@host"; onAccepted: hostName.forceActiveFocus() }
+            Flow {
+                width: parent.width; spacing: 6; visible: hostDialog.suggestions.length > 0
+                Label { height: 32; verticalAlignment: Text.AlignVCenter; text: "From ~/.ssh/config"; color: "#a5afbe"; font.pixelSize: 12; rightPadding: 4 }
+                Repeater {
+                    model: hostDialog.suggestions.slice(0, 12)
+                    QuietButton {
+                        required property string modelData
+                        required property int index
+                        objectName: "hostSuggestion" + index; fixedPalette: true; focusPolicy: Qt.NoFocus; text: modelData
+                        selected: hostDestination.text === modelData
+                        onClicked: hostDestination.text = modelData
+                    }
+                }
+            }
+            Label { text: "Name"; color: "#c2c9d4" }
+            ProjectField { id: hostName; objectName: "hostNameInput"; width: parent.width; placeholderText: hostDestination.text || "Shown in the sidebar"; maximumLength: 63; onAccepted: hostFolder.forceActiveFocus() }
+            Label { text: "Remote folder (optional)"; color: "#c2c9d4" }
+            ProjectField { id: hostFolder; objectName: "hostFolderInput"; width: parent.width; placeholderText: "~/src/project"; onAccepted: hostDialog.save() }
+            Label {
+                width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 12; color: studyHosts.error ? "#e3bf91" : "#a5afbe"
+                text: studyHosts.error || "Saved by Band beside its other settings. Keys, passwords and ssh options stay with ssh."
+            }
+            Row {
+                spacing: 8
+                QuietButton { fixedPalette: true; text: "Cancel"; onClicked: hostDialog.close() }
+                QuietButton { objectName: "saveHostButton"; fixedPalette: true; primary: true; text: "Save"; enabled: hostDestination.text.trim().length > 0; onClicked: hostDialog.save() }
+            }
+        }
+        onClosed: Qt.callLater(window.restoreAfterPopup)
     }
     Dialog {
         id: createDialog; objectName: "createWorkspaceDialog"

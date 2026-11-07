@@ -139,8 +139,14 @@ and may not start with `-` or contain spaces; every SSH option stays in
 `~/.ssh/config`. `[linux.host.ID]` and `[macos.host.ID]` override fields as for
 apps. When ssh exits normally the pane closes; when it fails the pane keeps its
 last lines and offers Connect again. Band never stores passwords or keys.
-App IDs that start with `_` are reserved for Band's own panes. See
-[SSH hosts](hosts.md).
+App IDs that start with `_` are reserved for Band's own panes.
+
+**New host…** (Hosts panel, Commands) saves hosts in Band's own list,
+`ui/hosts.json` beside the per-platform font and shortcut folders, shared by
+both platforms; it suggests the `Host` aliases of `~/.ssh/config` (no
+patterns, top level only), read only. For the same ID, Band's entry wins over
+config.conf. Hosts Band saved can be removed from the panel; config.conf hosts
+stay as written. See [SSH hosts](hosts.md).
 
 ## Terminal fonts
 

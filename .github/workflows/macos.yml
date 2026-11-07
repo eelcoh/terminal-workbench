@@ -85,7 +85,7 @@ jobs:
       - name: Qt client checks (offscreen)
         run: |
           failed=()
-          for recipe in toolkit-catalog-test toolkit-view-state-test toolkit-apps-test toolkit-worktrees-test toolkit-shortcuts-test toolkit-fonts-test \
+          for recipe in toolkit-catalog-test toolkit-view-state-test toolkit-apps-test toolkit-worktrees-test toolkit-hosts-test toolkit-shortcuts-test toolkit-fonts-test \
               toolkit-lifecycle-test toolkit-runtime-facts-test toolkit-theme-import-test toolkit-search-test \
               toolkit-scroll-test toolkit-about-test toolkit-configuration-test toolkit-workspace-appearance-test \
               toolkit-agent-info-test toolkit-runtime-info-test package-tools-test; do

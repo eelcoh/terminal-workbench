@@ -1,12 +1,15 @@
 # SSH hosts (v0.3 design note, 2026-11-07)
 
-Status (2026-11-07): slices 1–3 built. `[host.ID]` in config.conf, Connect
-to… in Commands, host panes with their own identity and outside the Apps list,
-and the Hosts panel (sidebar shape A: a rail icon shown when hosts exist,
-saved hosts with their open panes in any workspace, Connect, the footer
-filter, and a link to config.conf for now). The owner's decisions are at the
-end; next are Band's own host list with New host… (suggesting `~/.ssh/config`
-aliases), reachability, and a theme per host.
+Status (2026-11-07): slices 1–3 built, plus Band's own host list.
+- `[host.ID]` in config.conf, and Connect to… in Commands.
+- Host panes with their own identity, outside the Apps list.
+- The Hosts panel (sidebar shape A): saved hosts with their open panes in any
+  workspace, Connect, and the footer filter.
+- New host…, which writes `ui/hosts.json` and suggests `~/.ssh/config`
+  aliases. Hosts Band saved can be removed from the panel.
+
+Next are reachability and a theme per host. The owner's decisions are at the
+end.
 
 Rex treats hosts as the top level of its sidebar (This Mac, then remote hosts
 with a reachability mark). Band's v0.3 goal is the same everyday use, plain SSH

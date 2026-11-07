@@ -236,6 +236,10 @@ toolkit-apps-test:
 toolkit-worktrees-test:
     python3 scripts/toolkit-probe.py worktrees-test
 
+# Mac/Linux: Band's own SSH host list and ~/.ssh/config suggestions.
+toolkit-hosts-test:
+    python3 scripts/toolkit-probe.py hosts-test
+
 # Mac/Linux: saved launcher lifecycle/reattachment without a display.
 toolkit-saved-session-test: runtime-build
     python3 tests/qt_saved_launcher_test.py target/debug/band-session

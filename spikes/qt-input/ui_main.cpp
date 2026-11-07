@@ -17,6 +17,7 @@
 #include "ui_view_state.h"
 #include "ui_welcome.h"
 #include "ui_worktrees.h"
+#include "ui_hosts.h"
 #include "ui_shortcuts.h"
 #include "ui_apps.h"
 #include <pwd.h>
@@ -96,6 +97,10 @@ int main(int argc,char **argv) {
     // Band's saved default theme lives beside its font and shortcut settings.
     const auto fontOverrides=configuration["font_overrides"].toString();
     UiAppearance appearance(configuration["preferences"].toString(),apple,themes,nullptr,fontOverrides.isEmpty()?QString():QFileInfo(fontOverrides).dir().filePath("appearance.json"));
+    // Band's host list sits in ui/, beside the per-platform font and shortcut folders.
+    QString hostsPath;
+    if(!fontOverrides.isEmpty()){QDir ui=QFileInfo(fontOverrides).dir();ui.cdUp();hostsPath=ui.filePath("hosts.json");}
+    UiHosts hosts(hostsPath,args.contains("--test-report") && qEnvironmentVariableIsSet("BAND_TEST_SSH_CONFIG") ? qEnvironmentVariable("BAND_TEST_SSH_CONFIG") : QDir::home().filePath(".ssh/config"));
     UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance,apple);
     // Apps run through the login shell; check them with the same one.
     QString shell=qEnvironmentVariable("SHELL");
@@ -121,6 +126,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyAppearance",&appearance);
     engine.rootContext()->setContextProperty("studyWelcome",&welcome);
     engine.rootContext()->setContextProperty("studyWorktrees",&worktrees);
+    engine.rootContext()->setContextProperty("studyHosts",&hosts);
     engine.rootContext()->setContextProperty("studyWorkspaceAppearance",&workspaceAppearance);
     engine.rootContext()->setContextProperty("studyTerminalAppearance",&terminalAppearance);
     engine.rootContext()->setContextProperty("studyThemes",&themes);
@@ -327,7 +333,8 @@ int main(int argc,char **argv) {
                 {"form_submit_enabled",window->findChild<QQuickItem *>("submitWorkspaceButton")->isEnabled()},
                 {"creation_open",window->property("creationOpen").toBool()},
                 {"navigation_pinned",window->property("navigationPinned").toBool()},{"navigation_docked",window->property("navigationDocked").toBool()},
-                {"navigation_agent_labels",navigationAgents},{"navigation_panes",navigationPanes},{"key_chips",keyChips},{"welcome_apps",welcomeApps},{"navigation_hosts",navigationHosts},{"navigation_host_panes",navigationHostPanes},{"hosts_button",center("hostsButton")},{"connect_host_0",center("connectHost0")},{"navigation_workspace_rows",navigationWorkspaces},{"navigation_filter",center("navigationFilter")},{"expand_workspace_0",center("expandWorkspace0")},{"expand_workspace_1",center("expandWorkspace1")},{"navigation_section",window->property("navigationSection").toString()},{"navigation_pin",center("navigationPin")},
+                {"navigation_agent_labels",navigationAgents},{"navigation_panes",navigationPanes},{"key_chips",keyChips},{"welcome_apps",welcomeApps},{"navigation_hosts",navigationHosts},{"navigation_host_panes",navigationHostPanes},{"hosts_button",center("hostsButton")},{"connect_host_0",center("connectHost0")},{"new_host_button",center("newHostButton")},{"remove_host_1",center("removeHost1")},
+                {"host_dialog_open",window->property("hostDialogOpen").toBool()},{"host_suggestion_0",center("hostSuggestion0")},{"save_host_button",center("saveHostButton")},{"saved_hosts",QJsonArray::fromVariantList(hosts.saved())},{"navigation_workspace_rows",navigationWorkspaces},{"navigation_filter",center("navigationFilter")},{"expand_workspace_0",center("expandWorkspace0")},{"expand_workspace_1",center("expandWorkspace1")},{"navigation_section",window->property("navigationSection").toString()},{"navigation_pin",center("navigationPin")},
                 {"navigation_search",center("navigationAgentSearch")},{"navigation_search_focus",window->property("navigationSearchFocused").toBool()},
                 {"navigation_matches",QJsonArray::fromVariantList(listProperty(window,"navigationMatches"))},{"navigation_needs_only",window->property("navigationNeedsOnly").toBool()},
                 {"navigation_needs_filter",center("navigationNeedsFilter")},{"navigation_clear_filters",center("navigationClearFilters")},

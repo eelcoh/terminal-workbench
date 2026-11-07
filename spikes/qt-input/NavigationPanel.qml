@@ -343,15 +343,23 @@ Item {
                         contentItem: Item {
                             ChromeIcon { id: hostIcon; x: 0; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; name: "host"; color: host.chrome.muted }
                             Column {
-                                anchors.left: hostIcon.right; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: 34; anchors.verticalCenter: parent.verticalCenter; spacing: 3
+                                anchors.left: hostIcon.right; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 64 : 34; anchors.verticalCenter: parent.verticalCenter; spacing: 3
                                 Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
                                 Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.muted; font.pixelSize: 12 }
                             }
                         }
                         onClicked: host.connectHost(hostRow.modelData.id)
                     }
+                    // Hosts Band saved can be removed here; config.conf hosts stay as written.
                     ChromeButton {
-                        objectName: "connectHost" + hostRow.index; z: 2
+                        objectName: "removeHost" + hostRow.index; z: 2; visible: !!hostRow.modelData.saved
+                        anchors.right: connectButton.left; anchors.verticalCenter: hostEntry.verticalCenter
+                        tones: host.chrome; iconName: "close"; focusPolicy: Qt.NoFocus
+                        hint: "Remove " + hostRow.modelData.name + " from Band's hosts"
+                        onClicked: studyHosts.remove(hostRow.modelData.id)
+                    }
+                    ChromeButton {
+                        id: connectButton; objectName: "connectHost" + hostRow.index; z: 2
                         anchors.right: hostEntry.right; anchors.rightMargin: 4; anchors.verticalCenter: hostEntry.verticalCenter
                         tones: host.chrome; iconName: "plus"; focusPolicy: Qt.NoFocus; enabled: host.canCreateTerminal
                         hint: "Connect to " + hostRow.modelData.name + " in this workspace"
@@ -380,7 +388,7 @@ Item {
             Label {
                 width: body.width; visible: navigation.hosts && hostRows.count === 0
                 padding: 8; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
-                text: host.hostDefinitions.length && navigation.filter ? "No matching hosts" : "No hosts yet\nAdd [host.ID] sections with a destination to config.conf; see SSH hosts in the docs."
+                text: host.hostDefinitions.length && navigation.filter ? "No matching hosts" : "No hosts yet\nNew host… saves an SSH destination; [host.ID] sections in config.conf work too."
             }
             Repeater {
                 id: agentRows; model: navigation.agents ? navigation.matches : []
@@ -446,14 +454,15 @@ Item {
             onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
         }
         ChromeButton {
-            objectName: "editHostsButton"; visible: navigation.hosts; y: 54; width: parent.width; height: 36
-            tones: host.chrome; text: "Hosts are in config.conf…"; hint: "Open the configuration folder; add [host.ID] sections there"
+            objectName: "newHostButton"; visible: navigation.hosts; y: 54; width: parent.width; height: 36
+            tones: host.chrome; text: "New host…"; hint: "Save an SSH destination; [host.ID] in config.conf works too"
             contentItem: Row {
                 spacing: 8; leftPadding: 8
                 Item { width: 18; height: 36; ChromeIcon { anchors.centerIn: parent; width: 18; height: 18; name: "plus"; color: host.chrome.accent } }
-                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "Hosts are in config.conf…"; color: host.chrome.accent; font.pixelSize: 13 }
+                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "New host…"; color: host.chrome.accent; font.pixelSize: 13 }
             }
-            onClicked: studyConfiguration.openDirectory()
+            Keys.onReturnPressed: host.newHost()
+            onClicked: host.newHost()
         }
         ChromeButton {
             id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width; height: 36; visible: navigation.apps

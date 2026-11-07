@@ -33,6 +33,8 @@ fake_bin=Path(tempfile.mkdtemp(prefix='wb-ui-bin-',dir='/tmp'));os.environ['PATH
 # dnf is present everywhere here, so COPR and source choice are covered; the
 # refusing sudo keeps it from running.
 (fake_bin/'dnf').write_text('#!/bin/sh\nexit 0\n');(fake_bin/'dnf').chmod(0o755)
+# New host… suggests aliases from this stand-in ~/.ssh/config (test mode only).
+(fake_bin/'ssh_config').write_text('Host alpha beta\nHost *.wild\n');os.environ['BAND_TEST_SSH_CONFIG']=str(fake_bin/'ssh_config')
 # A stand-in ssh records its arguments, one per line, and stays connected.
 (fake_bin/'ssh').write_text('#!/bin/sh\nprintf "%s\\n" "$@" > '+shlex.quote(str(fake_bin/'ssh-args'))+'\nprintf WB_SSH_READY\nexec cat\n');(fake_bin/'ssh').chmod(0o755)
 # Homebrew's installer is replaced by a script that writes the fake brew.
@@ -1807,7 +1809,15 @@ while True:
         wait_until(lambda:any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']) and len(data()['navigation_host_panes'])==1)
         click(*settled_point(lambda d:d['connect_host_0']));wait_until(lambda:app_pane('_host-lab_2') is not None,timeout=10)
         click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
-        time.sleep(.3);capture('hosts-panel.png');key('Escape');wait_until(lambda:not data()['drawer_open'])
+        time.sleep(.3);capture('hosts-panel.png')
+        # New host… saves to Band's own list with an alias from ~/.ssh/config;
+        # a saved host can be removed again, config.conf hosts cannot.
+        click(*settled_point(lambda d:d['new_host_button']));wait_until(lambda:data()['host_dialog_open'] and len(data()['host_suggestion_0'])==2)
+        click(*data()['host_suggestion_0']);time.sleep(.2);capture('host-dialog.png');click(*data()['save_host_button'])
+        wait_until(lambda:not data()['host_dialog_open'] and [h['id'] for h in data()['saved_hosts']]==['alpha'] and (root/'ui'/'hosts.json').exists())
+        click(*data()['hosts_button']);wait_until(lambda:data()['drawer_open'] and any(h.startswith('alpha · alpha') for h in data()['navigation_hosts']) and len(data()['remove_host_1'])==2)
+        click(*settled_point(lambda d:d['remove_host_1']));wait_until(lambda:not data()['saved_hosts'] and not any(h.startswith('alpha') for h in data()['navigation_hosts']))
+        key('Escape');wait_until(lambda:not data()['drawer_open'])
         for host_app in ('_host-lab_2','_host-lab'):
             request(root,Path(runtime),root,'terminal.close',app_pane(host_app)['identity']);wait_until(lambda:app_pane(host_app) is None)
         # New workspace from a worktree: a folder in a repository offers its
