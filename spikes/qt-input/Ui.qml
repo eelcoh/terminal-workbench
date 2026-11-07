@@ -419,12 +419,21 @@ ApplicationWindow {
     function effectiveTheme(space) { const index = workspaceThemes[space] ?? -1; return index < 0 ? studyConfiguration.themeIndex : index }
     function themeIndexFor(space) { return appearance.visible && appearanceTerminal === "" && spaceIds[space] === appearanceWorkspace ? previewTheme : effectiveTheme(space) }
     function ownTheme(identity) { return terminalThemes[identity] ?? -1 }
-    // Terminal content colors: a terminal's own palette, else its workspace's.
-    // Pane frames and headers always follow the workspace.
+    // A host pane's theme, by name from the theme list (case ignored); -1 when none.
+    function hostTheme(identity) {
+        const i = identityIndex(identity)
+        const host = i < 0 ? null : hostOf(terminalModel.get(i).appId)
+        if (!host || !host.theme) return -1
+        const name = host.theme.toLocaleLowerCase(), entry = studyThemes.catalog.find(theme => theme.name.toLocaleLowerCase() === name)
+        return entry ? entry.index : -1
+    }
+    // Terminal content colors: a terminal's own palette, else its host's theme,
+    // else its workspace's. Pane frames and headers always follow the workspace.
     function terminalThemeIndex(identity, space) {
-        if (appearance.visible && appearanceTerminal !== "" && identity === appearanceTerminal) return previewDefault ? themeIndexFor(space) : previewTheme
+        const host = hostTheme(identity), fallback = host >= 0 ? host : themeIndexFor(space)
+        if (appearance.visible && appearanceTerminal !== "" && identity === appearanceTerminal) return previewDefault ? fallback : previewTheme
         const own = ownTheme(identity)
-        return own >= 0 ? own : themeIndexFor(space)
+        return own >= 0 ? own : fallback
     }
     readonly property string appearanceNote: {
         if (appearanceTerminal !== "") return "The pane frame keeps the workspace colors. Use workspace removes this terminal's own colors."
@@ -601,7 +610,7 @@ ApplicationWindow {
     function newHost() {
         if (hostDialog.visible || createDialog.visible || terminalAction.visible) return
         if (drawer.visible) drawer.close()
-        hostName.text = ""; hostDestination.text = ""; hostFolder.text = ""; hostDialog.suggestions = studyHosts.suggestions().filter(alias => !hostDefinitions.some(item => item.destination === alias))
+        hostName.text = ""; hostDestination.text = ""; hostFolder.text = ""; hostDialog.theme = ""; hostDialog.suggestions = studyHosts.suggestions().filter(alias => !hostDefinitions.some(item => item.destination === alias))
         hostDialog.open()
     }
     function hostOf(appId) {
@@ -1663,6 +1672,7 @@ ApplicationWindow {
     Dialog {
         id: hostDialog; objectName: "hostDialog"
         property var suggestions: []
+        property string theme: ""
         implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: 20
         title: "New host"
         background: Rectangle { color: "#1b2029"; radius: 10; border.color: "#3a4657" }
@@ -1670,7 +1680,7 @@ ApplicationWindow {
         onOpened: hostDestination.forceActiveFocus()
         function save() {
             const id = studyHosts.freeId(hostName.text.trim() || hostDestination.text.trim(), window.hostDefinitions)
-            if (studyHosts.save({id: id, name: hostName.text.trim(), destination: hostDestination.text.trim(), directory: hostFolder.text.trim()})) hostDialog.close()
+            if (studyHosts.save({id: id, name: hostName.text.trim(), destination: hostDestination.text.trim(), directory: hostFolder.text.trim(), theme: hostDialog.theme})) hostDialog.close()
         }
         contentItem: Column {
             spacing: 12
@@ -1694,6 +1704,21 @@ ApplicationWindow {
             ProjectField { id: hostName; objectName: "hostNameInput"; width: parent.width; placeholderText: hostDestination.text || "Shown in the sidebar"; maximumLength: 63; onAccepted: hostFolder.forceActiveFocus() }
             Label { text: "Remote folder (optional)"; color: "#c2c9d4" }
             ProjectField { id: hostFolder; objectName: "hostFolderInput"; width: parent.width; placeholderText: "~/src/project"; onAccepted: hostDialog.save() }
+            // Colors for every pane on this host; a terminal's own colors still win.
+            Label { text: "Colors"; color: "#c2c9d4" }
+            Flow {
+                width: parent.width; spacing: 6
+                QuietButton { objectName: "hostThemeWorkspace"; fixedPalette: true; focusPolicy: Qt.NoFocus; text: "Workspace colors"; selected: hostDialog.theme === ""; onClicked: hostDialog.theme = "" }
+                Repeater {
+                    model: studyThemes.catalog.filter(theme => !theme.imported).slice(0, 12)
+                    QuietButton {
+                        required property var modelData
+                        required property int index
+                        objectName: "hostTheme" + index; fixedPalette: true; focusPolicy: Qt.NoFocus; text: modelData.name
+                        selected: hostDialog.theme === modelData.name; onClicked: hostDialog.theme = modelData.name
+                    }
+                }
+            }
             Label {
                 width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 12; color: studyHosts.error ? "#e3bf91" : "#a5afbe"
                 text: studyHosts.error || "Saved by Band beside its other settings. Keys, passwords and ssh options stay with ssh."

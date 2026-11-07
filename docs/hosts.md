@@ -13,7 +13,12 @@ Status (2026-11-07): slices 1–3 built, plus Band's own host list.
   dot means reachable, a waiting dot means not reachable, and no dot means
   unknown (proxied, or the lookup failed).
 
-Next is a theme per host. The owner's decisions are at the
+- A theme per host: a host pane's terminal takes the host's theme, by name
+  from the theme list, unless it has its own colors. New host… offers
+  Workspace colors or a theme.
+
+All five slices are built. A remote runtime, and with it the host level in
+the sidebar, comes later. The owner's decisions are at the
 end.
 
 Rex treats hosts as the top level of its sidebar (This Mac, then remote hosts

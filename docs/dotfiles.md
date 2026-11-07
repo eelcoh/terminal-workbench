@@ -131,11 +131,14 @@ IDs are letters, digits and dashes, at most 34.
 name = Build box
 destination = build          # an ~/.ssh/config alias, or user@host
 directory = ~/src/band       # optional: cd there, then a login shell
-theme = Dracula              # optional; not used yet
+theme = Dracula              # optional: colors for this host's terminals
 ```
 
 `destination` is required (in `[host.ID]`, or in full in a platform section)
-and may not start with `-` or contain spaces; every SSH option stays in
+and may not start with `-` or contain spaces. `theme` names a theme from the
+theme list (built-in, themes folder or imported; case is ignored): it colors
+that host's terminals, a terminal's own colors still win, and the pane frame
+keeps the workspace's colors. Every SSH option stays in
 `~/.ssh/config`. `[linux.host.ID]` and `[macos.host.ID]` override fields as for
 apps. When ssh exits normally the pane closes; when it fails the pane keeps its
 last lines and offers Connect again. Band never stores passwords or keys.

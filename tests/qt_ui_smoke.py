@@ -337,7 +337,7 @@ while True:
         wait_until(lambda:bool(data()['configuration_error']))
         assert data()['font_preferences']['size']==18 and data()['shortcut_sequences']['commands']=='F11','invalid reload discarded last valid preferences'
         click(*data()['application_menu_button']);wait_until(lambda:data()['application_menu_open']);click(*data()['font_menu_item']);wait_until(lambda:data()['font_settings_open'])
-        click(*data()['font_plus']);wait_until(lambda:data()['font_preferences']['size']==19)
+        click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:data()['font_preferences']['size']==19)
         managed.write_bytes(managed_bytes);time.sleep(.4)
         assert data()['font_preferences']['size']==19,'external update discarded an open font draft'
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and data()['font_preferences']['size']==16 and data()['shortcut_sequences']['commands']=='F10' and not data()['configuration_error'] and sizes()==config_sizes)
@@ -797,13 +797,13 @@ while True:
             click(*data()['font_menu_item']);wait_until(lambda:data()['font_settings_open'] and not data()['application_menu_open'])
         font_menu();key('super+alt+t');key('super+alt+Right');time.sleep(.1)
         assert len(data()['panes'])==6 and data()['selected']==0,'global shortcut escaped font dialog'
-        click(*data()['font_plus']);wait_until(lambda:settled_font('Fira Code',17))
+        click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:settled_font('Fira Code',17))
         assert sizes()!=font_grid,'text size did not change the real PTY grid'
         click(*data()['font_jetbrains']);wait_until(lambda:settled_font('JetBrains Mono',17));capture('font-preview.png')
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('Fira Code',16) and sizes()==font_grid and data()['panes'][0]['focus'])
         assert not (root/'ui/linux/terminal-font.json').exists(),'cancel persisted font preview'
         command_search('bundled font');key('Return');wait_until(lambda:data()['font_settings_open'] and not data()['commands_open'])
-        click(*data()['font_jetbrains']);click(*data()['font_plus']);wait_until(lambda:settled_font('JetBrains Mono',17))
+        click(*data()['font_jetbrains']);click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:settled_font('JetBrains Mono',17))
         click(*data()['font_apply']);wait_until(lambda:not data()['font_settings_open'] and settled_font('JetBrains Mono',17))
         wait_until(lambda:all(p['requested_family']=='JetBrains Mono' and p['requested_points']==17 for p in display_data().get('panes',[])) and len(display_data().get('panes',[]))==6)
         font_layer=root/'ui/linux/terminal-font.json';font_saved=font_layer.read_bytes()
@@ -1695,7 +1695,7 @@ while True:
         managed.write_bytes(managed_bytes+b'\n[app.echo]\nname = Echo app\ncommand = printf WB_APP_READY; exec cat\nsetup = echo echo >> '+shlex.quote(str(setup_runs)).encode()+b'\n'
             b'[app.later]\nname = Later app\ncommand = wb-later\ninstall = '+later_install+b'\nsetup = echo later >> '+shlex.quote(str(setup_runs)).encode()+b'\n'
             b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; echo run >> '+shlex.quote(str(runs)).encode()+b'; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n'
-            b'[host.lab]\nname = Lab\ndestination = lab-box\ndirectory = ~/src/x y\n')
+            b'[host.lab]\nname = Lab\ndestination = lab-box\ndirectory = ~/src/x y\ntheme = catppuccin latte\n')
         def entry(app_id):return next((e for e in data()['app_entries'] if e['id']==app_id),None)
         wait_until(lambda:entry('quick') and not data()['apps_checking'])
         assert [e['id'] for e in data()['app_entries'][:4]]==['echo','later','broken','quick'] and entry('lazygit')['builtin'] and len(data()['app_entries'])>100
@@ -1805,6 +1805,9 @@ while True:
         assert not data()['help_open'],'connecting opened another dialog'
         assert (fake_bin/'ssh-args').read_text().splitlines()==['-t','--','lab-box','cd ~/\'src/x y\' && exec "$SHELL" -l']
         host_pane=app_pane('_host-lab')
+        # The host's theme colors its terminals (name matched without case); the frame keeps the workspace's.
+        shell_pane=next(p for p in data()['panes'] if not p['app'])
+        assert host_pane['theme']!=shell_pane['theme'] and host_pane['background']!=shell_pane['background'] and host_pane['background']!=data()['chrome_background'],(host_pane['background'],shell_pane['background'])
         assert host_pane['header']==['Lab','lab-box · ~/src/x y'] and data()['panes'].index(host_pane) not in data()['running_apps'],host_pane['header']
         time.sleep(.3);capture('host-pane.png')
         # The Hosts panel lists saved hosts with their open panes; its Connect
