@@ -551,7 +551,7 @@ while True:
         cursor(b'\x1b[?25l','hidden');capture('cursor-hidden.png');pixels=json.loads(Path(str(report)+'.cursor.json').read_text())
         assert pixels[0]['cursor_pixels']==0,'hidden cursor still painted'
         cursor(b'\x1b[?25h\x1b[2 q','block')
-        key('super+alt+slash');wait_until(lambda:data()['panes'][0]['cursor']=='outline');capture('chrome-shortcuts.png')
+        key('super+alt+slash');wait_until(lambda:data()['panes'][0]['cursor']=='outline' and len(data()['key_chips'])>=8);capture('chrome-shortcuts.png')
         key('Escape');wait_until(lambda:data()['panes'][0]['cursor']=='block')
         assert sizes()==cursor_grid
         # Real chord recording is modal; drafts and failures never reach the PTY.
@@ -729,6 +729,8 @@ while True:
         command_search('terminal');wait_until(lambda:len(data()['command_matches'])>4)
         key('Down');wait_until(lambda:data()['command_current']==1)
         key('Up');wait_until(lambda:data()['command_current']==0)
+        # Shortcuts show as key chips from the live keymap, with the palette's own keys in its footer.
+        assert {'Up','Down','Enter','Esc'}<=set(data()['key_chips']) and any(k.startswith('Super+') for k in data()['key_chips']),data()['key_chips']
         capture('commands-search.png');key('Escape');wait_until(lambda:not data()['commands_open'])
         command_search('reduce motion');wait_until(lambda:len(data()['command_first_row'])==2);click(*data()['command_first_row']);wait_until(lambda:not data()['commands_open'] and data()['reduced_motion'])
         command_search('enable animations');key('Return');wait_until(lambda:not data()['commands_open'] and not data()['reduced_motion'])

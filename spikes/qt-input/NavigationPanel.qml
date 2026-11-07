@@ -321,7 +321,7 @@ Item {
         ChromeButton {
             id: addApplications; objectName: "addApplicationsButton"; y: 12; width: parent.width; height: 36; visible: navigation.apps
             tones: host.chrome; text: "Add applications…"; enabled: host.spaces.length > 0
-            hint: text + (studyShortcuts.labels["apps"] ? " · " + studyShortcuts.labels["apps"] : "")
+            keys: studyShortcuts.labels["apps"] || ""
             contentItem: Row {
                 spacing: 8; leftPadding: 8
                 Item { width: 18; height: 36; ChromeIcon { anchors.centerIn: parent; width: 18; height: 18; name: "plus"; color: host.chrome.accent } }
@@ -336,7 +336,7 @@ Item {
         ChromeButton {
             objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 12; width: parent.width; height: 36
             tones: host.chrome; text: "New workspace…"; enabled: host.canCreateWorkspace
-            hint: text + (studyShortcuts.labels["new-workspace"] ? " · " + studyShortcuts.labels["new-workspace"] : "")
+            keys: studyShortcuts.labels["new-workspace"] || ""
             contentItem: Row {
                 opacity: host.canCreateWorkspace ? 1 : 0.38
                 spacing: 8; leftPadding: 8

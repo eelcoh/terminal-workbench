@@ -51,7 +51,9 @@ its own.
    runtime's WAT4 watch adds the foreground executable's file name; headers
    and Workspaces rows show icon, program and folder.
 2. **Key chips everywhere.** Shortcuts as chips in the command palette, menus,
-   tooltips and the shortcut help, from the live keymap.
+   tooltips and the shortcut help, from the live keymap. *Done:* one KeyChips
+   component (a chip per key, ⌘⇧ symbols split on macOS) in the palette and its
+   footer, menus, the shortcuts help and button tooltips.
 3. **One accent and selection style.** A single accent per theme for primary
    actions, selection and focus; pill rows in the sidebar; line icons extended
    to the actions we show (split/width, zoom, filter, host).

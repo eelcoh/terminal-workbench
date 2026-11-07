@@ -55,11 +55,12 @@ Dialog {
                 width: results.width; height: 58; highlighted: results.currentIndex === index
                 // Unavailable results stay selectable so their explanation is readable.
                 Accessible.name: modelData.title + (modelData.available ? "" : ". " + modelData.reason)
+                Accessible.description: modelData.key
                 onClicked: { results.currentIndex = index; commandPopup.runCurrent() }
                 contentItem: Item {
                     Text { x: 8; y: 5; width: parent.width - shortcut.width - 24; elide: Text.ElideRight; text: modelData.title; textFormat: Text.PlainText; font.pixelSize: 14; color: commandPopup.tones.foreground; opacity: modelData.available ? 1 : 0.5 }
                     Text { x: 8; y: 27; width: parent.width - 16; elide: Text.ElideRight; text: modelData.available ? modelData.detail : modelData.reason; textFormat: Text.PlainText; font.pixelSize: 12; color: commandPopup.tones.muted }
-                    Text { id: shortcut; anchors.right: parent.right; anchors.rightMargin: 8; y: 6; text: modelData.key; font.pixelSize: 12; color: commandPopup.tones.muted }
+                    KeyChips { id: shortcut; anchors.right: parent.right; anchors.rightMargin: 8; y: 5; keys: modelData.key; tones: commandPopup.tones }
                 }
                 background: Rectangle { radius: 6; color: parent.highlighted || parent.hovered ? commandPopup.tones.hover : "transparent"; border.width: parent.visualFocus ? 1 : 0; border.color: commandPopup.tones.accent }
             }
@@ -68,7 +69,16 @@ Dialog {
     }
     footer: Item {
         implicitHeight: 48
-        Label { x: 20; anchors.verticalCenter: parent.verticalCenter; text: "↑ ↓ choose · Enter run · Esc close"; font.pixelSize: 12; color: commandPopup.tones.muted }
+        Row {
+            x: 20; anchors.verticalCenter: parent.verticalCenter; spacing: 6
+            Accessible.role: Accessible.StaticText; Accessible.name: "Up and Down choose, Enter runs, Escape closes"
+            KeyChips { keys: "Up"; tones: commandPopup.tones } KeyChips { keys: "Down"; tones: commandPopup.tones }
+            Text { text: "choose"; font.pixelSize: 12; color: commandPopup.tones.muted; rightPadding: 8 }
+            KeyChips { keys: "Enter"; tones: commandPopup.tones }
+            Text { text: "run"; font.pixelSize: 12; color: commandPopup.tones.muted; rightPadding: 8 }
+            KeyChips { keys: "Esc"; tones: commandPopup.tones }
+            Text { text: "close"; font.pixelSize: 12; color: commandPopup.tones.muted }
+        }
         ChromeButton { id: doneButton; Keys.onReturnPressed: commandPopup.close(); Keys.onEnterPressed: commandPopup.close(); KeyNavigation.tab: search; KeyNavigation.backtab: results; anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: "Done"; tones: commandPopup.tones; onClicked: commandPopup.close() }
     }
 }

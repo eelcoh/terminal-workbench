@@ -916,7 +916,7 @@ ApplicationWindow {
         QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }
         QuietButton {
             objectName: "appsButton"; height: 28; iconName: "apps"
-            hint: "Apps"
+            hint: "Apps"; keys: studyShortcuts.labels["apps"] || ""
             selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "apps"
             onClicked: window.toggleSection("apps")
         }
@@ -930,7 +930,7 @@ ApplicationWindow {
             }
         }
     }
-    QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; onClicked: help.open() }
+    QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; keys: studyShortcuts.labels["help"] || ""; onClicked: help.open() }
     Item {
         id: topbar; x: window.navigationEdge; y: 4; width: parent.width - x - 12; height: 32
         // Markers that fit between the side controls; past that, a window follows the selection.
@@ -974,11 +974,11 @@ ApplicationWindow {
             color: window.chrome.muted; font.pixelSize: 12
         }
         QuietButton {
-            id: newTerminalButton; objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal" + (studyShortcuts.labels["new-terminal"] ? " · " + studyShortcuts.labels["new-terminal"] : ""); enabled: window.canCreateTerminal
+            id: newTerminalButton; objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal"; keys: studyShortcuts.labels["new-terminal"] || ""; enabled: window.canCreateTerminal
             x: window.overview ? overviewButton.x - width - 12 : focusedCount.x + focusedCount.width + 12
             onClicked: window.newTerminal()
         }
-        QuietButton { id: overviewButton; objectName: "overviewButton"; anchors.right: parent.right; text: window.overview ? "Done" : "Overview"; onClicked: window.toggleOverview() }
+        QuietButton { id: overviewButton; objectName: "overviewButton"; anchors.right: parent.right; text: window.overview ? "Done" : "Overview"; keys: studyShortcuts.labels["overview"] || ""; onClicked: window.toggleOverview() }
     }
     Flow {
         id: overviewFilters; x: window.navigationEdge + 16; y: 54; width: window.width - x - 12; spacing: 8; visible: window.overview
@@ -1344,15 +1344,15 @@ ApplicationWindow {
         MenuAction { keyHint: studyShortcuts.labels["new-terminal"] || ""; text: "New terminal"; enabled: window.canCreateTerminal; onTriggered: window.dispatchCommand("new-terminal") }
         MenuAction { keyHint: studyShortcuts.labels["new-workspace"] || ""; text: "New workspace…"; enabled: window.canCreateWorkspace; onTriggered: window.dispatchCommand("new-workspace") }
         MenuRule {}
-        MenuAction { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; enabled: window.spaces.length > 0 && !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
-        MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; enabled: window.spaces.length > 0 && !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
+        MenuAction { objectName: "renameWorkspaceMenuItem"; text: "Rename workspace…"; keyHint: studyShortcuts.labels["rename-workspace"] || ""; enabled: window.spaces.length > 0 && !window.overview && !studySession.busy; onTriggered: window.editWorkspace("rename") }
+        MenuAction { objectName: "workspaceFolderMenuItem"; text: "Workspace folder…"; keyHint: studyShortcuts.labels["workspace-folder"] || ""; enabled: window.spaces.length > 0 && !window.overview && !studySession.busy; onTriggered: window.editWorkspace("folder") }
         MenuAction { objectName: "removeWorkspaceMenuItem"; text: "Remove workspace…"; enabled: window.spaces.length > 0 && !studySession.busy; onTriggered: window.requestWorkspaceClose(window.spaceIds[window.workspace]) }
         MenuRule {}
-        MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; enabled: window.spaces.length > 0 && !window.overview; onTriggered: window.openAppearance() }
+        MenuAction { objectName: "appearanceMenuItem"; text: "Appearance…"; keyHint: studyShortcuts.labels["appearance"] || ""; enabled: window.spaces.length > 0 && !window.overview; onTriggered: window.openAppearance() }
         MenuAction { objectName: "terminalSearchMenuItem"; text: window.overview ? "Find in Overview" : "Find in terminal"; keyHint: studyShortcuts.labels["terminal-search"] || ""; enabled: commandRegistry.find("terminal-search").available; onTriggered: window.dispatchCommand("terminal-search") }
-        MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; onTriggered: window.openFontSettings() }
+        MenuAction { objectName: "fontSettingsMenuItem"; text: "Terminal text…"; keyHint: studyShortcuts.labels["font-settings"] || ""; onTriggered: window.openFontSettings() }
         MenuAction { objectName: "configurationMenuItem"; text: "Configuration…"; onTriggered: configurationDialog.open() }
-        MenuAction { objectName: "shortcutSettingsMenuItem"; text: "Shortcut settings…"; onTriggered: window.openShortcutSettings() }
+        MenuAction { objectName: "shortcutSettingsMenuItem"; text: "Shortcut settings…"; keyHint: studyShortcuts.labels["shortcut-settings"] || ""; onTriggered: window.openShortcutSettings() }
         MenuAction { keyHint: studyShortcuts.labels["help"] || ""; text: "Keyboard shortcuts"; onTriggered: help.open() }
         MenuAction { text: "Reduced motion"; checkable: true; checked: window.reducedMotion; onTriggered: window.motionOverride = checked }
         MenuRule {}
@@ -1375,13 +1375,13 @@ ApplicationWindow {
         MenuAction { objectName: "terminalColorsMenuItem"; text: "Terminal colors…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0 && !window.overview; onTriggered: window.openTerminalColors(window.paneMenuTarget) }
         MenuAction { objectName: "agentInfoMenuItem"; text: "Agent details…"; enabled: window.identityIndex(window.paneMenuTarget) >= 0; onTriggered: window.openAgentInfo(window.paneMenuTarget) }
         MenuRule {}
-        MenuAction { objectName: "terminalCloseMenuItem"; text: window.exitedTerminal(window.paneMenuTarget) ? "Close pane" : "Close terminal…"; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.closePane(window.paneMenuTarget) }
+        MenuAction { objectName: "terminalCloseMenuItem"; text: window.exitedTerminal(window.paneMenuTarget) ? "Close pane" : "Close terminal…"; keyHint: studyShortcuts.labels["close-terminal"] || ""; enabled: window.selected >= 0 && !studySession.busy; onTriggered: window.closePane(window.paneMenuTarget) }
         MenuRule {}
-        MenuAction { text: "Cycle width"; onTriggered: window.dispatchCommand("cycle-width") }
-        MenuAction { text: "Toggle full width"; onTriggered: window.dispatchCommand("full-width") }
+        MenuAction { text: "Cycle width"; keyHint: studyShortcuts.labels["cycle-width"] || ""; onTriggered: window.dispatchCommand("cycle-width") }
+        MenuAction { text: "Toggle full width"; keyHint: studyShortcuts.labels["full-width"] || ""; onTriggered: window.dispatchCommand("full-width") }
         MenuRule {}
-        MenuAction { objectName: "moveLeftMenuItem"; text: "Move terminal left"; enabled: window.canReorder(-1); onTriggered: window.reorderSelected(-1) }
-        MenuAction { objectName: "moveRightMenuItem"; text: "Move terminal right"; enabled: window.canReorder(1); onTriggered: window.reorderSelected(1) }
+        MenuAction { objectName: "moveLeftMenuItem"; text: "Move terminal left"; keyHint: studyShortcuts.labels["move-left"] || ""; enabled: window.canReorder(-1); onTriggered: window.reorderSelected(-1) }
+        MenuAction { objectName: "moveRightMenuItem"; text: "Move terminal right"; keyHint: studyShortcuts.labels["move-right"] || ""; enabled: window.canReorder(1); onTriggered: window.reorderSelected(1) }
         MenuRule {}
         MenuAction { text: "Move to workspace above"; enabled: window.canMoveWorkspace(-1); onTriggered: window.moveSelectedWorkspace(-1) }
         MenuAction { text: "Move to workspace below"; enabled: window.canMoveWorkspace(1); onTriggered: window.moveSelectedWorkspace(1) }
@@ -1623,7 +1623,8 @@ ApplicationWindow {
                 required property var modelData
                 width: ListView.view.width; height: 34
                 Label { x: 8; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.56; elide: Text.ElideRight; text: modelData.title; textFormat: Text.PlainText; color: window.chrome.foreground }
-                Label { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: modelData.key; color: window.chrome.muted }
+                Accessible.role: Accessible.StaticText; Accessible.name: modelData.title + ", " + modelData.key
+                KeyChips { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; keys: modelData.key; tones: window.chrome }
             }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()

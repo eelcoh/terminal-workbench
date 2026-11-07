@@ -6,6 +6,8 @@ Button {
     property var tones
     property string iconName: ""
     property string hint: text
+    // Its shortcut from the live keymap, shown as key chips in the tooltip.
+    property string keys: ""
     property bool selected: false
     property bool leftAligned: false
     property string trailingText: ""
@@ -16,6 +18,7 @@ Button {
     implicitHeight: 32; padding: 0
     hoverEnabled: true; focusPolicy: Qt.StrongFocus
     Accessible.name: hint
+    Accessible.description: keys
     contentItem: Item {
         implicitWidth: control.iconOnly ? 20 : label.implicitWidth + (trailing.implicitWidth > 0 ? trailing.implicitWidth + 16 : 0)
         opacity: control.enabled ? 1 : 0.38
@@ -28,7 +31,11 @@ Button {
     ToolTip {
         parent: control; visible: control.hovered && !control.down && !control.selected && control.hint.length > 0; delay: 650
         text: control.hint; padding: 8
-        contentItem: Text { text: control.hint; textFormat: Text.PlainText; color: control.colors.foreground; font.pixelSize: 12 }
+        contentItem: Row {
+            spacing: 8
+            Text { anchors.verticalCenter: parent.verticalCenter; text: control.hint; textFormat: Text.PlainText; color: control.colors.foreground; font.pixelSize: 12 }
+            KeyChips { anchors.verticalCenter: parent.verticalCenter; keys: control.keys; tones: control.colors }
+        }
         background: Rectangle { color: control.colors.raised; radius: 6; border.color: control.colors.border }
     }
 }
