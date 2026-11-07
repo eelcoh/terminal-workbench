@@ -111,3 +111,7 @@ its own.
 
 Each item ships on its own with screenshots on both platforms, like the apps
 slices.
+
+**After the first pass (2026-11-07):** the owner finds it nicer but not half as
+polished and subtle as Rex. The next step is a designer's view rather than
+more of these items: a design step in v0.4 ([roadmap](roadmap.md)).

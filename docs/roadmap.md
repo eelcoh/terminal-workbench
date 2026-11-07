@@ -152,8 +152,10 @@ Rex shows how far polish can carry this kind of app; Band's edge is apps, the
 scrolling strip and Linux. [Polish notes](polish.md) list what to learn, in
 order: pane identity (kind icon, process and folder), key chips, one accent
 and selection style, actions on the focused pane, a first-run flow in a pane
-(with picking apps), a sidebar filter, and window chrome last. Not scheduled
-yet; the owner picks the order.
+(with picking apps), a sidebar filter, and window chrome last. A first pass of
+items 1–7 shipped on 2026-11-07 (the integrated title bar opt-in). The owner's
+verdict: nicer, but not half as polished and subtle as Rex; it needs a real
+designer's eye, planned as a design step in v0.4.
 
 ## v0.3: SSH hosts and worktrees
 
@@ -173,6 +175,14 @@ yet; the owner picks the order.
   index itself; the first is the likely choice.
 - A remote runtime (the daemon on the remote machine, the client local) is
   evaluated after plain SSH panes.
+
+## v0.4: a design step
+
+A designer's pass over the whole client rather than more engineering polish
+(owner, 2026-11-07): type scale, spacing and density, color and contrast per
+theme, icons, motion, the window chrome on both platforms, and the welcome.
+Starts from the first polish pass ([polish notes](polish.md)) and Rex as the
+reference for subtlety; the result is a small design system the QML follows.
 
 ## Later
 
