@@ -16,6 +16,9 @@
 #include "ui_fonts.h"
 #include "ui_view_state.h"
 #include "ui_shortcuts.h"
+#include "ui_apps.h"
+#include <pwd.h>
+#include <unistd.h>
 #include <QDir>
 #include <QQmlContext>
 #include <QJSValue>
@@ -88,6 +91,10 @@ int main(int argc,char **argv) {
     UiThemes themes(configuration["theme_store"].toString(QDir(configuration["state"].toString()).filePath("theme-imports")),nullptr,nullptr,15000,configuration["theme_directory"].toString());
     UiAppearance appearance(configuration["preferences"].toString(),apple,themes);
     UiConfiguration settings(fonts,shortcuts,!checking,nullptr,&appearance,apple);
+    // Apps run through the login shell; check them with the same one.
+    QString shell=qEnvironmentVariable("SHELL");
+    if(!QFileInfo(shell).isExecutable()){const auto *account=getpwuid(getuid());shell=account && account->pw_shell ? QString::fromLocal8Bit(account->pw_shell) : QStringLiteral("/bin/sh");}
+    UiApps apps(apple,shell);
     UiAgentInfo agentInfo;
     UiWorkspaceAppearance workspaceAppearance(QDir(configuration["state"].toString()).filePath("qt/workspace-appearance"),!checking);
     UiWorkspaceAppearance terminalAppearance(QDir(configuration["state"].toString()).filePath("qt/terminal-appearance"),!checking,nullptr,true);
@@ -110,6 +117,7 @@ int main(int argc,char **argv) {
     engine.rootContext()->setContextProperty("studyThemes",&themes);
     engine.rootContext()->setContextProperty("studyFonts",&fonts);
     engine.rootContext()->setContextProperty("studyShortcuts",&shortcuts);
+    engine.rootContext()->setContextProperty("studyApps",&apps);
     engine.rootContext()->setContextProperty("studySession",&session);engine.load(QUrl("qrc:/Ui.qml"));
     if(checking) {
         const auto report=completeClientCheck(modules,engine,startupWarnings);
@@ -248,6 +256,7 @@ int main(int argc,char **argv) {
                 {"agent_filter_button",center("overviewAgentFilter")},{"state_filter_button",center("overviewStateFilter")},{"agents_button",center("agentsButton")},
                 {"agents_visible",window->findChild<QQuickItem *>("agentsButton") && window->findChild<QQuickItem *>("agentsButton")->isVisible()},
                 {"navigation_hidden",window->property("navigationHidden").toBool()},
+                {"app_entries",QJsonArray::fromVariantList(apps.entries())},{"apps_checking",apps.checking()},
                 {"apps_button",center("appsButton")},{"apps_visible",window->findChild<QQuickItem *>("appsButton") && window->findChild<QQuickItem *>("appsButton")->isVisible()},
                 {"navigation_first_app",center("navigationApp0")},{"navigation_second_app",center("navigationApp1")},{"navigation_third_app",center("navigationApp2")},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},

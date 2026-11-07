@@ -1,6 +1,6 @@
 # Apps (v0.2 plan)
 
-Plan (2026-11-05, revised 2026-11-06). Slices 1–4 are implemented; see
+Plan (2026-11-05, revised 2026-11-06). Slices 1–6 are implemented; see
 [app terminals](session-service.md#app-terminals) and
 [dotfiles](dotfiles.md#apps). Goal from the [roadmap](roadmap.md#v02-apps-and-the-sidebar):
 TUIs such as lazygit and btop are first-class and one key away. Running apps
@@ -79,16 +79,26 @@ today.
    list. A failed app keeps its pane as above. The UI test covers start, going
    to a running app, the shortcut, a failed start kept and started again, and
    a normal exit.
-5. **Catalog.** A built-in list of 8–10 well-known TUIs (name, command,
-   one-line description, install recipes per platform). `[app.ID]` sections
-   add to it or override fields. The Apps panel shows each entry as *Open*
-   when its command is found (`command -v` through the login shell, so `PATH`
-   matches the app's) or *Install* when not.
-6. **Install.** Install runs the recipe in a visible pane, so output and
-   prompts (sudo) are the user's to see and answer. macOS uses Homebrew;
-   Linux uses Homebrew when present, otherwise the system package manager
-   (dnf, apt, pacman) where the package exists (owner, 2026-11-06). Success
-   opens the app; failure keeps the pane. Nothing installs silently.
+5. [x] **Catalog.** Built in (`ui_apps.cpp`): lazygit, lazydocker, btop,
+   htop, yazi, neovim, k9s, tig, ncdu and gitui, each with a one-line
+   description and its package names. `[app.ID]` sections come first and add
+   to the list; one with a catalog ID overrides its name, command and folder.
+   Opening the Apps panel checks which commands exist: the login shell's
+   `PATH` (read with `env`, so any shell works) and `command -v` in `sh`.
+   Rows show *Running*, *Install*, *Not installed* or nothing (installed).
+6. [x] **Install.** Choosing a missing app runs its recipe as an app pane
+   named "Install NAME", so output and prompts (sudo, dnf's y/N) are the
+   user's to see and answer. Homebrew first on both platforms; on Linux
+   otherwise `sudo dnf install`, `sudo apt install` or `sudo pacman -S` where
+   that manager has the package (owner, 2026-11-06). Image-based (ostree)
+   Linux hosts get no system recipe. When the install exits normally its pane
+   closes, the check runs again and the app opens; a failed install keeps its
+   pane with Start again. Nothing installs without the user choosing it.
+   Package names were checked against Homebrew, Fedora 43, Debian and Arch on
+   2026-11-06: Fedora lacks lazydocker and yazi; Debian lacks lazydocker,
+   yazi, k9s and gitui, and has lazygit only from trixie. Tests: the catalog
+   unit test (fake shell, `PATH` and managers) and the UI test, which installs
+   with a fake `brew` and keeps a fake `sudo` that refuses.
 7. **Custom setup.** Beyond `[app.ID]`: per-app configuration or post-install
    steps, after Omarchy.
 
@@ -96,8 +106,8 @@ Each slice ships on its own and keeps both platforms green.
 
 ## Open
 
-- The first catalog's entries, and which package names each manager uses.
-- Fedora Atomic hosts: the system package manager is `rpm-ostree` or a
-  toolbox; whether to offer it or require Homebrew there.
+- Fedora Atomic hosts: offer a toolbox install, or keep requiring Homebrew.
+- Install recipes are not yet run for real on a Mac or on apt or pacman
+  systems; they are checked as text.
 - Whether one app can run twice in a workspace. The plan says no: choosing it
   again goes to the running one.

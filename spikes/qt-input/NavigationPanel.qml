@@ -154,16 +154,19 @@ Item {
                 text: "Starts in " + (host.spaces[host.workspace] || "this workspace"); textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12
             }
             Repeater {
-                id: appRows; model: navigation.apps ? host.appDefinitions : []
+                // A count, not the list: rows survive installed checks, so the
+                // focused row and the pointer's target stay put.
+                id: appRows; model: navigation.apps ? host.appEntries.length : 0
                 ChromeButton {
                     id: appRow
                     required property int index
-                    required property var modelData
+                    readonly property var modelData: host.appEntries[index] || ({id: "", name: "", command: "", description: ""})
                     readonly property bool running: { const revision = host.catalogRevision; return host.runningApp(host.workspace, modelData.id) >= 0 }
                     objectName: "navigationApp" + index
                     tones: host.chrome; width: body.width; height: 52; padding: 10
                     selected: { const revision = host.catalogRevision; const pane = host.runningApp(host.workspace, modelData.id); return pane >= 0 && pane === host.selected && !host.overview }
-                    hint: modelData.name + " · " + modelData.command + (running ? " · running" : "")
+                    readonly property string appStatus: running ? "Running" : modelData.installed === 0 ? (modelData.install ? "Install" : "Not installed") : ""
+                    hint: modelData.name + " · " + modelData.command + (appStatus ? " · " + appStatus : "") + (modelData.installed === 0 && modelData.install ? " · " + modelData.install : "") + (modelData.installed === 0 && modelData.hint ? " · " + modelData.hint : "")
                     Keys.onDownPressed: navigation.focusApp(index + 1)
                     Keys.onUpPressed: navigation.focusApp(index - 1)
                     Keys.onPressed: event => {
@@ -176,16 +179,17 @@ Item {
                         Column {
                             anchors.left: parent.left; anchors.right: appState.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; spacing: 3
                             Text { width: parent.width; text: appRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
-                            Text { width: parent.width; text: appRow.modelData.command; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12 }
+                            Text { width: parent.width; text: appRow.modelData.description || appRow.modelData.command; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12 }
                         }
-                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.running ? "Running" : ""; color: host.chrome.ready; font.pixelSize: 12 }
+                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.appStatus; color: appRow.running ? host.chrome.ready : appRow.appStatus === "Install" ? host.chrome.accent : host.chrome.muted; font.pixelSize: 12 }
                     }
                     onClicked: host.chooseApp(modelData.id)
                 }
             }
             Label {
-                width: body.width; visible: navigation.apps && appRows.count === 0
-                padding: 8; text: "No apps defined\nAdd an [app.NAME] section with a command to config.conf."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
+                objectName: "appNotice"; width: body.width; visible: navigation.apps && text.length > 0; padding: 8
+                text: host.appNotice || studyApps.note || (studyApps.checking ? "Checking which apps are installed…" : "")
+                wrapMode: Text.Wrap; textFormat: Text.PlainText; color: host.appNotice ? host.chrome.waiting : host.chrome.muted; font.pixelSize: 12
             }
             Repeater {
                 id: agentRows; model: navigation.agents ? navigation.matches : []

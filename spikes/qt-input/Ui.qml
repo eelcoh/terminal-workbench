@@ -196,6 +196,7 @@ ApplicationWindow {
     function focusNavigation() { if (navigationSection === "workspaces") navigation.focusWorkspace(workspace); else if (navigationSection === "apps") navigation.focusApp(0); else navigation.focusSearch() }
     function openNavigation(section) {
         navigationSection = section
+        if (section === "apps") { appNotice = ""; studyApps.refresh() }
         navigationHidden = false
         // A rail click focuses its icon; switching sections returns focus to the panel.
         if (!navigationDocked && !drawer.visible) drawer.open()
@@ -557,21 +558,46 @@ ApplicationWindow {
     // program exits normally its pane closes; after a failure it stays stopped,
     // with the exit code and last lines, until started again or closed.
     property var endedApps: ({})
+    // The catalog merged with [app.ID] definitions, with installed state.
     readonly property var appDefinitions: studyConfiguration.apps
+    onAppDefinitionsChanged: studyApps.setDefinitions(appDefinitions)
+    readonly property var appEntries: studyApps.entries
+    // Install panes that open their app when they finish: install ID → app ID.
+    property var pendingInstalls: ({})
+    property string openAfterCheck: ""
+    property string appNotice: ""
+    Connections {
+        target: studyApps
+        function onChecked() {
+            const id = window.openAfterCheck; window.openAfterCheck = ""
+            if (id && studyApps.entry(id).installed === 1) window.chooseApp(id)
+        }
+    }
     function isApp(i) { return i >= 0 && i < terminalModel.count && terminalModel.get(i).appId !== "" }
     function runningApp(space, id) {
         const revision = catalogRevision
         for (let i = 0; i < terminalModel.count; ++i) { const item = terminalModel.get(i); if (item.spaceIndex === space && item.appId === id && !endedApps[item.terminalId]) return i }
         return -1
     }
-    // Choosing an app already in this workspace goes to its pane.
+    // Choosing an app already in this workspace goes to its pane; a missing one
+    // is installed in a pane of its own, which opens the app when it succeeds.
     function chooseApp(id) {
-        if (drawer.visible) drawer.close()
+        appNotice = ""
         const running = runningApp(workspace, id)
-        if (running >= 0) { Qt.callLater(function() { enterPane(running) }); return }
-        const definition = (appDefinitions || []).find(app => app.id === id)
-        if (!definition || spaces.length === 0 || !canCreateTerminal) return
-        studySession.startApp(spaceIds[workspace], definition)
+        if (running >= 0) { if (drawer.visible) drawer.close(); Qt.callLater(function() { enterPane(running) }); return }
+        const entry = studyApps.entry(id)
+        if (!entry.id || spaces.length === 0 || !canCreateTerminal) return
+        if (entry.installed === 0) {
+            if (!entry.install) { appNotice = entry.name + " is not installed. " + entry.hint; return }
+            const install = id + "-install", pending = runningApp(workspace, install)
+            if (drawer.visible) drawer.close()
+            if (pending >= 0) { Qt.callLater(function() { enterPane(pending) }); return }
+            let installs = Object.assign({}, pendingInstalls); installs[install] = id; pendingInstalls = installs
+            studySession.startApp(spaceIds[workspace], {id: install, name: "Install " + entry.name, command: entry.install, directory: ""})
+            return
+        }
+        if (drawer.visible) drawer.close()
+        studySession.startApp(spaceIds[workspace], {id: entry.id, name: entry.name, command: entry.command, directory: entry.directory || ""})
     }
     function appFailed(life) { return life.reason === "signal" || life.reason === "startup_failed" || (life.reason === "exited" && life.exit_code !== undefined && life.exit_code !== 0) }
     function appFailure(name, life) {
@@ -584,6 +610,11 @@ ApplicationWindow {
         if (!pane || endedApps[item.terminalId] || appFailed(pane.lifecycle)) return
         const space = item.spaceIndex, items = indices(space), position = items.indexOf(i)
         let ended = Object.assign({}, endedApps); ended[item.terminalId] = true; endedApps = ended
+        const installed = pendingInstalls[item.appId]
+        if (installed) {
+            let installs = Object.assign({}, pendingInstalls); delete installs[item.appId]; pendingInstalls = installs
+            if (spaceIds[space] === spaceIds[workspace]) { openAfterCheck = installed; studyApps.refresh() }
+        }
         ++catalogRevision
         let counted = counts.slice(); counted[space] = Math.max(0, (counted[space] || 1) - 1); counts = counted
         const rest = indices(space), next = rest.length ? rest[Math.max(0, Math.min(rest.length - 1, position))] : -1
@@ -838,7 +869,7 @@ ApplicationWindow {
         x: 8; y: 52; spacing: 14
         QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }
         QuietButton {
-            objectName: "appsButton"; height: 28; iconName: "apps"; visible: (window.appDefinitions || []).length > 0 || window.navigationSection === "apps"
+            objectName: "appsButton"; height: 28; iconName: "apps"; visible: window.appEntries.length > 0
             hint: "Apps"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "apps"; onClicked: window.toggleSection("apps")
         }
         QuietButton {
@@ -1541,5 +1572,5 @@ ApplicationWindow {
     }
     Shortcut { sequence: "Escape"; enabled: window.overview && !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
     onActiveChanged: if (!active) cancelDrag()
-    Component.onCompleted: { window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
+    Component.onCompleted: { studyApps.setDefinitions(window.appDefinitions); window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }

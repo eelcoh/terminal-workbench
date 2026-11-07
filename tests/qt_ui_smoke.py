@@ -26,6 +26,10 @@ sys.path.insert(0,str(ROOT/'scripts'))
 from session_service import request
 import catalog_files as workspace_catalog
 os.environ['SHELL']='/bin/sh'
+# Install checks use a fake package manager here; nothing real is installed.
+fake_bin=Path(tempfile.mkdtemp(prefix='wb-ui-bin-',dir='/tmp'));os.environ['PATH']=str(fake_bin)+os.pathsep+os.environ['PATH']
+# A stray click on a system-package row must never reach the real sudo.
+(fake_bin/'sudo').write_text('#!/bin/sh\necho "WB_FAKE_SUDO refused $*"\nexit 1\n');(fake_bin/'sudo').chmod(0o755)
 processes=[];sockets=[];client=None;xdisplay=None
 with tempfile.TemporaryDirectory(prefix='wb-ui-test-',dir='/tmp') as directory, (artifacts/'run.log').open('w') as log:
     root=Path(directory);project=root/'Project folder';project.mkdir();child=project/'child';child.mkdir();chosen=project/'café #100% &';chosen.mkdir()
@@ -1606,9 +1610,9 @@ while True:
             b'[app.broken]\nname = Broken app\ncommand = echo WB_BROKEN_OUTPUT; echo run >> '+shlex.quote(str(runs)).encode()+b'; exit 7\n[app.quick]\nname = Quick app\ncommand = true\n')
         wait_until(lambda:data()['apps_visible'])
         # The icon has just appeared; the rail below it moves.
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_third_app'])
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_third_app'] and not data()['apps_checking'])
         capture('apps-panel.png')
-        click(*data()['navigation_first_app'])
+        click(*settled_point(lambda d:d['navigation_first_app']))
         def app_pane(app_id):return next((p for p in data()['panes'] if p['app']==app_id),None)
         wait_until(lambda:app_pane('echo') and app_pane('echo')['ready'] and 'WB_APP_READY' in app_pane('echo')['text'] and app_pane('echo')['focus'])
         echo=app_pane('echo')['identity']
@@ -1623,7 +1627,7 @@ while True:
         capture('app-pane.png')
         # A failed app keeps its pane with the exit code and last lines.
         # Start again runs it again; Close pane removes it.
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_second_app']);click(*data()['navigation_second_app'])
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_second_app'] and not data()['apps_checking']);click(*settled_point(lambda d:d['navigation_second_app']))
         def failed():
             pane=app_pane('broken')
             return pane and not pane['lifecycle'].get('busy') and pane['lifecycle'].get('state')=='stopped' and 'code 7' in pane['app_message'] and 'WB_BROKEN_OUTPUT' in pane['app_output']
@@ -1635,9 +1639,27 @@ while True:
         assert app_pane('broken')['identity']==broken
         click(*settled_point(lambda d:(app_pane('broken') or {}).get('exited_close_action')));wait_until(lambda:app_pane('broken') is None)
         # A normal exit closes the pane without a notice.
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_third_app']);click(*data()['navigation_third_app'])
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_third_app'] and not data()['apps_checking']);click(*settled_point(lambda d:d['navigation_third_app']))
         wait_until(lambda:app_pane('quick') and app_pane('quick')['ended'] and not app_pane('quick')['visible'])
         assert not data()['error'] and len([p for p in data()['panes'] if not p['ended']])==2
+        # The catalog: a missing app shows Install; installing runs visibly in
+        # its own pane, which closes when it succeeds and opens the app.
+        def entry(app_id):return next(e for e in data()['app_entries'] if e['id']==app_id)
+        assert [e['id'] for e in data()['app_entries'][:3]]==['echo','broken','quick'] and entry('lazygit')['builtin']
+        wait_until(lambda:not data()['apps_checking'] and entry('yazi')['installed']==0)
+        (fake_bin/'brew').write_text('#!/bin/sh\necho "WB_FAKE_BREW $*"\nprintf "#!/bin/sh\\nprintf WB_YAZI_READY; exec cat\\n" > '+shlex.quote(str(fake_bin/'yazi'))+'\nchmod +x '+shlex.quote(str(fake_bin/'yazi'))+'\n')
+        (fake_bin/'brew').chmod(0o755)
+        key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
+        wait_until(lambda:not data()['apps_checking'] and entry('yazi')['install']=='brew install yazi')
+        yazi_row=[e['id'] for e in data()['app_entries']].index('yazi')
+        time.sleep(.2)
+        for _ in range(yazi_row):key('Down')
+        key('Return')
+        wait_until(lambda:app_pane('yazi') and app_pane('yazi')['ready'] and 'WB_YAZI_READY' in app_pane('yazi')['text'] and app_pane('yazi')['focus'],timeout=30)
+        assert (app_pane('yazi-install') or {'ended':True})['ended'] and entry('yazi')['installed']==1 and not data()['error']
+        capture('app-installed.png')
+        request(root,Path(runtime),root,'terminal.close',app_pane('yazi')['identity'])
+        wait_until(lambda:app_pane('yazi') is None)
         # Closing the app removes it; the ended app leaves with that catalog change.
         request(root,Path(runtime),root,'terminal.close',echo)
         wait_until(lambda:len(data()['panes'])==1)
@@ -1647,7 +1669,7 @@ while True:
         else:close_window(window,env)
         client.wait(timeout=5);assert client.returncode==0
         assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in UI study log'
-        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (start, go to running, Super+Alt+A, failed start kept and started again, normal exit), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
+        print(('wayland' if wayland else 'xcb')+' PASS: apps as strip panes (start, go to running, Super+Alt+A, failed start kept and started again, normal exit, catalog install), native shortcuts, per-pane width/full restore, workspace focus, live hidden output, Overview selection/Escape, drag/reorder/cancel/empty-workspace/full-destination/edge-scroll, click-without-selection, focus-aware cursor pixels/app shapes/hidden/glyph preservation, theme preview/cancel/apply/isolation/RGB+OSC preservation, directory .default discovery/preview/cancel/apply/remove/offline/read-only, creation/invalid-folder/cancel/empty-workspace, keyboard reorder/cross-workspace/empty/full/boundary/menu moves, rename/folder edits, standard folder picker/keyboard/cancel/Unicode URL roundtrip/cwd inheritance, real cwd/Git/worktree captions and agent lifecycle/attention filters, exit/recovery/reconnect/transfer/close with stable siblings, managed command/help/rename chords and old-chord passthrough, command menu/chord/filter/no-match/disabled/navigation/dialog/confirmation/Overview/minimum-width input isolation, font dotfiles/preview/cancel/apply/defaults/shortcuts with retained grids/objects/PIDs and managed bytes, unchanged reader PIDs and isolated input')
     except SystemExit:
         raise
     except BaseException:
@@ -1667,3 +1689,4 @@ while True:
                 process.terminate()
                 try:process.wait(timeout=5)
                 except subprocess.TimeoutExpired:process.kill();process.wait()
+        shutil.rmtree(fake_bin,ignore_errors=True)

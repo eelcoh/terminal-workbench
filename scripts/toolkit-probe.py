@@ -13,7 +13,7 @@ BUILD = ROOT / ".local/build/qt-input"
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "search-test", "scroll-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "client", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test"))
+    parser.add_argument("mode", choices=("build", "run", "test", "terminal", "terminal-pair", "terminal-test", "terminal-wayland-test", "terminal-ime-test", "terminal-ime-transfer-test", "terminal-ime-pane-test", "terminal-key-test", "terminal-legacy-test", "search-test", "scroll-test", "text-test", "perf", "scene-perf", "scene-perf-test", "live-perf", "live-perf-test", "ui", "ui-test", "workbench", "client", "theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","apps-test"))
     parser.add_argument("--search-only",action="store_true",help="Run the focused search UI regression on both Linux backends")
     parser.add_argument("--configuration-only",action="store_true",help="Run the focused live configuration regression on both Linux backends")
     parser.add_argument("--shutdown-only",action="store_true",help="Run the focused stop-all UI regression on both Linux backends")
@@ -28,7 +28,7 @@ def main():
         parser.error("live-perf-test uses private Linux Xvfb; use live-perf for native Mac measurements")
     performance=args.mode in ("perf","scene-perf","scene-perf-test","live-perf","live-perf-test")
     build=ROOT/".local/build/qt-performance" if performance else BUILD
-    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DBAND_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("search-test","scroll-test","workbench","client","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
+    configure=["cmake", "-S", str(ROOT / "spikes/qt-input"), "-B", str(build), "-DBAND_TERMINAL_PROBE=" + ("ON" if (args.mode.startswith("terminal") or args.mode in ("search-test","scroll-test","workbench","client","ui","ui-test","theme-import-test","runtime-facts-test","lifecycle-test","fonts-test","shortcuts-test","view-state-test","catalog-test","apps-test","text-test","perf","scene-perf","scene-perf-test","live-perf","live-perf-test")) else "OFF")]
     if performance:configure.append("-DCMAKE_BUILD_TYPE=Release")
     subprocess.run(configure,check=True)
     command=["cmake","--build",str(build),"--parallel"]
@@ -38,6 +38,7 @@ def main():
     if args.mode=="scroll-test":command.extend(["--target","workbench-scroll-test"])
     if args.mode=="catalog-test":command.extend(["--target","workbench-catalog-test"])
     if args.mode=="view-state-test":command.extend(["--target","workbench-view-state-test"])
+    if args.mode=="apps-test":command.extend(["--target","workbench-apps-test"])
     if args.mode=="shortcuts-test":command.extend(["--target","workbench-shortcuts-test"])
     if args.mode=="fonts-test":command.extend(["--target","workbench-fonts-test"])
     if args.mode=="lifecycle-test":command.extend(["--target","workbench-lifecycle-test"])
@@ -55,6 +56,8 @@ def main():
         return
     if args.mode=="view-state-test":
         subprocess.run([str(build/"workbench-view-state-test")],check=True,timeout=30)
+    if args.mode=="apps-test":
+        subprocess.run([str(build/"workbench-apps-test")],check=True,timeout=120)
         return
     if args.mode=="shortcuts-test":
         subprocess.run([str(build/"workbench-shortcuts-test")],check=True,timeout=30)
