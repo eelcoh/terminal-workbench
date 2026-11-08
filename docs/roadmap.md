@@ -188,7 +188,8 @@ designer's eye, planned as a design step in v0.4.
 - A remote runtime (the daemon on the remote machine, the client local) is
   evaluated after plain SSH panes. With it, a host would hold its own
   workspaces, and the host level in the sidebar is reconsidered then (owner,
-  2026-11-07; [SSH hosts](hosts.md)).
+  2026-11-07; [SSH hosts](hosts.md)). Evaluation note with transport, security
+  and questions: [remote runtime](remote-runtime.md).
 
 ## v0.4: a design step
 
