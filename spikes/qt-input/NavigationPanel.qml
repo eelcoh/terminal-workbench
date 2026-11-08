@@ -171,7 +171,7 @@ Item {
                     ChromeButton {
                         objectName: "expandWorkspace" + parent.index
                         // The caret sits after the name, before the remove button.
-                        x: workspaceEntry.x + workspaceEntry.width; anchors.verticalCenter: workspaceEntry.verticalCenter; width: 24; height: 28
+                        x: parent.width - 56; z: 1; anchors.verticalCenter: workspaceEntry.verticalCenter; width: 24; height: 28
                         visible: workspaceRow.panes.length > 0; opacity: workspaceRow.actionsShown ? 1 : 0; tones: host.chrome; iconName: "chevron"; rotation: workspaceRow.expanded ? 0 : -90
                         focusPolicy: Qt.NoFocus
                         hint: (workspaceRow.expanded ? "Hide panes of " : "Show panes of ") + (host.spaces[parent.index] || "workspace")
@@ -192,7 +192,9 @@ Item {
                             else event.accepted = false
                         }
                         objectName: "navigationWorkspace" + parent.index
-                        tones: host.chrome; x: 0; width: parent.width - 56; row: parent.index
+                        tones: host.chrome; x: 0; width: parent.width; trailingRoom: 56; row: parent.index
+                        // The hover background spans the caret and remove button too.
+                        preview: rowHover.hovered ? "hover" : ""
                         current: parent.index === host.workspace; expanded: workspaceRow.expanded && workspaceRow.panes.length > 0; count: host.counts[parent.index] || 0; text: host.spaces[parent.index]
                         waiting: host.workspaceWaitingCounts[parent.index] || 0
                         dirty: workspaceRow.allPanes.some(i => { const pane = host.panel(i); return pane && !!pane.facts.dirty })
@@ -240,7 +242,7 @@ Item {
                         }
                     }
                     ChromeButton {
-                        id: removeWorkspace; objectName: "removeWorkspace" + parent.index
+                        id: removeWorkspace; objectName: "removeWorkspace" + parent.index; z: 1
                         anchors.right: parent.right; anchors.verticalCenter: workspaceEntry.verticalCenter
                         tones: host.chrome; iconName: "close"; opacity: !workspaceRow.actionsShown ? 0 : hovered || visualFocus ? 1 : 0.65
                         hint: "Remove " + (host.spaces[parent.index] || "workspace") + "…"

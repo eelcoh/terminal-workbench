@@ -253,7 +253,7 @@ Dialog {
                         Text { width: parent.width; elide: Text.ElideMiddle; text: sourceRowItem.homebrew.install || ""; textFormat: Text.PlainText; font.family: "monospace"; font.pixelSize: Design.textSmall; color: catalog.tones.foreground }
                         Text {
                             width: parent.width; wrapMode: Text.Wrap; color: catalog.tones.muted; font.pixelSize: Design.textSmall
-                            text: "Runs Homebrew's official installer from GitHub in a pane, where it asks for your password and confirmation" + (Qt.platform.os === "osx" ? "." : ". On Linux it needs curl, git and a compiler, and it prints a line to add to your shell profile.")
+                            text: "Runs Homebrew's official installer from GitHub in a pane, where it asks for your password and confirmation" + (Design.apple ? "." : ". On Linux it needs curl, git and a compiler, and it prints a line to add to your shell profile.")
                         }
                         ChromeButton {
                             objectName: sourceRowItem.brew ? "homebrewInstall" : ""; height: 32; tones: catalog.tones; primary: true; text: "Install Homebrew"

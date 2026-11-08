@@ -11,9 +11,15 @@ ApplicationWindow {
     // integrated-title-bar in config.conf folds the title bar into Band's top
     // bar: on Linux a frameless window with Band's own window buttons and
     // resize edges, on macOS the traffic lights inside the top bar (Qt 6.9+).
-    readonly property bool appleTitle: studyConfiguration.integratedTitleBar && Qt.platform.os === "osx" && Qt.ExpandedClientAreaHint !== undefined
-    readonly property bool ownTitle: studyConfiguration.integratedTitleBar && Qt.platform.os !== "osx"
+    readonly property bool appleTitle: studyConfiguration.integratedTitleBar && Design.apple && Qt.ExpandedClientAreaHint !== undefined
+    readonly property bool ownTitle: studyConfiguration.integratedTitleBar && !Design.apple
     readonly property bool titleIntegrated: appleTitle || ownTitle
+    // Read when About opens, so the content position is current.
+    function titleBarReport() { return (appleTitle ? "folded in (macOS)" : ownTitle ? "folded in (frameless)"
+        : !studyConfiguration.integratedTitleBar ? "system (integrated-title-bar is off)"
+        : Design.apple ? "system (this Qt has no ExpandedClientAreaHint)" : "system")
+        + " · " + Qt.platform.os + " · flags 0x" + (flags >>> 0).toString(16)
+        + ("topPadding" in window ? " · content at " + contentItem.mapToItem(null, 0, 0).y.toFixed(0) + " px" : "") }
     // Room for the macOS traffic lights at the top left.
     readonly property int titleInset: appleTitle ? 72 : 0
     readonly property bool maximized: visibility === Window.Maximized || visibility === Window.FullScreen
@@ -21,12 +27,17 @@ ApplicationWindow {
     function toggleMaximized() { if (maximized) showNormal(); else showMaximized() }
     // macOS still draws the window title over a folded-in title bar; hide it
     // after the flags apply (a flag change can recreate the native window).
-    function syncTitleText() { titleChrome.setHidden(window, appleTitle) }
+    // Qt 6.9+ pads an ApplicationWindow's content by the safe area, which with a
+    // folded-in title bar is the title bar itself; Band's top bar fills it.
+    function syncTitleText() {
+        titleChrome.setHidden(window, appleTitle)
+        if ("topPadding" in window) { window.topPadding = 0; window.leftPadding = 0; window.rightPadding = 0 }
+    }
     onAppleTitleChanged: Qt.callLater(syncTitleText)
     // On macOS the application menu lives in the system menu bar (AppleMenus.qml)
     // instead of behind a button in the top bar. --menu-bar shows the same menus
     // inside the window elsewhere, to check them without a Mac.
-    readonly property bool systemMenus: Qt.platform.os === "osx" || Qt.application.arguments.indexOf("--menu-bar") >= 0
+    readonly property bool systemMenus: Design.apple || Qt.application.arguments.indexOf("--menu-bar") >= 0
     Component { id: appleMenus; AppleMenus {} }
     menuBar: systemMenus ? appleMenus.createObject(window, {host: window, registry: commandRegistry}) : null
     property int workspace: 0
@@ -1806,7 +1817,7 @@ ApplicationWindow {
     readonly property bool aboutDetailsReady: about.detailsReady
     About {
         id: about; objectName: "aboutDialog"; anchors.centerIn: parent
-        tones: window.chrome; build: studyBuild
+        tones: window.chrome; build: studyBuild; titleBar: about.visible ? window.titleBarReport() : ""
         onClosed: Qt.callLater(window.restoreAfterPopup)
     }
     Dialog {
@@ -1857,7 +1868,7 @@ ApplicationWindow {
         }
     }
     Shortcut { sequence: "Escape"; enabled: window.overview && !overviewSearch.activeFocus && !navigation.searchFocused && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible; onActivated: { if (window.dragSlot >= 0) window.cancelDrag(); else window.toggleOverview() } }
-    onActiveChanged: if (!active) cancelDrag()
+    onActiveChanged: { if (!active) cancelDrag(); else if (appleTitle) syncTitleText() }
     // A frameless window on Linux resizes from its edges and corners.
     Repeater {
         model: window.ownTitle && !window.maximized ? [

@@ -178,7 +178,7 @@ Rectangle {
                         SidebarPane { width: parent.width; tones: scene.t; kindIcon: "apps"; iconTone: "waiting"; title: "htop"; detail: "Stopped" }
                         Item {
                             width: parent.width; height: 28
-                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Side project"; branch: "feature/sync"; count: 2; expanded: false }
+                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Side project"; branch: "feature/sync"; count: 2; dirty: true; expanded: false }
                             ChromeButton { x: parent.width - 26; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 28; rotation: -90; tones: scene.t; iconName: "chevron"; hint: "Show panes" }
                         }
                     }

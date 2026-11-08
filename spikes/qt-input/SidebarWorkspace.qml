@@ -15,6 +15,8 @@ ChromeButton {
     property bool dirty: false
     property bool current: false
     property bool expanded: true
+    // Room kept free on the right for the caret and remove button laid over it.
+    property int trailingRoom: 0
     height: 28; leftAligned: true
     trailingText: String(count)
     contentItem: Item {
@@ -25,15 +27,17 @@ ChromeButton {
                 id: workspaceBranch; objectName: "workspaceBranch" + entry.row; visible: entry.branch.length > 0; anchors.baseline: workspaceName.baseline
                 width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: entry.branch; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.tones.muted; font.pixelSize: Design.textCaption
             }
+            // Activity right beside the name while collapsed; open, the terminal
+            // rows carry it.
+            Row {
+                visible: !entry.expanded && entry.waiting > 0; spacing: Design.spaceXs; height: 18; anchors.verticalCenter: workspaceName.verticalCenter
+                Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: entry.tones.waiting }
+                Text { text: String(entry.waiting); color: entry.tones.waiting; font.pixelSize: Design.textCaption; anchors.verticalCenter: parent.verticalCenter }
+            }
+            Rectangle { objectName: "workspaceDirty" + entry.row; visible: !entry.expanded && entry.dirty; width: 6; height: 6; radius: 3; anchors.verticalCenter: workspaceName.verticalCenter; color: entry.tones.accent }
         }
         Row {
-            id: totals; anchors.right: parent.right; anchors.rightMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceM
-            Row {
-                visible: entry.waiting > 0; spacing: Design.spaceXs; height: 18
-                Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: entry.tones.waiting }
-                Text { text: String(entry.waiting); color: entry.tones.waiting; font.pixelSize: Design.textSmall; anchors.verticalCenter: parent.verticalCenter }
-            }
-            Rectangle { objectName: "workspaceDirty" + entry.row; visible: entry.dirty; width: 6; height: 6; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: entry.tones.accent }
+            id: totals; anchors.right: parent.right; anchors.rightMargin: Design.spaceL + entry.trailingRoom; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceM
             Text { visible: !entry.expanded; text: entry.trailingText; color: entry.tones.muted; font.pixelSize: Design.textCaption; height: 18; verticalAlignment: Text.AlignVCenter }
         }
     }

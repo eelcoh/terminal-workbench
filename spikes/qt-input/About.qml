@@ -5,6 +5,8 @@ Dialog {
     id: popup
     required property var tones
     required property var build
+    // Which title bar the window uses and why; helps when folding it in fails.
+    property string titleBar
     property bool expanded: false
     property bool copied: false
     readonly property bool detailsReady: expanded && report.visible && report.width > 0 && report.height > 0 && details.height > 0
@@ -17,8 +19,9 @@ Dialog {
     header: Label { text: popup.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: popup.tones.foreground; font.pixelSize: Design.textTitle }
     contentItem: Item {
         Label { id: revision; width: parent.width; text: popup.build.summary; textFormat: Text.PlainText; color: popup.tones.muted; font.pixelSize: Design.textBody; elide: Text.ElideMiddle }
+        Label { id: titleBarLine; objectName: "aboutTitleBar"; anchors.top: revision.bottom; anchors.topMargin: Design.spaceXs; width: parent.width; text: "Title bar: " + popup.titleBar; visible: popup.titleBar.length > 0; textFormat: Text.PlainText; color: popup.tones.muted; font.pixelSize: Design.textSmall; wrapMode: Text.Wrap }
         Row {
-            id: actions; anchors.top: revision.bottom; anchors.topMargin: Design.spaceXl; spacing: Design.spaceM
+            id: actions; anchors.top: titleBarLine.bottom; anchors.topMargin: Design.spaceXl; spacing: Design.spaceM
             ChromeButton { objectName: "aboutCopy"; tones: popup.tones; text: popup.copied ? "Copied" : "Copy diagnostics"; onClicked: { popup.build.copyDiagnostics(); popup.copied = true } }
             ChromeButton { objectName: "aboutDetails"; tones: popup.tones; text: popup.expanded ? "Hide details" : "Details"; onClicked: popup.expanded = !popup.expanded }
         }

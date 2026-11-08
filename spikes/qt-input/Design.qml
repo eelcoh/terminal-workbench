@@ -7,7 +7,9 @@ import QtQuick
 QtObject {
     // Type, in pixels. One step per role; the comments say what each is for.
     // On macOS every step is a pixel smaller: the same sizes read large there.
-    readonly property int textShift: Qt.platform.os === "osx" ? -1 : 0
+    // macOS, whichever name this Qt reports for it.
+    readonly property bool apple: Qt.platform.os === "osx" || Qt.platform.os === "macos"
+    readonly property int textShift: apple ? -1 : 0
     readonly property int textCaption: 11 + textShift   // badges, key chips, counts, sidebar details
     readonly property int textSmall: 12 + textShift     // secondary lines, hints, captions
     readonly property int textBody: 13 + textShift      // list rows, field text, explanations
