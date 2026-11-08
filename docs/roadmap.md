@@ -205,6 +205,14 @@ reference for subtlety; the result is a small design system the QML follows.
   without hooks (bell, OSC 9/777, title changes, idleness) behind a small adapter
   interface, desktop notifications, time in each state, "new agent in a new
   worktree", and the open Claude/Copilot lifecycle edges.
+- Band-provided configuration for catalog apps, such as themes for lazygit and
+  btop matching Band's, after Omarchy (apps slice 11, moved here by the owner,
+  2026-11-08). It writes into other programs' config folders, so it needs its
+  own design: opt-in, backups and undo.
+- Home-built applications in the catalog (owner, 2026-11-08): adding programs
+  of one's own from Add applications rather than only through config.conf,
+  with a description, and building and updating them from a checkout or a
+  Git repository ([apps](apps.md#open)).
 - Plugins with versioned capabilities and crash isolation
   ([notes](status-log.md#plugins-long-horizon)).
 - Signing, notarization and updates.

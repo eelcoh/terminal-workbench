@@ -150,12 +150,23 @@ today.
     **Run setup** in the catalog runs it again). See
     [dotfiles](dotfiles.md#apps). C parser, app list and UI tests.
 11. **Band-provided configuration** for catalog apps (themes matching Band's,
-    after Omarchy). Not started: it writes into other programs' config
-    folders, so it needs its own design (opt-in, backups, undo).
+    after Omarchy). Moved to Later (owner, 2026-11-08): it writes into other
+    programs' config folders, so it needs its own design (opt-in, backups,
+    undo). See the [roadmap](roadmap.md#later).
 
 Each slice ships on its own and keeps both platforms green.
 
 ## Open
+
+- Home-built applications in the catalog (owner, 2026-11-08): the owner may
+  want to add programs of their own. Today an `[app.ID]` section in
+  config.conf already lists one first in Add applications, with its own
+  `install` and `setup` recipes ([dotfiles](dotfiles.md#apps)). Not there yet:
+  - adding one from Add applications, saved in Band's own list as New host…
+    does for hosts;
+  - a description line;
+  - building from a local checkout or a Git repository (over SSH, as
+    everywhere in Band), and updating it later.
 
 - Fedora Atomic hosts: offer a toolbox install, or keep requiring Homebrew.
 - Install recipes are not yet run for real on a Mac or on apt or pacman
