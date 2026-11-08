@@ -19,6 +19,12 @@ ApplicationWindow {
     readonly property bool maximized: visibility === Window.Maximized || visibility === Window.FullScreen
     flags: appleTitle ? (Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint) : ownTitle ? (Qt.Window | Qt.FramelessWindowHint) : Qt.Window
     function toggleMaximized() { if (maximized) showNormal(); else showMaximized() }
+    // On macOS the application menu lives in the system menu bar (AppleMenus.qml)
+    // instead of behind a button in the top bar. --menu-bar shows the same menus
+    // inside the window elsewhere, to check them without a Mac.
+    readonly property bool systemMenus: Qt.platform.os === "osx" || Qt.application.arguments.indexOf("--menu-bar") >= 0
+    Component { id: appleMenus; AppleMenus {} }
+    menuBar: systemMenus ? appleMenus.createObject(window, {host: window, registry: commandRegistry}) : null
     property int workspace: 0
     property int selected: 0
     property bool overview: false
@@ -1025,7 +1031,7 @@ ApplicationWindow {
         QuietButton { objectName: "windowMaximize"; height: 28; iconName: window.maximized ? "restore" : "maximize"; hint: window.maximized ? "Restore" : "Maximize"; focusPolicy: Qt.NoFocus; onClicked: window.toggleMaximized() }
         QuietButton { objectName: "windowClose"; height: 28; iconName: "close"; hint: "Close window"; focusPolicy: Qt.NoFocus; onClicked: window.close() }
     }
-    QuietButton { objectName: "applicationMenuButton"; x: 8 + window.titleInset; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
+    QuietButton { objectName: "applicationMenuButton"; visible: !window.systemMenus; x: 8 + window.titleInset; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
     Column {
         x: 8; y: 52; spacing: Design.spaceXl
         QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }

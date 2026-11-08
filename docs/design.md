@@ -56,6 +56,13 @@ property on `ChromeButton` and `ChromeMenuItem`. The columns sit side by side
 when they fit, at least 340 px each, and below each other otherwise. The UI
 test opens it from Commands and saves `design-gallery.png`.
 
+## Following Rex
+
+- On macOS the application menu is in the system menu bar, not behind a button
+  in the top bar ([minimal chrome](minimal-chrome.md)).
+- In the sidebar the caret that opens a workspace's panes sits on the right of
+  its name, before the remove button, so the names line up with the left edge.
+
 ## Still to do in stage 1
 
 - The gallery has only the shared components so far. The pane header, the

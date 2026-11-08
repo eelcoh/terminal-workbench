@@ -167,7 +167,8 @@ Item {
                     }
                     ChromeButton {
                         objectName: "expandWorkspace" + parent.index
-                        x: 0; anchors.verticalCenter: workspaceEntry.verticalCenter; width: 24; height: 28
+                        // The caret sits after the name, before the remove button.
+                        x: workspaceEntry.x + workspaceEntry.width; anchors.verticalCenter: workspaceEntry.verticalCenter; width: 24; height: 28
                         visible: workspaceRow.panes.length > 0; tones: host.chrome; iconName: "chevron"; rotation: workspaceRow.expanded ? 0 : -90
                         focusPolicy: Qt.NoFocus
                         hint: (workspaceRow.expanded ? "Hide panes of " : "Show panes of ") + (host.spaces[parent.index] || "workspace")
@@ -188,7 +189,7 @@ Item {
                             else event.accepted = false
                         }
                         objectName: "navigationWorkspace" + parent.index
-                        tones: host.chrome; x: 24; width: parent.width - 56; height: 44; leftAligned: true
+                        tones: host.chrome; x: 0; width: parent.width - 56; height: 44; leftAligned: true
                         selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
                         readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
                         readonly property bool dirty: workspaceRow.allPanes.some(i => { const pane = host.panel(i); return pane && !!pane.facts.dirty })
@@ -221,7 +222,7 @@ Item {
                         onClicked: host.chooseWorkspace(parent.index)
                     }
                     Column {
-                        id: paneColumn; x: 24; y: 48; width: parent.width - 24; spacing: Design.space2xs
+                        id: paneColumn; x: Design.spaceL; y: 48; width: parent.width - Design.spaceL; spacing: Design.space2xs
                         visible: workspaceRow.expanded
                         Repeater {
                             id: paneRows; model: workspaceRow.expanded ? workspaceRow.panes : []

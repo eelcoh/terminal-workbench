@@ -52,6 +52,14 @@ requiring hover discovery. New terminal and Overview remain immediately
 accessible. Stop keeps explicit confirmation. Theme choices for terminals stay
 independent of chrome, as the alternating sample backgrounds illustrate.
 
+On macOS the application menu moves out of the top bar into the system menu bar
+(`AppleMenus.qml`), grouped as Shell, Edit, View, Workspace, Go and Help, with
+About and Configuration in the Band menu. Its items run Commands entries, so
+titles and availability match the palette. They carry no key equivalents: the
+menu bar would take those keys before the terminal does, and Band's shortcuts
+stay configurable. `--menu-bar` shows the same menus inside the window on Linux,
+to check them without a Mac. Not yet tried on a Mac.
+
 ## Interactive study and limits
 
 Try selecting a far-away pane, scrolling without changing focus, selecting an
