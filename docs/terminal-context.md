@@ -66,8 +66,24 @@ limit and is killed after it; Git missing, a refused repository (such as
 `core.fsmonitor=false`, `--no-optional-locks` and no terminal prompt, so the
 check takes no index lock and a repository's fsmonitor hook does not run.
 Clean or smudge filters configured by the user can still run, as with any
-`git status`. Each pane's runtime checks on its own; panes in one worktree
-are not yet shared.
+`git status`.
+
+Two things bring the next check forward:
+- the worktree's index file changes, which `git add`, `commit`, `checkout`,
+  `reset` and `stash` all do;
+- the pane's foreground job starts or ends, so a command just run is checked.
+
+An early check still waits until four times the last run's duration has passed,
+and at least a second, so a slow repository is not checked in a loop.
+
+Panes in one worktree share the result through `<state>/git-status/`, a private
+folder with one small file per worktree (named by a hash of its root, with the
+root inside to rule out a collision). A runtime reuses a result that started
+after the index last changed and after its own trigger, within that result's
+interval. Otherwise it takes the worktree's lock and runs Git itself; a runtime
+that finds the lock taken waits for the next second rather than run Git
+alongside. Files for worktrees no longer visited stay until the state folder
+is removed.
 
 Custom names use optional JSON `custom_name` metadata and a companion
 `terminal-labels.tsv` projection indexed by stable terminal ID. Existing catalog

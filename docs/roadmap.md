@@ -183,8 +183,8 @@ designer's eye, planned as a design step in v0.4.
   runs `git status --porcelain` with fsmonitor off, a two-second limit and
   backoff, published through a CTX2 subscription; an accent dot marks pane
   headers, sidebar pane rows and workspace rows ([terminal
-  context](terminal-context.md)). Not yet shared between panes of one worktree
-  or triggered after commands.
+  context](terminal-context.md)). Since 2026-11-08 panes of one worktree share
+  the result, and an index change or a finished command checks early.
 - A remote runtime (the daemon on the remote machine, the client local) is
   evaluated after plain SSH panes. With it, a host would hold its own
   workspaces, and the host level in the sidebar is reconsidered then (owner,

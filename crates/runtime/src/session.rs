@@ -238,21 +238,31 @@ impl Drop for ContextWorker {
         self.0.store(true, Ordering::Relaxed);
     }
 }
-fn start_context_worker(pid: Arc<AtomicI32>, events: SyncSender<Event>) -> ContextWorker {
+/// `shared`: the folder where runtimes of one state folder share `git status`.
+fn start_context_worker(
+    pid: Arc<AtomicI32>,
+    events: SyncSender<Event>,
+    shared: Option<PathBuf>,
+) -> ContextWorker {
     let cancelled = Arc::new(AtomicBool::new(false));
     let stop = cancelled.clone();
     thread::spawn(move || {
-        let mut cache = crate::context::Cache::default();
+        let mut cache = shared
+            .map(crate::context::Cache::shared)
+            .unwrap_or_default();
         let mut previous = None;
+        let mut previous_target = None;
         while !stop.load(Ordering::Relaxed) {
             let target = pid.load(Ordering::Relaxed);
+            let job_changed = previous_target.is_some_and(|value| value != target);
+            previous_target = Some(target);
             let is_remote = target < 0;
             let cwd = if is_remote {
                 None
             } else {
                 crate::platform::working_directory(target)
             };
-            let next = cache.sample(cwd, is_remote);
+            let next = cache.sample(cwd, is_remote, job_changed);
             if previous.as_ref() != Some(&next) {
                 match events.try_send(Event::ContextUpdated(next.clone())) {
                     Ok(()) => previous = Some(next),
@@ -345,7 +355,11 @@ pub fn serve_with_shell_launch(
     let (events_tx, events_rx) = mpsc::sync_channel(128);
     let shell_pid = child.process_id().map(|pid| pid as i32).unwrap_or(0);
     let context_pid = Arc::new(AtomicI32::new(shell_pid));
-    let _context_worker = start_context_worker(context_pid.clone(), events_tx.clone());
+    let _context_worker = start_context_worker(
+        context_pid.clone(),
+        events_tx.clone(),
+        socket.parent().map(|state| state.join("git-status")),
+    );
     let control_events = events_tx.clone();
     // Capture once: later service activation cannot change a retained shell's helpers.
     let runtime_origin = crate::runtime_origin::capture();

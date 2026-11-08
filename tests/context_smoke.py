@@ -76,6 +76,11 @@ with tempfile.TemporaryDirectory(prefix='wb-context-test-') as directory:
         calls=marker.read_text().splitlines() if marker.exists() else []
         assert context()['dirty'] is None,'a failing git status leaves dirty state unknown'
         assert calls and all(c.startswith('-c core.fsmonitor=false --no-optional-locks -C ') and c.endswith(' status --porcelain -z --ignore-submodules=dirty') for c in calls),calls
+        # Runtimes of one state folder share results there, privately, one file per worktree.
+        shared=root/'git-status'
+        assert shared.is_dir() and not shared.is_symlink() and shared.stat().st_mode&0o777==0o700,shared
+        entries=[entry for entry in shared.iterdir() if entry.suffix not in ('.lock',)]
+        assert entries and all(entry.stat().st_mode&0o777==0o600 and entry.read_bytes().startswith(b'1 - ') for entry in entries),entries
         connection,_,sizes=attach(path)
         send(connection,16,b"printf '\\nCONTEXT_PID:%s\\n' \"$$\"\n")
         assert expect(connection,rb'\r?\nCONTEXT_PID:(\d+)\r?\n').group(1)==pid

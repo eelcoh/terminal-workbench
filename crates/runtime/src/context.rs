@@ -1,10 +1,12 @@
 //! Cached local process/Git context. File discovery runs off the PTY event thread.
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
+use std::os::fd::AsRawFd;
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Context {
@@ -219,19 +221,127 @@ fn uncommitted(root: &Path, limit: Duration) -> Option<bool> {
     status.filter(|status| status.success()).map(|_| bytes > 0)
 }
 
+/// How long to wait before the next scheduled `git status` after one that took
+/// `cost`: twenty times as long, from five seconds up to two minutes.
+fn status_interval(cost: Duration) -> Duration {
+    (cost * 20).clamp(Duration::from_secs(5), Duration::from_secs(120))
+}
+fn unix_nanos(time: SystemTime) -> u128 {
+    time.duration_since(UNIX_EPOCH)
+        .map(|value| value.as_nanos())
+        .unwrap_or(0)
+}
+/// FNV-1a: a stable file name for a worktree root, the same in every build.
+fn root_key(root: &Path) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in root.as_os_str().as_bytes() {
+        hash = (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+/// One worktree's last `git status`, shared by the runtimes of a state folder
+/// so panes in the same worktree run it once. A file per worktree under
+/// `<state>/git-status/`: `1 <dirty 0|1|-> <started, Unix ns> <cost, ms>`,
+/// then the root on the next line to rule out a hash collision.
+#[derive(Debug, PartialEq)]
+struct Shared {
+    dirty: Option<bool>,
+    started: u128,
+    cost: Duration,
+}
+impl Shared {
+    fn encode(&self, root: &Path) -> Vec<u8> {
+        let dirty = match self.dirty {
+            Some(true) => "1",
+            Some(false) => "0",
+            None => "-",
+        };
+        let mut bytes =
+            format!("1 {dirty} {} {}\n", self.started, self.cost.as_millis()).into_bytes();
+        bytes.extend_from_slice(root.as_os_str().as_bytes());
+        bytes
+    }
+    fn decode(bytes: &[u8], root: &Path) -> Option<Shared> {
+        let newline = bytes.iter().position(|byte| *byte == b'\n')?;
+        if &bytes[newline + 1..] != root.as_os_str().as_bytes() {
+            return None;
+        }
+        let line = std::str::from_utf8(&bytes[..newline]).ok()?;
+        let mut fields = line.split(' ');
+        if fields.next()? != "1" {
+            return None;
+        }
+        let dirty = match fields.next()? {
+            "1" => Some(true),
+            "0" => Some(false),
+            "-" => None,
+            _ => return None,
+        };
+        let started = fields.next()?.parse().ok()?;
+        let cost = Duration::from_millis(fields.next()?.parse().ok()?);
+        fields.next().is_none().then_some(Shared {
+            dirty,
+            started,
+            cost,
+        })
+    }
+}
+/// What one status round decided: a result, or nothing yet because another
+/// runtime is running `git status` for this worktree right now.
+enum Round {
+    Result(Shared),
+    Busy,
+}
+fn private_dir(path: &Path) -> Option<()> {
+    match fs::DirBuilder::new().mode(0o700).create(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(_) => return None,
+    }
+    fs::symlink_metadata(path).ok()?.is_dir().then_some(())
+}
+fn open_private(path: &Path, write: bool) -> io::Result<File> {
+    let mut options = OpenOptions::new();
+    options.read(true).custom_flags(libc::O_NOFOLLOW);
+    if write {
+        options.write(true).create(true).mode(0o600);
+    }
+    options.open(path)
+}
+
 #[derive(Default)]
 pub struct Cache {
     cwd: Option<PathBuf>,
     repo: Option<Repository>,
     checked: Option<Instant>,
-    // `git status` is rate-limited per worktree: at most every five seconds,
-    // and slower when it takes long (twenty times its duration, up to two minutes).
+    // `git status` is rate-limited per worktree (see `status_interval`), and
+    // checked early when the index changes or the foreground job changes, as
+    // long as the last check cost less than a quarter of the time since.
     status_root: Option<PathBuf>,
     status_next: Option<Instant>,
+    status_ran: Option<Instant>,
+    status_cost: Duration,
+    index_seen: Option<SystemTime>,
+    // An early check is due; a result must have started after this (Unix ns).
+    pending: Option<u128>,
     dirty: Option<bool>,
+    shared: Option<PathBuf>,
+    #[cfg(test)]
+    runs: u32,
 }
 impl Cache {
-    pub fn sample(&mut self, cwd: Option<PathBuf>, remote: bool) -> Context {
+    /// A cache sharing `git status` results through `directory` with the other
+    /// runtimes of the same state folder.
+    pub fn shared(directory: PathBuf) -> Cache {
+        Cache {
+            shared: Some(directory),
+            ..Cache::default()
+        }
+    }
+    /// `job_changed`: the terminal's foreground job started or ended since the
+    /// last sample, so a command may have changed the worktree.
+    pub fn sample(&mut self, cwd: Option<PathBuf>, remote: bool, job_changed: bool) -> Context {
         let Some(cwd) = cwd.filter(|_| !remote) else {
             self.cwd = None;
             self.repo = None;
@@ -257,8 +367,8 @@ impl Cache {
             cwd: bounded(&cwd.to_string_lossy(), 4096),
             ..Context::default()
         };
-        if let Some(repo) = &self.repo {
-            if let Some((branch, detached)) = head(repo) {
+        if let Some(repo) = self.repo.clone() {
+            if let Some((branch, detached)) = head(&repo) {
                 next.repository =
                     if repo.linked && repo.common.file_name().is_some_and(|name| name == ".git") {
                         repo.common.parent().map(basename).unwrap_or_default()
@@ -270,16 +380,7 @@ impl Cache {
                 if repo.linked {
                     next.worktree = basename(&repo.root);
                 }
-                if self.status_root.as_ref() != Some(&repo.root)
-                    || self.status_next.is_none_or(|time| now >= time)
-                {
-                    let started = Instant::now();
-                    self.dirty = uncommitted(&repo.root, Duration::from_secs(2));
-                    let interval = (started.elapsed() * 20)
-                        .clamp(Duration::from_secs(5), Duration::from_secs(120));
-                    self.status_root = Some(repo.root.clone());
-                    self.status_next = Some(Instant::now() + interval);
-                }
+                self.status(&repo, now, job_changed);
                 next.dirty = self.dirty;
             } else {
                 self.checked = None;
@@ -289,6 +390,122 @@ impl Cache {
             self.dirty = None;
         }
         next
+    }
+    fn status(&mut self, repo: &Repository, now: Instant, job_changed: bool) {
+        // Commits, adds, checkouts and stashes all rewrite the index.
+        let index = fs::metadata(repo.git.join("index"))
+            .and_then(|metadata| metadata.modified())
+            .ok();
+        let moved = self.status_root.as_ref() != Some(&repo.root);
+        if moved {
+            self.status_root = Some(repo.root.clone());
+            self.status_next = None;
+            self.status_ran = None;
+            self.pending = None;
+            self.dirty = None;
+        } else if job_changed {
+            // The job may have ended up to a second before this sample saw it.
+            let since =
+                unix_nanos(SystemTime::now()).saturating_sub(Duration::from_secs(1).as_nanos());
+            self.pending = Some(self.pending.unwrap_or(0).max(since));
+        } else if index != self.index_seen {
+            self.pending = Some(self.pending.unwrap_or(0));
+        }
+        self.index_seen = index;
+        let early = self.pending.is_some()
+            && self.status_ran.is_none_or(|time| {
+                now.duration_since(time) >= (self.status_cost * 4).max(Duration::from_secs(1))
+            });
+        if !(moved || early || self.status_next.is_none_or(|time| now >= time)) {
+            return;
+        }
+        // A result started after the index last changed and after a job change,
+        // and within its own interval, is as good as running Git again.
+        let since = index
+            .map(unix_nanos)
+            .unwrap_or(0)
+            .max(self.pending.unwrap_or(0));
+        let fresh = |result: &Shared| {
+            let age = unix_nanos(SystemTime::now()).saturating_sub(result.started);
+            result.started >= since && age < status_interval(result.cost).as_nanos()
+        };
+        match self.round(&repo.root, fresh) {
+            Round::Busy => {}
+            Round::Result(result) => {
+                let age = Duration::from_nanos(
+                    unix_nanos(SystemTime::now()).saturating_sub(result.started) as u64,
+                );
+                self.dirty = result.dirty;
+                self.status_cost = result.cost;
+                self.status_ran = Some(now.checked_sub(age).unwrap_or(now));
+                self.status_next = Some(now + status_interval(result.cost).saturating_sub(age));
+                self.pending = None;
+            }
+        }
+    }
+    /// A fresh shared result, or `git status` run here and shared.
+    fn round(&mut self, root: &Path, fresh: impl Fn(&Shared) -> bool) -> Round {
+        let Some(directory) = self
+            .shared
+            .clone()
+            .filter(|path| private_dir(path).is_some())
+        else {
+            return Round::Result(self.run(root));
+        };
+        let path = directory.join(root_key(root));
+        let read = |path: &Path| {
+            let mut bytes = Vec::new();
+            open_private(path, false)
+                .and_then(|file| file.take(8192).read_to_end(&mut bytes))
+                .ok()
+                .and_then(|_| Shared::decode(&bytes, root))
+        };
+        if let Some(result) = read(&path).filter(&fresh) {
+            return Round::Result(result);
+        }
+        let Ok(lock) = open_private(&path.with_extension("lock"), true) else {
+            return Round::Result(self.run(root));
+        };
+        // SAFETY: the descriptor is open for the lifetime of `lock`.
+        if unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+            return if io::Error::last_os_error().raw_os_error() == Some(libc::EWOULDBLOCK) {
+                Round::Busy
+            } else {
+                Round::Result(self.run(root))
+            };
+        }
+        // Another runtime may have finished while this one waited for the lock.
+        if let Some(result) = read(&path).filter(&fresh) {
+            return Round::Result(result);
+        }
+        let result = self.run(root);
+        let temporary = path.with_extension(format!("{}.tmp", std::process::id()));
+        let written = open_private(&temporary, true).and_then(|mut file| {
+            file.set_len(0)?;
+            file.write_all(&result.encode(root))
+        });
+        if written
+            .and_then(|()| fs::rename(&temporary, &path))
+            .is_err()
+        {
+            let _ = fs::remove_file(&temporary);
+        }
+        drop(lock);
+        Round::Result(result)
+    }
+    fn run(&mut self, root: &Path) -> Shared {
+        #[cfg(test)]
+        {
+            self.runs += 1;
+        }
+        let started = SystemTime::now();
+        let clock = Instant::now();
+        let dirty = uncommitted(root, Duration::from_secs(2));
+        Shared {
+            dirty,
+            started: unix_nanos(started),
+            cost: clock.elapsed(),
+        }
     }
 }
 
@@ -304,11 +521,14 @@ mod tests {
         fs::create_dir_all(&git).unwrap();
         fs::write(git.join("HEAD"), "ref: refs/heads/main\n").unwrap();
         let mut cache = Cache::default();
-        let initial = cache.sample(Some(repo.clone()), false);
+        let initial = cache.sample(Some(repo.clone()), false, false);
         assert_eq!(initial.repository, "repository with spaces");
         assert_eq!(initial.branch, "main");
         fs::write(git.join("HEAD"), "ref: refs/heads/topic/λ\n").unwrap();
-        assert_eq!(cache.sample(Some(repo.clone()), false).branch, "topic/λ");
+        assert_eq!(
+            cache.sample(Some(repo.clone()), false, false).branch,
+            "topic/λ"
+        );
         let tree = root.join("other checkout");
         let private = git.join("worktrees/other");
         fs::create_dir_all(&tree).unwrap();
@@ -324,13 +544,13 @@ mod tests {
             "0123456789012345678901234567890123456789\n",
         )
         .unwrap();
-        let linked = cache.sample(Some(tree), false);
+        let linked = cache.sample(Some(tree), false, false);
         assert_eq!(linked.repository, initial.repository);
         assert_eq!(linked.worktree, "other checkout");
         assert_eq!(linked.branch, "01234567");
         assert!(linked.detached);
-        assert_eq!(cache.sample(None, false), Context::default());
-        assert!(cache.sample(Some(repo), true).remote);
+        assert_eq!(cache.sample(None, false, false), Context::default());
+        assert!(cache.sample(Some(repo), true, false).remote);
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
@@ -399,11 +619,98 @@ mod tests {
         fs::write(root.join("notes.txt"), "draft").unwrap();
         assert_eq!(uncommitted(&root, Duration::from_secs(5)), Some(true));
         let mut cache = Cache::default();
-        assert_eq!(cache.sample(Some(root.clone()), false).dirty, Some(true));
+        assert_eq!(
+            cache.sample(Some(root.clone()), false, false).dirty,
+            Some(true)
+        );
         assert_eq!(
             uncommitted(&root.join("missing"), Duration::from_secs(5)),
             None
         );
         fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn panes_in_one_worktree_share_git_status_and_the_index_triggers_it() {
+        if Command::new("git").arg("--version").output().is_err() {
+            return;
+        }
+        let base = std::env::temp_dir().join(format!("wb-shared-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let root = base.join("repo");
+        fs::create_dir_all(&root).unwrap();
+        let root = fs::canonicalize(root).unwrap();
+        let git = |args: &[&str]| {
+            assert!(Command::new("git")
+                .arg("-C")
+                .arg(&root)
+                .args(args)
+                .output()
+                .unwrap()
+                .status
+                .success())
+        };
+        git(&["init", "-q"]);
+        fs::write(root.join("notes.txt"), "draft").unwrap();
+        git(&["add", "notes.txt"]);
+        git(&[
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fixture",
+        ]);
+        let shared = base.join("git-status");
+        let mut first = Cache::shared(shared.clone());
+        let mut second = Cache::shared(shared.clone());
+        assert_eq!(
+            first.sample(Some(root.clone()), false, false).dirty,
+            Some(false)
+        );
+        assert_eq!(
+            second.sample(Some(root.clone()), false, false).dirty,
+            Some(false)
+        );
+        assert_eq!(
+            (first.runs, second.runs),
+            (1, 0),
+            "the second pane reuses the result"
+        );
+
+        // Staging rewrites the index. Within a second of the last check both
+        // panes wait; then one checks early and the other reuses its result.
+        fs::write(root.join("notes.txt"), "changed").unwrap();
+        git(&["add", "notes.txt"]);
+        assert_eq!(
+            second.sample(Some(root.clone()), false, false).dirty,
+            Some(false)
+        );
+        std::thread::sleep(Duration::from_millis(1100));
+        assert_eq!(
+            second.sample(Some(root.clone()), false, false).dirty,
+            Some(true)
+        );
+        assert_eq!(
+            first.sample(Some(root.clone()), false, false).dirty,
+            Some(true)
+        );
+        assert_eq!((first.runs, second.runs), (1, 1));
+
+        // A job change asks for a result newer than itself.
+        std::thread::sleep(Duration::from_millis(1100));
+        assert_eq!(
+            first.sample(Some(root.clone()), false, true).dirty,
+            Some(true)
+        );
+        assert_eq!(first.runs, 2);
+
+        // An unreadable or foreign entry is ignored, not trusted.
+        let entry = shared.join(root_key(&root));
+        assert!(Shared::decode(&fs::read(&entry).unwrap(), &root).is_some());
+        assert!(Shared::decode(&fs::read(&entry).unwrap(), &root.join("other")).is_none());
+        assert!(Shared::decode(b"2 1 0 0\n/x", Path::new("/x")).is_none());
+        fs::remove_dir_all(base).unwrap();
     }
 }
