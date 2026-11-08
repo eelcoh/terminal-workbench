@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 project(WorkbenchInputProbe LANGUAGES C CXX)
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
 set(CMAKE_CXX_STANDARD 17)
 # The QML export script feeds the Mac bundler. Linux exercises module copying,
 # without making a standalone Linux distribution or relocating ELF libraries.
@@ -71,15 +74,20 @@ if(BAND_TERMINAL_PROBE)
         MACOSX_BUNDLE_BUNDLE_NAME "Workbench Terminal Probe")
     if(APPLE)
         set(workbench_deployment_images "../../native/macos/deployment_images.cpp")
+        set(band_window_title "../../native/macos/window_title.mm")
     else()
         set(workbench_deployment_images "../../native/linux/deployment_images.cpp")
+        set(band_window_title "../../native/linux/window_title.cpp")
     endif()
-    qt_add_executable(band-ui ui_apps.cpp ui_apps.h ui_welcome.h ui_worktrees.cpp ui_worktrees.h ui_hosts.cpp ui_hosts.h ui_runtime_info.cpp ui_runtime_info.h ui_agent_info.cpp ui_agent_info.h ui_workspace_appearance.cpp ui_workspace_appearance.h creation_defaults.cpp creation_bridge.c view_defaults.cpp view_bridge.c app_definitions.cpp app_bridge.c ui_appearance.cpp ui_appearance.h ui_configuration.cpp ui_configuration.h ui_startup_check.cpp ui_startup_check.h ui_build_info.cpp ui_build_info.h deployment_check.cpp ${workbench_deployment_images} ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
+    qt_add_executable(band-ui ui_apps.cpp ui_apps.h ui_welcome.h ui_worktrees.cpp ui_worktrees.h ui_hosts.cpp ui_hosts.h ui_runtime_info.cpp ui_runtime_info.h ui_agent_info.cpp ui_agent_info.h ui_workspace_appearance.cpp ui_workspace_appearance.h creation_defaults.cpp creation_bridge.c view_defaults.cpp view_bridge.c app_definitions.cpp app_bridge.c ui_appearance.cpp ui_appearance.h ui_configuration.cpp ui_configuration.h ui_startup_check.cpp ui_startup_check.h ui_build_info.cpp ui_build_info.h deployment_check.cpp ${workbench_deployment_images} window_title.h ${band_window_title} ui_display_report.cpp ui_display_report.h ui_catalog_feed.cpp ui_catalog_feed.h ui_main.cpp ui_view_state.cpp ui_view_state.h ui_shortcuts.cpp ui_shortcuts.h shortcut_bridge.c ui_fonts.cpp ui_fonts.h font_bridge.c ui_lifecycle.cpp ui_lifecycle.h chrome_icon.cpp chrome_icon.h ui_session.cpp ui_session.h runtime_facts.cpp runtime_facts.h ui_themes.cpp ui_themes.h theme_store.cpp theme_store.h terminal_item.cpp terminal_item.h terminal_search.cpp terminal_search.h search_bridge.c theme_bridge.c
         terminal_accessibility.cpp terminal_composition.cpp terminal_text.cpp)
     target_compile_definitions(band-ui PRIVATE QT_NO_KEYWORDS)
     target_compile_options(band-ui PRIVATE -Wall -Wextra)
     target_include_directories(band-ui PRIVATE "${VT_ROOT}/include" "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(band-ui PRIVATE Qt6::Quick Qt6::QuickControls2 Qt6::QuickDialogs2 Qt6::Network "${VT_ROOT}/lib/libghostty-vt.a")
+    if(APPLE)
+        target_link_libraries(band-ui PRIVATE "-framework AppKit")
+    endif()
     qt_add_resources(band-ui "ui" PREFIX "/" FILES Ui.qml Design.qml Gallery.qml AppleMenus.qml PaneHeader.qml SidebarWorkspace.qml SidebarPane.qml TopBar.qml TerminalInformation.qml ContextSearch.qml AgentInformation.qml Configuration.qml About.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ThemeImport.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml KeyChips.qml Welcome.qml TerminalSearch.qml AppCatalog.qml apps-catalog.json)
     qt_add_resources(band-ui "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."

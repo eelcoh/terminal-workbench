@@ -105,8 +105,12 @@ its own.
    on empty top-bar space, resize from edges and corners (tested under X11 and
    Wayland in the UI test, frameless flag and buttons only; moving and resizing
    by hand not yet tried on GNOME or KDE). macOS: `ExpandedClientAreaHint` with
-   the traffic lights in a 72 px inset; unverified on a Mac. Moving and
-   resizing by hand on both platforms is still to be tried.
+   the traffic lights in a 72 px inset, the title text hidden through
+   AppKit (`native/macos/window_title.mm`), and Band moving the window itself
+   while empty top-bar space is dragged (double click zooms). On a Mac with
+   Qt 6.12 the first try showed a title bar without a grip; the title and drag
+   fixes are not yet tried there. Moving and resizing by hand on Linux is
+   still to be tried.
 8. **Hosts (v0.3).** When SSH hosts arrive: a host level in the Workspaces
    panel with reachability, and a host filter.
 

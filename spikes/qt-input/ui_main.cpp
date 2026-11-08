@@ -1,4 +1,5 @@
 // Qt candidate: client presentation around disposable or explicitly saved sessions.
+#include "window_title.h"
 #include "terminal_item.h"
 #include "deployment_check.h"
 #include "ui_build_info.h"
@@ -121,6 +122,7 @@ int main(int argc,char **argv) {
     }
     engine.rootContext()->setContextProperty("testFolderDialogs",args.contains("--test-report"));
     engine.rootContext()->setContextProperty("studyBuild",&buildInfo);
+    UiWindowTitle titleChrome;engine.rootContext()->setContextProperty("titleChrome",&titleChrome);
     engine.rootContext()->setContextProperty("studyAgentInfo",&agentInfo);
     engine.rootContext()->setContextProperty("studyRuntimeInfo",&runtimeInfo);
     engine.rootContext()->setContextProperty("studyConfiguration",&settings);

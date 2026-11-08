@@ -486,8 +486,9 @@ reduced-motion = true
 `integrated-title-bar = true` folds the window's title bar into Band's top bar.
 On Linux the window is frameless: Band draws minimize, maximize and close at the
 top right, empty top-bar space moves the window (double click maximizes) and the
-edges resize it. On macOS the traffic lights sit in the top bar (Qt 6.9 or
-later; not yet tried on a Mac). It applies live and is on by default;
+edges resize it. On macOS the traffic lights sit in the top bar, the title
+text is hidden and dragging empty top-bar space moves the window (Qt 6.9 or
+later; being tried on a Mac). It applies live and is on by default;
 `integrated-title-bar = false` brings back the system title bar.
 
 These fields accept only `true` or `false`; built-in defaults are false, except

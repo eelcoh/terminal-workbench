@@ -19,6 +19,10 @@ ApplicationWindow {
     readonly property bool maximized: visibility === Window.Maximized || visibility === Window.FullScreen
     flags: appleTitle ? (Qt.Window | Qt.ExpandedClientAreaHint | Qt.NoTitleBarBackgroundHint) : ownTitle ? (Qt.Window | Qt.FramelessWindowHint) : Qt.Window
     function toggleMaximized() { if (maximized) showNormal(); else showMaximized() }
+    // macOS still draws the window title over a folded-in title bar; hide it
+    // after the flags apply (a flag change can recreate the native window).
+    function syncTitleText() { titleChrome.setHidden(window, appleTitle) }
+    onAppleTitleChanged: Qt.callLater(syncTitleText)
     // On macOS the application menu lives in the system menu bar (AppleMenus.qml)
     // instead of behind a button in the top bar. --menu-bar shows the same menus
     // inside the window elsewhere, to check them without a Mac.
@@ -1021,8 +1025,18 @@ ApplicationWindow {
     // double click maximizes it; controls above it keep their own input.
     Item {
         objectName: "titleDragArea"; x: 0; y: 0; width: parent.width; height: 40; enabled: window.titleIntegrated
-        DragHandler { target: null; onActiveChanged: if (active) window.startSystemMove() }
-        TapHandler { onDoubleTapped: window.toggleMaximized() }
+        // Linux: the compositor moves the window.
+        DragHandler { target: null; enabled: window.ownTitle; onActiveChanged: if (active) window.startSystemMove() }
+        TapHandler { enabled: window.ownTitle; onDoubleTapped: window.toggleMaximized() }
+        // macOS: Band moves the window itself; a system move does not start from
+        // a folded-in title bar there. Double click zooms, as on a title bar.
+        MouseArea {
+            anchors.fill: parent; enabled: window.appleTitle
+            property point grab
+            onPressed: mouse => grab = Qt.point(mouse.x, mouse.y)
+            onPositionChanged: mouse => { if (pressed && !window.maximized) { window.x += mouse.x - grab.x; window.y += mouse.y - grab.y } }
+            onDoubleClicked: window.toggleMaximized()
+        }
     }
     Row {
         id: windowButtons; objectName: "windowButtons"; visible: window.ownTitle
@@ -1859,5 +1873,5 @@ ApplicationWindow {
             cursorShape: modelData.cursor; onPressed: window.startSystemResize(modelData.edges)
         }
     }
-    Component.onCompleted: { studyApps.setDefinitions(window.appDefinitions); window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (studyWelcome.due) window.openWelcome(); else if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
+    Component.onCompleted: { Qt.callLater(syncTitleText); studyApps.setDefinitions(window.appDefinitions); window.applyCatalog(studySession.initialCatalog, "initialize"); selected = remembered[0] ?? -1; Qt.callLater(function() { window.restoreView(studyView.initial); window.applySharedAppearance(); window.viewReady = true; window.scheduleViewSave(); if (studyWelcome.due) window.openWelcome(); else if (!window.overview && selected >= 0) window.panel(selected).terminal.forceActiveFocus() }) }
 }
