@@ -101,16 +101,9 @@ Item {
         else if (row.y + row.height > list.contentY + list.height) list.contentY = Math.max(0, row.y + row.height - list.height)
         row.button.forceActiveFocus(Qt.TabFocusReason)
     }
-    // The rail names the section, so the panel has no title; the list starts
-    // at the top and the pin sits at the bottom right, beside the section's action.
+    // The rail names the section and holds the pin, so the panel has no title
+    // and the list starts at the top.
     Item { id: header; x: 14; y: 14; width: 0; height: 0 }
-    ChromeButton {
-        objectName: "navigationPin"; tones: host.chrome; iconName: "pin"; selected: host.navigationPinned; z: 1
-        x: parent.width - 14 - width; y: parent.height - 50
-        enabled: host.width >= 920 || host.navigationPinned
-        hint: host.navigationPinned ? "Unpin navigation" : host.width < 920 ? "Widen the window to pin navigation" : "Pin navigation"
-        onClicked: host.toggleNavigationPin()
-    }
     Column {
         id: agentFilters; x: 14; y: header.y; width: parent.width - 28; spacing: Design.spaceS
         visible: navigation.agents
@@ -437,7 +430,7 @@ Item {
             onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
         }
         ChromeButton {
-            objectName: "newHostButton"; visible: navigation.hosts; y: 54; width: parent.width - 36; height: 36
+            objectName: "newHostButton"; visible: navigation.hosts; y: 54; width: parent.width; height: 36
             tones: host.chrome; text: "New host…"; hint: "Save an SSH destination; [host.ID] in config.conf works too"
             contentItem: Row {
                 spacing: Design.spaceM; leftPadding: Design.spaceM
@@ -448,7 +441,7 @@ Item {
             onClicked: host.newHost()
         }
         ChromeButton {
-            id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width - 36; height: 36; visible: navigation.apps
+            id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width; height: 36; visible: navigation.apps
             tones: host.chrome; text: "Add applications…"; enabled: host.spaces.length > 0
             keys: studyShortcuts.labels["apps"] || ""
             contentItem: Row {
@@ -463,7 +456,7 @@ Item {
             onClicked: host.openCatalog()
         }
         ChromeButton {
-            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 54; width: parent.width - 36; height: 36
+            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 54; width: parent.width; height: 36
             tones: host.chrome; text: "New workspace…"; enabled: host.canCreateWorkspace
             keys: studyShortcuts.labels["new-workspace"] || ""
             contentItem: Row {

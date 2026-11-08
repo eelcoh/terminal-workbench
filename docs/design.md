@@ -72,11 +72,13 @@ test opens it from Commands and saves `design-gallery.png`.
 - One bar at the top: the system title bar folds into Band's top bar by default
   (`integrated-title-bar`), which keeps the pane strip.
 - Fewer layers in the sidebar: no panel title (the rail names the section; the
-  pin sits at the bottom right); workspaces as small bold section headers, all
-  open until closed (the current one in full color, the others muted, the
-  count only while closed); the caret and remove button only on hover or
-  keyboard focus; and each terminal on two lines with its folder and branch in
-  caption size under the name.
+  pin sits at the foot of the rail, and Keyboard shortcuts live in the menus,
+  the command menu and their chord); workspaces as small bold section headers,
+  all open until closed (the current one in full color, the others muted, the
+  count and activity dots only while closed, the dots right after the name);
+  the caret and remove button only on hover or keyboard focus, with the hover
+  background across the whole header; and each terminal on two lines with its
+  folder and branch in caption size under the name.
 - Apps, Hosts and Agents follow the same rows: names at body size, details in
   caption size, a host's connect and remove buttons and an agent's details
   button on hover, and the agents count beside the state filter.

@@ -1082,7 +1082,15 @@ ApplicationWindow {
             }
         }
     }
-    QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: Design.spaceL; iconName: "help"; hint: "Keyboard shortcuts"; keys: studyShortcuts.labels["help"] || ""; onClicked: help.open() }
+    // The pin sits at the foot of the rail; Keyboard shortcuts stay in the menu,
+    // the command menu and their own chord.
+    QuietButton {
+        objectName: "navigationPin"; x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: Design.spaceL
+        iconName: "pin"; selected: window.navigationPinned
+        enabled: window.width >= 920 || window.navigationPinned
+        hint: window.navigationPinned ? "Unpin navigation" : window.width < 920 ? "Widen the window to pin navigation" : "Pin navigation"
+        onClicked: window.toggleNavigationPin()
+    }
     TopBar {
         id: topbar; x: Math.max(window.navigationEdge, window.titleInset + 44); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0)
         tones: window.chrome; accent: window.accent; overview: window.overview; canCreate: window.canCreateTerminal
