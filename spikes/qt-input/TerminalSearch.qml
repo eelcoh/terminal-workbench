@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Band.Design
 Popup {
     id: popup
     required property var tones
@@ -8,10 +9,10 @@ Popup {
     onControllerChanged: if(visible && !controller)close()
     readonly property var result: controller ? controller.state : ({})
     readonly property bool queryFocused: query.activeFocus
-    modal: true; dim: false; focus: true; padding: 12
+    modal: true; dim: false; focus: true; padding: Design.spaceL
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     height: 124
-    background: Rectangle {color: popup.tones.raised;radius: 10;border.color: popup.tones.border}
+    background: Rectangle {color: popup.tones.raised;radius: Design.radiusXl;border.color: popup.tones.border}
     onOpened: {query.text = "";query.forceActiveFocus(Qt.TabFocusReason)}
     onClosed: {if(controller)controller.close();controller = null;finished()}
     onResultChanged: if(visible && !result.active) close()
@@ -24,7 +25,7 @@ Popup {
             id: query;objectName: "terminalSearchQuery";x: 0;y: 0;width: parent.width - 204;height: 32
             placeholderText: "Find in terminal…";color: popup.tones.foreground;selectionColor: popup.tones.accent;selectedTextColor: popup.tones.background;placeholderTextColor: popup.tones.muted
             selectByMouse: true;maximumLength: 255
-            background: Rectangle {color: popup.tones.background;radius: 6;border.color: query.activeFocus ? popup.tones.accent : popup.tones.border}
+            background: Rectangle {color: popup.tones.background;radius: Design.radiusM;border.color: query.activeFocus ? popup.tones.accent : popup.tones.border}
             onTextChanged: if(popup.controller)popup.controller.setQuery(text)
             Keys.onReturnPressed: event => {if(inputMethodComposing){event.accepted = false;return}if(popup.controller)popup.controller.move(event.modifiers & Qt.ShiftModifier ? -1 : 1);event.accepted = true}
             Keys.onEnterPressed: event => {if(inputMethodComposing){event.accepted = false;return}if(popup.controller)popup.controller.move(event.modifiers & Qt.ShiftModifier ? -1 : 1);event.accepted = true}
@@ -32,18 +33,18 @@ Popup {
             Keys.onDownPressed: event => {if(inputMethodComposing){event.accepted = false;return}if(popup.controller)popup.controller.move(1);event.accepted = true}
             Accessible.name: "Find literal text in this terminal"
         }
-        Label {x: query.width + 8;y: 8;width: 76;text: popup.result.busy ? "Searching…" : (popup.result.selected || 0) + "/" + (popup.result.count || 0) + (popup.result.limited ? "+" : "");elide: Text.ElideRight;color: popup.tones.muted;font.pixelSize: 12}
-        Row {anchors.right: parent.right;spacing: 2
+        Label {x: query.width + 8;y: 8;width: 76;text: popup.result.busy ? "Searching…" : (popup.result.selected || 0) + "/" + (popup.result.count || 0) + (popup.result.limited ? "+" : "");elide: Text.ElideRight;color: popup.tones.muted;font.pixelSize: Design.textSmall}
+        Row {anchors.right: parent.right;spacing: Design.space2xs
             SearchButton {objectName: "terminalSearchPrevious";tones: popup.tones;width: 32;height: 32;text: "↑";hint: "Previous match";enabled: !popup.result.busy && popup.result.count > 0;onClicked: popup.controller.move(-1)}
             SearchButton {objectName: "terminalSearchNext";tones: popup.tones;width: 32;height: 32;text: "↓";hint: "Next match";enabled: !popup.result.busy && popup.result.count > 0;onClicked: popup.controller.move(1)}
             SearchButton {objectName: "terminalSearchClose";tones: popup.tones;width: 32;height: 32;iconName: "close";hint: "Close search and restore view";onClicked: popup.close()}
         }
         Row {
-            x: 0; y: 38; spacing: 6
+            x: 0; y: 38; spacing: Design.spaceS
             SearchButton {objectName: "terminalSearchMatchCase";tones: popup.tones;text: "Match case";selected: popup.result.match_case === true;hint: "Match uppercase and lowercase exactly";onClicked: {popup.controller.setOptions(!popup.result.match_case,popup.result.whole_word === true);query.forceActiveFocus()}}
             SearchButton {objectName: "terminalSearchWholeWord";tones: popup.tones;text: "Whole word";selected: popup.result.whole_word === true;hint: "Match outside letters, numbers, combining marks and underscores";onClicked: {popup.controller.setOptions(popup.result.match_case === true,!popup.result.whole_word);query.forceActiveFocus()}}
         }
-        Label {x: 0;y: 78;width: parent.width;elide: Text.ElideRight;font.pixelSize: 11;color: popup.tones.muted
+        Label {x: 0;y: 78;width: parent.width;elide: Text.ElideRight;font.pixelSize: Design.textCaption;color: popup.tones.muted
             text: popup.result.error || (popup.result.limited ? "First 1024 matches · Refine your query" : !query.text ? "Literal · " + (popup.result.match_case ? "Match case" : "Ignore case") + (popup.result.whole_word ? " · Whole words" : "") + " · Current terminal and scrollback" : !popup.result.busy && !popup.result.count ? "No matches · Esc restores your view" : "Enter next · Shift+Enter previous · Esc restores your view")
         }
     }

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Band.Design
 
 TextField {
     id: field
@@ -9,8 +10,8 @@ TextField {
     height: 32; selectByMouse: true; maximumLength: 256
     color: tones.foreground; placeholderTextColor: tones.muted
     selectionColor: tones.accent; selectedTextColor: tones.background
-    leftPadding: 10; rightPadding: 32; font.pixelSize: 13
-    background: Rectangle { color: field.tones.background; radius: 6; border.color: field.activeFocus ? field.tones.accent : field.tones.border }
+    leftPadding: Design.spaceL; rightPadding: 32; font.pixelSize: Design.textBody
+    background: Rectangle { color: field.tones.background; radius: Design.radiusM; border.color: field.activeFocus ? field.tones.accent : field.tones.border }
     ChromeButton {
         objectName: field.objectName + "Clear"
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter

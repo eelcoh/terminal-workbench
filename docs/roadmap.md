@@ -198,6 +198,9 @@ A designer's pass over the whole client rather than more engineering polish
 theme, icons, motion, the window chrome on both platforms, and the welcome.
 Starts from the first polish pass ([polish notes](polish.md)) and Rex as the
 reference for subtlety; the result is a small design system the QML follows.
+The owner likes Rex's minimal Mac design: little chrome, few frames. Plan and
+status: [design step](design.md). Stage 1 started 2026-11-08 with one file of
+design values that every component reads.
 
 ## Later
 

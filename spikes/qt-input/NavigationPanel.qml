@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import Workbench.Probe
+import Band.Design
 
 // One panel is reparented between the temporary drawer and the reserved column.
 // Existing runtime observers supply facts; navigation never attaches or recovers.
@@ -102,11 +103,11 @@ Item {
         row.button.forceActiveFocus(Qt.TabFocusReason)
     }
     Row {
-        id: header; x: 14; y: 14; spacing: 2
+        id: header; x: 14; y: 14; spacing: Design.space2xs
         // Each rail icon owns this panel's content; the title names it.
         Label {
-            objectName: "navigationTitle"; width: 184; height: 28; leftPadding: 8; verticalAlignment: Text.AlignVCenter
-            text: navigation.agents ? "Agents" : navigation.apps ? "Apps" : navigation.hosts ? "Hosts" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: 14; font.weight: Font.DemiBold
+            objectName: "navigationTitle"; width: 184; height: 28; leftPadding: Design.spaceM; verticalAlignment: Text.AlignVCenter
+            text: navigation.agents ? "Agents" : navigation.apps ? "Apps" : navigation.hosts ? "Hosts" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: Design.textControl; font.weight: Font.DemiBold
         }
         ChromeButton {
             objectName: "navigationPin"; tones: host.chrome; iconName: "pin"; selected: host.navigationPinned
@@ -116,7 +117,7 @@ Item {
         }
     }
     Column {
-        id: agentFilters; x: 14; y: header.y + header.height + 12; width: parent.width - 28; spacing: 6
+        id: agentFilters; x: 14; y: header.y + header.height + 12; width: parent.width - 28; spacing: Design.spaceS
         visible: navigation.agents
         ContextSearch {
             id: agentSearch; objectName: "navigationAgentSearch"; width: parent.width; tones: host.chrome
@@ -127,18 +128,18 @@ Item {
             onEscapePressed: navigation.escapeSearch()
         }
         Row {
-            spacing: 4
+            spacing: Design.spaceXs
             ChromeButton { objectName: "navigationNeedsFilter"; tones: host.chrome; text: navigation.needsOnly ? "Needs input" : "All states"; selected: navigation.needsOnly; hint: "Show agents that need input"; onClicked: navigation.needsOnly = !navigation.needsOnly }
             ChromeButton { objectName: "navigationClearFilters"; tones: host.chrome; text: "Clear filters"; visible: navigation.needsOnly || agentSearch.text.length > 0; onClicked: navigation.clearFilters() }
         }
-        Label { width: parent.width; text: navigation.matches.length + " / " + host.agentIndices.length + " agents"; color: host.chrome.muted; font.pixelSize: 12 }
+        Label { width: parent.width; text: navigation.matches.length + " / " + host.agentIndices.length + " agents"; color: host.chrome.muted; font.pixelSize: Design.textSmall }
     }
     Flickable {
         id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps || navigation.hosts ? createFooter.y - y - 12 : parent.height - y - 14)
         clip: true; contentHeight: body.height; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Column {
-            id: body; width: list.width; spacing: 6
+            id: body; width: list.width; spacing: Design.spaceS
             Repeater {
                 id: workspaceRows; model: navigation.workspaces ? host.spaces.length : 0
                 Item {
@@ -199,28 +200,28 @@ Item {
                                 + (workspaceRow.allPanes.length > 8 ? "\n…" : ""))
                         contentItem: Item {
                             Row {
-                                anchors.left: parent.left; anchors.leftMargin: 8; anchors.right: totals.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; spacing: 6
-                                Text { id: workspaceName; width: Math.min(implicitWidth, parent.width - (workspaceBranch.visible ? Math.min(workspaceBranch.implicitWidth, parent.width * 0.45) + 6 : 0)); text: workspaceEntry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
+                                anchors.left: parent.left; anchors.leftMargin: Design.spaceM; anchors.right: totals.left; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceS
+                                Text { id: workspaceName; width: Math.min(implicitWidth, parent.width - (workspaceBranch.visible ? Math.min(workspaceBranch.implicitWidth, parent.width * 0.45) + 6 : 0)); text: workspaceEntry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textControl }
                                 Text {
                                     id: workspaceBranch; objectName: "workspaceBranch" + workspaceRow.index; visible: workspaceEntry.worktreeBranch.length > 0; anchors.baseline: workspaceName.baseline
-                                    width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: workspaceEntry.worktreeBranch; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12
+                                    width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: workspaceEntry.worktreeBranch; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: Design.textSmall
                                 }
                             }
                             Row {
-                                id: totals; anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                                id: totals; anchors.right: parent.right; anchors.rightMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceM
                                 Row {
-                                    visible: workspaceEntry.waiting > 0; spacing: 4; height: 18
+                                    visible: workspaceEntry.waiting > 0; spacing: Design.spaceXs; height: 18
                                     Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: host.chrome.waiting }
-                                    Text { text: String(workspaceEntry.waiting); color: host.chrome.waiting; font.pixelSize: 12; anchors.verticalCenter: parent.verticalCenter }
+                                    Text { text: String(workspaceEntry.waiting); color: host.chrome.waiting; font.pixelSize: Design.textSmall; anchors.verticalCenter: parent.verticalCenter }
                                 }
                                 Rectangle { objectName: "workspaceDirty" + workspaceRow.index; visible: workspaceEntry.dirty; width: 6; height: 6; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: host.chrome.accent }
-                                Text { text: workspaceEntry.trailingText; color: host.chrome.muted; font.pixelSize: 12; height: 18; verticalAlignment: Text.AlignVCenter }
+                                Text { text: workspaceEntry.trailingText; color: host.chrome.muted; font.pixelSize: Design.textSmall; height: 18; verticalAlignment: Text.AlignVCenter }
                             }
                         }
                         onClicked: host.chooseWorkspace(parent.index)
                     }
                     Column {
-                        id: paneColumn; x: 24; y: 48; width: parent.width - 24; spacing: 2
+                        id: paneColumn; x: 24; y: 48; width: parent.width - 24; spacing: Design.space2xs
                         visible: workspaceRow.expanded
                         Repeater {
                             id: paneRows; model: workspaceRow.expanded ? workspaceRow.panes : []
@@ -256,17 +257,17 @@ Item {
                                     }
                                     // The program keeps its width; the folder gives way, keeping its end.
                                     Text {
-                                        id: paneName; anchors.left: paneMark.right; anchors.leftMargin: 8; anchors.verticalCenter: parent.verticalCenter
+                                        id: paneName; anchors.left: paneMark.right; anchors.leftMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter
                                         width: Math.min(implicitWidth, parent.width - x - 8 - (paneRow.detail ? 48 : 0))
-                                        text: paneRow.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.foreground; font.pixelSize: 13
+                                        text: paneRow.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.foreground; font.pixelSize: Design.textBody
                                     }
                                     Rectangle {
-                                        id: paneDirty; visible: paneRow.identity.dirty; anchors.left: paneName.right; anchors.leftMargin: 6; anchors.verticalCenter: parent.verticalCenter
+                                        id: paneDirty; visible: paneRow.identity.dirty; anchors.left: paneName.right; anchors.leftMargin: Design.spaceS; anchors.verticalCenter: parent.verticalCenter
                                         width: 6; height: 6; radius: 3; color: host.chrome.accent
                                     }
                                     Text {
-                                        id: paneDetail; anchors.left: paneDirty.visible ? paneDirty.right : paneName.right; anchors.leftMargin: 8; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter
-                                        horizontalAlignment: Text.AlignRight; text: paneRow.detail; textFormat: Text.PlainText; elide: Text.ElideLeft; font.pixelSize: 11
+                                        id: paneDetail; anchors.left: paneDirty.visible ? paneDirty.right : paneName.right; anchors.leftMargin: Design.spaceM; anchors.right: parent.right; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter
+                                        horizontalAlignment: Text.AlignRight; text: paneRow.detail; textFormat: Text.PlainText; elide: Text.ElideLeft; font.pixelSize: Design.textCaption
                                         color: host.chrome.muted
                                     }
                                 }
@@ -299,7 +300,7 @@ Item {
                     readonly property string space: pane ? host.spaces[pane.spaceIndex] || "" : ""
                     readonly property bool failed: pane ? pane.appStopped : false
                     objectName: "navigationApp" + index
-                    tones: host.chrome; width: body.width; height: 52; padding: 10
+                    tones: host.chrome; width: body.width; height: 52; padding: Design.spaceL
                     selected: modelData === host.selected && !host.overview
                     hint: (pane ? pane.appName : "") + " · " + space + (failed ? " · Stopped" : "")
                     Keys.onDownPressed: navigation.focusApp(index + 1)
@@ -312,18 +313,18 @@ Item {
                     }
                     contentItem: Item {
                         Column {
-                            anchors.left: parent.left; anchors.right: appState.left; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; spacing: 3
-                            Text { width: parent.width; text: appRow.pane ? appRow.pane.appName : ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
-                            Text { width: parent.width; text: appRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: 12 }
+                            anchors.left: parent.left; anchors.right: appState.left; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceXs
+                            Text { width: parent.width; text: appRow.pane ? appRow.pane.appName : ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textControl }
+                            Text { width: parent.width; text: appRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: Design.textSmall }
                         }
-                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.failed ? "Stopped" : ""; color: host.chrome.waiting; font.pixelSize: 12 }
+                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.failed ? "Stopped" : ""; color: host.chrome.waiting; font.pixelSize: Design.textSmall }
                     }
                     onClicked: host.choosePane(modelData)
                 }
             }
             Label {
                 width: body.width; visible: navigation.apps && appRows.count === 0
-                padding: 8; text: host.runningApps.length && navigation.filter ? "No matching apps" : "No apps running\nAdd applications to open lazygit, btop and other terminal apps as panes."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
+                padding: Design.spaceM; text: host.runningApps.length && navigation.filter ? "No matching apps" : "No apps running\nAdd applications to open lazygit, btop and other terminal apps as panes."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: Design.textBody
             }
             Repeater {
                 // Saved hosts, each with its open panes in any workspace.
@@ -338,7 +339,7 @@ Item {
                     width: body.width; height: 52 + (panes.length ? hostPaneColumn.height + 4 : 0)
                     ChromeButton {
                         id: hostEntry; objectName: "navigationHost" + hostRow.index
-                        tones: host.chrome; width: parent.width; height: 52; padding: 10
+                        tones: host.chrome; width: parent.width; height: 52; padding: Design.spaceL
                         hint: hostRow.modelData.name + " · " + hostRow.modelData.destination + (hostRow.panes.length ? " · " + hostRow.panes.length + " open" : "")
                             + (hostRow.reach === "reachable" ? " · reachable" : hostRow.reach === "unreachable" ? " · not reachable" : hostRow.reach === "unknown" ? " · reachability unknown" : "")
                         Keys.onDownPressed: navigation.focusHost(hostRow.index + 1)
@@ -356,9 +357,9 @@ Item {
                                 color: hostRow.reach === "reachable" ? host.chrome.ready : host.chrome.waiting
                             }
                             Column {
-                                anchors.left: hostIcon.right; anchors.leftMargin: 10; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 64 : 34; anchors.verticalCenter: parent.verticalCenter; spacing: 3
-                                Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: 14 }
-                                Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.muted; font.pixelSize: 12 }
+                                anchors.left: hostIcon.right; anchors.leftMargin: Design.spaceL; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 64 : 34; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceXs
+                                Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textControl }
+                                Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.muted; font.pixelSize: Design.textSmall }
                             }
                         }
                         onClicked: host.connectHost(hostRow.modelData.id)
@@ -373,13 +374,13 @@ Item {
                     }
                     ChromeButton {
                         id: connectButton; objectName: "connectHost" + hostRow.index; z: 2
-                        anchors.right: hostEntry.right; anchors.rightMargin: 4; anchors.verticalCenter: hostEntry.verticalCenter
+                        anchors.right: hostEntry.right; anchors.rightMargin: Design.spaceXs; anchors.verticalCenter: hostEntry.verticalCenter
                         tones: host.chrome; iconName: "plus"; focusPolicy: Qt.NoFocus; enabled: host.canCreateTerminal
                         hint: "Connect to " + hostRow.modelData.name + " in this workspace"
                         onClicked: host.connectHost(hostRow.modelData.id)
                     }
                     Column {
-                        id: hostPaneColumn; x: 28; y: 54; width: parent.width - 28; spacing: 2
+                        id: hostPaneColumn; x: 28; y: 54; width: parent.width - 28; spacing: Design.space2xs
                         Repeater {
                             model: hostRow.panes
                             ChromeButton {
@@ -400,7 +401,7 @@ Item {
             }
             Label {
                 width: body.width; visible: navigation.hosts && hostRows.count === 0
-                padding: 8; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
+                padding: Design.spaceM; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: Design.textBody
                 text: host.hostDefinitions.length && navigation.filter ? "No matching hosts" : "No hosts yet\nNew host… saves an SSH destination; [host.ID] sections in config.conf work too."
             }
             Repeater {
@@ -422,35 +423,35 @@ Item {
                         else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.chooseAgent(modelData); event.accepted = true }
                         else event.accepted = false
                     }
-                    padding: 10; selected: host.selected === modelData && !host.overview
+                    padding: Design.spaceL; selected: host.selected === modelData && !host.overview
                     hint: facts.agent + " · " + facts.state + " · " + space + " · " + facts.title
                     ChromeButton {
                         objectName: "navigationAgentInfo" + agentRow.index; z: 2
-                        anchors.right: parent.right; anchors.rightMargin: 4; anchors.verticalCenter: parent.verticalCenter
+                        anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; anchors.verticalCenter: parent.verticalCenter
                         tones: host.chrome; iconName: "info"; hint: "Agent details for " + agentRow.facts.agent
                         onClicked: if (agentRow.pane) host.openAgentInfo(agentRow.pane.terminalId)
                     }
                     contentItem: Column {
-                        rightPadding: 30; spacing: 5
-                        Text { width: parent.width - 30; text: agentRow.facts.agent + " · " + agentRow.facts.state; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 13; color: agentRow.facts.needs_input ? host.chrome.waiting : agentRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.foreground }
-                        Text { width: parent.width - 30; text: agentRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: host.chrome.muted }
-                        Text { width: parent.width - 30; text: agentRow.facts.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12; color: host.chrome.muted }
+                        rightPadding: 30; spacing: Design.spaceXs
+                        Text { width: parent.width - 30; text: agentRow.facts.agent + " · " + agentRow.facts.state; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textBody; color: agentRow.facts.needs_input ? host.chrome.waiting : agentRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.foreground }
+                        Text { width: parent.width - 30; text: agentRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textSmall; color: host.chrome.muted }
+                        Text { width: parent.width - 30; text: agentRow.facts.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textSmall; color: host.chrome.muted }
                     }
                     onClicked: host.chooseAgent(modelData)
                 }
             }
             Label {
                 width: body.width; visible: navigation.agents && navigation.matches.length === 0
-                padding: 8; text: host.agentIndices.length === 0 ? "No agents detected\nAgents in any workspace appear here." : navigation.needsOnly ? "No matching agents need input\nClear filters to see all agents." : "No matching agents\nTry another folder, workspace or agent."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 13
+                padding: Design.spaceM; text: host.agentIndices.length === 0 ? "No agents detected\nAgents in any workspace appear here." : navigation.needsOnly ? "No matching agents need input\nClear filters to see all agents." : "No matching agents\nTry another folder, workspace or agent."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: Design.textBody
             }
             Label {
-                objectName: "navigationNoMatches"; width: body.width; padding: 8; color: host.chrome.muted; font.pixelSize: 13
+                objectName: "navigationNoMatches"; width: body.width; padding: Design.spaceM; color: host.chrome.muted; font.pixelSize: Design.textBody
                 visible: navigation.workspaces && navigation.filter.length > 0 && !host.spaces.some((name, i) => name.toLocaleLowerCase().indexOf(navigation.filter) >= 0 || host.indices(i).some(j => navigation.paneMatches(j)))
                 text: "No matching workspaces or panes"
             }
             Label {
                 width: body.width; visible: !session.savedSession
-                padding: 8; topPadding: 18; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: 12
+                padding: Design.spaceM; topPadding: Design.space2xl; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: Design.textSmall
             }
         }
     }
@@ -470,9 +471,9 @@ Item {
             objectName: "newHostButton"; visible: navigation.hosts; y: 54; width: parent.width; height: 36
             tones: host.chrome; text: "New host…"; hint: "Save an SSH destination; [host.ID] in config.conf works too"
             contentItem: Row {
-                spacing: 8; leftPadding: 8
+                spacing: Design.spaceM; leftPadding: Design.spaceM
                 Item { width: 18; height: 36; ChromeIcon { anchors.centerIn: parent; width: 18; height: 18; name: "plus"; color: host.chrome.accent } }
-                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "New host…"; color: host.chrome.accent; font.pixelSize: 13 }
+                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "New host…"; color: host.chrome.accent; font.pixelSize: Design.textBody }
             }
             Keys.onReturnPressed: host.newHost()
             onClicked: host.newHost()
@@ -482,9 +483,9 @@ Item {
             tones: host.chrome; text: "Add applications…"; enabled: host.spaces.length > 0
             keys: studyShortcuts.labels["apps"] || ""
             contentItem: Row {
-                spacing: 8; leftPadding: 8
+                spacing: Design.spaceM; leftPadding: Design.spaceM
                 Item { width: 18; height: 36; ChromeIcon { anchors.centerIn: parent; width: 18; height: 18; name: "plus"; color: host.chrome.accent } }
-                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "Add applications…"; color: host.chrome.accent; font.pixelSize: 13 }
+                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "Add applications…"; color: host.chrome.accent; font.pixelSize: Design.textBody }
             }
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.openCatalog(); event.accepted = true }
@@ -498,9 +499,9 @@ Item {
             keys: studyShortcuts.labels["new-workspace"] || ""
             contentItem: Row {
                 opacity: host.canCreateWorkspace ? 1 : 0.38
-                spacing: 8; leftPadding: 8
+                spacing: Design.spaceM; leftPadding: Design.spaceM
                 Item { width: 18; height: 36; ChromeIcon { anchors.centerIn: parent; width: 18; height: 18; name: "plus"; color: host.chrome.accent } }
-                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "New workspace…"; color: host.chrome.accent; font.pixelSize: 13 }
+                Text { height: 36; verticalAlignment: Text.AlignVCenter; text: "New workspace…"; color: host.chrome.accent; font.pixelSize: Design.textBody }
             }
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.newWorkspace(); event.accepted = true }

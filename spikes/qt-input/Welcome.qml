@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import Workbench.Probe
+import Band.Design
 
 // First run in the main area: how Band looks, apps to open, and the keys worth
 // knowing. Nothing here writes dotfiles; choices use the window's own view
@@ -41,31 +42,31 @@ FocusScope {
     Column {
         id: body; objectName: "welcomeBody"
         width: Math.min(620, parent.width - 64); x: (parent.width - width) / 2; y: Math.max(32, parent.height * 0.16)
-        spacing: 18
+        spacing: Design.space2xl
         Row {
-            spacing: 6
+            spacing: Design.spaceS
             Repeater {
                 model: welcome.titles.length
                 Rectangle { required property int index; width: index === welcome.step ? 22 : 8; height: 8; radius: 4; color: index === welcome.step ? welcome.tones.accent : welcome.tones.border }
             }
         }
         Column {
-            width: parent.width; spacing: 6
-            Text { objectName: "welcomeTitle"; text: welcome.titles[welcome.step]; color: welcome.tones.foreground; font.pixelSize: 28; font.weight: Font.DemiBold }
-            Text { width: parent.width; text: welcome.subtitles[welcome.step]; wrapMode: Text.Wrap; color: welcome.tones.muted; font.pixelSize: 14; lineHeight: 1.15 }
+            width: parent.width; spacing: Design.spaceS
+            Text { objectName: "welcomeTitle"; text: welcome.titles[welcome.step]; color: welcome.tones.foreground; font.pixelSize: Design.textDisplay; font.weight: Font.DemiBold }
+            Text { width: parent.width; text: welcome.subtitles[welcome.step]; wrapMode: Text.Wrap; color: welcome.tones.muted; font.pixelSize: Design.textControl; lineHeight: 1.15 }
         }
 
         // Step 1: the window's own view choices and the colors picker.
         Column {
-            width: parent.width; spacing: 14; visible: welcome.step === 0
+            width: parent.width; spacing: Design.spaceXl; visible: welcome.step === 0
             component Choice: Row {
                 id: choice
                 property string label
                 property var options: []
                 property int current: 0
                 signal chosen(int index)
-                spacing: 8
-                Text { width: 150; anchors.verticalCenter: parent.verticalCenter; text: choice.label; color: welcome.tones.foreground; font.pixelSize: 14 }
+                spacing: Design.spaceM
+                Text { width: 150; anchors.verticalCenter: parent.verticalCenter; text: choice.label; color: welcome.tones.foreground; font.pixelSize: Design.textControl }
                 Repeater {
                     model: choice.options
                     ChromeButton { required property int index; required property string modelData; tones: welcome.tones; text: modelData; selected: choice.current === index; focusPolicy: Qt.NoFocus; onClicked: choice.chosen(index) }
@@ -79,10 +80,10 @@ FocusScope {
                 objectName: "welcomeMotion"; label: "Motion"; options: ["Animations", "Reduced motion"]; current: welcome.host.reducedMotion ? 1 : 0
                 onChosen: index => welcome.host.motionOverride = index === 1
             }
-            Text { text: "Colors"; color: welcome.tones.foreground; font.pixelSize: 14 }
+            Text { text: "Colors"; color: welcome.tones.foreground; font.pixelSize: Design.textControl }
             // Built-in themes as cards; choosing one saves Band's default theme.
             Flow {
-                width: parent.width; spacing: 8
+                width: parent.width; spacing: Design.spaceM
                 Repeater {
                     model: studyThemes.catalog.filter(theme => !theme.imported && !theme.source)
                     Rectangle {
@@ -91,39 +92,39 @@ FocusScope {
                         required property int index
                         readonly property bool current: studyConfiguration.themeIndex === modelData.index
                         objectName: "welcomeTheme" + index
-                        width: 146; height: 74; radius: 8; color: modelData.background
-                        border.width: current ? 2 : 1; border.color: current ? welcome.tones.accent : welcome.tones.border
+                        width: 146; height: 74; radius: Design.radiusL; color: modelData.background
+                        border.width: current ? Design.lineStrong : Design.line; border.color: current ? welcome.tones.accent : welcome.tones.border
                         Accessible.role: Accessible.Button; Accessible.name: modelData.name + (current ? ", default" : "")
-                        Text { x: 10; y: 10; width: parent.width - 20; elide: Text.ElideRight; text: card.modelData.name; textFormat: Text.PlainText; color: card.modelData.foreground; font.pixelSize: 12; font.weight: Font.DemiBold }
+                        Text { x: 10; y: 10; width: parent.width - 20; elide: Text.ElideRight; text: card.modelData.name; textFormat: Text.PlainText; color: card.modelData.foreground; font.pixelSize: Design.textSmall; font.weight: Font.DemiBold }
                         Row {
-                            x: 10; y: 44; spacing: 4
-                            Repeater { model: card.modelData.swatches.slice(1, 7); Rectangle { required property string modelData; width: 14; height: 14; radius: 3; color: modelData } }
+                            x: 10; y: 44; spacing: Design.spaceXs
+                            Repeater { model: card.modelData.swatches.slice(1, 7); Rectangle { required property string modelData; width: 14; height: 14; radius: Design.radiusS; color: modelData } }
                         }
-                        ChromeIcon { anchors.right: parent.right; anchors.rightMargin: 8; y: 8; width: 16; height: 16; name: "check"; color: card.modelData.accent; visible: card.current }
+                        ChromeIcon { anchors.right: parent.right; anchors.rightMargin: Design.spaceM; y: 8; width: 16; height: 16; name: "check"; color: card.modelData.accent; visible: card.current }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: studyAppearance.saveDefault(card.modelData.index) }
                     }
                 }
             }
             Row {
-                spacing: 8
+                spacing: Design.spaceM
                 ChromeButton { objectName: "welcomeColors"; tones: welcome.tones; text: "More colors…"; hint: "Themes from your themes folder and imports, for this workspace"; focusPolicy: Qt.NoFocus; enabled: welcome.host.spaces.length > 0; onClicked: welcome.host.openAppearance() }
                 ChromeButton { objectName: "welcomeUseConfigured"; tones: welcome.tones; text: "Use config.conf"; visible: studyAppearance.saved; hint: "Remove Band's choice; terminal-theme in config.conf applies again"; focusPolicy: Qt.NoFocus; onClicked: studyAppearance.useConfigured() }
             }
             Text {
-                width: parent.width; wrapMode: Text.Wrap; color: welcome.tones.muted; font.pixelSize: 12
+                width: parent.width; wrapMode: Text.Wrap; color: welcome.tones.muted; font.pixelSize: Design.textSmall
                 text: "The theme you choose is the default for new workspaces and those without their own colors. Band saves it beside your font and shortcut settings; it takes precedence over terminal-theme in config.conf."
             }
         }
 
         // Step 2: installed apps to open now.
         Column {
-            width: parent.width; spacing: 4; visible: welcome.step === 1
+            width: parent.width; spacing: Design.spaceXs; visible: welcome.step === 1
             Text {
-                visible: welcome.installed.length === 0; width: parent.width; wrapMode: Text.Wrap; color: welcome.tones.muted; font.pixelSize: 14
+                visible: welcome.installed.length === 0; width: parent.width; wrapMode: Text.Wrap; color: welcome.tones.muted; font.pixelSize: Design.textControl
                 text: studyApps.checking ? "Checking which apps are installed…" : "None of the catalog’s apps are installed yet."
             }
             ListView {
-                id: appList; width: parent.width; height: Math.min(contentHeight, 260); clip: true; spacing: 2; interactive: contentHeight > height
+                id: appList; width: parent.width; height: Math.min(contentHeight, 260); clip: true; spacing: Design.space2xs; interactive: contentHeight > height
                 model: welcome.installed
                 ScrollBar.vertical: ScrollBar {}
                 delegate: ChromeButton {
@@ -133,14 +134,14 @@ FocusScope {
                     selected: !!welcome.picked[modelData.id]; hint: modelData.name
                     contentItem: Item {
                         Rectangle {
-                            x: 8; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; radius: 4
-                            color: "transparent"; border.width: 1; border.color: welcome.picked[modelData.id] ? welcome.tones.accent : welcome.tones.border
+                            x: 8; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; radius: Design.radiusS
+                            color: "transparent"; border.width: Design.line; border.color: welcome.picked[modelData.id] ? welcome.tones.accent : welcome.tones.border
                             ChromeIcon { anchors.centerIn: parent; width: 14; height: 14; name: "check"; color: welcome.tones.accent; visible: !!welcome.picked[modelData.id] }
                         }
-                        Text { x: 34; anchors.verticalCenter: parent.verticalCenter; text: modelData.name; textFormat: Text.PlainText; color: welcome.tones.foreground; font.pixelSize: 14 }
+                        Text { x: 34; anchors.verticalCenter: parent.verticalCenter; text: modelData.name; textFormat: Text.PlainText; color: welcome.tones.foreground; font.pixelSize: Design.textControl }
                         Text {
-                            anchors.right: parent.right; anchors.rightMargin: 10; anchors.verticalCenter: parent.verticalCenter; width: Math.min(implicitWidth, parent.width * 0.55)
-                            horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; text: modelData.description || modelData.command; textFormat: Text.PlainText; color: welcome.tones.muted; font.pixelSize: 12
+                            anchors.right: parent.right; anchors.rightMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter; width: Math.min(implicitWidth, parent.width * 0.55)
+                            horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; text: modelData.description || modelData.command; textFormat: Text.PlainText; color: welcome.tones.muted; font.pixelSize: Design.textSmall
                         }
                     }
                     onClicked: welcome.toggle(modelData.id)
@@ -151,15 +152,15 @@ FocusScope {
 
         // Step 3: a few bindings from the live keymap.
         Column {
-            width: parent.width; spacing: 2; visible: welcome.step === 2
+            width: parent.width; spacing: Design.space2xs; visible: welcome.step === 2
             Repeater {
                 model: welcome.keys
                 Item {
                     required property var modelData
                     width: parent.width; height: 34
                     Accessible.role: Accessible.StaticText; Accessible.name: modelData.title + ", " + studyShortcuts.labels[modelData.id]
-                    Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: modelData.title; color: welcome.tones.foreground; font.pixelSize: 14 }
-                    KeyChips { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; keys: studyShortcuts.labels[modelData.id] || ""; tones: welcome.tones }
+                    Text { x: 8; anchors.verticalCenter: parent.verticalCenter; text: modelData.title; color: welcome.tones.foreground; font.pixelSize: Design.textControl }
+                    KeyChips { anchors.right: parent.right; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; keys: studyShortcuts.labels[modelData.id] || ""; tones: welcome.tones }
                 }
             }
         }
@@ -168,7 +169,7 @@ FocusScope {
             width: parent.width; height: 40
             ChromeButton { objectName: "welcomeBack"; tones: welcome.tones; text: "Back"; visible: welcome.step > 0; focusPolicy: Qt.NoFocus; anchors.verticalCenter: parent.verticalCenter; onClicked: welcome.step -= 1 }
             Row {
-                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 8
+                anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceM
                 ChromeButton { objectName: "welcomeSkip"; tones: welcome.tones; text: "Skip"; hint: "Close the welcome; Commands can open it again"; focusPolicy: Qt.NoFocus; onClicked: welcome.finished([], false) }
                 ChromeButton {
                     objectName: "welcomeContinue"; tones: welcome.tones; primary: true; focusPolicy: Qt.NoFocus; keys: "Enter"

@@ -58,6 +58,8 @@ int main(int argc,char **argv) {
     else std::fputs("Qt UI: bundled interface font unavailable; using platform fallback\n",stderr);
     QQuickWindow::setTextRenderType(QQuickWindow::NativeTextRendering);
     qmlRegisterType<ChromeIcon>("Workbench.Probe",1,0,"ChromeIcon");
+    // Type sizes, spacing, radii, lines and timings shared by every component.
+    qmlRegisterSingletonType(QUrl(QStringLiteral("qrc:/Design.qml")),"Band.Design",1,0,"Design");
     const auto args=app.arguments();
     const bool checking=args.value(1)=="--check-deployment";
     QJsonObject modules,configuration;

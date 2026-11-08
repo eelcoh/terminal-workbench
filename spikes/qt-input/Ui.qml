@@ -3,6 +3,7 @@ import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Dialogs as NativeDialogs
 import Workbench.Probe
+import Band.Design
 ApplicationWindow {
     id: window
     width: 1240; height: 760; minimumWidth: 680; minimumHeight: 440
@@ -862,7 +863,7 @@ ApplicationWindow {
         function onChanged() { if (!studySession.busy && studySession.error.length > 0) window.followMove = false }
     }
     readonly property color accent: chrome.accent
-    readonly property int motion: reducedMotion ? 0 : 220
+    readonly property int motion: reducedMotion ? 0 : Design.motionMove
     function panel(i) { return panels.itemAt(i) }
     // What a pane runs and where, shared by pane headers and sidebar rows: its
     // kind, the app, agent or foreground program, and its folder or repository.
@@ -899,7 +900,8 @@ ApplicationWindow {
         let values = positions.slice(); values[workspace] = deck.contentX; positions = values
         workspace = Math.max(0, Math.min(spaces.length - 1, i)); selected = remembered[workspace] === undefined ? -1 : remembered[workspace]
         drawer.close(); deck.scrollTarget = overview ? 0 : Math.max(0, Math.min(positions[workspace] || 0, stripWidth() - deck.width)); deck.contentX = deck.scrollTarget
-        if (!overview && selected >= 0) Qt.callLater(function() { reveal(); panel(selected).terminal.forceActiveFocus() })
+        // The pane may not exist yet, or any more, by the time this runs.
+        if (!overview && selected >= 0) Qt.callLater(function() { const target = panel(selected); if (!target) return; reveal(); target.terminal.forceActiveFocus() })
         else { window.contentItem.forceActiveFocus(); if (overview) deck.contentY = Math.max(0, Math.min(deck.groupTop(workspace), deck.contentHeight - deck.height)) }
     }
     // Drag is client presentation only. Commit one existing service mutation on drop.
@@ -1003,7 +1005,7 @@ ApplicationWindow {
     component QuietButton: ChromeButton { tones: window.chrome }
     component MenuAction: ChromeMenuItem { tones: window.chrome }
     component MenuRule: MenuSeparator {
-        topPadding: 5; bottomPadding: 5; leftPadding: 8; rightPadding: 8
+        topPadding: Design.spaceXs; bottomPadding: Design.spaceXs; leftPadding: Design.spaceM; rightPadding: Design.spaceM
         contentItem: Rectangle { implicitWidth: 248; implicitHeight: 1; color: window.chrome.border }
     }
     Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.surface }
@@ -1017,14 +1019,14 @@ ApplicationWindow {
     }
     Row {
         id: windowButtons; objectName: "windowButtons"; visible: window.ownTitle
-        anchors.right: parent.right; anchors.rightMargin: 6; y: 6; spacing: 2
+        anchors.right: parent.right; anchors.rightMargin: Design.spaceS; y: 6; spacing: Design.space2xs
         QuietButton { objectName: "windowMinimize"; height: 28; iconName: "minimize"; hint: "Minimize"; focusPolicy: Qt.NoFocus; onClicked: window.showMinimized() }
         QuietButton { objectName: "windowMaximize"; height: 28; iconName: window.maximized ? "restore" : "maximize"; hint: window.maximized ? "Restore" : "Maximize"; focusPolicy: Qt.NoFocus; onClicked: window.toggleMaximized() }
         QuietButton { objectName: "windowClose"; height: 28; iconName: "close"; hint: "Close window"; focusPolicy: Qt.NoFocus; onClicked: window.close() }
     }
     QuietButton { objectName: "applicationMenuButton"; x: 8 + window.titleInset; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
     Column {
-        x: 8; y: 52; spacing: 14
+        x: 8; y: 52; spacing: Design.spaceXl
         QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }
         QuietButton {
             objectName: "appsButton"; height: 28; iconName: "apps"
@@ -1044,11 +1046,11 @@ ApplicationWindow {
             selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "agents"; onClicked: window.toggleSection("agents")
             Rectangle {
                 objectName: "agentsBadge"; x: 19; y: -7; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
-                Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: 10 }
+                Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: Design.textCaption }
             }
         }
     }
-    QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: 12; iconName: "help"; hint: "Keyboard shortcuts"; keys: studyShortcuts.labels["help"] || ""; onClicked: help.open() }
+    QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: Design.spaceL; iconName: "help"; hint: "Keyboard shortcuts"; keys: studyShortcuts.labels["help"] || ""; onClicked: help.open() }
     Item {
         id: topbar; x: Math.max(window.navigationEdge, window.titleInset + 44); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0); height: 32
         // Markers that fit between the side controls; past that, a window follows the selection.
@@ -1086,10 +1088,10 @@ ApplicationWindow {
         }
         Label {
             id: focusedCount; objectName: "focusedCount"
-            anchors.left: indicatorRow.right; anchors.leftMargin: 12; anchors.verticalCenter: parent.verticalCenter
+            anchors.left: indicatorRow.right; anchors.leftMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter
             visible: !window.overview && window.counts[window.workspace] > 0
             text: Math.max(0, window.indices(window.workspace).indexOf(window.selected) + 1) + " / " + (window.counts[window.workspace] || 0)
-            color: window.chrome.muted; font.pixelSize: 12
+            color: window.chrome.muted; font.pixelSize: Design.textSmall
         }
         QuietButton {
             id: newTerminalButton; objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal"; keys: studyShortcuts.labels["new-terminal"] || ""; enabled: window.canCreateTerminal
@@ -1099,7 +1101,7 @@ ApplicationWindow {
         QuietButton { id: overviewButton; objectName: "overviewButton"; anchors.right: parent.right; text: window.overview ? "Done" : "Overview"; keys: studyShortcuts.labels["overview"] || ""; onClicked: window.toggleOverview() }
     }
     Flow {
-        id: overviewFilters; x: window.navigationEdge + 16; y: 54; width: window.width - x - 12; spacing: 8; visible: window.overview
+        id: overviewFilters; x: window.navigationEdge + 16; y: 54; width: window.width - x - 12; spacing: Design.spaceM; visible: window.overview
         ContextSearch {
             id: overviewSearch; objectName: "overviewSearch"; tones: window.chrome
             width: Math.min(240, overviewFilters.width); placeholderText: "Find terminals…"; Accessible.name: "Find terminals by workspace, folder, Git or agent"
@@ -1111,10 +1113,10 @@ ApplicationWindow {
             }
             onAccepted: { if (!inputMethodComposing) { const groups = window.overviewGroups; const found = groups.reduce((all, group) => all.concat(group), []); const i = found.indexOf(window.selected) >= 0 ? window.selected : found[0]; if (i !== undefined) window.enterPane(i) } }
         }
-        QuietButton { objectName: "overviewAgentFilter"; hint: "Filter terminal or agent identity"; text: window.agentsOnly ? "Show: Agents" : "Show: All terminals"; onClicked: window.changeFilter(!window.agentsOnly, window.needsOnly); background: Rectangle { radius: 6; color: window.agentsOnly ? window.chrome.surface : "transparent"; border.width: window.agentsOnly ? 1 : 0; border.color: window.accent } }
-        QuietButton { objectName: "overviewStateFilter"; hint: "Filter agents that need input"; text: window.needsOnly ? "State: Needs input" : "State: All states"; onClicked: window.changeFilter(window.agentsOnly, !window.needsOnly); background: Rectangle { radius: 6; color: window.needsOnly ? window.chrome.surface : "transparent"; border.width: window.needsOnly ? 1 : 0; border.color: window.accent } }
+        QuietButton { objectName: "overviewAgentFilter"; hint: "Filter terminal or agent identity"; text: window.agentsOnly ? "Show: Agents" : "Show: All terminals"; onClicked: window.changeFilter(!window.agentsOnly, window.needsOnly); background: Rectangle { radius: Design.radiusM; color: window.agentsOnly ? window.chrome.surface : "transparent"; border.width: window.agentsOnly ? Design.line : 0; border.color: window.accent } }
+        QuietButton { objectName: "overviewStateFilter"; hint: "Filter agents that need input"; text: window.needsOnly ? "State: Needs input" : "State: All states"; onClicked: window.changeFilter(window.agentsOnly, !window.needsOnly); background: Rectangle { radius: Design.radiusM; color: window.needsOnly ? window.chrome.surface : "transparent"; border.width: window.needsOnly ? Design.line : 0; border.color: window.accent } }
         QuietButton { objectName: "overviewClearFilters"; text: "Clear filters"; visible: window.overviewFiltered; onClicked: window.clearOverviewFilters() }
-        Label { height: 32; verticalAlignment: Text.AlignVCenter; text: window.overviewMatches + (window.overviewMatches === 1 ? " match" : " matches"); color: window.chrome.muted; font.pixelSize: 12 }
+        Label { height: 32; verticalAlignment: Text.AlignVCenter; text: window.overviewMatches + (window.overviewMatches === 1 ? " match" : " matches"); color: window.chrome.muted; font.pixelSize: Design.textSmall }
     }
     Flickable {
         id: deck; objectName: "deck"
@@ -1164,10 +1166,10 @@ ApplicationWindow {
                 required property int index
                 x: 0; y: deck.groupTop(index); width: deck.width; height: 52
                 visible: window.overview && (!window.overviewFiltered || window.overviewIndices(index).length > 0)
-                Label { x: 0; y: 0; width: parent.width - 100; text: window.spaces[index]; textFormat: Text.PlainText; elide: Text.ElideRight; color: window.chrome.foreground; font.pixelSize: 16; font.weight: Font.Medium }
-                Label { anchors.right: parent.right; y: 3; text: window.overviewIndices(index).length + (window.overviewIndices(index).length === 1 ? " terminal" : " terminals"); color: window.chrome.muted; font.pixelSize: 12 }
-                Label { x: 0; y: 25; width: parent.width; text: window.directories[index] || ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12 }
-                Label { x: 0; y: deck.previewTop + 6; visible: window.overviewIndices(index).length === 0; text: window.dragSlot >= 0 && window.dropSpace === index ? "Drop terminal here" : "No terminals yet"; leftPadding: window.dragSlot >= 0 && window.dropSpace === index ? 14 : 0; color: window.chrome.muted; font.pixelSize: 13 }
+                Label { x: 0; y: 0; width: parent.width - 100; text: window.spaces[index]; textFormat: Text.PlainText; elide: Text.ElideRight; color: window.chrome.foreground; font.pixelSize: Design.textHeading; font.weight: Font.Medium }
+                Label { anchors.right: parent.right; y: 3; text: window.overviewIndices(index).length + (window.overviewIndices(index).length === 1 ? " terminal" : " terminals"); color: window.chrome.muted; font.pixelSize: Design.textSmall }
+                Label { x: 0; y: 25; width: parent.width; text: window.directories[index] || ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: Design.textSmall }
+                Label { x: 0; y: deck.previewTop + 6; visible: window.overviewIndices(index).length === 0; text: window.dragSlot >= 0 && window.dropSpace === index ? "Drop terminal here" : "No terminals yet"; leftPadding: window.dragSlot >= 0 && window.dropSpace === index ? 14 : 0; color: window.chrome.muted; font.pixelSize: Design.textBody }
                 Rectangle { visible: index > 0; x: 0; y: -18; width: parent.width; height: 1; color: window.chrome.border }
             }
         }
@@ -1180,8 +1182,8 @@ ApplicationWindow {
                 visible: window.overview && pane !== null && pane.visible
                 x: pane ? pane.x - 3 : 0; y: pane ? pane.y - 3 : 0
                 width: pane ? pane.width * pane.scale + 6 : 0; height: pane ? pane.height * pane.scale + 6 : 0
-                color: "transparent"; radius: 9
-                border.width: window.selected === index ? 2 : 1
+                color: "transparent"; radius: Design.radiusL
+                border.width: window.selected === index ? Design.lineStrong : Design.line
                 border.color: pane ? window.selected === index || pane.previewHovered ? studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).accent : window.chrome.border : window.chrome.border
             }
         }
@@ -1210,8 +1212,8 @@ ApplicationWindow {
                 scale: window.overview ? previewScale : 1
                 transformOrigin: Item.TopLeft
                 visible: !ended && (window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace)
-                color: studyThemes.theme(window.themeIndexFor(spaceIndex)).surface; radius: 6
-                border.width: window.overview ? 0 : 1; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : studyThemes.theme(window.themeIndexFor(spaceIndex)).border
+                color: studyThemes.theme(window.themeIndexFor(spaceIndex)).surface; radius: Design.radiusM
+                border.width: window.overview ? 0 : Design.line; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : studyThemes.theme(window.themeIndexFor(spaceIndex)).border
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
@@ -1231,13 +1233,13 @@ ApplicationWindow {
                 Text {
                     id: paneName; objectName: "paneName"; x: 33; y: 10; visible: text.length > 0
                     width: Math.min(implicitWidth, Math.max(0, (pane.headerRoom - x) * 0.5)); elide: Text.ElideRight
-                    text: pane.identity.name; textFormat: Text.PlainText; font.pixelSize: 12; font.weight: Font.DemiBold
+                    text: pane.identity.name; textFormat: Text.PlainText; font.pixelSize: Design.textSmall; font.weight: Font.DemiBold
                     color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground
                 }
                 Text {
                     id: paneTitle; objectName: "paneTitle"; x: paneName.visible ? paneName.x + paneName.width + 7 : 33; y: 10
                     width: Math.min(implicitWidth, Math.max(0, pane.headerRoom - x)); elide: Text.ElideMiddle
-                    text: pane.identity.place; textFormat: Text.PlainText; font.pixelSize: 12
+                    text: pane.identity.place; textFormat: Text.PlainText; font.pixelSize: Design.textSmall
                     color: paneName.visible ? studyThemes.theme(window.themeIndexFor(spaceIndex)).muted : studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground
                 }
                 // Uncommitted changes in this pane's Git worktree.
@@ -1256,7 +1258,7 @@ ApplicationWindow {
                     visible: own >= 0
                     x: (dirtyMark.visible ? dirtyMark.x + dirtyMark.width : paneTitle.x + paneTitle.width) + 8; y: 12; width: 12; height: 12; radius: 6
                     color: visible ? studyThemes.theme(own).background : "transparent"
-                    border.width: 2; border.color: visible ? studyThemes.theme(own).accent : "transparent"
+                    border.width: Design.lineStrong; border.color: visible ? studyThemes.theme(own).accent : "transparent"
                     Accessible.role: Accessible.Button; Accessible.name: "Terminal colors: " + (visible ? studyThemes.theme(own).name : "")
                     MouseArea {
                         id: ownColorsArea; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; enabled: !window.overview
@@ -1267,13 +1269,13 @@ ApplicationWindow {
                 }
                 Text {
                     id: headerState; x: (paneActions.visible ? paneActions.x - 8 : parent.width - 36) - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
-                    text: pane.facts.agent ? pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 12
+                    text: pane.facts.agent ? pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textSmall
                     color: pane.facts.needs_input ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : pane.facts.state === "Ready" ? studyThemes.theme(window.themeIndexFor(spaceIndex)).ready : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
                 }
                 // The focused pane's own actions; they leave keyboard focus in the terminal.
                 readonly property bool focusedPane: window.selected === index && !window.overview
                 Row {
-                    id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 0; spacing: 2; visible: pane.focusedPane
+                    id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 0; spacing: Design.space2xs; visible: pane.focusedPane
                     QuietButton { objectName: "paneWidthButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: window.dispatchCommand("cycle-width") }
                     QuietButton {
                         objectName: "paneFullButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "full"; selected: !!window.fullWidths[pane.index]
@@ -1284,7 +1286,7 @@ ApplicationWindow {
                         hint: window.exitedTerminal(pane.terminalId) ? "Close pane" : "Close terminal…"; keys: studyShortcuts.labels["close-terminal"] || ""; onClicked: window.closePane(pane.terminalId)
                     }
                 }
-                QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: 3; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); window.paneMenuTarget = pane.terminalId; const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
+                QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); window.paneMenuTarget = pane.terminalId; const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
                     id: terminal; objectName: "terminal" + index
                     property int workspaceIndex: pane.spaceIndex
@@ -1319,24 +1321,24 @@ ApplicationWindow {
                 onLifecycleChanged: if (app && lifecycle.state === "stopped" && !lifecycle.busy) window.appEnded(index)
                 readonly property bool appStopped: app && lifecycle.state === "stopped"
                 Rectangle {
-                    anchors.centerIn: terminal; width: Math.min(parent.width - 40, pane.appStopped ? 560 : 420); height: lifecycleBody.implicitHeight + 32; radius: 10
+                    anchors.centerIn: terminal; width: Math.min(parent.width - 40, pane.appStopped ? 560 : 420); height: lifecycleBody.implicitHeight + 32; radius: Design.radiusXl
                     visible: !terminal.ready && !(terminalSearch.visible && window.selected === pane.index && terminal.searchable); color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).raised; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
                     Column {
-                        id: lifecycleBody; x: 16; y: 16; width: parent.width - 32; spacing: 10
+                        id: lifecycleBody; x: 16; y: 16; width: parent.width - 32; spacing: Design.spaceL
                         Label {
-                            width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 14
+                            width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Design.textControl
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).foreground
                             objectName: "terminalLifecycleMessage" + pane.index
                             text: terminal.attachment === "connecting" ? "Connecting…" : pane.appStopped ? window.appFailure(pane.appName, pane.lifecycle) : pane.lifecycle.state === "stopped" ? pane.lifecycle.message : terminal.attachment === "elsewhere" ? "Open in another window" : pane.lifecycle.state === "running" ? "Could not attach: " + terminal.status : (pane.lifecycle.message || "Checking terminal status…")
                         }
                         Label {
-                            width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: 12
+                            width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; font.pixelSize: Design.textSmall
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).muted
                             text: pane.appStopped ? (pane.lifecycle.output ? "Its last lines are below. " : "") + (window.hostOf(pane.appId) ? "Check the host in config.conf or your ssh settings, then connect again." : "Fix its command in config.conf, then start it again.") : pane.lifecycle.state === "stopped" ? "Start a new shell in this workspace’s folder. The previous process has ended." : terminal.attachment === "elsewhere" ? "Move this terminal here to continue with the same process." : "Reconnect keeps a running shell. Check again if its status has changed."
                             visible: terminal.attachment !== "connecting"
                         }
                         Rectangle {
-                            width: parent.width; height: Math.min(appOutput.implicitHeight + 16, pane.height * 0.4); radius: 6; clip: true
+                            width: parent.width; height: Math.min(appOutput.implicitHeight + 16, pane.height * 0.4); radius: Design.radiusM; clip: true
                             visible: pane.appStopped && (pane.lifecycle.output || "").length > 0
                             color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).background; border.color: studyThemes.theme(window.themeIndexFor(pane.spaceIndex)).border
                             TextEdit {
@@ -1347,7 +1349,7 @@ ApplicationWindow {
                             }
                         }
                         Flow {
-                            width: parent.width; spacing: 8; visible: terminal.attachment !== "connecting"
+                            width: parent.width; spacing: Design.spaceM; visible: terminal.attachment !== "connecting"
                             QuietButton {
                                 objectName: "terminalPrimary" + pane.index; tones: studyThemes.theme(window.themeIndexFor(pane.spaceIndex))
                                 text: pane.appStopped ? (window.hostOf(pane.appId) ? "Connect again" : "Start again") : pane.lifecycle.state === "stopped" ? "Start new shell" : terminal.attachment === "elsewhere" ? "Move here…" : "Reconnect"
@@ -1398,14 +1400,14 @@ ApplicationWindow {
                 Accessible.name: text
                 TapHandler { onTapped: window.enterPane(caption.index) }
                 Column {
-                    anchors.fill: parent; spacing: 4
-                    Text { width: parent.width; text: caption.pane ? caption.pane.facts.title : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: 13; color: window.selected === caption.index ? window.chrome.foreground : window.chrome.muted }
-                    Text { width: parent.width; text: caption.pane && caption.pane.facts.agent ? caption.pane.facts.agent + " · " + caption.pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: 12; color: caption.pane && caption.pane.facts.needs_input ? window.chrome.waiting : window.chrome.muted }
+                    anchors.fill: parent; spacing: Design.spaceXs
+                    Text { width: parent.width; text: caption.pane ? caption.pane.facts.title : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textBody; color: window.selected === caption.index ? window.chrome.foreground : window.chrome.muted }
+                    Text { width: parent.width; text: caption.pane && caption.pane.facts.agent ? caption.pane.facts.agent + " · " + caption.pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textSmall; color: caption.pane && caption.pane.facts.needs_input ? window.chrome.waiting : window.chrome.muted }
                 }
             }
         }
-        Label { anchors.centerIn: parent; visible: window.overview && window.spaces.length > 0 && window.overviewFiltered && window.overviewMatches === 0; text: window.overviewQuery.trim().length ? "No matching terminals" : window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: 14 }
-        Label { anchors.centerIn: parent; visible: window.spaces.length === 0 || (!window.overview && (window.counts[window.workspace] || 0) === 0); text: window.spaces.length ? "An empty workspace" : "No workspaces yet"; color: window.chrome.muted; font.pixelSize: 14 }
+        Label { anchors.centerIn: parent; visible: window.overview && window.spaces.length > 0 && window.overviewFiltered && window.overviewMatches === 0; text: window.overviewQuery.trim().length ? "No matching terminals" : window.needsOnly ? "No agents need input" : "No agents detected"; color: window.chrome.muted; font.pixelSize: Design.textControl }
+        Label { anchors.centerIn: parent; visible: window.spaces.length === 0 || (!window.overview && (window.counts[window.workspace] || 0) === 0); text: window.spaces.length ? "An empty workspace" : "No workspaces yet"; color: window.chrome.muted; font.pixelSize: Design.textControl }
     }
     Item {
         x: deck.x; y: deck.y; width: deck.width; height: deck.height; clip: true
@@ -1413,7 +1415,7 @@ ApplicationWindow {
             visible: window.dragSlot >= 0 && window.dropSpace >= 0
             x: 0; y: deck.groupTop(window.dropSpace) - deck.contentY
             width: deck.width; height: deck.groupTop(window.dropSpace + 1) - deck.groupTop(window.dropSpace) - 8
-            color: "transparent"; radius: 8; border.width: 1
+            color: "transparent"; radius: Design.radiusL; border.width: Design.line
             border.color: window.dropAllowed ? window.accent : "#e49b9b"
         }
         Rectangle {
@@ -1430,7 +1432,7 @@ ApplicationWindow {
         visible: window.dragSlot >= 0
         x: Math.min(window.width - width - 12, deck.x + window.dragPoint.x + 16)
         y: Math.max(60, Math.min(window.height - height - 12, deck.y + window.dragPoint.y + 16))
-        width: dragLabel.implicitWidth + 24; height: 38; radius: 8; color: window.chrome.surface; border.color: window.accent; z: 5
+        width: dragLabel.implicitWidth + 24; height: 38; radius: Design.radiusL; color: window.chrome.surface; border.color: window.accent; z: 5
         Label { id: dragLabel; anchors.centerIn: parent; text: (window.dropSpace < 0 ? "Move terminal" : window.spaces[window.dropSpace] + " · position " + (window.dropPosition + 1)) + " · Esc cancels"; color: window.chrome.foreground }
     }
     Timer {
@@ -1482,7 +1484,7 @@ ApplicationWindow {
             if (!visible) return
             visible = false; opacity = 0; closed()
         }
-        Behavior on opacity { enabled: !window.reducedMotion && drawer.visible; NumberAnimation { duration: 120 } }
+        Behavior on opacity { enabled: !window.reducedMotion && drawer.visible; NumberAnimation { duration: Design.motionQuick } }
         Keys.onEscapePressed: close()
         Rectangle { anchors.fill: parent; color: window.chrome.surface; border.color: window.chrome.border }
         Item { id: drawerContent; anchors.fill: parent }
@@ -1542,16 +1544,16 @@ ApplicationWindow {
     }
     Rectangle {
         visible: window.moveNotice.length > 0 && studySession.error.length === 0 && window.moveKeyContext
-        anchors.bottom: parent.bottom; anchors.bottomMargin: 16; anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(parent.width - 100, moveNoticeText.implicitWidth + 32); height: 42; radius: 8; z: 4
+        anchors.bottom: parent.bottom; anchors.bottomMargin: Design.spaceXl; anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(parent.width - 100, moveNoticeText.implicitWidth + 32); height: 42; radius: Design.radiusL; z: 4
         color: window.chrome.surface; border.color: window.chrome.border
-        Label { id: moveNoticeText; anchors.centerIn: parent; text: window.moveNotice; color: window.chrome.foreground; font.pixelSize: 13 }
+        Label { id: moveNoticeText; anchors.centerIn: parent; text: window.moveNotice; color: window.chrome.foreground; font.pixelSize: Design.textBody }
     }
     Timer { id: moveNoticeTimer; interval: 3000; onTriggered: window.moveNotice = "" }
     Rectangle {
         visible: (studySession.error.length > 0 || studySession.catalogNotice.length > 0) && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(window.width - 100, 680); height: 76; color: "#352b22"; radius: 8; z: 4
+        width: Math.min(window.width - 100, 680); height: 76; color: "#352b22"; radius: Design.radiusL; z: 4
         Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error || studySession.catalogNotice; wrapMode: Text.Wrap; color: "#f0d6b8" }
         QuietButton { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Refresh"; enabled: !studySession.busy; onClicked: studySession.refresh() }
     }
@@ -1597,17 +1599,17 @@ ApplicationWindow {
     }
     Rectangle {
         visible: window.forwardingArmed
-        x: 60; y: 44; width: Math.min(520, window.width - 76); height: 44; radius: 6; z: 7
+        x: 60; y: 44; width: Math.min(520, window.width - 76); height: 44; radius: Design.radiusM; z: 7
         color: window.chrome.raised; border.color: window.chrome.accent
-        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 85; text: "Next key goes to this terminal · Escape cancels"; color: window.chrome.foreground; elide: Text.ElideRight }
-        QuietButton { objectName: "cancelForwardKey"; anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Cancel"; onClicked: if (window.selected >= 0) window.panel(window.selected).terminal.cancelForwarding() }
+        Label { anchors.fill: parent; anchors.margins: Design.spaceL; anchors.rightMargin: 85; text: "Next key goes to this terminal · Escape cancels"; color: window.chrome.foreground; elide: Text.ElideRight }
+        QuietButton { objectName: "cancelForwardKey"; anchors.right: parent.right; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; text: "Cancel"; onClicked: if (window.selected >= 0) window.panel(window.selected).terminal.cancelForwarding() }
     }
     Connections { target: studyView; function onChanged() { window.fontWarningDismissed = false } }
     property bool fontWarningDismissed: false
     Rectangle {
-        visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0 || studyView.error.length > 0 || studyConfiguration.error.length > 0 || studyWorkspaceAppearance.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: 6; z: 6; color: window.chrome.raised
-        QuietButton { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; text: "Dismiss"; onClicked: window.fontWarningDismissed = true }
-        Label { anchors.fill: parent; anchors.margins: 10; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyWorkspaceAppearance.error, studyConfiguration.error, studyFonts.error, studyShortcuts.error, studyView.error].filter(value => value.length > 0).join("\n") }
+        visible: (studyFonts.error.length > 0 || studyShortcuts.error.length > 0 || studyView.error.length > 0 || studyConfiguration.error.length > 0 || studyWorkspaceAppearance.error.length > 0) && !window.fontWarningDismissed; x: 60; y: 44; width: Math.min(600, window.width - 76); height: 56; radius: Design.radiusM; z: 6; color: window.chrome.raised
+        QuietButton { anchors.right: parent.right; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; text: "Dismiss"; onClicked: window.fontWarningDismissed = true }
+        Label { anchors.fill: parent; anchors.margins: Design.spaceL; anchors.rightMargin: 94; color: window.chrome.waiting; wrapMode: Text.Wrap; textFormat: Text.PlainText; text: [studyWorkspaceAppearance.error, studyConfiguration.error, studyFonts.error, studyShortcuts.error, studyView.error].filter(value => value.length > 0).join("\n") }
     }
     AppCatalog {
         id: appCatalog; objectName: "appCatalog"; anchors.centerIn: parent; host: window
@@ -1642,19 +1644,19 @@ ApplicationWindow {
     }
     Dialog {
         id: terminalAction; objectName: "terminalActionDialog"; anchors.centerIn: parent; modal: true; focus: true
-        width: Math.min(440, window.width - 64); padding: 20
+        width: Math.min(440, window.width - 64); padding: Design.space2xl
         closePolicy: studySession.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
         title: window.actionKind === "session-stop" ? "Stop all terminals?" : window.actionKind === "workspace-close" ? "Remove workspace?" : window.actionKind === "close" ? "Close terminal?" : "Move terminal here?"
-        background: Rectangle { color: window.chrome.raised; radius: 12; border.color: window.chrome.border }
-        header: Label { text: terminalAction.title; padding: 20; bottomPadding: 8; color: window.chrome.foreground; font.pixelSize: 22 }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        header: Label { text: terminalAction.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         contentItem: Column {
-            spacing: 16
-            Label { width: parent.width; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: 12; text: window.actionKind === "session-stop" ? window.stopTargets.length + (window.stopTargets.length === 1 ? " saved terminal" : " saved terminals") + " · All workspaces and windows in this session" : window.actionKind === "workspace-close" ? window.workspaceRemovalContext : window.actionContext }
+            spacing: Design.spaceXl
+            Label { width: parent.width; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: Design.textSmall; text: window.actionKind === "session-stop" ? window.stopTargets.length + (window.stopTargets.length === 1 ? " saved terminal" : " saved terminals") + " · All workspaces and windows in this session" : window.actionKind === "workspace-close" ? window.workspaceRemovalContext : window.actionContext }
             Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.foreground; text: window.actionKind === "session-stop" ? "Stop these terminals’ shells and foreground jobs. Keep workspaces, folders, names and saved appearance. Terminals created after this confirmation opened are excluded. Windows stay open; starting fresh shells later requires an explicit action." : window.actionKind === "workspace-close" ? "Remove this workspace and all of its terminals. Running processes in this workspace will be stopped. Other workspaces keep running." : window.actionKind === "close" ? "Stop this terminal’s process and remove it from the workspace. Other terminals keep running." : "Continue the same process in this window. The other window will release control." }
             Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; visible: window.actionKind === "session-stop" && !window.stopTargetsValid; text: "A confirmed terminal was removed. Cancel and reopen this confirmation to review the current session." }
             Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; text: studySession.error; visible: text.length > 0 }
             Row {
-                spacing: 8
+                spacing: Design.spaceM
                 QuietButton { id: cancelTerminalAction; objectName: "cancelTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { terminalAction.close(); event.accepted = true } else event.accepted = false }; text: "Cancel"; enabled: !studySession.busy; onClicked: terminalAction.close() }
                 QuietButton { id: confirmTerminalAction; objectName: "confirmTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { window.performTerminalAction(); event.accepted = true } else event.accepted = false }; text: studySession.busy ? "Working…" : window.actionKind === "session-stop" ? "Stop terminals" : window.actionKind === "workspace-close" ? "Remove workspace" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy && (window.actionKind !== "session-stop" || window.stopTargetsValid); onClicked: window.performTerminalAction() }
             }
@@ -1664,8 +1666,8 @@ ApplicationWindow {
     }
     component ProjectField: TextField {
         selectByMouse: true; color: "#e0e6ef"; selectionColor: window.accent; selectedTextColor: "#101318"
-        placeholderTextColor: "#7d899c"; padding: 10
-        background: Rectangle { radius: 6; color: "#101318"; border.color: parent.activeFocus ? window.accent : "#3a4657" }
+        placeholderTextColor: "#7d899c"; padding: Design.spaceL
+        background: Rectangle { radius: Design.radiusM; color: "#101318"; border.color: parent.activeFocus ? window.accent : "#3a4657" }
     }
     // New host: a name, an ssh destination (with ~/.ssh/config aliases to pick)
     // and an optional remote folder, saved in Band's own host list.
@@ -1673,22 +1675,22 @@ ApplicationWindow {
         id: hostDialog; objectName: "hostDialog"
         property var suggestions: []
         property string theme: ""
-        implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: 20
+        implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: Design.space2xl
         title: "New host"
-        background: Rectangle { color: "#1b2029"; radius: 10; border.color: "#3a4657" }
-        header: Label { text: hostDialog.title; padding: 20; bottomPadding: 6; color: "#e0e6ef"; font.pixelSize: 18 }
+        background: Rectangle { color: "#1b2029"; radius: Design.radiusXl; border.color: "#3a4657" }
+        header: Label { text: hostDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: "#e0e6ef"; font.pixelSize: Design.textTitle }
         onOpened: hostDestination.forceActiveFocus()
         function save() {
             const id = studyHosts.freeId(hostName.text.trim() || hostDestination.text.trim(), window.hostDefinitions)
             if (studyHosts.save({id: id, name: hostName.text.trim(), destination: hostDestination.text.trim(), directory: hostFolder.text.trim(), theme: hostDialog.theme})) hostDialog.close()
         }
         contentItem: Column {
-            spacing: 12
+            spacing: Design.spaceL
             Label { text: "Destination"; color: "#c2c9d4" }
             ProjectField { id: hostDestination; objectName: "hostDestinationInput"; width: parent.width; placeholderText: "An ssh alias, host or user@host"; onAccepted: hostName.forceActiveFocus() }
             Flow {
-                width: parent.width; spacing: 6; visible: hostDialog.suggestions.length > 0
-                Label { height: 32; verticalAlignment: Text.AlignVCenter; text: "From ~/.ssh/config"; color: "#a5afbe"; font.pixelSize: 12; rightPadding: 4 }
+                width: parent.width; spacing: Design.spaceS; visible: hostDialog.suggestions.length > 0
+                Label { height: 32; verticalAlignment: Text.AlignVCenter; text: "From ~/.ssh/config"; color: "#a5afbe"; font.pixelSize: Design.textSmall; rightPadding: Design.spaceXs }
                 Repeater {
                     model: hostDialog.suggestions.slice(0, 12)
                     QuietButton {
@@ -1707,7 +1709,7 @@ ApplicationWindow {
             // Colors for every pane on this host; a terminal's own colors still win.
             Label { text: "Colors"; color: "#c2c9d4" }
             Flow {
-                width: parent.width; spacing: 6
+                width: parent.width; spacing: Design.spaceS
                 QuietButton { objectName: "hostThemeWorkspace"; fixedPalette: true; focusPolicy: Qt.NoFocus; text: "Workspace colors"; selected: hostDialog.theme === ""; onClicked: hostDialog.theme = "" }
                 Repeater {
                     model: studyThemes.catalog.filter(theme => !theme.imported).slice(0, 12)
@@ -1720,11 +1722,11 @@ ApplicationWindow {
                 }
             }
             Label {
-                width: parent.width; wrapMode: Text.Wrap; font.pixelSize: 12; color: studyHosts.error ? "#e3bf91" : "#a5afbe"
+                width: parent.width; wrapMode: Text.Wrap; font.pixelSize: Design.textSmall; color: studyHosts.error ? "#e3bf91" : "#a5afbe"
                 text: studyHosts.error || "Saved by Band beside its other settings. Keys, passwords and ssh options stay with ssh."
             }
             Row {
-                spacing: 8
+                spacing: Design.spaceM
                 QuietButton { fixedPalette: true; text: "Cancel"; onClicked: hostDialog.close() }
                 QuietButton { objectName: "saveHostButton"; fixedPalette: true; primary: true; text: "Save"; enabled: hostDestination.text.trim().length > 0; onClicked: hostDialog.save() }
             }
@@ -1739,12 +1741,12 @@ ApplicationWindow {
         }
         implicitWidth: 460
         title: window.workspaceFormMode === "rename" ? "Rename workspace" : window.workspaceFormMode === "folder" ? "Workspace folder" : "New workspace"; anchors.centerIn: parent; modal: true; width: Math.min(460, window.width - 80)
-        padding: 20
-        background: Rectangle { color: "#1b2029"; radius: 10; border.color: "#3a4657" }
-        header: Label { text: createDialog.title; padding: 20; bottomPadding: 6; color: "#e0e6ef"; font.pixelSize: 18 }
+        padding: Design.space2xl
+        background: Rectangle { color: "#1b2029"; radius: Design.radiusXl; border.color: "#3a4657" }
+        header: Label { text: createDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: "#e0e6ef"; font.pixelSize: Design.textTitle }
         closePolicy: studySession.busy || window.folderBrowserOpen ? Popup.NoAutoClose : Popup.CloseOnEscape
         contentItem: Column {
-            spacing: 12
+            spacing: Design.spaceL
             Label { text: "Name"; visible: window.workspaceFormMode !== "folder"; color: "#c2c9d4" }
             ProjectField {
                 id: newName; objectName: "workspaceNameInput"; width: parent.width; placeholderText: "Project name"
@@ -1753,7 +1755,7 @@ ApplicationWindow {
             }
             Label { text: "Folder"; visible: window.workspaceFormMode !== "rename"; color: "#c2c9d4" }
             Row {
-                width: parent.width; spacing: 8; visible: window.workspaceFormMode !== "rename"
+                width: parent.width; spacing: Design.spaceM; visible: window.workspaceFormMode !== "rename"
                 ProjectField {
                     id: newFolder; objectName: "workspaceFolderInput"; width: parent.width - browseFolder.width - parent.spacing; enabled: !studySession.busy && !studyWorktrees.busy
                     onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked()
@@ -1762,13 +1764,13 @@ ApplicationWindow {
                 }
                 QuietButton { id: browseFolder; objectName: "browseWorkspaceFolderButton"; fixedPalette: true; text: "Browse…"; hint: "Choose a folder"; enabled: !studySession.busy; onClicked: window.browseWorkspaceFolder() }
             }
-            Label { width: parent.width; visible: window.workspaceFormMode !== "rename"; text: "Used by new terminals. Running terminals keep their current folders."; wrapMode: Text.Wrap; color: "#a5afbe"; font.pixelSize: 12 }
+            Label { width: parent.width; visible: window.workspaceFormMode !== "rename"; text: "Used by new terminals. Running terminals keep their current folders."; wrapMode: Text.Wrap; color: "#a5afbe"; font.pixelSize: Design.textSmall }
             // In a Git repository: open a worktree, or add one on a new branch.
             Column {
-                width: parent.width; spacing: 8; visible: window.workspaceFormMode === "create" && studyWorktrees.repository.length > 0
+                width: parent.width; spacing: Design.spaceM; visible: window.workspaceFormMode === "create" && studyWorktrees.repository.length > 0
                 Label { text: "Git worktree"; color: "#c2c9d4" }
                 Flow {
-                    width: parent.width; spacing: 6
+                    width: parent.width; spacing: Design.spaceS
                     Repeater {
                         model: studyWorktrees.worktrees
                         QuietButton {
@@ -1787,14 +1789,14 @@ ApplicationWindow {
                     onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked()
                 }
                 Label {
-                    width: parent.width; wrapMode: Text.Wrap; color: studyWorktrees.error ? "#e3bf91" : "#a5afbe"; font.pixelSize: 12
+                    width: parent.width; wrapMode: Text.Wrap; color: studyWorktrees.error ? "#e3bf91" : "#a5afbe"; font.pixelSize: Design.textSmall
                     text: studyWorktrees.error || (newBranch.text.trim() ? "Adds a worktree at " + (studyWorktrees.pathFor(newBranch.text.trim()) || "…") + " (git worktree add)." : "")
                     visible: text.length > 0
                 }
             }
             Label { width: parent.width; text: studySession.error; visible: text.length > 0; wrapMode: Text.Wrap; color: "#e3bf91" }
             Row {
-                spacing: 8
+                spacing: Design.spaceM
                 QuietButton { fixedPalette: true; text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
                 QuietButton {
                     id: submitWorkspace; objectName: "submitWorkspaceButton"; fixedPalette: true; primary: true
@@ -1863,16 +1865,16 @@ ApplicationWindow {
     }
     Dialog {
         id: help; implicitWidth: 560; implicitHeight: 460; width: Math.min(implicitWidth, window.width - 64); height: Math.min(implicitHeight, window.height - 64); title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
-        padding: 16
-        background: Rectangle { color: window.chrome.raised; radius: 12; border.color: window.chrome.border }
-        header: Label { text: help.title; padding: 20; bottomPadding: 8; color: window.chrome.foreground; font.pixelSize: 22 }
+        padding: Design.spaceXl
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        header: Label { text: help.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         footer: Item {
             implicitHeight: 56
             QuietButton { x: 16; anchors.verticalCenter: parent.verticalCenter; text: "Edit shortcuts…"; onClicked: window.openShortcutSettings() }
-            QuietButton { anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; text: "Close"; onClicked: help.close() }
+            QuietButton { anchors.right: parent.right; anchors.rightMargin: Design.spaceXl; anchors.verticalCenter: parent.verticalCenter; text: "Close"; onClicked: help.close() }
         }
         contentItem: ListView {
-            clip: true; spacing: 4
+            clip: true; spacing: Design.spaceXs
             model: commandRegistry.entries.filter(entry => entry.key.length > 0)
             ScrollBar.vertical: ScrollBar {}
             delegate: Item {
@@ -1880,7 +1882,7 @@ ApplicationWindow {
                 width: ListView.view.width; height: 34
                 Label { x: 8; anchors.verticalCenter: parent.verticalCenter; width: parent.width * 0.56; elide: Text.ElideRight; text: modelData.title; textFormat: Text.PlainText; color: window.chrome.foreground }
                 Accessible.role: Accessible.StaticText; Accessible.name: modelData.title + ", " + modelData.key
-                KeyChips { anchors.right: parent.right; anchors.rightMargin: 8; anchors.verticalCenter: parent.verticalCenter; keys: modelData.key; tones: window.chrome }
+                KeyChips { anchors.right: parent.right; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; keys: modelData.key; tones: window.chrome }
             }
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
