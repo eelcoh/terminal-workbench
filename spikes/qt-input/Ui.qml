@@ -1058,54 +1058,21 @@ ApplicationWindow {
         }
     }
     QuietButton { x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: Design.spaceL; iconName: "help"; hint: "Keyboard shortcuts"; keys: studyShortcuts.labels["help"] || ""; onClicked: help.open() }
-    Item {
-        id: topbar; x: Math.max(window.navigationEdge, window.titleInset + 44); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0); height: 32
-        // Markers that fit between the side controls; past that, a window follows the selection.
-        readonly property int markerCount: window.counts[window.workspace] || 0
-        // The row is centred: half its width must clear the workspace name on the left and
-        // the count, New terminal and Overview on the right, with 8 px to spare on each side.
-        readonly property real markerRoom: Math.min(width / 2 - workspaceButton.width, width / 2 - focusedCount.width - newTerminalButton.width - overviewButton.width - 36) - 8
-        readonly property int markerSlots: Math.max(1, Math.min(markerCount, Math.floor(2 * markerRoom / 28)))
-        readonly property int markerFocus: Math.max(0, window.indices(window.workspace).indexOf(window.selected))
-        readonly property int markerStart: Math.max(0, Math.min(markerCount - markerSlots, markerFocus - Math.floor(markerSlots / 2)))
-        QuietButton { id: workspaceButton; objectName: "workspaceButton"; leftAligned: true; width: Math.min(200, Math.max(80, topbar.width / 4)); text: window.overview ? "Overview" : (window.spaces[window.workspace] || "No workspaces"); hint: "Choose workspace"; onClicked: window.openNavigation("workspaces") }
-        Rectangle {
-            anchors.centerIn: parent; width: indicatorRow.width + 8; height: 28; radius: 14; color: window.chrome.background
-            visible: !window.overview && window.counts[window.workspace] > 0
-        }
-        Row {
-            id: indicatorRow; objectName: "indicatorRow"; anchors.centerIn: parent; spacing: 0; visible: !window.overview && window.counts[window.workspace] > 0
-            Repeater {
-                model: topbar.markerSlots
-                QuietButton {
-                    required property int index
-                    implicitWidth: 28; implicitHeight: 28; text: ""; hint: { const item = paneIndex < 0 ? null : window.panel(paneIndex); return item ? item.facts.title : "Terminal" }
-                    readonly property int paneIndex: window.indices(window.workspace)[topbar.markerStart + index] ?? -1
-                    Rectangle {
-                        anchors.centerIn: parent; width: window.selected === parent.paneIndex ? 24 : 14; height: 8; radius: 4
-                        color: window.selected === parent.paneIndex ? window.accent : window.left(parent.paneIndex) + window.paneWidth(parent.paneIndex) > deck.contentX && window.left(parent.paneIndex) < deck.contentX + deck.width ? window.chrome.muted : window.chrome.border
-                    }
-                    Rectangle {
-                        x: parent.width - 5; y: 1; width: 4; height: 4; radius: 2; color: window.chrome.waiting
-                        visible: { const item = parent.paneIndex < 0 ? null : window.panel(parent.paneIndex); return item !== null && item.facts.needs_input }
-                    }
-                    onClicked: window.enterPane(paneIndex)
-                }
-            }
-        }
-        Label {
-            id: focusedCount; objectName: "focusedCount"
-            anchors.left: indicatorRow.right; anchors.leftMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter
-            visible: !window.overview && window.counts[window.workspace] > 0
-            text: Math.max(0, window.indices(window.workspace).indexOf(window.selected) + 1) + " / " + (window.counts[window.workspace] || 0)
-            color: window.chrome.muted; font.pixelSize: Design.textSmall
-        }
-        QuietButton {
-            id: newTerminalButton; objectName: "newTerminalButton"; iconName: "plus"; hint: "New terminal"; keys: studyShortcuts.labels["new-terminal"] || ""; enabled: window.canCreateTerminal
-            x: window.overview ? overviewButton.x - width - 12 : focusedCount.x + focusedCount.width + 12
-            onClicked: window.newTerminal()
-        }
-        QuietButton { id: overviewButton; objectName: "overviewButton"; anchors.right: parent.right; text: window.overview ? "Done" : "Overview"; keys: studyShortcuts.labels["overview"] || ""; onClicked: window.toggleOverview() }
+    TopBar {
+        id: topbar; x: Math.max(window.navigationEdge, window.titleInset + 44); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0)
+        tones: window.chrome; accent: window.accent; overview: window.overview; canCreate: window.canCreateTerminal
+        workspaceName: window.overview ? "Overview" : (window.spaces[window.workspace] || "No workspaces")
+        readonly property var paneIndices: window.indices(window.workspace)
+        focusPosition: paneIndices.indexOf(window.selected)
+        markers: paneIndices.map(i => {
+            const item = window.panel(i)
+            return {title: item ? item.facts.title : "Terminal", selected: window.selected === i, waiting: item !== null && !!item.facts.needs_input}
+        })
+        inView: position => { const i = paneIndices[position]; return i !== undefined && window.left(i) + window.paneWidth(i) > deck.contentX && window.left(i) < deck.contentX + deck.width }
+        onWorkspaceClicked: window.openNavigation("workspaces")
+        onMarkerClicked: position => window.enterPane(paneIndices[position])
+        onNewTerminalClicked: window.newTerminal()
+        onOverviewClicked: window.toggleOverview()
     }
     Flow {
         id: overviewFilters; x: window.navigationEdge + 16; y: 54; width: window.width - x - 12; spacing: Design.spaceM; visible: window.overview
@@ -1231,69 +1198,21 @@ ApplicationWindow {
                     onClicked: window.focusPane(pane.index)
                 }
                 readonly property var identity: window.paneIdentity(pane)
-                // Room for the identity left of the state, colors swatch and menu.
-                readonly property real headerRoom: width - 51 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0) - (dirtyMark.visible ? 14 : 0)
-                ChromeIcon {
-                    id: paneKind; x: 12; y: 9; width: 15; height: 15; name: pane.identity.icon
-                    color: pane.appStopped ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
+                readonly property var tones: studyThemes.theme(window.themeIndexFor(spaceIndex))
+                PaneHeader {
+                    width: parent.width; tones: pane.tones; terminalId: pane.terminalId
+                    icon: pane.identity.icon; stopped: pane.appStopped; name: pane.identity.name; place: pane.identity.place; dirty: pane.identity.dirty
+                    ownTheme: appearance.visible && window.appearanceTerminal === pane.terminalId ? (window.previewDefault ? -1 : window.previewTheme) : window.ownTheme(pane.terminalId)
+                    agentState: pane.facts.agent ? pane.facts.state : ""; needsInput: !!pane.facts.needs_input
+                    focused: window.selected === pane.index && !window.overview; fullWidth: !!window.fullWidths[pane.index]
+                    exited: window.exitedTerminal(pane.terminalId); busy: studySession.busy
+                    menuEnabled: !window.overview; colorsEnabled: !window.overview
+                    onWidthClicked: window.dispatchCommand("cycle-width")
+                    onFullClicked: window.dispatchCommand("full-width")
+                    onCloseClicked: window.closePane(pane.terminalId)
+                    onColorsClicked: window.openTerminalColors(pane.terminalId)
+                    onMenuClicked: anchor => { window.focusPane(pane.index); window.paneMenuTarget = pane.terminalId; const point = anchor.mapToItem(window.contentItem, 0, anchor.height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() }
                 }
-                Text {
-                    id: paneName; objectName: "paneName"; x: 33; y: 10; visible: text.length > 0
-                    width: Math.min(implicitWidth, Math.max(0, (pane.headerRoom - x) * 0.5)); elide: Text.ElideRight
-                    text: pane.identity.name; textFormat: Text.PlainText; font.pixelSize: Design.textSmall; font.weight: Font.DemiBold
-                    color: studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground
-                }
-                Text {
-                    id: paneTitle; objectName: "paneTitle"; x: paneName.visible ? paneName.x + paneName.width + 7 : 33; y: 10
-                    width: Math.min(implicitWidth, Math.max(0, pane.headerRoom - x)); elide: Text.ElideMiddle
-                    text: pane.identity.place; textFormat: Text.PlainText; font.pixelSize: Design.textSmall
-                    color: paneName.visible ? studyThemes.theme(window.themeIndexFor(spaceIndex)).muted : studyThemes.theme(window.themeIndexFor(spaceIndex)).foreground
-                }
-                // Uncommitted changes in this pane's Git worktree.
-                Rectangle {
-                    id: dirtyMark; objectName: "paneDirty"; visible: pane.identity.dirty
-                    x: paneTitle.x + paneTitle.width + 7; y: 15; width: 6; height: 6; radius: 3
-                    color: studyThemes.theme(window.themeIndexFor(spaceIndex)).accent
-                    Accessible.role: Accessible.StaticText; Accessible.name: "Uncommitted changes"
-                    MouseArea { id: dirtyArea; anchors.fill: parent; anchors.margins: -5; hoverEnabled: true; acceptedButtons: Qt.NoButton }
-                    ToolTip.visible: dirtyArea.containsMouse; ToolTip.delay: 400; ToolTip.text: "Uncommitted changes"
-                }
-                // A swatch of the terminal's own palette; the frame keeps workspace colors.
-                Rectangle {
-                    id: ownColors; objectName: "terminalOwnColors" + pane.terminalId
-                    readonly property int own: appearance.visible && window.appearanceTerminal === pane.terminalId ? (window.previewDefault ? -1 : window.previewTheme) : window.ownTheme(pane.terminalId)
-                    visible: own >= 0
-                    x: (dirtyMark.visible ? dirtyMark.x + dirtyMark.width : paneTitle.x + paneTitle.width) + 8; y: 12; width: 12; height: 12; radius: 6
-                    color: visible ? studyThemes.theme(own).background : "transparent"
-                    border.width: Design.lineStrong; border.color: visible ? studyThemes.theme(own).accent : "transparent"
-                    Accessible.role: Accessible.Button; Accessible.name: "Terminal colors: " + (visible ? studyThemes.theme(own).name : "")
-                    MouseArea {
-                        id: ownColorsArea; anchors.fill: parent; anchors.margins: -4; hoverEnabled: true; enabled: !window.overview
-                        cursorShape: Qt.PointingHandCursor; onClicked: window.openTerminalColors(pane.terminalId)
-                    }
-                    ToolTip.visible: ownColorsArea.containsMouse; ToolTip.delay: 400
-                    ToolTip.text: "Own colors: " + (visible ? studyThemes.theme(own).name : "") + " · click to change"
-                }
-                Text {
-                    id: headerState; x: (paneActions.visible ? paneActions.x - 8 : parent.width - 36) - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
-                    text: pane.facts.agent ? pane.facts.state : ""; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textSmall
-                    color: pane.facts.needs_input ? studyThemes.theme(window.themeIndexFor(spaceIndex)).waiting : pane.facts.state === "Ready" ? studyThemes.theme(window.themeIndexFor(spaceIndex)).ready : studyThemes.theme(window.themeIndexFor(spaceIndex)).muted
-                }
-                // The focused pane's own actions; they leave keyboard focus in the terminal.
-                readonly property bool focusedPane: window.selected === index && !window.overview
-                Row {
-                    id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 0; spacing: Design.space2xs; visible: pane.focusedPane
-                    QuietButton { objectName: "paneWidthButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: window.dispatchCommand("cycle-width") }
-                    QuietButton {
-                        objectName: "paneFullButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "full"; selected: !!window.fullWidths[pane.index]
-                        hint: window.fullWidths[pane.index] ? "Restore width" : "Full width"; keys: studyShortcuts.labels["full-width"] || ""; onClicked: window.dispatchCommand("full-width")
-                    }
-                    QuietButton {
-                        objectName: "paneCloseButton"; height: 28; focusPolicy: Qt.NoFocus; iconName: "close"; enabled: !studySession.busy
-                        hint: window.exitedTerminal(pane.terminalId) ? "Close pane" : "Close terminal…"; keys: studyShortcuts.labels["close-terminal"] || ""; onClicked: window.closePane(pane.terminalId)
-                    }
-                }
-                QuietButton { objectName: "paneLayoutButton"; anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; y: 0; iconName: "more"; height: 28; hint: "Terminal layout"; enabled: !window.overview; onClicked: { window.focusPane(index); window.paneMenuTarget = pane.terminalId; const point = mapToItem(window.contentItem, 0, height); paneMenu.x = Math.max(0, Math.min(point.x, window.width - paneMenu.width - 12)); paneMenu.y = point.y; paneMenu.open() } }
                 TerminalItem {
                     id: terminal; objectName: "terminal" + index
                     property int workspaceIndex: pane.spaceIndex

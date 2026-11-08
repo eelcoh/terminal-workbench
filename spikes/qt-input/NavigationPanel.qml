@@ -174,7 +174,7 @@ Item {
                         hint: (workspaceRow.expanded ? "Hide panes of " : "Show panes of ") + (host.spaces[parent.index] || "workspace")
                         onClicked: navigation.setExpanded(workspaceRow.identity, !workspaceRow.expanded)
                     }
-                    ChromeButton {
+                    SidebarWorkspace {
                         id: workspaceEntry
                         Keys.onDownPressed: navigation.focusWorkspace(parent.index + 1, 1)
                         Keys.onUpPressed: navigation.focusWorkspace(parent.index - 1, -1)
@@ -189,36 +189,16 @@ Item {
                             else event.accepted = false
                         }
                         objectName: "navigationWorkspace" + parent.index
-                        tones: host.chrome; x: 0; width: parent.width - 56; height: 44; leftAligned: true
-                        selected: parent.index === host.workspace; trailingText: String(host.counts[parent.index]); text: host.spaces[parent.index]
-                        readonly property int waiting: host.workspaceWaitingCounts[parent.index] || 0
-                        readonly property bool dirty: workspaceRow.allPanes.some(i => { const pane = host.panel(i); return pane && !!pane.facts.dirty })
+                        tones: host.chrome; x: 0; width: parent.width - 56; row: parent.index
+                        selected: parent.index === host.workspace; count: host.counts[parent.index] || 0; text: host.spaces[parent.index]
+                        waiting: host.workspaceWaitingCounts[parent.index] || 0
+                        dirty: workspaceRow.allPanes.some(i => { const pane = host.panel(i); return pane && !!pane.facts.dirty })
                         // The branch of a linked worktree one of its panes is in.
-                        readonly property string worktreeBranch: { for (const i of workspaceRow.allPanes) { const pane = host.panel(i); if (pane && pane.facts.worktree) return pane.facts.branch || pane.facts.worktree } return "" }
+                        branch: { for (const i of workspaceRow.allPanes) { const pane = host.panel(i); if (pane && pane.facts.worktree) return pane.facts.branch || pane.facts.worktree } return "" }
                         // A closed workspace previews its panes in the tooltip.
-                        hint: text + (worktreeBranch ? " · worktree " + worktreeBranch : "") + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "") + (dirty ? " · uncommitted changes" : "")
+                        hint: text + (branch ? " · worktree " + branch : "") + " · " + trailingText + " terminals" + (waiting ? " · " + waiting + " agents need input (last reports)" : "") + (dirty ? " · uncommitted changes" : "")
                             + (workspaceRow.expanded ? "" : workspaceRow.allPanes.slice(0, 8).map(i => { const identity = host.paneIdentity(host.panel(i)); return "\n" + [identity.name, identity.place].filter(part => part).join(" · ") }).join("")
                                 + (workspaceRow.allPanes.length > 8 ? "\n…" : ""))
-                        contentItem: Item {
-                            Row {
-                                anchors.left: parent.left; anchors.leftMargin: Design.spaceM; anchors.right: totals.left; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceS
-                                Text { id: workspaceName; width: Math.min(implicitWidth, parent.width - (workspaceBranch.visible ? Math.min(workspaceBranch.implicitWidth, parent.width * 0.45) + 6 : 0)); text: workspaceEntry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textControl }
-                                Text {
-                                    id: workspaceBranch; objectName: "workspaceBranch" + workspaceRow.index; visible: workspaceEntry.worktreeBranch.length > 0; anchors.baseline: workspaceName.baseline
-                                    width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: workspaceEntry.worktreeBranch; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: Design.textSmall
-                                }
-                            }
-                            Row {
-                                id: totals; anchors.right: parent.right; anchors.rightMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceM
-                                Row {
-                                    visible: workspaceEntry.waiting > 0; spacing: Design.spaceXs; height: 18
-                                    Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: host.chrome.waiting }
-                                    Text { text: String(workspaceEntry.waiting); color: host.chrome.waiting; font.pixelSize: Design.textSmall; anchors.verticalCenter: parent.verticalCenter }
-                                }
-                                Rectangle { objectName: "workspaceDirty" + workspaceRow.index; visible: workspaceEntry.dirty; width: 6; height: 6; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: host.chrome.accent }
-                                Text { text: workspaceEntry.trailingText; color: host.chrome.muted; font.pixelSize: Design.textSmall; height: 18; verticalAlignment: Text.AlignVCenter }
-                            }
-                        }
                         onClicked: host.chooseWorkspace(parent.index)
                     }
                     Column {
@@ -226,7 +206,7 @@ Item {
                         visible: workspaceRow.expanded
                         Repeater {
                             id: paneRows; model: workspaceRow.expanded ? workspaceRow.panes : []
-                            ChromeButton {
+                            SidebarPane {
                                 id: paneRow
                                 required property int index
                                 required property int modelData
@@ -234,13 +214,9 @@ Item {
                                 readonly property var facts: pane ? pane.facts : ({title: "", agent: "", state: ""})
                                 readonly property var identity: host.paneIdentity(pane)
                                 readonly property string kind: identity.kind
-                                // The program leads and the folder follows, as in pane headers;
-                                // without a program name the folder leads.
-                                readonly property string title: identity.name || identity.place
-                                readonly property string detail: identity.name ? identity.place : ""
                                 readonly property string paneState: kind === "agent" ? facts.state : kind === "app" && pane.appStopped ? "Stopped" : ""
                                 objectName: "navigationPane" + workspaceRow.index + "_" + index
-                                tones: host.chrome; width: paneColumn.width; height: 34
+                                tones: host.chrome; width: paneColumn.width
                                 selected: modelData === host.selected && !host.overview
                                 hint: [title, detail, paneState, identity.dirty ? "uncommitted changes" : ""].filter(part => part).join(" · ")
                                 Keys.onDownPressed: workspaceRow.focusPane(index + 1)
@@ -250,28 +226,11 @@ Item {
                                     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.choosePane(modelData); event.accepted = true }
                                     else event.accepted = false
                                 }
-                                contentItem: Item {
-                                    ChromeIcon {
-                                        id: paneMark; x: 4; anchors.verticalCenter: parent.verticalCenter; width: 15; height: 15; name: paneRow.identity.icon
-                                        color: paneRow.kind === "agent" ? (paneRow.facts.needs_input ? host.chrome.waiting : paneRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.accent)
-                                            : paneRow.kind === "app" ? (paneRow.pane && paneRow.pane.appStopped ? host.chrome.waiting : host.chrome.ready) : host.chrome.muted
-                                    }
-                                    // The program keeps its width; the folder gives way, keeping its end.
-                                    Text {
-                                        id: paneName; anchors.left: paneMark.right; anchors.leftMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter
-                                        width: Math.min(implicitWidth, parent.width - x - 8 - (paneRow.detail ? 48 : 0))
-                                        text: paneRow.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.foreground; font.pixelSize: Design.textBody
-                                    }
-                                    Rectangle {
-                                        id: paneDirty; visible: paneRow.identity.dirty; anchors.left: paneName.right; anchors.leftMargin: Design.spaceS; anchors.verticalCenter: parent.verticalCenter
-                                        width: 6; height: 6; radius: 3; color: host.chrome.accent
-                                    }
-                                    Text {
-                                        id: paneDetail; anchors.left: paneDirty.visible ? paneDirty.right : paneName.right; anchors.leftMargin: Design.spaceM; anchors.right: parent.right; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter
-                                        horizontalAlignment: Text.AlignRight; text: paneRow.detail; textFormat: Text.PlainText; elide: Text.ElideLeft; font.pixelSize: Design.textCaption
-                                        color: host.chrome.muted
-                                    }
-                                }
+                                // The program leads and the folder follows, as in pane headers;
+                                // without a program name the folder leads.
+                                kindIcon: identity.icon; title: identity.name || identity.place; detail: identity.name ? identity.place : ""; dirty: identity.dirty
+                                iconTone: kind === "agent" ? (facts.needs_input ? "waiting" : facts.state === "Ready" ? "ready" : "accent")
+                                    : kind === "app" ? (pane && pane.appStopped ? "waiting" : "ready") : "muted"
                                 onClicked: host.choosePane(modelData)
                             }
                         }

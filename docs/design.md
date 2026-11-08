@@ -51,6 +51,13 @@ the workspace's own, Workbench Dawn (light) and Dracula (saturated):
 - key chips, the accent, ready and waiting marks, the radii and the spacing
   steps.
 
+Below the columns, **Band in place** puts the window's own parts together
+under each theme with sample workspaces and terminals: the top bar
+(`TopBar.qml`), the sidebar rows (`SidebarWorkspace.qml`, `SidebarPane.qml`)
+and pane headers (`PaneHeader.qml`), focused and not, with an agent needing
+input, uncommitted changes and a terminal's own colors. The window uses the
+same components, so the gallery shows what Band shows.
+
 Hover, pressed and focus are shown without a pointer through a `preview`
 property on `ChromeButton` and `ChromeMenuItem`. The columns sit side by side
 when they fit, at least 340 px each, and below each other otherwise. The UI
@@ -65,9 +72,6 @@ test opens it from Commands and saves `design-gallery.png`.
 
 ## Still to do in stage 1
 
-- The gallery has only the shared components so far. The pane header, the
-  sidebar rows and the top bar live inside `Ui.qml` and `NavigationPanel.qml`,
-  so they must become components before the gallery can show them.
 - The inventory: the UI test already captures most screens
   (`.local/artifacts/qt-ui/<platform>/*.png`). They need to be put next to Rex
   screenshots of the same tasks, on Linux and the Mac.

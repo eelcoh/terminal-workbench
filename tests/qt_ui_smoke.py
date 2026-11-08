@@ -1704,7 +1704,7 @@ while True:
         # The design gallery opens from Commands and shows every component under
         # three themes; Escape and Close both leave it.
         command_search('Design gallery');key('Return');wait_until(lambda:data()['gallery_open'] and not data()['commands_open'])
-        time.sleep(.2);capture('design-gallery.png')
+        time.sleep(.2);capture('design-gallery.png');key('End');time.sleep(.2);capture('design-gallery-in-place.png');key('Home')
         key('Escape');wait_until(lambda:not data()['gallery_open'])
         command_search('Design gallery');key('Return');wait_until(lambda:data()['gallery_open'])
         click(*settled_point(lambda d:d['gallery_close']));wait_until(lambda:not data()['gallery_open'])

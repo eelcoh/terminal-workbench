@@ -14,6 +14,11 @@ Rectangle {
     color: tones.background
     focus: visible
     Keys.onEscapePressed: closed()
+    // End jumps to Band in place, Home back to the top.
+    Keys.onPressed: event => {
+        if (event.key === Qt.Key_End) { flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, scenes.y - Design.spaceL)); event.accepted = true }
+        else if (event.key === Qt.Key_Home) { flick.contentY = 0; event.accepted = true }
+    }
 
     function themeNamed(name, fallback) {
         for (const entry of studyThemes.catalog) if (entry.name === name) return studyThemes.theme(entry.index)
@@ -28,15 +33,15 @@ Rectangle {
     Row {
         id: top
         x: Design.space3xl; y: Design.spaceXl; spacing: Design.spaceL
-        Text { anchors.verticalCenter: parent.verticalCenter; text: "Design gallery"; color: gallery.tones.foreground; font.pixelSize: Design.textTitle; font.weight: Font.DemiBold }
-        Text { anchors.verticalCenter: parent.verticalCenter; text: "Design.qml values under three themes · Esc closes"; color: gallery.tones.muted; font.pixelSize: Design.textSmall }
+        Text { id: galleryTitle; anchors.verticalCenter: parent.verticalCenter; text: "Design gallery"; color: gallery.tones.foreground; font.pixelSize: Design.textTitle; font.weight: Font.DemiBold }
+        Text { anchors.verticalCenter: parent.verticalCenter; width: Math.max(0, Math.min(implicitWidth, gallery.width - top.x - galleryTitle.width - top.spacing - galleryClose.width - 2 * Design.spaceXl)); elide: Text.ElideRight; text: "Design.qml values under three themes · End shows Band in place · Esc closes"; color: gallery.tones.muted; font.pixelSize: Design.textSmall }
     }
-    ChromeButton { objectName: "galleryClose"; anchors.right: parent.right; anchors.rightMargin: Design.spaceXl; y: Design.spaceL; tones: gallery.tones; text: "Close"; onClicked: gallery.closed() }
+    ChromeButton { id: galleryClose; objectName: "galleryClose"; anchors.right: parent.right; anchors.rightMargin: Design.spaceXl; y: Design.spaceL; tones: gallery.tones; text: "Close"; onClicked: gallery.closed() }
 
     Flickable {
         id: flick
         x: 0; y: top.y + top.height + Design.spaceL; width: parent.width; height: parent.height - y
-        contentWidth: width; contentHeight: columns.height + Design.space3xl
+        contentWidth: width; contentHeight: scenes.y + scenes.height + Design.space3xl
         clip: true; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
         // Three columns side by side when they fit, below each other when not.
@@ -133,6 +138,70 @@ Rectangle {
                             Repeater {
                                 model: [Design.space2xs, Design.spaceXs, Design.spaceS, Design.spaceM, Design.spaceL, Design.spaceXl, Design.space2xl, Design.space3xl]
                                 Rectangle { required property int modelData; anchors.bottom: parent.bottom; width: modelData; height: modelData; color: column.t.accent; opacity: 0.7 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // The window's own parts together: top bar, sidebar rows and pane
+        // headers, with sample workspaces and terminals.
+        Column {
+            id: scenes
+            x: Design.space3xl; y: columns.y + columns.height + Design.space3xl; width: flick.width - 2 * Design.space3xl; spacing: Design.spaceXl
+            Repeater {
+                model: gallery.themes
+                Rectangle {
+                    id: scene
+                    required property var modelData
+                    readonly property var t: modelData.tones
+                    width: scenes.width; height: 300
+                    color: t.background; radius: Design.radiusXl; border.width: Design.line; border.color: t.border; clip: true
+                    Rectangle { x: Design.line; y: Design.line; width: parent.width - 2 * Design.line; height: 40; radius: Design.radiusXl; color: scene.t.surface }
+                    Rectangle { x: Design.line; y: 40; width: 240; height: parent.height - 40 - Design.line; color: scene.t.surface }
+                    Text { x: Design.spaceXl; y: 12; text: scene.modelData.label; color: scene.t.muted; font.pixelSize: Design.textSmall; font.weight: Font.DemiBold }
+                    TopBar {
+                        x: 248; y: 4; width: parent.width - x - Design.spaceL
+                        tones: scene.t; workspaceName: "Band"; focusPosition: 1
+                        markers: [{title: "claude", selected: false, waiting: true}, {title: "zsh", selected: true, waiting: false}, {title: "htop", selected: false, waiting: false}]
+                        inView: position => position < 2
+                    }
+                    Column {
+                        x: Design.spaceM; y: 48; width: 240 - 2 * Design.spaceM; spacing: Design.space2xs
+                        Item {
+                            width: parent.width; height: 44
+                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Band"; count: 3; waiting: 1; dirty: true; selected: true }
+                            ChromeButton { x: parent.width - 26; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 28; tones: scene.t; iconName: "chevron"; hint: "Hide panes" }
+                        }
+                        SidebarPane { x: Design.spaceL; width: parent.width - Design.spaceL; tones: scene.t; kindIcon: "agents"; iconTone: "waiting"; title: "claude"; detail: "~/Code/band" }
+                        SidebarPane { x: Design.spaceL; width: parent.width - Design.spaceL; tones: scene.t; title: "zsh"; detail: "~/Code/band/crates"; dirty: true; selected: true }
+                        SidebarPane { x: Design.spaceL; width: parent.width - Design.spaceL; tones: scene.t; kindIcon: "apps"; iconTone: "waiting"; title: "htop"; detail: "Stopped" }
+                        Item {
+                            width: parent.width; height: 44
+                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Side project"; branch: "feature/sync"; count: 2 }
+                            ChromeButton { x: parent.width - 26; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 28; rotation: -90; tones: scene.t; iconName: "chevron"; hint: "Show panes" }
+                        }
+                    }
+                    // Side by side when each pane gets 320 px, stacked otherwise.
+                    Grid {
+                        x: 252; y: 48; spacing: Design.spaceL
+                        readonly property bool wide: scene.width - x - Design.spaceL - spacing >= 640
+                        columns: wide ? 2 : 1
+                        readonly property real paneWidth: wide ? (scene.width - x - Design.spaceL - spacing) / 2 : scene.width - x - Design.spaceL
+                        readonly property real paneHeight: wide ? scene.height - 60 : (scene.height - 60 - spacing) / 2
+                        Repeater {
+                            model: [{name: "claude", place: "~/Code/band", icon: "agents", agentState: "Needs input", waiting: true, focused: false, dirty: false, own: -1},
+                                    {name: "zsh", place: "~/Code/band/crates", icon: "shell", agentState: "", waiting: false, focused: true, dirty: true, own: 2}]
+                            Rectangle {
+                                required property var modelData
+                                width: parent.paneWidth; height: parent.paneHeight
+                                color: scene.t.surface; radius: Design.radiusM; border.width: Design.line; border.color: modelData.focused ? scene.t.accent : scene.t.border
+                                PaneHeader {
+                                    width: parent.width; tones: scene.t; icon: parent.modelData.icon; name: parent.modelData.name; place: parent.modelData.place
+                                    agentState: parent.modelData.agentState; needsInput: parent.modelData.waiting; focused: parent.modelData.focused; dirty: parent.modelData.dirty
+                                    ownTheme: parent.modelData.own; colorsEnabled: false
+                                }
+                                Text { x: 12; y: 44; text: "$ "; color: scene.t.foreground; font.family: "monospace"; font.pixelSize: Design.textBody }
                             }
                         }
                     }
