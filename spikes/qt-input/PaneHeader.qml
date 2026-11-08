@@ -5,7 +5,7 @@ import Band.Design
 
 // The line above a terminal: its kind, name and place, uncommitted changes, its
 // own colors, the agent state, and for the focused pane its width, full-width
-// and close actions. Presentation only; the pane passes facts in and handles
+// and close actions, drawn while the pointer is over the header. Presentation only; the pane passes facts in and handles
 // the signals. The gallery shows it with sample facts.
 Item {
     id: header
@@ -31,6 +31,8 @@ Item {
     signal colorsClicked()
     signal menuClicked(Item anchor)
     height: 32
+    HoverHandler { id: headerHover }
+    property bool actionsShown: headerHover.hovered   // the gallery pins it on
 
     // Room for the identity left of the state, colors swatch and menu.
     readonly property real room: width - 51 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0) - (dirtyMark.visible ? 14 : 0)
@@ -79,9 +81,11 @@ Item {
         text: header.agentState; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textSmall
         color: header.needsInput ? header.tones.waiting : header.agentState === "Ready" ? header.tones.ready : header.tones.muted
     }
-    // The focused pane's own actions; they leave keyboard focus in the terminal.
+    // The focused pane's own actions, shown on hover; their room stays reserved
+    // so the title does not move. They leave keyboard focus in the terminal.
     Row {
         id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 0; spacing: Design.space2xs; visible: header.focused
+        opacity: header.actionsShown ? 1 : 0
         ChromeButton { objectName: "paneWidthButton"; tones: header.tones; height: 28; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: header.widthClicked() }
         ChromeButton {
             objectName: "paneFullButton"; tones: header.tones; height: 28; focusPolicy: Qt.NoFocus; iconName: "full"; selected: header.fullWidth

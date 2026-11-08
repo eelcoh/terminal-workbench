@@ -199,7 +199,7 @@ Rectangle {
                                 PaneHeader {
                                     width: parent.width; tones: scene.t; icon: parent.modelData.icon; name: parent.modelData.name; place: parent.modelData.place
                                     agentState: parent.modelData.agentState; needsInput: parent.modelData.waiting; focused: parent.modelData.focused; dirty: parent.modelData.dirty
-                                    ownTheme: parent.modelData.own; colorsEnabled: false
+                                    ownTheme: parent.modelData.own; colorsEnabled: false; actionsShown: parent.modelData.focused   // as under the pointer
                                 }
                                 Text { x: 12; y: 44; text: "$ "; color: scene.t.foreground; font.family: "monospace"; font.pixelSize: Design.textBody }
                             }

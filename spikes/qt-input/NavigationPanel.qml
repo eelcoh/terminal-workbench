@@ -18,7 +18,7 @@ Item {
     // Workspace ID → opened or closed by hand; otherwise only the current
     // workspace shows its panes.
     property var expandedSpaces: ({})
-    // The footer filter narrows Workspaces (names and panes) and Apps.
+    // The filter at the top narrows Workspaces (names and panes) and Apps.
     readonly property string filter: sidebarFilter.text.trim().toLocaleLowerCase()
     onWorkspacesChanged: sidebarFilter.clear()
     onAppsChanged: sidebarFilter.clear()
@@ -104,6 +104,16 @@ Item {
     // The rail names the section and holds the pin, so the panel has no title
     // and the list starts at the top.
     Item { id: header; x: 14; y: 14; width: 0; height: 0 }
+    // The filter heads the list in every section, as the agents search does.
+    ContextSearch {
+        id: sidebarFilter; objectName: "navigationFilter"; x: 14; y: header.y; width: parent.width - 28; tones: host.chrome
+        visible: createFooter.visible
+        placeholderText: navigation.apps ? "Filter apps…" : navigation.hosts ? "Filter hosts…" : "Filter workspaces and panes…"
+        Accessible.name: navigation.apps ? "Filter running apps by name or workspace" : "Filter workspaces and panes by name, program or folder"
+        onStepRequested: direction => navigation.focusFirstRow()
+        onAccepted: if (!inputMethodComposing) navigation.focusFirstRow()
+        onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
+    }
     Column {
         id: agentFilters; x: 14; y: header.y; width: parent.width - 28; spacing: Design.spaceS
         visible: navigation.agents
@@ -126,7 +136,7 @@ Item {
         }
     }
     Flickable {
-        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps || navigation.hosts ? createFooter.y - y - 12 : parent.height - y - 54)
+        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : sidebarFilter.y + sidebarFilter.height + 12; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps || navigation.hosts ? createFooter.y - y - 12 : parent.height - y - 54)
         clip: true; contentHeight: body.height; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Column {
@@ -227,7 +237,7 @@ Item {
                                 // The program leads and the folder follows, as in pane headers;
                                 // without a program name the folder leads.
                                 kindIcon: identity.icon; title: identity.name || identity.place; dirty: identity.dirty
-                                detail: [identity.name ? identity.place : "", facts.branch || ""].filter(part => part).join(" · ")
+                                detail: identity.name ? identity.place : ""      // the place already names repository and branch
                                 iconTone: kind === "agent" ? (facts.needs_input ? "waiting" : facts.state === "Ready" ? "ready" : "accent")
                                     : kind === "app" ? (pane && pane.appStopped ? "waiting" : "ready") : "muted"
                                 onClicked: host.choosePane(modelData)
@@ -418,19 +428,10 @@ Item {
         }
     }
     Item {
-        id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; height: 94
+        id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; height: 36
         visible: navigation.workspaces || navigation.apps || navigation.hosts
-        Rectangle { width: parent.width; height: 1; color: host.chrome.border }
-        ContextSearch {
-            id: sidebarFilter; objectName: "navigationFilter"; y: 12; width: parent.width; tones: host.chrome
-            placeholderText: navigation.apps ? "Filter apps…" : navigation.hosts ? "Filter hosts…" : "Filter workspaces and panes…"
-            Accessible.name: navigation.apps ? "Filter running apps by name or workspace" : "Filter workspaces and panes by name, program or folder"
-            onStepRequested: direction => navigation.focusFirstRow()
-            onAccepted: if (!inputMethodComposing) navigation.focusFirstRow()
-            onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
-        }
         ChromeButton {
-            objectName: "newHostButton"; visible: navigation.hosts; y: 54; width: parent.width; height: 36
+            objectName: "newHostButton"; visible: navigation.hosts; y: 0; width: parent.width; height: 36
             tones: host.chrome; text: "New host…"; hint: "Save an SSH destination; [host.ID] in config.conf works too"
             contentItem: Row {
                 spacing: Design.spaceM; leftPadding: Design.spaceM
@@ -441,7 +442,7 @@ Item {
             onClicked: host.newHost()
         }
         ChromeButton {
-            id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width; height: 36; visible: navigation.apps
+            id: addApplications; objectName: "addApplicationsButton"; y: 0; width: parent.width; height: 36; visible: navigation.apps
             tones: host.chrome; text: "Add applications…"; enabled: host.spaces.length > 0
             keys: studyShortcuts.labels["apps"] || ""
             contentItem: Row {
@@ -456,7 +457,7 @@ Item {
             onClicked: host.openCatalog()
         }
         ChromeButton {
-            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 54; width: parent.width; height: 36
+            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 0; width: parent.width; height: 36
             tones: host.chrome; text: "New workspace…"; enabled: host.canCreateWorkspace
             keys: studyShortcuts.labels["new-workspace"] || ""
             contentItem: Row {
