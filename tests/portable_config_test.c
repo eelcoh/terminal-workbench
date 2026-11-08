@@ -55,7 +55,7 @@ int main(void)
     write_text(path,"band-config-v1\n[view]\nintegrated-title-bar = true\n[macos.view]\nintegrated-title-bar = false\n");
     assert(portable_read(path,false,&view,error,sizeof(error)) && view.integrated_title_bar);
     assert(portable_read(path,true,&view,error,sizeof(error)) && !view.integrated_title_bar);
-    assert(portable_read(NULL,false,&view,error,sizeof(error)) && !view.integrated_title_bar);
+    assert(portable_read(NULL,false,&view,error,sizeof(error)) && view.integrated_title_bar);
     write_text(path,"band-config-v1\n[view]\nintegrated-title-bar = yes\n");
     assert(!portable_read(path,false,&view,error,sizeof(error)));
     /* Apps: platform sections override [app.ID] fields or define a platform-only app. */

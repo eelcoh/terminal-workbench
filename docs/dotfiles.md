@@ -487,9 +487,11 @@ reduced-motion = true
 On Linux the window is frameless: Band draws minimize, maximize and close at the
 top right, empty top-bar space moves the window (double click maximizes) and the
 edges resize it. On macOS the traffic lights sit in the top bar (Qt 6.9 or
-later; not yet tried on a Mac). It applies live and is off by default.
+later; not yet tried on a Mac). It applies live and is on by default;
+`integrated-title-bar = false` brings back the system title bar.
 
-These fields accept only `true` or `false`; built-in defaults are false. Platform
+These fields accept only `true` or `false`; built-in defaults are false, except
+`integrated-title-bar`. Platform
 fields override shared fields independently, regardless of section order. They
 join the existing live configuration transaction: malformed values keep all
 previous valid settings, and open settings editors defer updates.

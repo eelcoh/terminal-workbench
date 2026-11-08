@@ -97,7 +97,7 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
 {
     if (apps) apps->count=0;
     if (hosts) hosts->count=0;
-    PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default(),.terminal_width=0.5};
+    PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default(),.terminal_width=0.5,.integrated_title_bar=true};
     if (!path) { *out=next;return true; }
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
@@ -280,7 +280,8 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
     PortableLayer *platform=&layers[apple ? 2 : 1];
     next.navigation_pinned=platform->has_navigation_pinned ? platform->navigation_pinned : layers[0].navigation_pinned;
     next.reduced_motion=platform->has_reduced_motion ? platform->reduced_motion : layers[0].reduced_motion;
-    next.integrated_title_bar=platform->has_integrated_title_bar ? platform->integrated_title_bar : layers[0].integrated_title_bar;
+    // The title bar folds into Band's top bar unless the config turns it off.
+    next.integrated_title_bar=platform->has_integrated_title_bar ? platform->integrated_title_bar : layers[0].has_integrated_title_bar ? layers[0].integrated_title_bar : true;
     snprintf(next.workspace_directory,sizeof(next.workspace_directory),"%s",platform->has_directory ? platform->workspace_directory : layers[0].workspace_directory);
     if (layers[0].has_width) next.terminal_width=layers[0].terminal_width;
     if (platform->has_width) next.terminal_width=platform->terminal_width;

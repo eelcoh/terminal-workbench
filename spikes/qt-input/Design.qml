@@ -6,13 +6,15 @@ import QtQuick
 // Changing a value here changes it everywhere. See docs/design.md.
 QtObject {
     // Type, in pixels. One step per role; the comments say what each is for.
-    readonly property int textCaption: 11   // badges, key chips, counts
-    readonly property int textSmall: 12     // secondary lines, hints, captions
-    readonly property int textBody: 13      // list rows, field text, explanations
-    readonly property int textControl: 14   // buttons, menu items, pane names
-    readonly property int textHeading: 16   // a heading inside a view
-    readonly property int textTitle: 20     // dialog and panel titles
-    readonly property int textDisplay: 28   // the welcome
+    // On macOS every step is a pixel smaller: the same sizes read large there.
+    readonly property int textShift: Qt.platform.os === "osx" ? -1 : 0
+    readonly property int textCaption: 11 + textShift   // badges, key chips, counts, sidebar details
+    readonly property int textSmall: 12 + textShift     // secondary lines, hints, captions
+    readonly property int textBody: 13 + textShift      // list rows, field text, explanations
+    readonly property int textControl: 14 + textShift   // buttons, menu items, pane names
+    readonly property int textHeading: 16 + textShift   // a heading inside a view
+    readonly property int textTitle: 20 + textShift     // dialog and panel titles
+    readonly property int textDisplay: 28 + textShift   // the welcome
 
     // Space between and around things, in pixels.
     readonly property int space2xs: 2

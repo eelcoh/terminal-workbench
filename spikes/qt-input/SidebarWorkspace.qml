@@ -11,12 +11,12 @@ ChromeButton {
     property int count: 0
     property int waiting: 0
     property bool dirty: false
-    height: 44; leftAligned: true
+    height: 36; leftAligned: true
     trailingText: String(count)
     contentItem: Item {
         Row {
             anchors.left: parent.left; anchors.leftMargin: Design.spaceM; anchors.right: totals.left; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceS
-            Text { id: workspaceName; width: Math.min(implicitWidth, parent.width - (workspaceBranch.visible ? Math.min(workspaceBranch.implicitWidth, parent.width * 0.45) + 6 : 0)); text: entry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.tones.foreground; font.pixelSize: Design.textControl }
+            Text { id: workspaceName; width: Math.min(implicitWidth, parent.width - (workspaceBranch.visible ? Math.min(workspaceBranch.implicitWidth, parent.width * 0.45) + 6 : 0)); text: entry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.tones.foreground; font.pixelSize: Design.textBody; font.weight: Font.DemiBold }
             Text {
                 id: workspaceBranch; objectName: "workspaceBranch" + entry.row; visible: entry.branch.length > 0; anchors.baseline: workspaceName.baseline
                 width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: entry.branch; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.tones.muted; font.pixelSize: Design.textSmall

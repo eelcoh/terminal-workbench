@@ -102,22 +102,18 @@ Item {
         else if (row.y + row.height > list.contentY + list.height) list.contentY = Math.max(0, row.y + row.height - list.height)
         row.button.forceActiveFocus(Qt.TabFocusReason)
     }
-    Row {
-        id: header; x: 14; y: 14; spacing: Design.space2xs
-        // Each rail icon owns this panel's content; the title names it.
-        Label {
-            objectName: "navigationTitle"; width: 184; height: 28; leftPadding: Design.spaceM; verticalAlignment: Text.AlignVCenter
-            text: navigation.agents ? "Agents" : navigation.apps ? "Apps" : navigation.hosts ? "Hosts" : "Workspaces"; color: host.chrome.foreground; font.pixelSize: Design.textControl; font.weight: Font.DemiBold
-        }
-        ChromeButton {
-            objectName: "navigationPin"; tones: host.chrome; iconName: "pin"; selected: host.navigationPinned
-            enabled: host.width >= 920 || host.navigationPinned
-            hint: host.navigationPinned ? "Unpin navigation" : host.width < 920 ? "Widen the window to pin navigation" : "Pin navigation"
-            onClicked: host.toggleNavigationPin()
-        }
+    // The rail names the section, so the panel has no title; the list starts
+    // at the top and the pin sits at the bottom right, beside the section's action.
+    Item { id: header; x: 14; y: 14; width: 0; height: 0 }
+    ChromeButton {
+        objectName: "navigationPin"; tones: host.chrome; iconName: "pin"; selected: host.navigationPinned; z: 1
+        x: parent.width - 14 - width; y: parent.height - 50
+        enabled: host.width >= 920 || host.navigationPinned
+        hint: host.navigationPinned ? "Unpin navigation" : host.width < 920 ? "Widen the window to pin navigation" : "Pin navigation"
+        onClicked: host.toggleNavigationPin()
     }
     Column {
-        id: agentFilters; x: 14; y: header.y + header.height + 12; width: parent.width - 28; spacing: Design.spaceS
+        id: agentFilters; x: 14; y: header.y; width: parent.width - 28; spacing: Design.spaceS
         visible: navigation.agents
         ContextSearch {
             id: agentSearch; objectName: "navigationAgentSearch"; width: parent.width; tones: host.chrome
@@ -135,7 +131,7 @@ Item {
         Label { width: parent.width; text: navigation.matches.length + " / " + host.agentIndices.length + " agents"; color: host.chrome.muted; font.pixelSize: Design.textSmall }
     }
     Flickable {
-        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y + header.height + 16; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps || navigation.hosts ? createFooter.y - y - 12 : parent.height - y - 14)
+        id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps || navigation.hosts ? createFooter.y - y - 12 : parent.height - y - 54)
         clip: true; contentHeight: body.height; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
         Column {
@@ -155,7 +151,11 @@ Item {
                     readonly property var panes: nameMatches ? allPanes : allPanes.filter(i => navigation.paneMatches(i))
                     visible: nameMatches || panes.length > 0
                     readonly property bool expanded: navigation.filter ? panes.length > 0 && !nameMatches || (navigation.expandedSpaces[identity] ?? index === host.workspace) : navigation.expandedSpaces[identity] ?? index === host.workspace
-                    width: body.width; height: 44 + (expanded && panes.length ? paneColumn.height + 4 : 0)
+                    width: body.width; height: 36 + (expanded && panes.length ? paneColumn.height + 4 : 0)
+                    // The caret and the remove button show while the pointer is over the
+                    // workspace or it has keyboard focus.
+                    HoverHandler { id: rowHover }
+                    readonly property bool actionsShown: rowHover.hovered || workspaceEntry.activeFocus || removeWorkspace.visualFocus
                     function focusPane(k) {
                         if (!panes.length) return
                         const row = paneRows.itemAt(Math.max(0, Math.min(panes.length - 1, k)))
@@ -169,7 +169,7 @@ Item {
                         objectName: "expandWorkspace" + parent.index
                         // The caret sits after the name, before the remove button.
                         x: workspaceEntry.x + workspaceEntry.width; anchors.verticalCenter: workspaceEntry.verticalCenter; width: 24; height: 28
-                        visible: workspaceRow.panes.length > 0; tones: host.chrome; iconName: "chevron"; rotation: workspaceRow.expanded ? 0 : -90
+                        visible: workspaceRow.panes.length > 0; opacity: workspaceRow.actionsShown ? 1 : 0; tones: host.chrome; iconName: "chevron"; rotation: workspaceRow.expanded ? 0 : -90
                         focusPolicy: Qt.NoFocus
                         hint: (workspaceRow.expanded ? "Hide panes of " : "Show panes of ") + (host.spaces[parent.index] || "workspace")
                         onClicked: navigation.setExpanded(workspaceRow.identity, !workspaceRow.expanded)
@@ -202,7 +202,7 @@ Item {
                         onClicked: host.chooseWorkspace(parent.index)
                     }
                     Column {
-                        id: paneColumn; x: Design.spaceL; y: 48; width: parent.width - Design.spaceL; spacing: Design.space2xs
+                        id: paneColumn; x: Design.spaceL; y: 40; width: parent.width - Design.spaceL; spacing: Design.space2xs
                         visible: workspaceRow.expanded
                         Repeater {
                             id: paneRows; model: workspaceRow.expanded ? workspaceRow.panes : []
@@ -228,7 +228,8 @@ Item {
                                 }
                                 // The program leads and the folder follows, as in pane headers;
                                 // without a program name the folder leads.
-                                kindIcon: identity.icon; title: identity.name || identity.place; detail: identity.name ? identity.place : ""; dirty: identity.dirty
+                                kindIcon: identity.icon; title: identity.name || identity.place; dirty: identity.dirty
+                                detail: [identity.name ? identity.place : "", facts.branch || ""].filter(part => part).join(" · ")
                                 iconTone: kind === "agent" ? (facts.needs_input ? "waiting" : facts.state === "Ready" ? "ready" : "accent")
                                     : kind === "app" ? (pane && pane.appStopped ? "waiting" : "ready") : "muted"
                                 onClicked: host.choosePane(modelData)
@@ -236,9 +237,9 @@ Item {
                         }
                     }
                     ChromeButton {
-                        objectName: "removeWorkspace" + parent.index
+                        id: removeWorkspace; objectName: "removeWorkspace" + parent.index
                         anchors.right: parent.right; anchors.verticalCenter: workspaceEntry.verticalCenter
-                        tones: host.chrome; iconName: "close"; opacity: hovered || visualFocus ? 1 : 0.65
+                        tones: host.chrome; iconName: "close"; opacity: !workspaceRow.actionsShown ? 0 : hovered || visualFocus ? 1 : 0.65
                         hint: "Remove " + (host.spaces[parent.index] || "workspace") + "…"
                         enabled: !session.busy && host.dragSlot < 0
                         Keys.onPressed: event => {
@@ -428,7 +429,7 @@ Item {
             onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
         }
         ChromeButton {
-            objectName: "newHostButton"; visible: navigation.hosts; y: 54; width: parent.width; height: 36
+            objectName: "newHostButton"; visible: navigation.hosts; y: 54; width: parent.width - 36; height: 36
             tones: host.chrome; text: "New host…"; hint: "Save an SSH destination; [host.ID] in config.conf works too"
             contentItem: Row {
                 spacing: Design.spaceM; leftPadding: Design.spaceM
@@ -439,7 +440,7 @@ Item {
             onClicked: host.newHost()
         }
         ChromeButton {
-            id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width; height: 36; visible: navigation.apps
+            id: addApplications; objectName: "addApplicationsButton"; y: 54; width: parent.width - 36; height: 36; visible: navigation.apps
             tones: host.chrome; text: "Add applications…"; enabled: host.spaces.length > 0
             keys: studyShortcuts.labels["apps"] || ""
             contentItem: Row {
@@ -454,7 +455,7 @@ Item {
             onClicked: host.openCatalog()
         }
         ChromeButton {
-            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 54; width: parent.width; height: 36
+            objectName: "newWorkspaceButton"; visible: navigation.workspaces; y: 54; width: parent.width - 36; height: 36
             tones: host.chrome; text: "New workspace…"; enabled: host.canCreateWorkspace
             keys: studyShortcuts.labels["new-workspace"] || ""
             contentItem: Row {

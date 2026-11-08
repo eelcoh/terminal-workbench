@@ -69,6 +69,13 @@ test opens it from Commands and saves `design-gallery.png`.
   in the top bar ([minimal chrome](minimal-chrome.md)).
 - In the sidebar the caret that opens a workspace's panes sits on the right of
   its name, before the remove button, so the names line up with the left edge.
+- One bar at the top: the system title bar folds into Band's top bar by default
+  (`integrated-title-bar`), which keeps the pane strip.
+- Fewer layers in the sidebar: no panel title (the rail names the section; the
+  pin sits at the bottom right), workspace names at body size in semibold, the
+  caret and remove button only on hover or keyboard focus, and each terminal on
+  two lines with its folder and branch in caption size under the name.
+- On macOS every type step is a pixel smaller.
 
 ## Still to do in stage 1
 
