@@ -22,6 +22,17 @@ int main(void)
     assert(mac.shortcuts.bindings[COMMAND_TERMINAL_CREATE].mods==12);
     assert(linux_config.terminal.background.r==0x12 && linux_config.terminal.background.g==0x34);
     assert(theme_light(&linux_config.application) && linux_config.has_follow && linux_config.follow);
+    /* ~/ in a theme path is the home folder, whatever the config directory. */
+    {
+        const char *saved=getenv("HOME");char *home=saved ? strdup(saved) : NULL;
+        setenv("HOME",getenv("WB_TEST_DIRECTORY"),1);
+        write_text(path,"band-config-v1\n[appearance]\nterminal-theme = ~/custom-theme\n");
+        PortableConfig tilde={0};
+        assert(portable_read(path,false,&tilde,error,sizeof(error)) && tilde.terminal.background.r==0x12);
+        write_text(path,"band-config-v1\n[appearance]\nterminal-theme = ~/absent-theme\n");
+        assert(!portable_read(path,false,&tilde,error,sizeof(error)));
+        if (home) { setenv("HOME",home,1);free(home); } else unsetenv("HOME");
+    }
     write_text(path,"band-config-v1\n[macos.appearance]\napplication-theme = Workbench Night\nfollow-workspace = false\n[appearance]\napplication-theme = Workbench Dawn\nfollow-workspace = true\n");
     PortableConfig platform_colors;
     assert(portable_read(path,true,&platform_colors,error,sizeof(error)) && !theme_light(&platform_colors.application) && !platform_colors.follow);

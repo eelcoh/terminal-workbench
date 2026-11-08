@@ -167,11 +167,43 @@ pub fn prepare_config_directory() -> Result<PathBuf> {
     if env("BAND_CONFIG_DIR").is_some_and(|value| !value.is_empty()) {
         return Ok(directory);
     }
-    migrate_previous_config(&config_base().join("terminal-workbench"), &directory)?;
-    if cfg!(target_os = "macos") {
-        migrate_macos_config(&home(), &directory)?;
-    }
+    // The record of the copy lives with Band's state, so deleting the
+    // preferences folder starts from the example config, not the old settings.
+    let marker = session_directory()?.join(".imported-previous-config");
+    import_previous_config(
+        &config_base().join("terminal-workbench"),
+        &home(),
+        &directory,
+        &marker,
+        cfg!(target_os = "macos"),
+    )?;
     Ok(directory)
+}
+
+fn import_previous_config(
+    previous: &Path,
+    home: &Path,
+    directory: &Path,
+    marker: &Path,
+    macos: bool,
+) -> Result<()> {
+    if marker.symlink_metadata().is_ok() {
+        return Ok(());
+    }
+    migrate_previous_config(previous, directory)?;
+    let legacy = home.join("Library/Application Support/Terminal Workbench");
+    if macos {
+        migrate_macos_config(home, directory)?;
+    }
+    // Also recorded when an earlier version already copied them.
+    if (previous.is_dir() || macos && legacy.is_dir()) && directory.is_dir() {
+        create_private(marker.parent().unwrap_or(Path::new(".")))?;
+        publish_once(
+            marker,
+            b"Preferences from before the rename to Band were copied once.\n",
+        )?;
+    }
+    Ok(())
 }
 
 fn migrate_previous_config(previous: &Path, directory: &Path) -> Result<()> {
@@ -705,6 +737,42 @@ mod tests {
         assert_eq!(info["revision"], revision);
         assert_eq!(info["qt_bundled"], true);
         assert_eq!(info["source_dirty"], false);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn previous_config_is_imported_once_even_after_deleting_band_preferences() {
+        let root = std::env::temp_dir().join(format!("wb-import-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let home = root.join("home");
+        let previous = home.join(".config/terminal-workbench");
+        fs::create_dir_all(&previous).unwrap();
+        fs::write(previous.join("config.conf"), "old settings").unwrap();
+        let target = home.join(".config/band");
+        let marker = root.join("state/band/.imported-previous-config");
+        import_previous_config(&previous, &home, &target, &marker, false).unwrap();
+        assert_eq!(
+            fs::read_to_string(target.join("config.conf")).unwrap(),
+            "old settings"
+        );
+        assert!(marker.exists());
+        // Deleting Band's folder does not bring the old settings back.
+        fs::remove_dir_all(&target).unwrap();
+        import_previous_config(&previous, &home, &target, &marker, false).unwrap();
+        assert!(!target.exists());
+        assert!(previous.join("config.conf").exists());
+        // Without earlier settings nothing is recorded.
+        let fresh = root.join("fresh");
+        let none = root.join("state/none/.imported-previous-config");
+        import_previous_config(
+            &fresh.join("missing"),
+            &fresh,
+            &fresh.join("band"),
+            &none,
+            true,
+        )
+        .unwrap();
+        assert!(!none.exists());
         fs::remove_dir_all(root).unwrap();
     }
 

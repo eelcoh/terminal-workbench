@@ -81,8 +81,13 @@ static bool portable_theme(const char *config,const char *value,Theme *out,char 
     if (!theme_catalog_load(themes,ignored,error,capacity)) return false;
     for (int i=0;i<THEME_CATALOG_COUNT;i++) if (!strcmp(value,theme_catalog_name(i))) { *out=themes[i];return true; }
     char path[2048];
+    const char *home=getenv("HOME");
     if (value[0]=='/') {
         if (snprintf(path,sizeof(path),"%s",value)>=(int)sizeof(path)) return false;
+    } else if (value[0]=='~' && value[1]=='/') {
+        /* ~/ is the home folder; other environment references stay literal. */
+        if (!home || !*home) { snprintf(error,capacity,"Cannot read configured theme: HOME is not set");return false; }
+        if (snprintf(path,sizeof(path),"%s%s",home,value+1)>=(int)sizeof(path)) return false;
     } else {
         const char *slash=strrchr(config,'/');int prefix=slash ? (int)(slash-config+1) : 0;
         if (snprintf(path,sizeof(path),"%.*s%s",prefix,config,value)>=(int)sizeof(path)) return false;

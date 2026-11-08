@@ -17,6 +17,9 @@ to create a commented example. Init preserves an existing file or symlink.
 
 Settings from before the rename to Band (`~/.config/terminal-workbench`) are
 copied once the first time the new directory is missing; the old folder stays.
+A note in Band's state folder (`~/.local/state/band/.imported-previous-config`)
+records the copy, so deleting `~/.config/band` later starts from the example
+config instead of the old settings.
 Files with the old `workbench-config-v1` and `workbench-shortcuts-v1` headers
 are still read; new files are written as `band-config-v1` / `band-shortcuts-v1`.
 
@@ -66,8 +69,9 @@ Appearance supports `application-theme`, `terminal-theme` and
 `follow-workspace = true/false`. Themes may name any bundled gallery palette,
 including `Workbench Night`, `Workbench Dawn`, `Dracula` and the Catppuccin
 palettes, or point to a [supported Ghostty color file](appearance.md).
-File paths may be absolute or relative to the configured directory; `~` and
-environment variables inside values are not expanded.
+File paths may be absolute, start with `~/` for the home folder, or be relative
+to the configured directory; other environment variables inside values are not
+expanded.
 
 Both appearance and shortcuts allow `[linux.appearance]`, `[macos.appearance]`,
 `[linux.shortcuts]` and `[macos.shortcuts]`. The platform section always wins
@@ -271,7 +275,8 @@ On macOS, startup copies existing preferences from the previous
 themes and Mac UI settings are copied only where a destination does not already
 exist; existing destination symlinks are left alone. Original files stay intact,
 and session/runtime data is never copied. Explicit `BAND_CONFIG_DIR` overrides
-skip this migration. A marker prevents removed settings/themes from reappearing.
+skip this migration. Markers prevent removed settings, themes or the whole
+folder from reappearing.
 
 
 ## Qt live font and shortcut configuration

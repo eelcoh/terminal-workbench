@@ -24,6 +24,7 @@ QString UiAppearance::sourcePath() const
     QString error;const auto value=source(error);
     if(!error.isEmpty() || value.isEmpty())return {};
     for(int i=0;i<workbench_theme_builtin_count();++i)if(value==QString::fromUtf8(workbench_theme_name(i)))return {};
+    if(value.startsWith("~/"))return QDir::homePath()+value.mid(1);
     return QDir(QFileInfo(path_).absolutePath()).absoluteFilePath(value);
 }
 bool UiAppearance::saved() const {return !overrides_.isEmpty() && (QFileInfo::exists(overrides_) || QFileInfo(overrides_).isSymLink());}
