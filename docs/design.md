@@ -39,13 +39,28 @@ Dots, badges and pills keep a radius of half their size. Positions and sizes
 inside layouts (`x`, `y`, widths) still use numbers of their own; they move to
 the spacing steps as the designer touches each surface.
 
+## Gallery
+
+Commands → **Design gallery** opens `Gallery.qml` over the main area; Escape or
+Close leaves it. It shows the shared components under three terminal themes:
+the workspace's own, Workbench Dawn (light) and Dracula (saturated):
+- the type steps with their roles;
+- buttons: normal, hover, pressed, focus, selected, disabled, primary, primary
+  with focus, and icon-only;
+- a popup surface with menu items: normal, hover, focus, checked, disabled;
+- key chips, the accent, ready and waiting marks, the radii and the spacing
+  steps.
+
+Hover, pressed and focus are shown without a pointer through a `preview`
+property on `ChromeButton` and `ChromeMenuItem`. The columns sit side by side
+when they fit, at least 340 px each, and below each other otherwise. The UI
+test opens it from Commands and saves `design-gallery.png`.
+
 ## Still to do in stage 1
 
-- The gallery: a window showing every component in each state (normal, hover,
-  selected, disabled, focus) under a light, a dark and an unusual terminal
-  theme. The pane header, the sidebar rows and the top bar live inside
-  `Ui.qml` and `NavigationPanel.qml`, so they must become components before the
-  gallery can show them.
+- The gallery has only the shared components so far. The pane header, the
+  sidebar rows and the top bar live inside `Ui.qml` and `NavigationPanel.qml`,
+  so they must become components before the gallery can show them.
 - The inventory: the UI test already captures most screens
   (`.local/artifacts/qt-ui/<platform>/*.png`). They need to be put next to Rex
   screenshots of the same tasks, on Linux and the Mac.

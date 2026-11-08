@@ -56,6 +56,7 @@ QtObject {
         row("configuration", "Configuration", "Show managed files and preference locations", true, ""),
         row("configuration-reload", "Reload configuration", "Read font and shortcut files without restarting terminals", !studyConfiguration.editing, "Close settings editors first"),
         row("new-host", "New host…", "Save an SSH destination to connect to from Hosts or Commands", true, ""),
+        row("gallery", "Design gallery", "Every component in each state under three themes, for design work", true, ""),
         row("welcome", "Welcome to Band", "Sidebar and motion, apps to open, and the keys worth knowing", true, ""),
         row("about", "About Band", "Show this client build and copy installation diagnostics", true, "")
     ].concat(host.hostDefinitions.map(saved => row("host:" + saved.id, "Connect to " + saved.name,

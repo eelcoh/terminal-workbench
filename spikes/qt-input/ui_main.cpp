@@ -261,7 +261,7 @@ int main(int argc,char **argv) {
                 {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},
                 {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},
                 {"commands_open",window->property("commandsOpen").toBool()},
-                {"welcome_open",window->property("welcomeOpen").toBool()},{"help_open",window->property("helpOpen").toBool()},{"running_apps",QJsonArray::fromVariantList(listProperty(window,"runningApps"))},
+                {"welcome_open",window->property("welcomeOpen").toBool()},{"gallery_open",[window]{const auto *item=window->findChild<QQuickItem *>("gallery");return item && item->isVisible();}()},{"gallery_close",center("galleryClose")},{"help_open",window->property("helpOpen").toBool()},{"running_apps",QJsonArray::fromVariantList(listProperty(window,"runningApps"))},
                 {"worktree_repository",worktrees.repository()},{"worktree_busy",worktrees.busy()},{"worktree_error",worktrees.error()},{"workspace_branch_input",center("workspaceBranchInput")},
                 {"title_integrated",window->property("titleIntegrated").toBool()},{"window_frameless",window->flags().testFlag(Qt::FramelessWindowHint)},
                 {"window_buttons",[window]{const auto *row=window->findChild<QQuickItem *>("windowButtons");return row && row->isVisible();}()},{"window_minimize",center("windowMinimize")},{"welcome_step",[window]{const auto *item=window->findChild<QQuickItem *>("welcome");return item ? item->property("step").toInt() : -1;}()},

@@ -1701,6 +1701,13 @@ while True:
         def entry(app_id):return next((e for e in data()['app_entries'] if e['id']==app_id),None)
         wait_until(lambda:entry('quick') and not data()['apps_checking'])
         assert [e['id'] for e in data()['app_entries'][:4]]==['echo','later','broken','quick'] and entry('lazygit')['builtin'] and len(data()['app_entries'])>100
+        # The design gallery opens from Commands and shows every component under
+        # three themes; Escape and Close both leave it.
+        command_search('Design gallery');key('Return');wait_until(lambda:data()['gallery_open'] and not data()['commands_open'])
+        time.sleep(.2);capture('design-gallery.png')
+        key('Escape');wait_until(lambda:not data()['gallery_open'])
+        command_search('Design gallery');key('Return');wait_until(lambda:data()['gallery_open'])
+        click(*settled_point(lambda d:d['gallery_close']));wait_until(lambda:not data()['gallery_open'])
         # Commands opens the welcome again; its apps step lists installed apps
         # and Browse the catalog leaves it for the catalog.
         command_search('Welcome to Band');key('Return');wait_until(lambda:data()['welcome_open'] and data()['welcome_step']==0 and not data()['commands_open'])

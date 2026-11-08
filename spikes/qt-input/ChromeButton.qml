@@ -15,6 +15,11 @@ Button {
     property bool leftAligned: false
     property string trailingText: ""
     property bool fixedPalette: false
+    // The gallery shows a state without a pointer: "hover", "down" or "focus".
+    property string preview: ""
+    readonly property bool showHover: hovered || preview === "hover"
+    readonly property bool showDown: down || preview === "down"
+    readonly property bool showFocus: visualFocus || preview === "focus"
     readonly property var colors: fixedPalette ? ({foreground: "#e0e6ef", muted: "#a5afbe", hover: "#323b4b", selected: "#2c3c51", accent: "#b4c9ec", raised: "#252d38", border: "#3a4657", background: "#101318"}) : tones
     // Text on the accent: the theme's background or foreground, whichever contrasts more.
     readonly property color onAccent: {
@@ -38,9 +43,9 @@ Button {
     // Hover is a neutral tint, selection an accent tint, keyboard focus an accent ring.
     background: Rectangle {
         radius: Design.radiusM
-        color: control.primary ? (control.down ? Qt.darker(control.colors.accent, 1.15) : control.hovered ? Qt.lighter(control.colors.accent, 1.08) : control.colors.accent)
-            : control.down || control.hovered ? control.colors.hover : control.selected ? control.colors.selected : control.visualFocus ? control.colors.hover : "transparent"
-        border.width: control.visualFocus ? (control.primary ? Design.lineStrong : Design.line) : 0; border.color: control.primary ? control.colors.foreground : control.colors.accent
+        color: control.primary ? (control.showDown ? Qt.darker(control.colors.accent, 1.15) : control.showHover ? Qt.lighter(control.colors.accent, 1.08) : control.colors.accent)
+            : control.showDown || control.showHover ? control.colors.hover : control.selected ? control.colors.selected : control.showFocus ? control.colors.hover : "transparent"
+        border.width: control.showFocus ? (control.primary ? Design.lineStrong : Design.line) : 0; border.color: control.primary ? control.colors.foreground : control.colors.accent
     }
     // A per-control tooltip stays themed and updates as its source text changes.
     ToolTip {

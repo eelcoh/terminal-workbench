@@ -384,6 +384,7 @@ ApplicationWindow {
         case "configuration-reload": if (studyConfiguration.reload()) { moveNotice = "Preferences reloaded"; moveNoticeTimer.restart() }; break
         case "about": about.open(); break
         case "welcome": openWelcome(); break
+        case "gallery": gallery.visible = true; gallery.forceActiveFocus(); break
         case "help": help.open(); break
         case "new-host": newHost(); break
         default: if (id.startsWith("host:")) connectHost(id.slice(5)); break
@@ -846,7 +847,7 @@ ApplicationWindow {
             pendingTerminalColors = false; Qt.callLater(showTerminalColors)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !welcome.visible && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible && !appCatalog.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !welcome.visible && !gallery.visible && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible && !appCatalog.visible) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -1453,6 +1454,12 @@ ApplicationWindow {
         x: window.navigationEdge; y: 0; width: parent.width - x; height: parent.height
         host: window; tones: window.chrome
         onFinished: (apps, browse) => window.finishWelcome(apps, browse)
+    }
+    Gallery {
+        id: gallery; objectName: "gallery"; visible: false; z: 40
+        x: window.navigationEdge; y: 0; width: parent.width - x; height: parent.height
+        host: window; tones: window.chrome
+        onClosed: { visible = false; window.contentItem.forceActiveFocus() }
     }
     NavigationPanel {
         id: navigation
