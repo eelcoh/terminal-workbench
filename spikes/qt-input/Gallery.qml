@@ -169,16 +169,16 @@ Rectangle {
                     Column {
                         x: Design.spaceM; y: 48; width: 240 - 2 * Design.spaceM; spacing: Design.space2xs
                         Item {
-                            width: parent.width; height: 36
-                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Band"; count: 3; waiting: 1; dirty: true; selected: true }
+                            width: parent.width; height: 28
+                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Band"; count: 3; waiting: 1; dirty: true; current: true }
                             ChromeButton { x: parent.width - 26; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 28; tones: scene.t; iconName: "chevron"; hint: "Hide panes" }
                         }
-                        SidebarPane { x: Design.spaceL; width: parent.width - Design.spaceL; tones: scene.t; kindIcon: "agents"; iconTone: "waiting"; title: "claude"; detail: "~/Code/band · main" }
-                        SidebarPane { x: Design.spaceL; width: parent.width - Design.spaceL; tones: scene.t; title: "zsh"; detail: "~/Code/band/crates · main"; dirty: true; selected: true }
-                        SidebarPane { x: Design.spaceL; width: parent.width - Design.spaceL; tones: scene.t; kindIcon: "apps"; iconTone: "waiting"; title: "htop"; detail: "Stopped" }
+                        SidebarPane { width: parent.width; tones: scene.t; kindIcon: "agents"; iconTone: "waiting"; title: "claude"; detail: "~/Code/band · main" }
+                        SidebarPane { width: parent.width; tones: scene.t; title: "zsh"; detail: "~/Code/band/crates · main"; dirty: true; selected: true }
+                        SidebarPane { width: parent.width; tones: scene.t; kindIcon: "apps"; iconTone: "waiting"; title: "htop"; detail: "Stopped" }
                         Item {
-                            width: parent.width; height: 36
-                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Side project"; branch: "feature/sync"; count: 2 }
+                            width: parent.width; height: 28
+                            SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Side project"; branch: "feature/sync"; count: 2; expanded: false }
                             ChromeButton { x: parent.width - 26; anchors.verticalCenter: parent.verticalCenter; width: 24; height: 28; rotation: -90; tones: scene.t; iconName: "chevron"; hint: "Show panes" }
                         }
                     }

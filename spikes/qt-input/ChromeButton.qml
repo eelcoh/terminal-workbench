@@ -14,6 +14,7 @@ Button {
     property bool primary: false
     property bool leftAligned: false
     property string trailingText: ""
+    property int textSize: Design.textControl
     property bool fixedPalette: false
     // The gallery shows a state without a pointer: "hover", "down" or "focus".
     property string preview: ""
@@ -36,7 +37,7 @@ Button {
     contentItem: Item {
         implicitWidth: control.iconOnly ? 20 : label.implicitWidth + (trailing.implicitWidth > 0 ? trailing.implicitWidth + 16 : 0)
         opacity: control.enabled ? 1 : 0.38
-        Text { id: label; x: 8; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 16 - (trailing.implicitWidth > 0 ? trailing.implicitWidth + 16 : 0); horizontalAlignment: control.leftAligned ? Text.AlignLeft : Text.AlignHCenter; elide: Text.ElideRight; visible: !control.iconOnly; text: control.text; textFormat: Text.PlainText; color: control.primary ? control.onAccent : control.colors.foreground; font.pixelSize: Design.textControl; font.weight: control.primary ? Font.DemiBold : Font.Normal }
+        Text { id: label; x: 8; anchors.verticalCenter: parent.verticalCenter; width: parent.width - 16 - (trailing.implicitWidth > 0 ? trailing.implicitWidth + 16 : 0); horizontalAlignment: control.leftAligned ? Text.AlignLeft : Text.AlignHCenter; elide: Text.ElideRight; visible: !control.iconOnly; text: control.text; textFormat: Text.PlainText; color: control.primary ? control.onAccent : control.colors.foreground; font.pixelSize: control.textSize; font.weight: control.primary ? Font.DemiBold : Font.Normal }
         Text { id: trailing; anchors.right: parent.right; anchors.rightMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter; text: control.trailingText; color: control.colors.muted; font.pixelSize: Design.textSmall }
         ChromeIcon { anchors.centerIn: parent; width: 20; height: 20; visible: control.iconOnly; name: control.iconName; color: control.colors.foreground }
     }

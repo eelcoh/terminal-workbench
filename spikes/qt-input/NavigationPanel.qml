@@ -18,7 +18,6 @@ Item {
     // Workspace ID → opened or closed by hand; otherwise only the current
     // workspace shows its panes.
     property var expandedSpaces: ({})
-    Connections { target: host; function onWorkspaceChanged() { navigation.expandedSpaces = ({}) } }
     // The footer filter narrows Workspaces (names and panes) and Apps.
     readonly property string filter: sidebarFilter.text.trim().toLocaleLowerCase()
     onWorkspacesChanged: sidebarFilter.clear()
@@ -123,12 +122,15 @@ Item {
             onAccepted: if (!inputMethodComposing && navigation.matches.length) host.chooseAgent(navigation.matches[0])
             onEscapePressed: navigation.escapeSearch()
         }
-        Row {
-            spacing: Design.spaceXs
-            ChromeButton { objectName: "navigationNeedsFilter"; tones: host.chrome; text: navigation.needsOnly ? "Needs input" : "All states"; selected: navigation.needsOnly; hint: "Show agents that need input"; onClicked: navigation.needsOnly = !navigation.needsOnly }
-            ChromeButton { objectName: "navigationClearFilters"; tones: host.chrome; text: "Clear filters"; visible: navigation.needsOnly || agentSearch.text.length > 0; onClicked: navigation.clearFilters() }
+        Item {
+            width: parent.width; height: needsFilter.height
+            Row {
+                spacing: Design.spaceXs
+                ChromeButton { id: needsFilter; objectName: "navigationNeedsFilter"; tones: host.chrome; text: navigation.needsOnly ? "Needs input" : "All states"; selected: navigation.needsOnly; hint: "Show agents that need input"; onClicked: navigation.needsOnly = !navigation.needsOnly }
+                ChromeButton { objectName: "navigationClearFilters"; tones: host.chrome; text: "Clear filters"; visible: navigation.needsOnly || agentSearch.text.length > 0; onClicked: navigation.clearFilters() }
+            }
+            Label { anchors.right: parent.right; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; text: navigation.matches.length + " / " + host.agentIndices.length; color: host.chrome.muted; font.pixelSize: Design.textSmall }
         }
-        Label { width: parent.width; text: navigation.matches.length + " / " + host.agentIndices.length + " agents"; color: host.chrome.muted; font.pixelSize: Design.textSmall }
     }
     Flickable {
         id: list; x: 14; y: navigation.agents ? agentFilters.y + agentFilters.height + 12 : header.y; width: parent.width - 28; height: Math.max(0, navigation.workspaces || navigation.apps || navigation.hosts ? createFooter.y - y - 12 : parent.height - y - 54)
@@ -150,8 +152,9 @@ Item {
                     // While filtering: the matching panes, or all of a matching workspace's.
                     readonly property var panes: nameMatches ? allPanes : allPanes.filter(i => navigation.paneMatches(i))
                     visible: nameMatches || panes.length > 0
-                    readonly property bool expanded: navigation.filter ? panes.length > 0 && !nameMatches || (navigation.expandedSpaces[identity] ?? index === host.workspace) : navigation.expandedSpaces[identity] ?? index === host.workspace
-                    width: body.width; height: 36 + (expanded && panes.length ? paneColumn.height + 4 : 0)
+                    // Every workspace is open until closed; the choice stays while switching.
+                    readonly property bool expanded: navigation.filter ? panes.length > 0 && !nameMatches || (navigation.expandedSpaces[identity] ?? true) : navigation.expandedSpaces[identity] ?? true
+                    width: body.width; height: 28 + (expanded && panes.length ? paneColumn.height + 2 : 0) + Design.spaceS
                     // The caret and the remove button show while the pointer is over the
                     // workspace or it has keyboard focus.
                     HoverHandler { id: rowHover }
@@ -190,7 +193,7 @@ Item {
                         }
                         objectName: "navigationWorkspace" + parent.index
                         tones: host.chrome; x: 0; width: parent.width - 56; row: parent.index
-                        selected: parent.index === host.workspace; count: host.counts[parent.index] || 0; text: host.spaces[parent.index]
+                        current: parent.index === host.workspace; expanded: workspaceRow.expanded && workspaceRow.panes.length > 0; count: host.counts[parent.index] || 0; text: host.spaces[parent.index]
                         waiting: host.workspaceWaitingCounts[parent.index] || 0
                         dirty: workspaceRow.allPanes.some(i => { const pane = host.panel(i); return pane && !!pane.facts.dirty })
                         // The branch of a linked worktree one of its panes is in.
@@ -202,7 +205,7 @@ Item {
                         onClicked: host.chooseWorkspace(parent.index)
                     }
                     Column {
-                        id: paneColumn; x: Design.spaceL; y: 40; width: parent.width - Design.spaceL; spacing: Design.space2xs
+                        id: paneColumn; x: 0; y: 30; width: parent.width; spacing: Design.space2xs
                         visible: workspaceRow.expanded
                         Repeater {
                             id: paneRows; model: workspaceRow.expanded ? workspaceRow.panes : []
@@ -261,7 +264,7 @@ Item {
                     readonly property string space: pane ? host.spaces[pane.spaceIndex] || "" : ""
                     readonly property bool failed: pane ? pane.appStopped : false
                     objectName: "navigationApp" + index
-                    tones: host.chrome; width: body.width; height: 52; padding: Design.spaceL
+                    tones: host.chrome; width: body.width; height: 40; padding: Design.spaceM
                     selected: modelData === host.selected && !host.overview
                     hint: (pane ? pane.appName : "") + " · " + space + (failed ? " · Stopped" : "")
                     Keys.onDownPressed: navigation.focusApp(index + 1)
@@ -274,11 +277,11 @@ Item {
                     }
                     contentItem: Item {
                         Column {
-                            anchors.left: parent.left; anchors.right: appState.left; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceXs
-                            Text { width: parent.width; text: appRow.pane ? appRow.pane.appName : ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textControl }
-                            Text { width: parent.width; text: appRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: Design.textSmall }
+                            anchors.left: parent.left; anchors.right: appState.left; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; spacing: 1
+                            Text { width: parent.width; text: appRow.pane ? appRow.pane.appName : ""; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textBody }
+                            Text { width: parent.width; text: appRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.muted; font.pixelSize: Design.textCaption }
                         }
-                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.failed ? "Stopped" : ""; color: host.chrome.waiting; font.pixelSize: Design.textSmall }
+                        Text { id: appState; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: appRow.failed ? "Stopped" : ""; color: host.chrome.waiting; font.pixelSize: Design.textCaption }
                     }
                     onClicked: host.choosePane(modelData)
                 }
@@ -297,10 +300,13 @@ Item {
                     property alias button: hostEntry
                     readonly property var panes: host.hostPanes(modelData.id)
                     readonly property string reach: studyHosts.reachability[modelData.id] || ""
-                    width: body.width; height: 52 + (panes.length ? hostPaneColumn.height + 4 : 0)
+                    width: body.width; height: 40 + (panes.length ? hostPaneColumn.height + 4 : 0)
+                    // Remove and connect show while the pointer is over the host or it has focus.
+                    HoverHandler { id: hostHover }
+                    readonly property bool actionsShown: hostHover.hovered || hostEntry.activeFocus
                     ChromeButton {
                         id: hostEntry; objectName: "navigationHost" + hostRow.index
-                        tones: host.chrome; width: parent.width; height: 52; padding: Design.spaceL
+                        tones: host.chrome; width: parent.width; height: 40; padding: Design.spaceM
                         hint: hostRow.modelData.name + " · " + hostRow.modelData.destination + (hostRow.panes.length ? " · " + hostRow.panes.length + " open" : "")
                             + (hostRow.reach === "reachable" ? " · reachable" : hostRow.reach === "unreachable" ? " · not reachable" : hostRow.reach === "unknown" ? " · reachability unknown" : "")
                         Keys.onDownPressed: navigation.focusHost(hostRow.index + 1)
@@ -318,30 +324,30 @@ Item {
                                 color: hostRow.reach === "reachable" ? host.chrome.ready : host.chrome.waiting
                             }
                             Column {
-                                anchors.left: hostIcon.right; anchors.leftMargin: Design.spaceL; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 64 : 34; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceXs
-                                Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textControl }
-                                Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.muted; font.pixelSize: Design.textSmall }
+                                anchors.left: hostIcon.right; anchors.leftMargin: Design.spaceL; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 64 : 34; anchors.verticalCenter: parent.verticalCenter; spacing: 1
+                                Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textBody; font.weight: Font.DemiBold }
+                                Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.muted; font.pixelSize: Design.textCaption }
                             }
                         }
                         onClicked: host.connectHost(hostRow.modelData.id)
                     }
                     // Hosts Band saved can be removed here; config.conf hosts stay as written.
                     ChromeButton {
-                        objectName: "removeHost" + hostRow.index; z: 2; visible: !!hostRow.modelData.saved
+                        objectName: "removeHost" + hostRow.index; z: 2; visible: !!hostRow.modelData.saved; opacity: hostRow.actionsShown ? 1 : 0
                         anchors.right: connectButton.left; anchors.verticalCenter: hostEntry.verticalCenter
                         tones: host.chrome; iconName: "close"; focusPolicy: Qt.NoFocus
                         hint: "Remove " + hostRow.modelData.name + " from Band's hosts"
                         onClicked: studyHosts.remove(hostRow.modelData.id)
                     }
                     ChromeButton {
-                        id: connectButton; objectName: "connectHost" + hostRow.index; z: 2
+                        id: connectButton; objectName: "connectHost" + hostRow.index; z: 2; opacity: hostRow.actionsShown ? 1 : 0
                         anchors.right: hostEntry.right; anchors.rightMargin: Design.spaceXs; anchors.verticalCenter: hostEntry.verticalCenter
                         tones: host.chrome; iconName: "plus"; focusPolicy: Qt.NoFocus; enabled: host.canCreateTerminal
                         hint: "Connect to " + hostRow.modelData.name + " in this workspace"
                         onClicked: host.connectHost(hostRow.modelData.id)
                     }
                     Column {
-                        id: hostPaneColumn; x: 28; y: 54; width: parent.width - 28; spacing: Design.space2xs
+                        id: hostPaneColumn; x: Design.spaceL; y: 42; width: parent.width - Design.spaceL; spacing: Design.space2xs
                         Repeater {
                             model: hostRow.panes
                             ChromeButton {
@@ -349,7 +355,7 @@ Item {
                                 required property int modelData
                                 readonly property var pane: host.panel(modelData)
                                 objectName: "navigationHostPane" + hostRow.index + "_" + index
-                                tones: host.chrome; width: hostPaneColumn.width; height: 30; leftAligned: true
+                                tones: host.chrome; width: hostPaneColumn.width; height: 30; leftAligned: true; textSize: Design.textBody
                                 selected: modelData === host.selected && !host.overview
                                 // The host is the row above; a pane row names its workspace, numbered when there are several.
                                 text: pane ? (host.spaces[pane.spaceIndex] || "") + (hostRow.panes.length > 1 ? " · " + (index + 1) : "") : ""
@@ -375,7 +381,7 @@ Item {
                     readonly property var facts: pane ? pane.facts : ({agent: "", state: "Unknown", title: ""})
                     readonly property string space: pane ? host.spaces[pane.spaceIndex] : ""
                     objectName: "navigationAgent" + index
-                    tones: host.chrome; width: body.width; height: 86
+                    tones: host.chrome; width: body.width; height: 44
                     Keys.onDownPressed: navigation.focusAgent(index + 1)
                     Keys.onUpPressed: { if (index === 0) navigation.focusSearch(); else navigation.focusAgent(index - 1) }
                     Keys.onPressed: event => {
@@ -384,19 +390,19 @@ Item {
                         else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.chooseAgent(modelData); event.accepted = true }
                         else event.accepted = false
                     }
-                    padding: Design.spaceL; selected: host.selected === modelData && !host.overview
+                    padding: Design.spaceM; selected: host.selected === modelData && !host.overview
                     hint: facts.agent + " · " + facts.state + " · " + space + " · " + facts.title
                     ChromeButton {
                         objectName: "navigationAgentInfo" + agentRow.index; z: 2
                         anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; anchors.verticalCenter: parent.verticalCenter
                         tones: host.chrome; iconName: "info"; hint: "Agent details for " + agentRow.facts.agent
+                        opacity: agentRow.hovered || agentRow.activeFocus || hovered || visualFocus ? 1 : 0
                         onClicked: if (agentRow.pane) host.openAgentInfo(agentRow.pane.terminalId)
                     }
                     contentItem: Column {
-                        rightPadding: 30; spacing: Design.spaceXs
+                        rightPadding: 30; spacing: 1
                         Text { width: parent.width - 30; text: agentRow.facts.agent + " · " + agentRow.facts.state; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textBody; color: agentRow.facts.needs_input ? host.chrome.waiting : agentRow.facts.state === "Ready" ? host.chrome.ready : host.chrome.foreground }
-                        Text { width: parent.width - 30; text: agentRow.space; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textSmall; color: host.chrome.muted }
-                        Text { width: parent.width - 30; text: agentRow.facts.title; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textSmall; color: host.chrome.muted }
+                        Text { width: parent.width - 30; text: [agentRow.space, agentRow.facts.title].filter(part => part).join(" · "); textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textCaption; color: host.chrome.muted }
                     }
                     onClicked: host.chooseAgent(modelData)
                 }

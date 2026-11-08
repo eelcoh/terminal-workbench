@@ -526,11 +526,11 @@ while True:
         key('End');key('Down');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['workspace']==0 and data()['panes'][0]['focus'])
         assert not data()['creation_open'] and workspace_catalog.load(root)==before_navigation
         assert [received(i) for i in range(6)]==before_input
-        # Panes grouped by workspace: the current one lists its panes, the
-        # others stay closed until opened; a pane row goes to that pane.
+        # Panes grouped by workspace: every workspace lists its panes until
+        # closed, and the choice stays; a pane row goes to that pane.
         def pane_rows(w):return sorted((r for r in data()['navigation_panes'] if r['name'].startswith(f'navigationPane{w}_')),key=lambda r:int(r['name'].rsplit('_',1)[1]))
         # Rows and headers name the foreground program (WAT4) before the folder.
-        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and len(pane_rows(0))==3 and not pane_rows(1));time.sleep(.3)
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and len(pane_rows(0))==3 and len(pane_rows(1))==3);time.sleep(.3)
         wait_until(lambda:all(p['facts'].get('process') for p in data()['panes'][:3]))
         shells=[p for p in data()['panes'] if p['workspace']==0]
         assert all(p['header']==[p['facts']['process'],p['facts']['title']] for p in shells),[p['header'] for p in shells]
@@ -541,13 +541,14 @@ while True:
         click(*settled_point(lambda d:d['navigation_filter']));typed('/4')
         wait_until(lambda:len(pane_rows(1))==1 and not pane_rows(0) and len(data()['navigation_workspace_rows'])==1)
         capture('navigation-filter.png')
-        key('ctrl+a');key('BackSpace');wait_until(lambda:data()['navigation_workspace_rows']==all_rows and len(pane_rows(0))==3 and not pane_rows(1))
+        key('ctrl+a');key('BackSpace');wait_until(lambda:data()['navigation_workspace_rows']==all_rows and len(pane_rows(0))==3 and len(pane_rows(1))==3)
+        click(*settled_point(lambda d:d['expand_workspace_1']));wait_until(lambda:not pane_rows(1))
         click(*settled_point(lambda d:d['expand_workspace_1']));wait_until(lambda:len(pane_rows(1))==3)
         click(*settled_point(lambda d:next((r['point'] for r in d['navigation_panes'] if r['name']=='navigationPane1_1'),None)))
         wait_until(lambda:not data()['drawer_open'] and data()['workspace']==1 and data()['panes'][4]['focus'])
-        # The new current workspace is open and the others closed again;
-        # Right moves into its panes, Return goes to one.
-        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and len(pane_rows(1))==3 and not pane_rows(0));time.sleep(.3)
+        # Both stay open after switching; Right moves into the current
+        # workspace's panes, Return goes to one.
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and len(pane_rows(1))==3 and len(pane_rows(0))==3);time.sleep(.3)
         key('Right');wait_until(lambda:pane_rows(1)[0]['focus']);key('Down');key('Down');wait_until(lambda:pane_rows(1)[2]['focus'])
         key('Return');wait_until(lambda:not data()['drawer_open'] and data()['panes'][5]['focus'])
         # Leave workspace 1 remembering its first pane, as later steps expect.

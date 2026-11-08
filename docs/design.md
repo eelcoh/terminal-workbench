@@ -72,9 +72,14 @@ test opens it from Commands and saves `design-gallery.png`.
 - One bar at the top: the system title bar folds into Band's top bar by default
   (`integrated-title-bar`), which keeps the pane strip.
 - Fewer layers in the sidebar: no panel title (the rail names the section; the
-  pin sits at the bottom right), workspace names at body size in semibold, the
-  caret and remove button only on hover or keyboard focus, and each terminal on
-  two lines with its folder and branch in caption size under the name.
+  pin sits at the bottom right); workspaces as small bold section headers, all
+  open until closed (the current one in full color, the others muted, the
+  count only while closed); the caret and remove button only on hover or
+  keyboard focus; and each terminal on two lines with its folder and branch in
+  caption size under the name.
+- Apps, Hosts and Agents follow the same rows: names at body size, details in
+  caption size, a host's connect and remove buttons and an agent's details
+  button on hover, and the agents count beside the state filter.
 - On macOS every type step is a pixel smaller.
 
 ## Still to do in stage 1
