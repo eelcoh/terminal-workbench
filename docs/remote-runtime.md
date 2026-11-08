@@ -1,8 +1,8 @@
 # Remote runtime (evaluation note, 2026-11-08)
 
 Status: an evaluation, nothing built. It follows the plain SSH panes of v0.3
-([SSH hosts](hosts.md)), as the roadmap says, and needs the owner's decisions
-at the end before any slice starts.
+([SSH hosts](hosts.md)), as the roadmap says. The owner's answers are at the
+end (2026-11-08); whether to build it is still open.
 
 ## What it would add
 
@@ -90,6 +90,31 @@ Its cost is the multiplexing protocol, the main new piece. It needs:
 Both halves would be Rust in `crates/runtime`, next to the service, and
 testable on one machine with `ssh` replaced by a local spawn.
 
+### Tailscale
+
+Tailscale was raised as an alternative (owner, 2026-11-08). It can play two
+parts:
+
+- **The network under SSH.** The bridge runs `ssh` to a tailnet name, with
+  OpenSSH or Tailscale SSH on the host. Nothing in Band changes. The host is
+  reachable from anywhere without port forwarding. Its tailnet address stays
+  the same when the laptop changes networks, so an idle SSH session can survive
+  a Wi-Fi change that would otherwise drop it.
+- **The transport itself.** The remote runtime would listen on its tailnet
+  address, and each client connection would be its own TCP connection, so no
+  multiplexing protocol is needed. The runtime would have to check every
+  peer's identity with the local Tailscale daemon and accept only the same
+  user. That makes Band depend on Tailscale on both machines. It also trusts
+  the tailnet's access rules, and on a shared tailnet those are not the user's
+  alone. Every user without Tailscale would still need the SSH path.
+
+Verdict: Tailscale is better as the network under SSH than as a replacement for
+it. The SSH bridge works over Tailscale unchanged and gets its reachability and
+stable addresses for free. A direct tailnet transport removes the multiplexing
+protocol but adds a second way in, with identity checks Band would own. If the
+bridge proves slow or fragile, the bridge's named endpoints leave room to add
+it later. None of this is tested: there is no tailnet here yet.
+
 ### The catalog file
 
 The client watches `workspaces.json` on disk, which does not exist locally for
@@ -120,8 +145,24 @@ Two ways to get it there:
   runtime alone, signed and checked on arrival. It is more convenient and much
   more to maintain.
 
-Recommendation: user-installed first, copying later if it proves to be the
-barrier.
+Decided (owner, 2026-11-08): install Band on the host. The runtime comes with
+it, and the version check on connect explains a mismatch. A full install pulls
+in Qt on a headless server; a runtime-only package can come later if that gets
+in the way.
+
+### Staying alive on the host
+
+Band's runtimes already start in their own session (`setsid`), so they outlive
+the SSH session that started them. Two host settings can still end them:
+- **Linux:** systemd-logind with `KillUserProcesses=yes` stops everything in a
+  user's session when they log out, whatever the process group. With it set,
+  `loginctl enable-linger`, or a systemd user service for `band-session
+  service`, keeps them. The bridge should detect a killed service and say
+  which, not just "disconnected".
+- **macOS:** processes started over SSH live outside the logged-in GUI session.
+  Shells work, but the clipboard and `open`, and some keychain access, behave
+  differently than in Terminal on that Mac. A Mac that sleeps also drops every
+  connection until it wakes.
 
 ## Security
 
@@ -159,9 +200,10 @@ barrier.
   with its workspaces and panes, a reachability mark and a connection state.
   The Hosts panel stays the place to add hosts and open plain host panes.
 - **Restore.** After a client restart, Band remembers which hosts were
-  connected and which remote workspaces were open. Reconnecting only attaches.
-  Unlike plain host panes, nothing starts, so reconnecting automatically with
-  backoff is safe (see question 3).
+  connected and which remote workspaces were open, and reconnects to them
+  automatically with backoff (decided). Reconnecting only attaches; unlike
+  plain host panes, nothing starts. An SSH prompt (a passphrase, a new host
+  key) pauses the retries until the user answers it in a visible place.
 - **Disconnects.** When the bridge exits, every terminal on that host shows
   "Disconnected from Build box", with Reconnect. This is separate from a
   stopped terminal, which still offers Start new shell only after the remote
@@ -203,22 +245,19 @@ about Band's own model reaching the host.
 5. **Sidebar host level and restore:** connected hosts after a restart,
    reconnect, disconnect states, remote facts kept apart.
 6. **By hand** against a real Linux host from both Linux and macOS clients,
-   and a macOS host if it is in scope (question 5).
+   then a macOS host (decision 5).
 
 A rough size: slice 1 is the largest and riskiest (about the size of the
 session service port); slices 3 and 5 touch most of the client.
 
-## Questions for the owner
+## Decisions (owner, 2026-11-08)
 
-1. **Go ahead at all**, or keep plain host panes and point people at tmux for
-   persistence? The case for it is persistence plus Band's facts on the host.
-2. **Installation:** user-installed runtime on the host first (recommended),
-   or the client copying its runtime over from the start?
-3. **Reconnect:** automatic with backoff after a network drop or a restart
-   (recommended, since reconnecting starts nothing), or only on Reconnect, as
-   with plain host panes?
-4. **Workspaces across machines:** a workspace belongs to one host
-   (recommended, simple and matches the remote catalog), or can a local
-   workspace show attached remote terminals beside local ones?
-5. **Which hosts:** Linux hosts only at first (recommended), or macOS hosts too,
-   which needs the runtime to run headless there?
+1. **Go ahead:** left for later (owner, 2026-11-08). Tailscale was raised as an alternative and is
+   weighed above: better as the network under the SSH bridge than as a
+   replacement. It is untested until there is a tailnet to try it on.
+2. **Installation:** install Band on the host; the runtime comes with it.
+3. **Reconnect:** automatic, with backoff.
+4. **Workspaces:** a workspace belongs to one machine.
+5. **Which hosts:** follows from 2. Installing Band works on both platforms, so
+   Linux and macOS hosts are both in scope, with the macOS limits above
+   (outside the GUI session, sleep). Linux first by hand, then a Mac host.
