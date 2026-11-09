@@ -153,6 +153,18 @@ FocusScope {
         // Step 3: a few bindings from the live keymap.
         Column {
             width: parent.width; spacing: Design.space2xs; visible: welcome.step === 2
+            // On the Mac: Command alone or Command+Option, saved at once like the look choices.
+            Row {
+                visible: Qt.platform.os === "osx"; spacing: Design.spaceXs; bottomPadding: Design.spaceS
+                function choose(alone) { studyShortcuts.begin(); if (studyShortcuts.useModifiers(alone)) studyShortcuts.apply() }
+                Text { height: 32; verticalAlignment: Text.AlignVCenter; leftPadding: 8; rightPadding: Design.spaceS; text: "Band's keys use"; color: welcome.tones.muted; font.pixelSize: Design.textControl }
+                ChromeButton { objectName: "welcomeModifiersBoth"; tones: welcome.tones; focusPolicy: Qt.NoFocus; text: "Command+Option"; selected: studyShortcuts.draftModifiers === "command-option"; onClicked: parent.choose(false) }
+                ChromeButton { objectName: "welcomeModifiersAlone"; tones: welcome.tones; focusPolicy: Qt.NoFocus; text: "Command"; selected: studyShortcuts.draftModifiers === "command"; onClicked: parent.choose(true) }
+            }
+            Text {
+                visible: Qt.platform.os === "osx" && studyShortcuts.editError.length > 0; width: parent.width; leftPadding: 8; wrapMode: Text.Wrap
+                text: studyShortcuts.editError; color: welcome.tones.waiting; font.pixelSize: Design.textSmall
+            }
             Repeater {
                 model: welcome.keys
                 Item {
