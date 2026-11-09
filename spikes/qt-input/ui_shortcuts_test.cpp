@@ -53,7 +53,7 @@ int main(int argc,char **argv){
     UiShortcuts staleManaged(path,false,nullptr,layer);write(path,managed+"# external edit\n");staleManaged.begin();
     require(!staleManaged.apply(),"detect managed edit before editor opens");
     write(path,managed);UiShortcuts macEditor(path,true,nullptr,dir.filePath("ui/macos/shortcuts.conf"));macEditor.begin();
-    require(macEditor.record("commands",Qt::Key_L,Qt::ControlModifier|Qt::AltModifier) && macEditor.apply() && chord(macEditor,"commands","Ctrl+Alt+L"),"Mac recording uses physical Command");
+    require(macEditor.record("commands",Qt::Key_G,Qt::ControlModifier|Qt::AltModifier) && macEditor.apply() && chord(macEditor,"commands","Ctrl+Alt+G"),"Mac recording uses physical Command");
     write(path,"band-config-v1\n[shortcuts]\nforward = F6\n");UiShortcuts forwarding(path,false);
     require(chord(forwarding,"forward","F6") && forwarding.editable("forward"),"forward action managed and editable");
     std::puts("PASS: managed/platform shortcuts, reserved keys, transactional drafts, sparse UI persistence, reset, unbind and stale-file protection");
