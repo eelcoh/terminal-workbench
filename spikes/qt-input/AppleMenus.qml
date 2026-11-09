@@ -89,7 +89,6 @@ MenuBar {
         MenuSeparator {}
         CommandItem { command: "next-waiting" }
         CommandItem { command: "previous-waiting" }
-        CommandItem { command: "waiting-agents" }
         CommandItem { command: "agents" }
         MenuSeparator {}
         CommandItem { command: "commands" }

@@ -16,14 +16,11 @@ Item {
     readonly property bool agents: kindOn("agents")
     readonly property bool hosts: kindOn("hosts")
     readonly property bool searchFocused: sidebarFilter.activeFocus
-    // With the agents filter: only agents whose last report needs input.
-    property bool needsOnly: false
-    onAgentsChanged: if (!agents) needsOnly = false
     // Workspace ID → opened or closed by hand; otherwise every workspace is open.
     property var expandedSpaces: ({})
     // The filter at the top narrows workspaces and panes by name, program, folder or agent.
     readonly property string filter: sidebarFilter.text.trim().toLocaleLowerCase()
-    readonly property bool filtering: kinds.length > 0 || filter.length > 0 || needsOnly
+    readonly property bool filtering: kinds.length > 0 || filter.length > 0
     function scrollTo(top, height) {
         if (top < list.contentY) list.contentY = top
         else if (top + height > list.contentY + list.height) list.contentY = Math.max(0, top + height - list.height)
@@ -35,7 +32,6 @@ Item {
     }
     function kindShown(i) {
         if (kinds.length && kinds.indexOf(kindOf(i)) < 0) return false
-        if (needsOnly) { const pane = host.panel(i); return !!pane && kindOf(i) === "agents" && !!pane.facts.needs_input }
         return true
     }
     function paneText(i) {
@@ -58,17 +54,14 @@ Item {
     property var matches: []
     function focusSearch() { sidebarFilter.forceActiveFocus(Qt.TabFocusReason) }
     function rebuildMatches() {
-        const selected = host.agentIndices.filter(i => { const pane = host.panel(i); return pane && (!needsOnly || pane.facts.needs_input) && textMatches(i) })
+        const selected = host.agentIndices.filter(i => { const pane = host.panel(i); return pane && textMatches(i) })
         if (selected.length === matches.length && selected.every((value, index) => value === matches[index])) return
         matches = selected
     }
     onFilterChanged: { rebuildMatches(); list.contentY = 0 }
-    onNeedsOnlyChanged: { rebuildMatches(); list.contentY = 0 }
-    function showWaiting() { sidebarFilter.clear(); needsOnly = true; list.contentY = 0 }
-    function clearFilters() { sidebarFilter.clear(); needsOnly = false }
+    function clearFilters() { sidebarFilter.clear() }
     function escapeSearch() {
-        if (needsOnly) needsOnly = false
-        else { if (host.drawerOpen) host.closeNavigation(); else { host.contentItem.forceActiveFocus(); host.restoreAfterPopup() } }
+        if (host.drawerOpen) host.closeNavigation(); else { host.contentItem.forceActiveFocus(); host.restoreAfterPopup() }
     }
     function focusWorkspace(index, direction) {
         const count = host.spaces.length
@@ -112,15 +105,8 @@ Item {
         onAccepted: if (!inputMethodComposing) navigation.focusFirstRow()
         onEscapePressed: { if (text.length) clear(); else navigation.escapeSearch() }
     }
-    // With the agents filter: only those that need input.
-    Row {
-        id: agentFilters; x: 14; y: sidebarFilter.y + sidebarFilter.height + Design.spaceS; spacing: Design.spaceXs
-        visible: navigation.agents; height: visible ? needsFilter.height : 0
-        ChromeButton { id: needsFilter; objectName: "navigationNeedsFilter"; tones: host.chrome; text: "Needs input"; selected: navigation.needsOnly; hint: "Show only agents that need input"; onClicked: navigation.needsOnly = !navigation.needsOnly }
-        ChromeButton { objectName: "navigationClearFilters"; tones: host.chrome; text: "Clear"; visible: navigation.needsOnly || sidebarFilter.text.length > 0; onClicked: navigation.clearFilters() }
-    }
     Flickable {
-        id: list; x: 14; y: (agentFilters.visible ? agentFilters.y + agentFilters.height : sidebarFilter.y + sidebarFilter.height) + 12
+        id: list; x: 14; y: sidebarFilter.y + sidebarFilter.height + 12
         width: parent.width - 28; height: Math.max(0, createFooter.y - y - 12)
         clip: true; contentHeight: body.height; boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
@@ -260,7 +246,7 @@ Item {
             Label {
                 objectName: "navigationNoMatches"; width: body.width; padding: Design.spaceM; color: host.chrome.muted; font.pixelSize: Design.textBody; wrapMode: Text.Wrap
                 visible: navigation.filtering && !host.spaces.some((name, i) => host.indices(i).some(j => navigation.paneMatches(j)) || navigation.filter && name.toLocaleLowerCase().indexOf(navigation.filter) >= 0)
-                text: navigation.needsOnly ? "No agents need input" : navigation.kinds.length === 1 && navigation.agents && !host.agentIndices.length ? "No agents detected" : navigation.kinds.length === 1 && navigation.hosts && !navigation.filter ? "No host panes\nNew host pane… connects to a saved host or adds one." : "No matching panes"
+                text: navigation.kinds.length === 1 && navigation.agents && !host.agentIndices.length ? "No agents detected" : navigation.kinds.length === 1 && navigation.hosts && !navigation.filter ? "No host panes\nNew host pane… connects to a saved host or adds one." : "No matching panes"
             }
             Label {
                 width: body.width; visible: !session.savedSession

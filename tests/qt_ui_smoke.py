@@ -489,6 +489,10 @@ while True:
             sys.exit(0)
         # Pinning reserves layout space; navigation stays usable without modal focus.
         nav_sizes=sizes();nav_instances=[p['instance'] for p in data()['panes']]
+        # The workspace name in the title opens every workspace, unfiltered, with its panes.
+        click(*settled_point(lambda d:d['title_workspace_button']))
+        wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='workspaces' and len(data()['navigation_panes'])>0)
+        key('Escape');wait_until(lambda:not data()['drawer_open'])
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'] and all(p['geometry_ready'] for p in data()['panes']))
         capture('navigation-pinned.png')
@@ -1397,11 +1401,10 @@ while True:
         raw_key('super+alt+j');wait_until(lambda:not data()['overview'] and data()['selected']==8)
         assert data()['agents_only'] and data()['needs_only'],'queue navigation rewrote Overview filters'
         key('super+alt+o');wait_until(lambda:data()['overview'])
-        command_search('Show agents needing input');key('Return')
-        wait_until(lambda:data()['drawer_open'] and data()['navigation_needs_only'] and data()['navigation_matches']==[8])
+        command_search('Show agents');key('Return')
+        wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='agents' and len(data()['navigation_matches'])==2)
         assert data()['overview'] and data()['agents_only'] and data()['needs_only'],'waiting list rewrote Overview context'
         capture('attention-waiting-agents.png')
-        click(*settled_point(lambda d:d['navigation_clear_filters']));wait_until(lambda:not data()['navigation_needs_only'] and len(data()['navigation_matches'])==2)
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='workspaces');time.sleep(.25);capture('attention-workspace-counts.png')
         key('Escape');wait_until(lambda:not data()['drawer_open'])
         click(*settled_point(lambda d:d['overview_clear_filters']));wait_until(lambda:not data()['agents_only'] and not data()['needs_only']);key('Escape');wait_until(lambda:not data()['overview'])
@@ -1427,10 +1430,6 @@ while True:
         key('Down');key('End');key('Home');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
         click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_search_focus']);time.sleep(.3)
         key('Escape');wait_until(lambda:data()['navigation_matches']==[8])
-        click(*settled_point(lambda d:d['navigation_needs_filter']));wait_until(lambda:data()['navigation_needs_only'] and not data()['navigation_matches'])
-        hook('PermissionRequest','Needs input');wait_until(lambda:data()['navigation_matches']==[8])
-        hook('UserPromptSubmit','Working');wait_until(lambda:not data()['navigation_matches'])
-        click(*settled_point(lambda d:d['navigation_clear_filters']));wait_until(lambda:not data()['navigation_needs_only'] and data()['navigation_matches']==[8])
         assert not data()['agents_only'] and not data()['needs_only'] and not data()['overview']
         assert workspace_catalog.load(root)==nav_catalog and [p['instance'] for p in data()['panes']]==nav_objects
         assert [received(i) for i in range(6)]==nav_input,'agent search or result navigation typed into terminals'

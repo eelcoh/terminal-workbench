@@ -186,7 +186,6 @@ ApplicationWindow {
     readonly property bool overviewSearchFocused: overviewSearch.activeFocus
     readonly property bool navigationSearchFocused: navigation.searchFocused
     readonly property var navigationMatches: navigation.matches
-    readonly property bool navigationNeedsOnly: navigation.needsOnly
     readonly property bool overviewFiltered: agentsOnly || needsOnly || overviewQuery.trim().length > 0
     onOverviewQueryChanged: { cancelDrag(); rebuildOverview(); deck.contentY = 0 }
     function contextMatches(query, i) {
@@ -268,7 +267,6 @@ ApplicationWindow {
         const target = identityIndex(identity)
         if (target >= 0) chooseAgent(target)
     }
-    function showWaitingAgents() { navigation.showWaiting(); openAgents() }
     function chooseAgent(i) {
         drawer.close(); enterPane(i)
         Qt.callLater(restoreAfterPopup)
@@ -386,7 +384,6 @@ ApplicationWindow {
         case "overview": toggleOverview(); break
         case "agents": openAgents(); break
         case "apps": openCatalog(); break
-        case "waiting-agents": showWaitingAgents(); break
         case "next-waiting": jumpWaiting(1); break
         case "previous-waiting": jumpWaiting(-1); break
         case "previous-terminal": navigate(-1); break
@@ -1058,8 +1055,8 @@ ApplicationWindow {
         topPadding: Design.spaceXs; bottomPadding: Design.spaceXs; leftPadding: Design.spaceM; rightPadding: Design.spaceM
         contentItem: Rectangle { implicitWidth: 248; implicitHeight: 1; color: window.chrome.border }
     }
-    Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.surface }
-    Rectangle { x: 0; y: 40; width: 44; height: parent.height - 40; color: window.chrome.surface }
+    Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.sidebar }
+    Rectangle { x: 0; y: 40; width: 44; height: parent.height - 40; color: window.chrome.sidebar }
     // With an integrated title bar, empty top bar space moves the window and a
     // double click maximizes it; controls above it keep their own input.
     Item {
@@ -1140,7 +1137,7 @@ ApplicationWindow {
             return {title: item ? item.facts.title : "Terminal", selected: window.selected === i, waiting: item !== null && !!item.facts.needs_input}
         })
         inView: position => { const i = paneIndices[position]; return i !== undefined && window.left(i) + window.paneWidth(i) > deck.contentX && window.left(i) < deck.contentX + deck.width }
-        onWorkspaceClicked: window.openNavigation("workspaces")
+        onWorkspaceClicked: window.openNavigation([])   // every workspace, no kind filter
         onMarkerClicked: position => window.enterPane(paneIndices[position])
         onNewTerminalClicked: window.newTerminal()
         onOverviewClicked: window.toggleOverview()
@@ -1443,7 +1440,7 @@ ApplicationWindow {
     }
     Rectangle {
         id: pinnedNavigation; x: 44; y: 40; width: 244; height: window.height - 40
-        visible: window.navigationDocked; color: window.chrome.surface
+        visible: window.navigationDocked; color: window.chrome.sidebar
         Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: window.chrome.border }
     }
     Welcome {
@@ -1490,7 +1487,7 @@ ApplicationWindow {
         }
         Behavior on opacity { enabled: !window.reducedMotion && drawer.visible; NumberAnimation { duration: Design.motionQuick } }
         Keys.onEscapePressed: close()
-        Rectangle { anchors.fill: parent; color: window.chrome.surface; border.color: window.chrome.border }
+        Rectangle { anchors.fill: parent; color: window.chrome.sidebar; border.color: window.chrome.border }
         Item { id: drawerContent; anchors.fill: parent }
         onOpened: window.focusNavigation()
         onClosed: window.restoreAfterPopup()

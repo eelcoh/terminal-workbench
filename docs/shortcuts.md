@@ -8,6 +8,10 @@ saved binding. Commands displays the active binding beside each action.
 
 ## Default bindings
 
+On the Mac, `modifiers = Command` in `[macos.shortcuts]` of config.conf turns
+every Command+Option default below into Command alone
+([dotfiles](dotfiles.md#appearance-and-shortcuts)).
+
 | Action | Linux | macOS |
 | --- | --- | --- |
 | Commands | Super+Alt+P | Command+Option+P |
@@ -346,6 +350,8 @@ Overview and Agents-panel filters. With one waiting agent they select that agent
 with none they leave focus unchanged. Dialogs and editable search controls retain
 their input. Selecting a terminal owned by another window leaves ownership there.
 
-Commands also offers **Show agents needing input**. It opens the sidebar on the agents filter with Needs input (before 2026-11-09, the Agents panel),
-clears its search and selects Needs input without changing Overview filters.
+Commands also offers **Show agents**, which opens the sidebar on the agents
+filter without changing Overview filters. Agents that need input carry the
+waiting color there; the separate Needs input toggle and the **Show agents
+needing input** command were removed on 2026-11-09 as redundant with it.
 See [attention indicators](toolkit-ui-study.md#waiting-agent-navigation).

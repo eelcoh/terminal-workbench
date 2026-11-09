@@ -166,8 +166,8 @@ Rectangle {
                     readonly property var t: modelData.tones
                     width: scenes.width; height: 340
                     color: t.background; radius: Design.radiusXl; border.width: Design.line; border.color: t.border; clip: true
-                    Rectangle { x: Design.line; y: Design.line; width: parent.width - 2 * Design.line; height: 40; radius: Design.radiusXl; color: scene.t.surface }
-                    Rectangle { x: Design.line; y: 40; width: 240; height: parent.height - 40 - Design.line; color: scene.t.surface }
+                    Rectangle { x: Design.line; y: Design.line; width: parent.width - 2 * Design.line; height: 40; radius: Design.radiusXl; color: scene.t.sidebar }
+                    Rectangle { x: Design.line; y: 40; width: 240; height: parent.height - 40 - Design.line; color: scene.t.sidebar }
                     Text { x: Design.spaceXl; y: 12; text: scene.modelData.label; color: scene.t.muted; font.pixelSize: Design.textSmall; font.weight: Font.DemiBold }
                     TopBar {
                         x: 248; y: 4; width: parent.width - x - Design.spaceL

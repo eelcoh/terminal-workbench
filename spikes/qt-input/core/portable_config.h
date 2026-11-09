@@ -9,6 +9,7 @@ typedef struct {
     bool follow,has_follow,seen_application,seen_terminal;
     ShortcutState shortcuts;
     bool seen[COMMAND_COUNT];
+    unsigned modifiers;bool has_modifiers;   /* modifiers = Command, or Super on Linux, for Band's own defaults */
     FontPreferences font;bool has_size,has_family;
     char workspace_directory[1024];double terminal_width;bool has_directory,has_width;
     bool navigation_pinned,reduced_motion,has_navigation_pinned,has_reduced_motion;
@@ -219,6 +220,14 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
                 if (family<0) PORTABLE_FAIL("unknown font family '%.60s'; use JetBrains Mono or Fira Code%s",value,comment)
                 layer->font.family=family;layer->has_family=true;
             } else PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
+        } else if (kind==1 && !strcmp(key,"modifiers")) {
+            /* The modifiers of Band's default shortcuts: Super+Alt (Command+Option), or Super (Command) alone. */
+            char chord[96];ShortcutChord parsed={0};
+            if (layer->has_modifiers) PORTABLE_FAIL("modifiers is set twice in %s",section_name)
+            if (strlen(value)>40 || snprintf(chord,sizeof(chord),"%s+A",value)<0 || !shortcut_parse(chord,&parsed) || parsed.key!='A'
+                || (parsed.mods!=SHORTCUT_SUPER && parsed.mods!=(SHORTCUT_SUPER|SHORTCUT_ALT)))
+                PORTABLE_FAIL("modifiers must be Command or Command+Option (Super or Super+Alt on Linux), not '%.40s'%s",value,comment)
+            layer->modifiers=parsed.mods;layer->has_modifiers=true;
         } else if (kind==1) {
             int action=-1;for (int i=0;i<COMMAND_COUNT;i++) if (!strcmp(key,command_ids[i])) action=i;
             if (action<0) PORTABLE_FAIL("unknown shortcut action %s",key)
@@ -329,6 +338,10 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
     if (platform->has_family) next.font.family=platform->font.family;
     next.has_follow=platform->has_follow || layers[0].has_follow;
     next.follow=platform->has_follow ? platform->follow : layers[0].follow;
+    /* Band's Super+Alt defaults take the chosen modifiers; explicit bindings below still win. */
+    const unsigned modifiers=platform->has_modifiers ? platform->modifiers : layers[0].has_modifiers ? layers[0].modifiers : 0;
+    if (modifiers) for (int i=0;i<COMMAND_COUNT;i++)
+        if (next.shortcuts.bindings[i].mods==(SHORTCUT_SUPER|SHORTCUT_ALT)) next.shortcuts.bindings[i].mods=modifiers;
     for (int i=0;i<COMMAND_COUNT;i++) {
         if (layers[0].seen[i]) next.shortcuts.bindings[i]=layers[0].shortcuts.bindings[i];
         if (platform->seen[i]) next.shortcuts.bindings[i]=platform->shortcuts.bindings[i];

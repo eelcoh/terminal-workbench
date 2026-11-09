@@ -127,6 +127,9 @@ int main(void)
         "band-config-v1\n[shortcuts]\nforward = F8\nforward = F9\n",
         "band-config-v1\n[shortcuts]\ncopy = Ctrl+C\n",
         "band-config-v1\n[shortcuts]\nforward = Super+Alt+P\ncommands = Super+Alt+P\n",
+        "band-config-v1\n[shortcuts]\nmodifiers = Ctrl\n",
+        "band-config-v1\n[shortcuts]\nmodifiers = Command+Shift\n",
+        "band-config-v1\n[macos.shortcuts]\nmodifiers = Command\nmodifiers = Command\n",
         "band-config-v1\n[appearance]\nfollow-workspace = maybe\n",
         "band-config-v1\n[appearance]\nterminal-theme = absent\n",
         "band-config-v1\n[appearance]\nterminal-theme = Workbench Night",
@@ -142,8 +145,21 @@ int main(void)
         write_text(path,bad[i]);assert(!portable_read(path,false,&linux_config,error,sizeof(error)));
         assert(!memcmp(&linux_config,&unchanged,sizeof(linux_config)) && error[0]);
     }
+    /* modifiers: Band's Super+Alt defaults take Command alone on the Mac; explicit bindings, clipboard and Linux stay. */
+    write_text(path,"band-config-v1\n[macos.shortcuts]\nmodifiers = Command\nforward = Command+Option+G\n");
+    assert(portable_read(path,true,&mac,error,sizeof(error)));
+    assert(portable_read(path,false,&linux_config,error,sizeof(error)));
+    assert(mac.shortcuts.bindings[COMMAND_TERMINAL_CREATE].key=='T' && mac.shortcuts.bindings[COMMAND_TERMINAL_CREATE].mods==SHORTCUT_SUPER);
+    assert(mac.shortcuts.bindings[COMMAND_HOST_NEW].mods==SHORTCUT_SUPER && mac.shortcuts.bindings[COMMAND_WORKSPACE_NEXT].mods==SHORTCUT_SUPER);
+    assert(mac.shortcuts.bindings[COMMAND_FORWARD].key=='G' && mac.shortcuts.bindings[COMMAND_FORWARD].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
+    assert(mac.shortcuts.bindings[COMMAND_COPY].key=='C' && mac.shortcuts.bindings[COMMAND_COPY].mods==SHORTCUT_SUPER);
+    assert(linux_config.shortcuts.bindings[COMMAND_TERMINAL_CREATE].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
+    write_text(path,"band-config-v1\n[shortcuts]\nmodifiers = Super\n[macos.shortcuts]\nmodifiers = Command+Option\n");
+    assert(portable_read(path,true,&mac,error,sizeof(error)) && mac.shortcuts.bindings[COMMAND_TERMINAL_CREATE].mods==(SHORTCUT_SUPER|SHORTCUT_ALT));
+    assert(portable_read(path,false,&linux_config,error,sizeof(error)) && linux_config.shortcuts.bindings[COMMAND_TERMINAL_CREATE].mods==SHORTCUT_SUPER);
     /* The notice names the line and the cause. */
     static const struct { const char *text,*message; } explained[]={
+        {"band-config-v1\n[macos.shortcuts]\nmodifiers = Option\n","line 3: modifiers must be Command or Command+Option"},
         {"[font]\nsize = 15\n","config.conf line 1: the first line must be band-config-v1"},
         {"band-config-v1\n[font]\nfamily = Fira Code   # or JetBrains Mono\n","line 3: unknown font family 'Fira Code   # or JetBrains Mono'"},
         {"band-config-v1\n[font]\nfamily = Fira Code   # comment\n","# starts a comment only at the beginning of a line"},

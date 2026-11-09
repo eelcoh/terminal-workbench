@@ -51,6 +51,7 @@ forward = F8
 terminal.new = Ctrl+Alt+T
 
 [macos.shortcuts]
+modifiers = Command
 terminal.new = Command+Option+T
 ```
 
@@ -80,6 +81,16 @@ retain platform defaults. Use action IDs from [shortcut settings](shortcuts.md),
 and `none` to clear a binding. Platform sections keep Mac Command+Option and
 Linux Super+Alt defaults while sharing other preferences, or retain older/custom
 Ctrl+Shift bindings explicitly.
+
+`modifiers` changes all of Band's Super+Alt (Command+Option) defaults at once:
+`modifiers = Command` in `[macos.shortcuts]` makes them Command+T, Command+P,
+Command+Left and so on. Terminal programs never receive Command, so this frees
+Option for them; Command+Left/Right then switch terminals instead of moving
+the cursor in apps that use them. On Linux, `modifiers = Super` works too, but
+Super alone collides with desktop shortcuts (Super+L, Super+A, Super+arrows on
+GNOME). Explicit bindings in the same file and the clipboard keys stay as written;
+the platform section wins over `[shortcuts]`. Only `Command`/`Super` or
+`Command+Option`/`Super+Alt` are accepted.
 
 ## Apps
 
@@ -513,14 +524,14 @@ without restarting the app. The default markers survive window close/reopen;
 cached boolean values do not freeze inheritance.
 
 Older window files without default markers preserve their existing explicit
-motion/pin choices; a missing optional pin field inherits. Use view defaults to
-opt into managed values. At narrow widths, pinned navigation still collapses to
+motion/pin choices; a missing optional pin field inherits. **Use config.conf** in Configuration (shown only while this window
+differs) opts into managed values. At narrow widths, pinned navigation still collapses to
 a drawer without discarding the preference. This is Qt client presentation state,
 separate from workspace palettes, catalog organization and runtime ownership.
 
 To validate on Mac, install, activate and open the new preview. Add the example
 to `~/.config/band/config.conf`, open Configuration and choose
-**Use view defaults**. Change either managed value and watch it update. Toggle
+**Use config.conf**. Change either managed value and watch it update. Toggle
 that setting using the navigation pin or Reduced motion menu action; later file
 changes should preserve the window choice. Close/reopen to check restoration,
 then reset again. Open a second window to check independent choices. Live shells
