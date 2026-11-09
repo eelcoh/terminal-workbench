@@ -197,7 +197,7 @@ Rectangle {
                             Rectangle {
                                 required property var modelData
                                 width: parent.paneWidth; height: parent.paneHeight
-                                color: scene.t.surface; radius: Design.radiusM; border.width: Design.line; border.color: modelData.focused ? scene.t.accent : scene.t.border
+                                color: scene.t.surface; radius: Design.radiusM; border.width: Design.line; border.color: modelData.focused ? scene.t.accent : "transparent"
                                 PaneHeader {
                                     width: parent.width; tones: scene.t; icon: parent.modelData.icon; name: parent.modelData.name; place: parent.modelData.place
                                     agentState: parent.modelData.agentState; needsInput: parent.modelData.waiting; focused: parent.modelData.focused; dirty: parent.modelData.dirty

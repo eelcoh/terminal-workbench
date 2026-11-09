@@ -762,14 +762,16 @@ while True:
         command_search('terminal');wait_until(lambda:len(data()['command_matches'])>4)
         key('Down');wait_until(lambda:data()['command_current']==1)
         key('Up');wait_until(lambda:data()['command_current']==0)
-        # Shortcuts show as key chips from the live keymap, with the palette's own keys in its footer.
-        assert {'Up','Down','Enter','Esc'}<=set(data()['key_chips']) and any(k.startswith('Super+') for k in data()['key_chips']),data()['key_chips']
+        # Shortcuts show as key chips from the live keymap; the palette has no key legend of its own.
+        assert any(k.startswith('Super+') for k in data()['key_chips']) and not {'Up','Down','Enter','Esc'}&set(data()['key_chips']),data()['key_chips']
         capture('commands-search.png');key('Escape');wait_until(lambda:not data()['commands_open'])
         command_search('reduce motion');wait_until(lambda:len(data()['command_first_row'])==2);click(*settled_point(lambda d:d['command_first_row']));wait_until(lambda:not data()['commands_open'] and data()['reduced_motion'])
         command_search('enable animations');key('Return');wait_until(lambda:not data()['commands_open'] and not data()['reduced_motion'])
         command_search('terminal');key('Tab');wait_until(lambda:not data()['command_search_focus'])
         key('shift+Tab');wait_until(lambda:data()['command_search_focus'])
-        key('Tab');key('Tab');key('Return');wait_until(lambda:not data()['commands_open'] and data()['panes'][0]['focus'])
+        # Tab cycles between the field and the list; Escape closes and returns focus.
+        key('Tab');wait_until(lambda:not data()['command_search_focus']);key('Tab');wait_until(lambda:data()['command_search_focus'])
+        key('Escape');wait_until(lambda:not data()['commands_open'] and data()['panes'][0]['focus'])
         command_search('previous terminal');assert not data()['command_matches'][0]['available'] and data()['command_matches'][0]['reason']
         key('Return');time.sleep(.1);assert data()['commands_open'] and data()['selected']==0
         key('Escape');wait_until(lambda:not data()['commands_open'])

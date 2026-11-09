@@ -83,6 +83,11 @@ test opens it from Commands and saves `design-gallery.png`.
   caption size, a host's connect and remove buttons and an agent's details
   button on hover, and the agents count beside the state filter.
 - On macOS every type step is a pixel smaller.
+- Commands is a search field over a list, high in the window: no title, key
+  legend or Done button (Escape or a click outside closes it), the context in
+  the field's placeholder, and tighter rows.
+- Only the focused pane has a frame, in the accent; the others stand on their
+  surface color.
 
 ## Still to do in stage 1
 

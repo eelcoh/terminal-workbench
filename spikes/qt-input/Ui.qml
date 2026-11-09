@@ -1220,7 +1220,8 @@ ApplicationWindow {
                 transformOrigin: Item.TopLeft
                 visible: !ended && (window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace)
                 color: studyThemes.theme(window.themeIndexFor(spaceIndex)).surface; radius: Design.radiusM
-                border.width: window.overview ? 0 : Design.line; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : studyThemes.theme(window.themeIndexFor(spaceIndex)).border
+                // Only the focused pane is framed; the others stand on their surface.
+                border.width: window.overview ? 0 : Design.line; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : "transparent"
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
@@ -1592,7 +1593,7 @@ ApplicationWindow {
         }
     }
     CommandPalette {
-        id: commands; objectName: "commandPalette"; anchors.centerIn: parent
+        id: commands; objectName: "commandPalette"; x: Math.round((parent.width - width) / 2); y: Math.round(Math.max(32, parent.height * 0.14))
         tones: window.chrome; actions: commandRegistry.entries
         contextLabel: (window.spaces[window.workspace] || "No workspace") + (window.selected >= 0 && window.panel(window.selected) ? " · " + window.panel(window.selected).facts.title : " · Empty workspace")
         onChosen: id => { window.pendingCommand = id; close() }

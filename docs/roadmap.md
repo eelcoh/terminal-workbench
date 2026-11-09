@@ -202,6 +202,15 @@ The owner likes Rex's minimal Mac design: little chrome, few frames. Plan and
 status: [design step](design.md). Stage 1 started 2026-11-08 with one file of
 design values that every component reads.
 
+**The rail becomes a filter** (owner, 2026-11-09). The sidebar is always
+workspace-centric: workspaces with their panes. The rail icons stop opening
+separate panels and instead filter that one view by kind — apps, hosts, shells
+(and agents) — so the Apps, Hosts and Agents panels fold into the Workspaces
+view. This revises the v0.2 "one panel per rail icon" decision. Open
+questions: whether filters combine, where host actions (New host…, Connect)
+and Add applications live once their panels are gone, and how a filter shows
+workspaces with no matching panes.
+
 ## Later
 
 - Agent oversight, if it still earns its place: generic signals for agents
@@ -216,6 +225,13 @@ design values that every component reads.
   of one's own from Add applications rather than only through config.conf,
   with a description, and building and updating them from a checkout or a
   Git repository ([apps](apps.md#open)).
+- System-installed terminal fonts (owner, 2026-11-09, after the design step):
+  `[font] family` takes any installed monospaced font, Terminal text settings
+  lists them under the bundled JetBrains Mono and Fira Code, and a missing or
+  proportional family falls back to JetBrains Mono with a notice instead of
+  rejecting the config. The family is stored as an index of the two bundled
+  faces today, so the change touches the config reader, the font settings and
+  the renderer.
 - Plugins with versioned capabilities and crash isolation
   ([notes](status-log.md#plugins-long-horizon)).
 - Signing, notarization and updates.
