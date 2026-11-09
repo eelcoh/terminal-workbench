@@ -107,23 +107,30 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
     PortableLayer layers[3]={0};char line[2048];int section=-1,kind=0,number=1;
+    /* Why the file was rejected, and the section being read, for the notice. */
+    char reason[200]="",section_name[64]="";
+#define PORTABLE_FAIL(...) { snprintf(reason,sizeof(reason),__VA_ARGS__);valid=false;break; }
     struct { char id[41];int layer;bool name,command,directory,install,setup; } app_sections[PORTABLE_APP_SECTIONS];int app_count=0,app=-1;
     struct { char id[35];int layer;bool name,destination,directory,theme; } host_sections[PORTABLE_HOST_SECTIONS];int host_count=0,host=-1;
     // Files written before the rename to Band keep their workbench header.
     bool valid=fgets(line,sizeof(line),file) && (!strcmp(line,"band-config-v1\n") || !strcmp(line,"workbench-config-v1\n"));
+    if (!valid) snprintf(reason,sizeof(reason),"the first line must be band-config-v1");
     while (valid && fgets(line,sizeof(line),file)) {
-        number++;if (number>512 || !strchr(line,'\n')) {valid=false;break;}
+        number++;
+        if (number>512) PORTABLE_FAIL("the file is longer than 512 lines")
+        if (!strchr(line,'\n')) PORTABLE_FAIL("the line is too long or the file does not end with a newline")
         char *text=portable_trim(line);if (!*text || *text=='#') continue;
         if (*text=='[') {
-            app=-1;host=-1;size_t length=strlen(text);
+            app=-1;host=-1;size_t length=strlen(text);snprintf(section_name,sizeof(section_name),"%s",text);
             const char *host_prefixes[]={"[host.","[linux.host.","[macos.host."};int host_layer=-1;
             for (int i=0;i<3;i++) if (!strncmp(text,host_prefixes[i],strlen(host_prefixes[i]))) host_layer=i;
             if (host_layer>=0) {
                 char *id=text+strlen(host_prefixes[host_layer]);
-                if (text[length-1]!=']' || host_count>=PORTABLE_HOST_SECTIONS) {valid=false;break;}
-                text[length-1]=0;if (!portable_host_id(id)) {valid=false;break;}
+                if (text[length-1]!=']') PORTABLE_FAIL("%s is missing its closing ]",section_name)
+                if (host_count>=PORTABLE_HOST_SECTIONS) PORTABLE_FAIL("too many host sections")
+                text[length-1]=0;if (!portable_host_id(id)) PORTABLE_FAIL("%s: a host ID uses letters, digits, - and _",section_name)
                 for (int i=0;i<host_count;i++) if (host_sections[i].layer==host_layer && !strcmp(host_sections[i].id,id)) valid=false;
-                if (!valid) break;
+                if (!valid) PORTABLE_FAIL("%s appears twice",section_name)
                 host=host_count++;memset(&host_sections[host],0,sizeof(host_sections[host]));
                 strcpy(host_sections[host].id,id);host_sections[host].layer=host_layer;
                 if (hosts) {memset(&hosts->sections[host],0,sizeof(hosts->sections[host]));strcpy(hosts->sections[host].id,id);}
@@ -133,10 +140,11 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
             for (int i=0;i<3;i++) if (!strncmp(text,prefixes[i],strlen(prefixes[i]))) layer=i;
             if (layer>=0) {
                 char *id=text+strlen(prefixes[layer]);
-                if (text[length-1]!=']' || app_count>=PORTABLE_APP_SECTIONS) {valid=false;break;}
-                text[length-1]=0;if (!portable_app_id(id)) {valid=false;break;}
+                if (text[length-1]!=']') PORTABLE_FAIL("%s is missing its closing ]",section_name)
+                if (app_count>=PORTABLE_APP_SECTIONS) PORTABLE_FAIL("too many app sections")
+                text[length-1]=0;if (!portable_app_id(id)) PORTABLE_FAIL("%s: an app ID uses letters, digits, - and _",section_name)
                 for (int i=0;i<app_count;i++) if (app_sections[i].layer==layer && !strcmp(app_sections[i].id,id)) valid=false;
-                if (!valid) break;
+                if (!valid) PORTABLE_FAIL("%s appears twice",section_name)
                 app=app_count++;memset(&app_sections[app],0,sizeof(app_sections[app]));
                 strcpy(app_sections[app].id,id);app_sections[app].layer=layer;
                 if (apps) {memset(&apps->sections[app],0,sizeof(apps->sections[app]));strcpy(apps->sections[app].id,id);}
@@ -144,18 +152,26 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
             }
             static const char *sections[]={"[appearance]","[shortcuts]","[font]","[workspace]","[view]","[linux.appearance]","[linux.shortcuts]","[linux.font]","[linux.workspace]","[linux.view]","[macos.appearance]","[macos.shortcuts]","[macos.font]","[macos.workspace]","[macos.view]"};
             int found=-1;for (int i=0;i<15;i++) if (!strcmp(text,sections[i])) found=i;
-            if (found<0) {valid=false;break;}section=found/5;kind=found%5;continue;
+            if (found<0) PORTABLE_FAIL("unknown section %s",section_name)
+            section=found/5;kind=found%5;continue;
         }
-        char *equal=strchr(text,'=');if (section<0 || !equal) {valid=false;break;}*equal++=0;
+        char *equal=strchr(text,'=');
+        if (section<0) PORTABLE_FAIL("a setting comes before the first [section]")
+        if (!equal) PORTABLE_FAIL("expected name = value")
+        *equal++=0;
         char *key=portable_trim(text),*value=portable_trim(equal);PortableLayer *layer=&layers[section];
-        if (!*value) {valid=false;break;}
+        if (!*value) PORTABLE_FAIL("%s has no value",key)
+        /* A # after a value is part of it; say so when that is the likely cause. */
+        const char *comment=strstr(value," #") ? " (# starts a comment only at the beginning of a line)" : "";
         if (kind==6) {
             bool *seen=NULL;char *target=NULL;size_t size=0;PortableHost *values=hosts ? &hosts->sections[host] : NULL;bool ok=true;
             if (!strcmp(key,"name")) {seen=&host_sections[host].name;size=sizeof(values->name);if (values) target=values->name;}
             else if (!strcmp(key,"destination")) {seen=&host_sections[host].destination;size=sizeof(values->destination);if (values) target=values->destination;ok=portable_destination(value);}
             else if (!strcmp(key,"directory")) {seen=&host_sections[host].directory;size=sizeof(values->directory);if (values) target=values->directory;}
             else if (!strcmp(key,"theme")) {seen=&host_sections[host].theme;size=sizeof(values->theme);if (values) target=values->theme;}
-            if (!seen || *seen || !ok || strlen(value)>=size || !portable_plain(value)) {valid=false;break;}
+            if (!seen) PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
+            if (*seen) PORTABLE_FAIL("%s is set twice in %s",key,section_name)
+            if (!ok || strlen(value)>=size || !portable_plain(value)) PORTABLE_FAIL("invalid %s in %s%s",key,section_name,comment)
             *seen=true;if (target) strcpy(target,value);
         } else if (kind==5) {
             bool *seen=NULL;char *target=NULL;size_t size=0;PortableApp *values=apps ? &apps->sections[app] : NULL;
@@ -164,56 +180,67 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
             else if (!strcmp(key,"directory")) {seen=&app_sections[app].directory;size=sizeof(values->directory);if (values) target=values->directory;}
             else if (!strcmp(key,"install")) {seen=&app_sections[app].install;size=sizeof(values->install);if (values) target=values->install;}
             else if (!strcmp(key,"setup")) {seen=&app_sections[app].setup;size=sizeof(values->setup);if (values) target=values->setup;}
-            if (!seen || *seen || strlen(value)>=size || !portable_plain(value)) {valid=false;break;}
+            if (!seen) PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
+            if (*seen) PORTABLE_FAIL("%s is set twice in %s",key,section_name)
+            if (strlen(value)>=size || !portable_plain(value)) PORTABLE_FAIL("%s in %s is too long or has control characters",key,section_name)
             *seen=true;if (target) strcpy(target,value);
         } else if (kind==4) {
             bool *seen=NULL,*setting=NULL;
             if (!strcmp(key,"navigation-pinned")) {seen=&layer->has_navigation_pinned;setting=&layer->navigation_pinned;}
             else if (!strcmp(key,"reduced-motion")) {seen=&layer->has_reduced_motion;setting=&layer->reduced_motion;}
             else if (!strcmp(key,"integrated-title-bar")) {seen=&layer->has_integrated_title_bar;setting=&layer->integrated_title_bar;}
-            if (!seen || *seen || (strcmp(value,"true") && strcmp(value,"false"))) {valid=false;break;}
+            if (!seen) PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
+            if (*seen) PORTABLE_FAIL("%s is set twice in %s",key,section_name)
+            if (strcmp(value,"true") && strcmp(value,"false")) PORTABLE_FAIL("%s must be true or false%s",key,comment)
             *seen=true;*setting=!strcmp(value,"true");
         } else if (kind==3) {
             if (!strcmp(key,"directory")) {
-                if (layer->has_directory || strlen(value)>=sizeof(layer->workspace_directory)) {valid=false;break;}
-                for (const unsigned char *p=(const unsigned char *)value;*p;p++) if (*p<32 || *p==127) {valid=false;break;}
-                if (!valid) break;
+                if (layer->has_directory) PORTABLE_FAIL("directory is set twice in %s",section_name)
+                if (strlen(value)>=sizeof(layer->workspace_directory) || !portable_plain(value)) PORTABLE_FAIL("directory is too long or has control characters")
                 strcpy(layer->workspace_directory,value);layer->has_directory=true;
             } else if (!strcmp(key,"terminal-width")) {
-                if (layer->has_width) {valid=false;break;}
+                if (layer->has_width) PORTABLE_FAIL("terminal-width is set twice in %s",section_name)
                 if (!strcmp(value,"1/3")) layer->terminal_width=1.0/3.0;
                 else if (!strcmp(value,"1/2")) layer->terminal_width=0.5;
                 else if (!strcmp(value,"2/3")) layer->terminal_width=2.0/3.0;
                 else if (!strcmp(value,"1/1") || !strcmp(value,"3/3")) layer->terminal_width=1.0;
-                else {valid=false;break;}
+                else PORTABLE_FAIL("terminal-width must be 1/3, 1/2, 2/3 or 1/1%s",comment)
                 layer->has_width=true;
-            } else {valid=false;break;}
+            } else PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
         } else if (kind==2) {
             if (!strcmp(key,"size")) {
                 char *end=NULL;long size=strtol(value,&end,10);
-                if (layer->has_size || end==value || *end || size<TERMINAL_FONT_MIN || size>TERMINAL_FONT_MAX) {valid=false;break;}
+                if (layer->has_size) PORTABLE_FAIL("size is set twice in %s",section_name)
+                if (end==value || *end || size<TERMINAL_FONT_MIN || size>TERMINAL_FONT_MAX) PORTABLE_FAIL("size must be a whole number from %d to %d%s",TERMINAL_FONT_MIN,TERMINAL_FONT_MAX,comment)
                 layer->font.size=(int)size;layer->has_size=true;
             } else if (!strcmp(key,"family")) {
                 int family=font_preferences_family(value);
-                if (layer->has_family || family<0) {valid=false;break;}
+                if (layer->has_family) PORTABLE_FAIL("family is set twice in %s",section_name)
+                if (family<0) PORTABLE_FAIL("unknown font family '%.60s'; use JetBrains Mono or Fira Code%s",value,comment)
                 layer->font.family=family;layer->has_family=true;
-            } else {valid=false;break;}
+            } else PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
         } else if (kind==1) {
             int action=-1;for (int i=0;i<COMMAND_COUNT;i++) if (!strcmp(key,command_ids[i])) action=i;
-            if (action<0 || layer->seen[action] || !shortcut_parse(value,&layer->shortcuts.bindings[action])) {valid=false;break;}
+            if (action<0) PORTABLE_FAIL("unknown shortcut action %s",key)
+            if (layer->seen[action]) PORTABLE_FAIL("%s is set twice in %s",key,section_name)
+            if (!shortcut_parse(value,&layer->shortcuts.bindings[action])) PORTABLE_FAIL("cannot read the shortcut '%.40s' for %s%s",value,key,comment)
             layer->seen[action]=true;
         } else if (!strcmp(key,"application-theme") || !strcmp(key,"terminal-theme")) {
             bool application=!strcmp(key,"application-theme");bool *seen=application ? &layer->seen_application : &layer->seen_terminal;
-            if (*seen || strlen(value)>=1024) {valid=false;break;}*seen=true;
+            if (*seen) PORTABLE_FAIL("%s is set twice in %s",key,section_name)
+            if (strlen(value)>=1024) PORTABLE_FAIL("%s is too long",key)
+            *seen=true;
             strcpy(application ? layer->application : layer->terminal,value);
         } else if (!strcmp(key,"follow-workspace")) {
-            if (layer->has_follow || (strcmp(value,"true") && strcmp(value,"false"))) {valid=false;break;}
+            if (layer->has_follow) PORTABLE_FAIL("follow-workspace is set twice in %s",section_name)
+            if (strcmp(value,"true") && strcmp(value,"false")) PORTABLE_FAIL("follow-workspace must be true or false%s",comment)
             layer->has_follow=true;layer->follow=!strcmp(value,"true");
-        } else {valid=false;break;}
+        } else PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
     }
-    if (ferror(file)) valid=false;
+#undef PORTABLE_FAIL
+    if (ferror(file)) {valid=false;snprintf(reason,sizeof(reason),"the file could not be read");}
     fclose(file);
-    if (!valid) {snprintf(error,capacity,"Invalid dotfile near line %d; preferences kept",number);return false;}
+    if (!valid) {snprintf(error,capacity,"config.conf line %d: %s; preferences kept",number,reason[0] ? reason : "cannot be read");return false;}
     /* Every app has a command on both platforms: a platform section either
      * overrides an [app.ID] or defines a platform-only app in full. */
     int distinct=0;

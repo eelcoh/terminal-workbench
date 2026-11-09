@@ -142,6 +142,20 @@ int main(void)
         write_text(path,bad[i]);assert(!portable_read(path,false,&linux_config,error,sizeof(error)));
         assert(!memcmp(&linux_config,&unchanged,sizeof(linux_config)) && error[0]);
     }
+    /* The notice names the line and the cause. */
+    static const struct { const char *text,*message; } explained[]={
+        {"[font]\nsize = 15\n","config.conf line 1: the first line must be band-config-v1"},
+        {"band-config-v1\n[font]\nfamily = Fira Code   # or JetBrains Mono\n","line 3: unknown font family 'Fira Code   # or JetBrains Mono'"},
+        {"band-config-v1\n[font]\nfamily = Fira Code   # comment\n","# starts a comment only at the beginning of a line"},
+        {"band-config-v1\n[font]\nsize = 18\n\n[font]\nsize = 20\n","line 6: size is set twice in [font]"},
+        {"band-config-v1\n[font]\nsize = 40\n","size must be a whole number from 10 to 32"},
+        {"band-config-v1\n[fonts]\n","line 2: unknown section [fonts]"},
+        {"band-config-v1\nsize = 15\n","a setting comes before the first [section]"},
+        {"band-config-v1\n[view]\ncompact = true\n","unknown setting compact in [view]"}};
+    for (size_t i=0;i<sizeof(explained)/sizeof(*explained);i++) {
+        write_text(path,explained[i].text);assert(!portable_read(path,false,&linux_config,error,sizeof(error)));
+        if (!strstr(error,explained[i].message)) { fprintf(stderr,"%s\n",error);assert(!"explained rejection"); }
+    }
     /* UI edits inherit a base, and write only differences so unrelated file edits remain live on reopen. */
     ShortcutState changed=unchanged.shortcuts,loaded;changed.bindings[COMMAND_FORWARD]=(ShortcutChord){299,0};
     assert(shortcut_write_layer(ui,&changed,&unchanged.shortcuts,error,sizeof(error)));
