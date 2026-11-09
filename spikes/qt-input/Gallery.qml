@@ -155,7 +155,7 @@ Rectangle {
                     id: scene
                     required property var modelData
                     readonly property var t: modelData.tones
-                    width: scenes.width; height: 300
+                    width: scenes.width; height: 340
                     color: t.background; radius: Design.radiusXl; border.width: Design.line; border.color: t.border; clip: true
                     Rectangle { x: Design.line; y: Design.line; width: parent.width - 2 * Design.line; height: 40; radius: Design.radiusXl; color: scene.t.surface }
                     Rectangle { x: Design.line; y: 40; width: 240; height: parent.height - 40 - Design.line; color: scene.t.surface }
@@ -168,6 +168,8 @@ Rectangle {
                     }
                     Column {
                         x: Design.spaceM; y: 48; width: 240 - 2 * Design.spaceM; spacing: Design.space2xs
+                        ContextSearch { width: parent.width; tones: scene.t; placeholderText: "Filter workspaces and panes…"; activeFocusOnTab: false }
+                        Item { width: 1; height: Design.spaceS }
                         Item {
                             width: parent.width; height: 28
                             SidebarWorkspace { width: parent.width - 28; tones: scene.t; text: "Band"; count: 3; waiting: 1; dirty: true; current: true }
