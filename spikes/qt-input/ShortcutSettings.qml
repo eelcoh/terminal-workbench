@@ -19,9 +19,16 @@ Dialog {
     contentItem: Column {
         spacing: Design.spaceL
         Label { width: parent.width; text: "Record a shortcut, clear it, or restore its dotfile default. Apply saves for this platform."; wrapMode: Text.Wrap; color: popup.tones.muted; font.pixelSize: Design.textSmall }
+        // On the Mac, Band's shortcuts can use Command alone: terminal programs never receive it.
+        Row {
+            visible: Qt.platform.os === "osx"; spacing: Design.spaceXs
+            Label { height: 32; verticalAlignment: Text.AlignVCenter; rightPadding: Design.spaceS; text: "Band's shortcuts use"; color: popup.tones.foreground; font.pixelSize: Design.textBody }
+            ChromeButton { objectName: "shortcutModifiersBoth"; tones: popup.tones; text: "Command+Option"; enabled: !popup.recordingActive; selected: popup.preferences.draftModifiers === "command-option"; onClicked: popup.preferences.useModifiers(false) }
+            ChromeButton { objectName: "shortcutModifiersAlone"; tones: popup.tones; text: "Command"; enabled: !popup.recordingActive; selected: popup.preferences.draftModifiers === "command"; onClicked: popup.preferences.useModifiers(true) }
+        }
         ListView {
             id: list; objectName: "shortcutSettingsList"
-            width: parent.width; height: Math.max(90, parent.height - 130); clip: true; spacing: Design.spaceXs
+            width: parent.width; height: Math.max(90, parent.height - (Qt.platform.os === "osx" ? 172 : 130)); clip: true; spacing: Design.spaceXs
             model: popup.actions.filter(entry => popup.preferences.editable(entry.id))
             ScrollBar.vertical: ScrollBar {}
             delegate: ItemDelegate {

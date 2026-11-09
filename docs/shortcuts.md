@@ -8,9 +8,11 @@ saved binding. Commands displays the active binding beside each action.
 
 ## Default bindings
 
-On the Mac, `modifiers = Command` in `[macos.shortcuts]` of config.conf turns
-every Command+Option default below into Command alone
-([dotfiles](dotfiles.md#appearance-and-shortcuts)).
+On the Mac, Band's shortcuts can use Command alone: choose **Command** beside
+"Band's shortcuts use" in Shortcut settings (Apply saves it for this Mac), or
+put `modifiers = Command` in `[macos.shortcuts]` of config.conf
+([dotfiles](dotfiles.md#appearance-and-shortcuts)). Either turns every
+Command+Option shortcut into Command alone; Copy and Paste stay as they are.
 
 | Action | Linux | macOS |
 | --- | --- | --- |

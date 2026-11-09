@@ -119,6 +119,18 @@ bool UiShortcuts::record(const QString &id,int key,int modifiers){
     return set(id,sourceKey(key),mods);
 }
 bool UiShortcuts::clear(const QString &id){return set(id,0,0);}
+namespace { bool clipboard(const WorkbenchShortcut &s){return !qstrcmp(s.id,"copy") || !qstrcmp(s.id,"paste");} }
+QString UiShortcuts::draftModifiers() const{
+    int alone=0,both=0;
+    for(const auto &s:draft_){if(clipboard(s))continue;if(s.mods==8u)++alone;else if(s.mods==12u)++both;}
+    return alone && both ? "mixed" : alone ? "command" : both ? "command-option" : "";
+}
+bool UiShortcuts::useModifiers(bool superAlone){
+    auto next=draft_;
+    for(auto &s:next){if(clipboard(s))continue;if(superAlone && s.mods==12u)s.mods=8u;else if(!superAlone && s.mods==8u)s.mods=12u;}
+    QString error;if(!validate(next,error)){editError_=error;Q_EMIT changed();return false;}
+    draft_=next;editError_.clear();Q_EMIT changed();return true;
+}
 bool UiShortcuts::reset(const QString &id){const int i=index(id);return i>=0 && set(id,base_[i].key,base_[i].mods);}
 bool UiShortcuts::apply(){
     const auto fail=[&](const QString &message){editError_=message;Q_EMIT changed();return false;};

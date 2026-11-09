@@ -54,6 +54,12 @@ int main(int argc,char **argv){
     require(!staleManaged.apply(),"detect managed edit before editor opens");
     write(path,managed);UiShortcuts macEditor(path,true,nullptr,dir.filePath("ui/macos/shortcuts.conf"));macEditor.begin();
     require(macEditor.record("commands",Qt::Key_G,Qt::ControlModifier|Qt::AltModifier) && macEditor.apply() && chord(macEditor,"commands","Ctrl+Alt+G"),"Mac recording uses physical Command");
+    // Command alone on the Mac: every Command+Option shortcut moves, Copy/Paste stay; back again restores.
+    write(path,managed);UiShortcuts macAlone(path,true,nullptr,dir.filePath("ui/macos/alone.conf"));macAlone.begin();
+    require(macAlone.draftModifiers()=="command-option","Mac defaults use Command+Option");
+    require(macAlone.useModifiers(true) && macAlone.draftModifiers()=="command" && macAlone.apply(),"Command alone applies");
+    require(chord(macAlone,"new-terminal","Ctrl+T") && chord(macAlone,"next-terminal","Ctrl+Right") && chord(macAlone,"commands","F9"),"Command+T and Command+Right after Command alone; F9 stays");
+    macAlone.begin();require(macAlone.useModifiers(false) && macAlone.draftModifiers()=="command-option" && macAlone.apply() && chord(macAlone,"new-terminal","Ctrl+Alt+T"),"back to Command+Option");
     write(path,"band-config-v1\n[shortcuts]\nforward = F6\n");UiShortcuts forwarding(path,false);
     require(chord(forwarding,"forward","F6") && forwarding.editable("forward"),"forward action managed and editable");
     std::puts("PASS: managed/platform shortcuts, reserved keys, transactional drafts, sparse UI persistence, reset, unbind and stale-file protection");

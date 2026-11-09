@@ -12,6 +12,8 @@ class UiShortcuts final : public QObject {
     Q_PROPERTY(QString error READ error NOTIFY changed)
     Q_PROPERTY(QString editError READ editError NOTIFY changed)
     Q_PROPERTY(QVariantMap draftLabels READ draftLabels NOTIFY changed)
+    // In the draft, Band's own shortcuts (not Copy/Paste): "command-option", "command", or "mixed".
+    Q_PROPERTY(QString draftModifiers READ draftModifiers NOTIFY changed)
 public:
     explicit UiShortcuts(const QString &path,bool apple,QObject *parent=nullptr,const QString &overrides={});
     std::unique_ptr<UiShortcuts> reloadCandidate() const;
@@ -23,12 +25,15 @@ public:
     QVariantMap draftLabels() const;
     QString error() const{return error_;}
     QString editError() const{return editError_;}
+    QString draftModifiers() const;
     Q_INVOKABLE bool editable(const QString &id) const;
     Q_INVOKABLE void begin();
     Q_INVOKABLE bool record(const QString &id,int key,int modifiers);
     Q_INVOKABLE bool clear(const QString &id);
     Q_INVOKABLE bool reset(const QString &id);
     Q_INVOKABLE bool apply();
+    // Moves every Super+Alt (Command+Option) shortcut in the draft to Super (Command) alone, or back.
+    Q_INVOKABLE bool useModifiers(bool superAlone);
 Q_SIGNALS:
     void changed();
 private:
