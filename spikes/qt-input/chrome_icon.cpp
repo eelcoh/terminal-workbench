@@ -9,7 +9,7 @@ void ChromeIcon::paint(QPainter *p) {
     else if(name_=="workspaces") {for(int y:{4,14})p->drawRoundedRect(QRectF(4,y,16,6),1,1);}
     else if(name_=="agents") {QPainterPath path;path.moveTo(2,12);path.lineTo(6,12);path.lineTo(9,5);path.lineTo(14,19);path.lineTo(18,12);path.lineTo(22,12);p->drawPath(path);}
     else if(name_=="shell") {p->drawLine(QPointF(5,7),QPointF(10,12));p->drawLine(QPointF(10,12),QPointF(5,17));p->drawLine(QPointF(13,17),QPointF(19,17));}
-    else if(name_=="filter-off") {QPainterPath path;path.moveTo(4,5);path.lineTo(20,5);path.lineTo(14,12);path.lineTo(14,19);path.lineTo(10,17);path.lineTo(10,12);path.closeSubpath();p->drawPath(path);p->drawLine(QPointF(3,21),QPointF(21,3));}
+    else if(name_=="filter-off") {QPainterPath path;path.moveTo(3,5);path.lineTo(17,5);path.lineTo(12,11);path.lineTo(12,17);path.lineTo(8,15);path.lineTo(8,11);path.closeSubpath();p->drawPath(path);p->drawLine(QPointF(15,15),QPointF(21,21));p->drawLine(QPointF(21,15),QPointF(15,21));}
     else if(name_=="apps") {for(int x:{4,14})for(int y:{4,14})p->drawRoundedRect(QRectF(x,y,6,6),1.5,1.5);}
     else if(name_=="width") {p->drawLine(QPointF(3,6),QPointF(3,18));p->drawLine(QPointF(21,6),QPointF(21,18));p->drawLine(QPointF(7,12),QPointF(17,12));
         for(int s:{1,-1}){const qreal x=s>0?7:17;p->drawLine(QPointF(x,12),QPointF(x+3*s,9));p->drawLine(QPointF(x,12),QPointF(x+3*s,15));}}

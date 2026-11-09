@@ -121,6 +121,15 @@ Rectangle {
                             }
                         }
 
+                        // Every chrome icon, at the size the rail draws them.
+                        Flow {
+                            width: parent.width; spacing: Design.spaceM
+                            Repeater {
+                                model: ["menu", "workspaces", "filter-off", "shell", "apps", "host", "agents", "pin", "plus", "close", "more", "chevron", "width", "full", "check", "info", "help", "minimize", "maximize", "restore"]
+                                ChromeIcon { required property string modelData; width: 18; height: 18; name: modelData; color: column.t.muted; ToolTip.text: modelData }
+                            }
+                        }
+
                         // Radii and spacing steps.
                         Row {
                             spacing: Design.spaceM

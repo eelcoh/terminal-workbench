@@ -220,9 +220,6 @@ ApplicationWindow {
     // All panes, when already showing, hides a pinned column without unpinning it.
     property bool navigationHidden: false
     readonly property bool navigationDocked: navigationPinned && width >= 920 && !navigationHidden
-    // The Agents icon appears once this window has seen an agent.
-    property bool agentsSeen: false
-    onAgentIndicesChanged: if (agentIndices.length) agentsSeen = true
     readonly property int navigationEdge: navigationDocked ? 288 : 44
     onNavigationPinnedChanged: scheduleViewSave()
     onNavigationDockedChanged: {
@@ -1080,7 +1077,7 @@ ApplicationWindow {
         // All panes clears the filters below it (or closes the sidebar when
         // nothing is filtered); each kind icon filters the workspaces' panes.
         QuietButton {
-            objectName: "workspacesButton"; height: 28; iconName: "filter-off"
+            objectName: "workspacesButton"; height: 28; iconName: window.navigationKinds.length ? "filter-off" : "workspaces"
             hint: window.navigationKinds.length ? "All panes · clear filters" : window.navigationShown ? "Hide the sidebar" : "Show all panes"
             selected: window.navigationShown && !window.navigationKinds.length; onClicked: window.showAllPanes()
         }
@@ -1101,7 +1098,7 @@ ApplicationWindow {
             onClicked: window.toggleKind("hosts")
         }
         QuietButton {
-            objectName: "agentsButton"; height: 28; iconName: "agents"; visible: window.agentsSeen || window.navigationKinds.indexOf("agents") >= 0
+            objectName: "agentsButton"; height: 28; iconName: "agents"
             hint: window.waitingCount ? "Agents · " + window.waitingCount + " need input (last reports)" : "Agents"
             selected: window.navigationShown && window.navigationKinds.indexOf("agents") >= 0; onClicked: window.toggleKind("agents")
             Rectangle {

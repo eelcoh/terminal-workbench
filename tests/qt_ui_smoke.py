@@ -495,8 +495,8 @@ while True:
         click(*settled_point(lambda d:d['navigation_workspace_1']));wait_until(lambda:data()['workspace']==1 and data()['panes'][3]['focus'])
         assert data()['navigation_docked'] and not data()['drawer_open']
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['panes'][0]['focus'])
-        # The Agents icon waits for the first agent; Commands still opens the panel.
-        assert not data()['agents_visible']
+        # The Agents filter is always on the rail; Commands also opens it.
+        assert data()['agents_visible']
         command_search('Show agents');key('Return');wait_until(lambda:data()['navigation_section']=='agents' and data()['agents_visible'])
         assert not data()['overview'] and not data()['navigation_agent_indices']
         capture('navigation-agents-empty.png')
