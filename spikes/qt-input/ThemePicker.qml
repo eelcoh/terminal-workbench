@@ -1,9 +1,13 @@
 import QtQuick
 import QtQuick.Controls
 import Band.Design
+// Appearance and Terminal colors: search, All/Dark/Light, theme cards with a
+// live preview, and the default/Cancel/Apply row. It follows the window's
+// chrome tones like every other dialog.
 Dialog {
     id: picker
     objectName: "appearanceDialog"
+    required property var tones
     property var catalog: []
     property int themeIndex: 0
     property string saveError: ""
@@ -32,12 +36,12 @@ Dialog {
     signal applySelected()
     readonly property var matches: catalog.filter(theme => theme.name.toLowerCase().includes(search.text.toLowerCase()) && (mode === 0 || theme.light === (mode === 2)))
     title: heading + " · " + workspaceName
-    implicitWidth: 540; implicitHeight: 600
+    implicitWidth: 560; implicitHeight: 600
     modal: true; width: Math.min(implicitWidth, parent.width - 64); height: Math.min(implicitHeight, parent.height - 64)
     padding: Design.space2xl; closePolicy: Popup.CloseOnEscape
     Overlay.modal: Rectangle { color: "transparent" }
-    background: Rectangle { color: "#1b2029"; radius: Design.radiusXl; border.color: "#3a4657" }
-    header: Label { renderType: Text.NativeRendering; width: picker.width; text: picker.title; textFormat: Text.PlainText; padding: Design.space2xl; bottomPadding: Design.spaceM; color: "#e0e6ef"; font.pixelSize: Design.textTitle; elide: Text.ElideRight }
+    background: Rectangle { color: picker.tones.raised; radius: Design.radiusXl; border.width: Design.line; border.color: picker.tones.border }
+    header: Label { width: picker.width; text: picker.title; textFormat: Text.PlainText; padding: Design.space2xl; bottomPadding: Design.spaceM; color: picker.tones.foreground; font.pixelSize: Design.textTitle - 2; elide: Text.ElideRight }
     onClosed: themeHelp.close()
     onAboutToShow: preparing = true
     onOpened: { search.text = ""; mode = 0; list.currentIndex = -1; search.forceActiveFocus(); preparing = false }
@@ -47,42 +51,34 @@ Dialog {
         if (list.currentIndex >= 0) list.positionViewAtIndex(list.currentIndex,ListView.Contain)
         list.forceActiveFocus()
     }
-    component ActionButton: Button {
-        id: action
-        property bool primary: false
-        implicitWidth: 100; implicitHeight: 36; hoverEnabled: true
-        contentItem: Text { text: action.text; color: action.primary ? "#101318" : "#dce3ed"; font.pixelSize: Design.textBody; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-        background: Rectangle { radius: Design.radiusM; color: action.primary ? "#b4c9ec" : action.hovered || action.visualFocus ? "#343e4e" : "#252d38"; border.width: action.visualFocus ? Design.line : 0; border.color: "#b4c9ec" }
-    }
+    component ActionButton: ChromeButton { tones: picker.tones }
     contentItem: Column {
         spacing: Design.spaceL
         TextField {
             id: search; objectName: "themeSearch"; width: parent.width; placeholderText: "Search themes"; selectByMouse: true
-            color: "#e0e6ef"; selectionColor: "#b4c9ec"; selectedTextColor: "#101318"; placeholderTextColor: "#7d899c"; padding: Design.spaceL
-            background: Rectangle { color: "#101318"; radius: Design.radiusM; border.color: search.activeFocus ? "#b4c9ec" : "#3a4657" }
+            color: picker.tones.foreground; selectionColor: picker.tones.accent; selectedTextColor: picker.tones.background; placeholderTextColor: picker.tones.muted; padding: Design.spaceL
+            font.pixelSize: Design.textBody
+            background: Rectangle { color: picker.tones.background; radius: Design.radiusM; border.width: Design.line; border.color: search.activeFocus ? picker.tones.accent : picker.tones.border }
             Keys.onDownPressed: if (list.count) { list.currentIndex = 0; list.forceActiveFocus(); picker.previewSelected(picker.matches[0].index) }
         }
         Item {
-            id: modes; width: parent.width; height: 36
+            id: modes; width: parent.width; height: 32
             Row {
-                spacing: Design.spaceM
+                spacing: Design.spaceXs
                 Repeater {
                     model: ["All", "Dark", "Light"]
-                    ActionButton { required property int index; required property string modelData; text: modelData; primary: picker.mode === index; onClicked: picker.mode = index }
+                    ActionButton { required property int index; required property string modelData; text: modelData; selected: picker.mode === index; onClicked: picker.mode = index }
                 }
             }
-            ToolButton {
+            ActionButton {
                 id: helpButton; objectName: "themeHelpButton"
                 visible: picker.directoryPath.length > 0
-                anchors.right: parent.right; width: 32; height: 32; hoverEnabled: true
+                anchors.right: parent.right; iconName: "help"; hint: "Help with themes"
                 Accessible.name: "Help with themes"
-                contentItem: Text { text: "?"; color: "#b4c9ec"; font.pixelSize: Design.textControl; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-                background: Rectangle { anchors.centerIn: parent; width: 22; height: 22; radius: 11; color: helpButton.hovered ? "#343e4e" : "transparent"; border.color: helpButton.visualFocus ? "#b4c9ec" : "#66758b" }
-                ToolTip.visible: hovered; ToolTip.text: "Help with themes"
                 onClicked: themeHelp.open()
             }
         }
-        Label { id: folderStatus; width: parent.width; visible: picker.directoryStatus.length > 0; text: picker.directoryStatus; textFormat: Text.PlainText; elide: Text.ElideRight; color: "#9caabd"; font.pixelSize: Design.textCaption }
+        Label { id: folderStatus; width: parent.width; visible: picker.directoryStatus.length > 0; text: picker.directoryStatus; textFormat: Text.PlainText; elide: Text.ElideRight; color: picker.tones.muted; font.pixelSize: Design.textCaption }
         ListView {
             id: list; objectName: "themeList"; width: parent.width; height: Math.max(80, parent.height - search.height - modes.height - previewLabel.implicitHeight - sourceLabel.implicitHeight - (folderStatus.visible ? folderStatus.implicitHeight + parent.spacing : 0) - (saveErrorLabel.visible ? saveErrorLabel.implicitHeight + parent.spacing : 0) - (noteLabel.visible ? noteLabel.implicitHeight + parent.spacing : 0) - parent.spacing * 4)
             clip: true; spacing: Design.spaceM; model: picker.matches; currentIndex: -1
@@ -93,10 +89,10 @@ Dialog {
                 id: option; required property var modelData; required property int index
                 width: list.width; height: 138
                 Accessible.name: modelData.name + (modelData.light ? ", light" : ", dark")
-                background: Rectangle { radius: Design.radiusM; color: "#141922"; border.width: Design.line; border.color: picker.themeIndex === option.modelData.index || option.activeFocus ? "#b4c9ec" : "#343e4e" }
+                background: Rectangle { radius: Design.radiusM; color: option.hovered ? picker.tones.hover : "transparent"; border.width: Design.line; border.color: picker.themeIndex === option.modelData.index || option.activeFocus ? picker.tones.accent : picker.tones.border }
                 contentItem: Column {
                     spacing: Design.spaceM
-                    Label { text: option.modelData.name; textFormat: Text.PlainText; color: "#e0e6ef"; font.pixelSize: Design.textBody }
+                    Label { text: option.modelData.name; textFormat: Text.PlainText; color: picker.tones.foreground; font.pixelSize: Design.textBody }
                     Rectangle {
                         width: parent.width; height: 92; radius: Design.radiusS; color: option.modelData.background
                         Column {
@@ -119,13 +115,13 @@ Dialog {
                 onClicked: { list.currentIndex = index; picker.previewSelected(modelData.index) }
                 Keys.onReturnPressed: picker.applySelected()
             }
-            Label { anchors.centerIn: parent; visible: list.count === 0; text: "No matching themes"; color: "#9caabd" }
+            Label { anchors.centerIn: parent; visible: list.count === 0; text: "No matching themes"; color: picker.tones.muted }
         }
-        Label { id: saveErrorLabel; objectName: "workspaceAppearanceError"; width: parent.width; visible: picker.saveError.length > 0; text: picker.saveError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#e6c689"; font.pixelSize: Design.textSmall }
-        Label { id: previewLabel; width: parent.width; textFormat: Text.PlainText; text: "Previewing " + ((picker.catalog.find(theme => theme.index === picker.themeIndex) || picker.retainedTheme)?.name || "Current workspace theme") + " · " + picker.scope; color: "#9caabd"; font.pixelSize: Design.textSmall; elide: Text.ElideRight }
-        Label { id: noteLabel; objectName: "appearanceNote"; width: parent.width; visible: picker.note.length > 0; text: picker.note; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: "#9caabd"; font.pixelSize: Design.textCaption }
+        Label { id: saveErrorLabel; objectName: "workspaceAppearanceError"; width: parent.width; visible: picker.saveError.length > 0; text: picker.saveError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: picker.tones.waiting; font.pixelSize: Design.textSmall }
+        Label { id: previewLabel; width: parent.width; textFormat: Text.PlainText; text: "Previewing " + ((picker.catalog.find(theme => theme.index === picker.themeIndex) || picker.retainedTheme)?.name || "Current workspace theme") + " · " + picker.scope; color: picker.tones.muted; font.pixelSize: Design.textSmall; elide: Text.ElideRight }
+        Label { id: noteLabel; objectName: "appearanceNote"; width: parent.width; visible: picker.note.length > 0; text: picker.note; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: picker.tones.muted; font.pixelSize: Design.textCaption }
         Label {
-            id: sourceLabel; width: parent.width; color: "#9caabd"; font.pixelSize: Design.textCaption; textFormat: Text.PlainText; elide: Text.ElideMiddle
+            id: sourceLabel; width: parent.width; color: picker.tones.muted; font.pixelSize: Design.textCaption; textFormat: Text.PlainText; elide: Text.ElideMiddle
             readonly property var theme: picker.catalog.find(value => value.index === picker.themeIndex) || picker.retainedTheme
             text: theme?.imported ? "Source: " + theme.source + (theme.attribution ? " · " + theme.attribution : "") : "Bundled offline palette"
         }
@@ -137,18 +133,18 @@ Dialog {
         modal: true; focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         Overlay.modal: Rectangle { color: "transparent" }
-        background: Rectangle { color: "#252d38"; radius: Design.radiusL; border.color: "#66758b" }
+        background: Rectangle { color: picker.tones.raised; radius: Design.radiusL; border.width: Design.line; border.color: picker.tones.border }
         contentItem: Column {
             spacing: Design.spaceL
-            Label { text: "Add your own themes"; color: "#e0e6ef"; font.pixelSize: Design.textControl }
+            Label { text: "Add your own themes"; color: picker.tones.foreground; font.pixelSize: Design.textControl }
             Label {
-                width: parent.width; wrapMode: Text.WordWrap; color: "#bdc8d8"; font.pixelSize: Design.textSmall
+                width: parent.width; wrapMode: Text.WordWrap; color: picker.tones.foreground; font.pixelSize: Design.textSmall
                 text: "Drop Ghostty theme files in this folder, including TerminalColors .default downloads. Reopen Appearance to see them in the list, then select a theme and Apply. No import or file opening is needed."
             }
-            Label { width: parent.width; text: picker.directoryPath; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; color: "#9caabd"; font.pixelSize: Design.textCaption }
+            Label { width: parent.width; text: picker.directoryPath; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; color: picker.tones.muted; font.pixelSize: Design.textCaption }
             Label {
                 objectName: "themesFolderLink"
-                text: '<a href="themes-folder" style="color: #b4c9ec">Open themes folder</a>'
+                text: '<a href="themes-folder" style="color: ' + picker.tones.accent + '">Open themes folder</a>'
                 textFormat: Text.RichText; font.pixelSize: Design.textSmall
                 Accessible.role: Accessible.Link; Accessible.name: "Open themes folder in file manager"
                 activeFocusOnTab: true
@@ -156,18 +152,26 @@ Dialog {
                 Keys.onReturnPressed: picker.folderRequested()
                 Keys.onSpacePressed: picker.folderRequested()
                 HoverHandler { cursorShape: Qt.PointingHandCursor }
-                Rectangle { anchors.fill: parent; anchors.margins: -2; visible: parent.activeFocus; color: "transparent"; radius: Design.radiusS; border.color: "#b4c9ec" }
+                Rectangle { anchors.fill: parent; anchors.margins: -2; visible: parent.activeFocus; color: "transparent"; radius: Design.radiusS; border.color: picker.tones.accent }
             }
             ActionButton { text: "Got it"; onClicked: themeHelp.close() }
         }
     }
+    // One row: the default on the left, the decision on the right.
     footer: Item {
-        implicitHeight: 92
-        ActionButton { id: defaultButton; objectName: "workspaceThemeDefault"; x: 20; y: 0; implicitWidth: Math.max(100, contentItem.implicitWidth + 28); text: picker.followsDefault ? picker.usingDefaultText : picker.useDefaultText; enabled: !picker.followsDefault; onClicked: picker.defaultRequested() }
-        Label { x: defaultButton.x + defaultButton.width + 12; y: 10; width: parent.width - x - 20; text: picker.defaultName; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textSmall; color: "#9caabd" }
+        implicitHeight: 64
+        ActionButton {
+            id: defaultButton; objectName: "workspaceThemeDefault"; x: Design.space2xl; anchors.verticalCenter: decision.verticalCenter
+            text: picker.followsDefault ? picker.usingDefaultText : picker.useDefaultText; enabled: !picker.followsDefault
+            onClicked: picker.defaultRequested()
+        }
+        Label {
+            anchors.left: defaultButton.right; anchors.leftMargin: Design.spaceS; anchors.right: decision.left; anchors.rightMargin: Design.spaceM; anchors.verticalCenter: decision.verticalCenter
+            text: picker.defaultName; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textSmall; color: picker.tones.muted
+        }
         Row {
-            anchors.right: parent.right; anchors.rightMargin: Design.space2xl; anchors.bottom: parent.bottom; anchors.bottomMargin: Design.spaceL; spacing: Design.spaceM
-            ActionButton { objectName: "workspaceThemeMakeDefault"; visible: picker.canMakeDefault; implicitWidth: contentItem.implicitWidth + 28; text: "Set as default"; onClicked: picker.makeDefaultRequested() }
+            id: decision; anchors.right: parent.right; anchors.rightMargin: Design.space2xl; anchors.top: parent.top; anchors.topMargin: Design.spaceS; spacing: Design.spaceXs
+            ActionButton { objectName: "workspaceThemeMakeDefault"; visible: picker.canMakeDefault; text: "Set as default"; onClicked: picker.makeDefaultRequested() }
             ActionButton { text: "Cancel"; onClicked: picker.close() }
             ActionButton { objectName: "workspaceThemeApply"; text: "Apply"; primary: true; onClicked: picker.applySelected() }
         }

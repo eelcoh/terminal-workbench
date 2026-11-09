@@ -90,6 +90,10 @@ test opens it from Commands and saves `design-gallery.png`.
   the field's placeholder, and tighter rows.
 - Add applications follows: the search heads it, with the app count and
   Sources beside it; no subtitle, key legend or Done.
+- Appearance, New workspace, Rename, the folder and host dialogs follow the
+  window's tones (they had a fixed dark palette), and every dialog puts its
+  decision on the right with the main action last and highlighted; focus
+  still starts on Cancel in confirmations.
 - Only the focused pane has a frame, in the accent; the others stand on their
   surface color.
 

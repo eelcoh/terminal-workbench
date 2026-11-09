@@ -1551,6 +1551,7 @@ ApplicationWindow {
     }
     ThemePicker {
         id: appearance; anchors.centerIn: parent
+        tones: window.chrome
         readonly property bool terminalMode: window.appearanceTerminal !== ""
         readonly property int terminalIndex: window.identityIndex(window.appearanceTerminal)
         readonly property int targetSpace: window.spaceIds.indexOf(window.appearanceWorkspace)
@@ -1648,18 +1649,18 @@ ApplicationWindow {
             Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; visible: window.actionKind === "session-stop" && !window.stopTargetsValid; text: "A confirmed terminal was removed. Cancel and reopen this confirmation to review the current session." }
             Label { width: parent.width; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: window.chrome.waiting; text: studySession.error; visible: text.length > 0 }
             Row {
-                spacing: Design.spaceM
+                x: parent.width - width; spacing: Design.spaceXs   // the decision sits on the right
                 QuietButton { id: cancelTerminalAction; objectName: "cancelTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { terminalAction.close(); event.accepted = true } else event.accepted = false }; text: "Cancel"; enabled: !studySession.busy; onClicked: terminalAction.close() }
-                QuietButton { id: confirmTerminalAction; objectName: "confirmTerminalAction"; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { window.performTerminalAction(); event.accepted = true } else event.accepted = false }; text: studySession.busy ? "Working…" : window.actionKind === "session-stop" ? "Stop terminals" : window.actionKind === "workspace-close" ? "Remove workspace" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy && (window.actionKind !== "session-stop" || window.stopTargetsValid); onClicked: window.performTerminalAction() }
+                QuietButton { id: confirmTerminalAction; objectName: "confirmTerminalAction"; primary: true; Keys.onPressed: event => { if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { window.performTerminalAction(); event.accepted = true } else event.accepted = false }; text: studySession.busy ? "Working…" : window.actionKind === "session-stop" ? "Stop terminals" : window.actionKind === "workspace-close" ? "Remove workspace" : window.actionKind === "close" ? "Close terminal" : "Move here"; enabled: !studySession.busy && (window.actionKind !== "session-stop" || window.stopTargetsValid); onClicked: window.performTerminalAction() }
             }
         }
         onOpened: { studySession.clearError(); cancelTerminalAction.forceActiveFocus(Qt.TabFocusReason) }
         onClosed: { window.stopTargets = []; Qt.callLater(window.restoreAfterPopup) }
     }
     component ProjectField: TextField {
-        selectByMouse: true; color: "#e0e6ef"; selectionColor: window.accent; selectedTextColor: "#101318"
-        placeholderTextColor: "#7d899c"; padding: Design.spaceL
-        background: Rectangle { radius: Design.radiusM; color: "#101318"; border.color: parent.activeFocus ? window.accent : "#3a4657" }
+        selectByMouse: true; color: window.chrome.foreground; selectionColor: window.accent; selectedTextColor: window.chrome.background
+        placeholderTextColor: window.chrome.muted; padding: Design.spaceL
+        background: Rectangle { radius: Design.radiusM; color: window.chrome.background; border.color: parent.activeFocus ? window.accent : window.chrome.border }
     }
     // New host: a name, an ssh destination (with ~/.ssh/config aliases to pick)
     // and an optional remote folder, saved in Band's own host list.
@@ -1669,8 +1670,8 @@ ApplicationWindow {
         property string theme: ""
         implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: Design.space2xl
         title: "New host"
-        background: Rectangle { color: "#1b2029"; radius: Design.radiusXl; border.color: "#3a4657" }
-        header: Label { text: hostDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: "#e0e6ef"; font.pixelSize: Design.textTitle }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        header: Label { text: hostDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         onOpened: hostDestination.forceActiveFocus()
         function save() {
             const id = studyHosts.freeId(hostName.text.trim() || hostDestination.text.trim(), window.hostDefinitions)
@@ -1678,49 +1679,49 @@ ApplicationWindow {
         }
         contentItem: Column {
             spacing: Design.spaceL
-            Label { text: "Destination"; color: "#c2c9d4" }
+            Label { text: "Destination"; color: window.chrome.foreground }
             ProjectField { id: hostDestination; objectName: "hostDestinationInput"; width: parent.width; placeholderText: "An ssh alias, host or user@host"; onAccepted: hostName.forceActiveFocus() }
             Flow {
                 width: parent.width; spacing: Design.spaceS; visible: hostDialog.suggestions.length > 0
-                Label { height: 32; verticalAlignment: Text.AlignVCenter; text: "From ~/.ssh/config"; color: "#a5afbe"; font.pixelSize: Design.textSmall; rightPadding: Design.spaceXs }
+                Label { height: 32; verticalAlignment: Text.AlignVCenter; text: "From ~/.ssh/config"; color: window.chrome.muted; font.pixelSize: Design.textSmall; rightPadding: Design.spaceXs }
                 Repeater {
                     model: hostDialog.suggestions.slice(0, 12)
                     QuietButton {
                         required property string modelData
                         required property int index
-                        objectName: "hostSuggestion" + index; fixedPalette: true; focusPolicy: Qt.NoFocus; text: modelData
+                        objectName: "hostSuggestion" + index; focusPolicy: Qt.NoFocus; text: modelData
                         selected: hostDestination.text === modelData
                         onClicked: hostDestination.text = modelData
                     }
                 }
             }
-            Label { text: "Name"; color: "#c2c9d4" }
+            Label { text: "Name"; color: window.chrome.foreground }
             ProjectField { id: hostName; objectName: "hostNameInput"; width: parent.width; placeholderText: hostDestination.text || "Shown in the sidebar"; maximumLength: 63; onAccepted: hostFolder.forceActiveFocus() }
-            Label { text: "Remote folder (optional)"; color: "#c2c9d4" }
+            Label { text: "Remote folder (optional)"; color: window.chrome.foreground }
             ProjectField { id: hostFolder; objectName: "hostFolderInput"; width: parent.width; placeholderText: "~/src/project"; onAccepted: hostDialog.save() }
             // Colors for every pane on this host; a terminal's own colors still win.
-            Label { text: "Colors"; color: "#c2c9d4" }
+            Label { text: "Colors"; color: window.chrome.foreground }
             Flow {
                 width: parent.width; spacing: Design.spaceS
-                QuietButton { objectName: "hostThemeWorkspace"; fixedPalette: true; focusPolicy: Qt.NoFocus; text: "Workspace colors"; selected: hostDialog.theme === ""; onClicked: hostDialog.theme = "" }
+                QuietButton { objectName: "hostThemeWorkspace"; focusPolicy: Qt.NoFocus; text: "Workspace colors"; selected: hostDialog.theme === ""; onClicked: hostDialog.theme = "" }
                 Repeater {
                     model: studyThemes.catalog.filter(theme => !theme.imported).slice(0, 12)
                     QuietButton {
                         required property var modelData
                         required property int index
-                        objectName: "hostTheme" + index; fixedPalette: true; focusPolicy: Qt.NoFocus; text: modelData.name
+                        objectName: "hostTheme" + index; focusPolicy: Qt.NoFocus; text: modelData.name
                         selected: hostDialog.theme === modelData.name; onClicked: hostDialog.theme = modelData.name
                     }
                 }
             }
             Label {
-                width: parent.width; wrapMode: Text.Wrap; font.pixelSize: Design.textSmall; color: studyHosts.error ? "#e3bf91" : "#a5afbe"
+                width: parent.width; wrapMode: Text.Wrap; font.pixelSize: Design.textSmall; color: studyHosts.error ? window.chrome.waiting : window.chrome.muted
                 text: studyHosts.error || "Saved by Band beside its other settings. Keys, passwords and ssh options stay with ssh."
             }
             Row {
-                spacing: Design.spaceM
-                QuietButton { fixedPalette: true; text: "Cancel"; onClicked: hostDialog.close() }
-                QuietButton { objectName: "saveHostButton"; fixedPalette: true; primary: true; text: "Save"; enabled: hostDestination.text.trim().length > 0; onClicked: hostDialog.save() }
+                x: parent.width - width; spacing: Design.spaceXs   // the decision sits on the right
+                QuietButton { text: "Cancel"; onClicked: hostDialog.close() }
+                QuietButton { objectName: "saveHostButton"; primary: true; text: "Save"; enabled: hostDestination.text.trim().length > 0; onClicked: hostDialog.save() }
             }
         }
         onClosed: Qt.callLater(window.restoreAfterPopup)
@@ -1734,18 +1735,18 @@ ApplicationWindow {
         implicitWidth: 460
         title: window.workspaceFormMode === "rename" ? "Rename workspace" : window.workspaceFormMode === "folder" ? "Workspace folder" : "New workspace"; anchors.centerIn: parent; modal: true; width: Math.min(460, window.width - 80)
         padding: Design.space2xl
-        background: Rectangle { color: "#1b2029"; radius: Design.radiusXl; border.color: "#3a4657" }
-        header: Label { text: createDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: "#e0e6ef"; font.pixelSize: Design.textTitle }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        header: Label { text: createDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         closePolicy: studySession.busy || window.folderBrowserOpen ? Popup.NoAutoClose : Popup.CloseOnEscape
         contentItem: Column {
             spacing: Design.spaceL
-            Label { text: "Name"; visible: window.workspaceFormMode !== "folder"; color: "#c2c9d4" }
+            Label { text: "Name"; visible: window.workspaceFormMode !== "folder"; color: window.chrome.foreground }
             ProjectField {
                 id: newName; objectName: "workspaceNameInput"; width: parent.width; placeholderText: "Project name"
                 visible: window.workspaceFormMode !== "folder"; enabled: !studySession.busy; maximumLength: 63
                 onAccepted: { if (window.workspaceFormMode === "rename") { if (submitWorkspace.enabled) submitWorkspace.clicked() } else newFolder.forceActiveFocus() }
             }
-            Label { text: "Folder"; visible: window.workspaceFormMode !== "rename"; color: "#c2c9d4" }
+            Label { text: "Folder"; visible: window.workspaceFormMode !== "rename"; color: window.chrome.foreground }
             Row {
                 width: parent.width; spacing: Design.spaceM; visible: window.workspaceFormMode !== "rename"
                 ProjectField {
@@ -1754,13 +1755,13 @@ ApplicationWindow {
                     onTextChanged: if (createDialog.visible && window.workspaceFormMode === "create") worktreeLookup.restart()
                     Timer { id: worktreeLookup; interval: 300; onTriggered: studyWorktrees.inspect(newFolder.text, studySession.defaultDirectory) }
                 }
-                QuietButton { id: browseFolder; objectName: "browseWorkspaceFolderButton"; fixedPalette: true; text: "Browse…"; hint: "Choose a folder"; enabled: !studySession.busy; onClicked: window.browseWorkspaceFolder() }
+                QuietButton { id: browseFolder; objectName: "browseWorkspaceFolderButton"; text: "Browse…"; hint: "Choose a folder"; enabled: !studySession.busy; onClicked: window.browseWorkspaceFolder() }
             }
-            Label { width: parent.width; visible: window.workspaceFormMode !== "rename"; text: "Used by new terminals. Running terminals keep their current folders."; wrapMode: Text.Wrap; color: "#a5afbe"; font.pixelSize: Design.textSmall }
+            Label { width: parent.width; visible: window.workspaceFormMode !== "rename"; text: "Used by new terminals. Running terminals keep their current folders."; wrapMode: Text.Wrap; color: window.chrome.muted; font.pixelSize: Design.textSmall }
             // In a Git repository: open a worktree, or add one on a new branch.
             Column {
                 width: parent.width; spacing: Design.spaceM; visible: window.workspaceFormMode === "create" && studyWorktrees.repository.length > 0
-                Label { text: "Git worktree"; color: "#c2c9d4" }
+                Label { text: "Git worktree"; color: window.chrome.foreground }
                 Flow {
                     width: parent.width; spacing: Design.spaceS
                     Repeater {
@@ -1768,7 +1769,7 @@ ApplicationWindow {
                         QuietButton {
                             required property var modelData
                             required property int index
-                            objectName: "worktreeChoice" + index; fixedPalette: true; focusPolicy: Qt.NoFocus
+                            objectName: "worktreeChoice" + index; focusPolicy: Qt.NoFocus
                             text: modelData.branch || modelData.path.split("/").pop(); hint: modelData.path
                             selected: newFolder.text === modelData.path
                             onClicked: { newFolder.text = modelData.path; newBranch.text = ""; if (!newName.text.trim()) newName.text = text }
@@ -1781,17 +1782,17 @@ ApplicationWindow {
                     onAccepted: if (submitWorkspace.enabled) submitWorkspace.clicked()
                 }
                 Label {
-                    width: parent.width; wrapMode: Text.Wrap; color: studyWorktrees.error ? "#e3bf91" : "#a5afbe"; font.pixelSize: Design.textSmall
+                    width: parent.width; wrapMode: Text.Wrap; color: studyWorktrees.error ? window.chrome.waiting : window.chrome.muted; font.pixelSize: Design.textSmall
                     text: studyWorktrees.error || (newBranch.text.trim() ? "Adds a worktree at " + (studyWorktrees.pathFor(newBranch.text.trim()) || "…") + " (git worktree add)." : "")
                     visible: text.length > 0
                 }
             }
-            Label { width: parent.width; text: studySession.error; visible: text.length > 0; wrapMode: Text.Wrap; color: "#e3bf91" }
+            Label { width: parent.width; text: studySession.error; visible: text.length > 0; wrapMode: Text.Wrap; color: window.chrome.waiting }
             Row {
-                spacing: Design.spaceM
-                QuietButton { fixedPalette: true; text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
+                x: parent.width - width; spacing: Design.spaceXs   // the decision sits on the right
+                QuietButton { text: "Cancel"; enabled: !studySession.busy; onClicked: createDialog.close() }
                 QuietButton {
-                    id: submitWorkspace; objectName: "submitWorkspaceButton"; fixedPalette: true; primary: true
+                    id: submitWorkspace; objectName: "submitWorkspaceButton"; primary: true
                     readonly property bool withBranch: newBranch.visible && newBranch.text.trim().length > 0
                     text: studyWorktrees.busy ? "Adding worktree…" : studySession.busy ? (window.workspaceFormMode === "create" ? "Creating…" : "Saving…") : window.workspaceFormMode === "create" ? "Create" : "Save"
                     enabled: !studySession.busy && !studyWorktrees.busy && (window.workspaceFormMode === "folder" || newName.text.trim().length > 0 || withBranch) && (window.workspaceFormMode === "rename" || newFolder.text.trim().length > 0)
