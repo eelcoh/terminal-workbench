@@ -206,10 +206,14 @@ design values that every component reads.
 workspace-centric: workspaces with their panes. The rail icons stop opening
 separate panels and instead filter that one view by kind — apps, hosts, shells
 (and agents) — so the Apps, Hosts and Agents panels fold into the Workspaces
-view. This revises the v0.2 "one panel per rail icon" decision. Open
-questions: whether filters combine, where host actions (New host…, Connect)
-and Add applications live once their panels are gone, and how a filter shows
-workspaces with no matching panes.
+view. This revises the v0.2 "one panel per rail icon" decision. *Done
+(2026-11-09):* filters combine; the rail is All panes (clears the filters, or
+hides the sidebar when nothing is filtered), then Shells, Apps, Hosts and
+Agents. New workspace…, Add applications… (Super+Alt+A) and New host…
+(Super+Alt+L) sit at the foot of the sidebar. A kind filter keeps the
+workspaces it empties, dimmed with a count of 0 (the owner was not sure;
+easy to drop). The hosts filter adds the saved hosts below, to connect or
+remove; the agents filter adds Needs input.
 
 ## Later
 

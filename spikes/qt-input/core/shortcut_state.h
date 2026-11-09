@@ -86,6 +86,7 @@ static ShortcutState shortcut_defaults(bool apple)
     state.bindings[COMMAND_AGENT_INPUT_PREVIOUS]=(ShortcutChord){'K',navigation};
     state.bindings[COMMAND_SEARCH]=(ShortcutChord){'S',navigation};
     state.bindings[COMMAND_APPS]=(ShortcutChord){'A',navigation};
+    state.bindings[COMMAND_HOST_NEW]=(ShortcutChord){'L',navigation};
     state.bindings[COMMAND_HELP]=(ShortcutChord){47,navigation};
     state.bindings[COMMAND_WIDTH_CYCLE]=(ShortcutChord){'R',navigation};
     state.bindings[COMMAND_WIDTH_FULL]=(ShortcutChord){'F',navigation};

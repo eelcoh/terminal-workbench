@@ -148,7 +148,7 @@ apps. When ssh exits normally the pane closes; when it fails the pane keeps its
 last lines and offers Connect again. Band never stores passwords or keys.
 App IDs that start with `_` are reserved for Band's own panes.
 
-**New host…** (Hosts panel, Commands) saves hosts in Band's own list,
+**New host…** (foot of the sidebar, Super+Alt+L, Commands) saves hosts in Band's own list,
 `ui/hosts.json` beside the per-platform font and shortcut folders, shared by
 both platforms; it suggests the `Host` aliases of `~/.ssh/config` (no
 patterns, top level only), read only. For the same ID, Band's entry wins over

@@ -79,9 +79,11 @@ test opens it from Commands and saves `design-gallery.png`.
   the caret and remove button only on hover or keyboard focus, with the hover
   background across the whole header; and each terminal on two lines with its
   folder and branch in caption size under the name.
-- Apps, Hosts and Agents follow the same rows: names at body size, details in
-  caption size, a host's connect and remove buttons and an agent's details
-  button on hover, and the agents count beside the state filter.
+- One sidebar view: workspaces with their panes. The rail filters it by kind
+  (Shells, Apps, Hosts, Agents; filters combine) under All panes, which clears
+  them. Saved hosts (connect and remove on hover) follow with the hosts
+  filter; an agent row's details button shows on hover. The "new" actions sit
+  at the foot, their chords on hover.
 - On macOS every type step is a pixel smaller.
 - Commands is a search field over a list, high in the window: no title, key
   legend or Done button (Escape or a click outside closes it), the context in

@@ -23,7 +23,7 @@ FocusScope {
     readonly property var keys: [
         {id: "commands", title: "Open Commands"}, {id: "new-terminal", title: "New terminal"},
         {id: "next-terminal", title: "Next terminal"}, {id: "previous-terminal", title: "Previous terminal"},
-        {id: "overview", title: "Overview of all workspaces"}, {id: "apps", title: "Running apps"}, {id: "help", title: "All keyboard shortcuts"}
+        {id: "overview", title: "Overview of all workspaces"}, {id: "apps", title: "Add applications"}, {id: "help", title: "All keyboard shortcuts"}
     ].filter(entry => (studyShortcuts.labels[entry.id] || "").length > 0)
     signal finished(var apps, bool browse)
     function pickedApps() { return installed.filter(entry => picked[entry.id]).map(entry => entry.id) }

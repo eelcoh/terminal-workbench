@@ -213,8 +213,11 @@ ApplicationWindow {
     property var agentIndices: []
     property var navigationOverride: null
     readonly property bool navigationPinned: navigationOverride === null ? studyConfiguration.navigationPinned : navigationOverride
-    property string navigationSection: "workspaces"
-    // The active rail icon hides a pinned column for now without unpinning it.
+    // The sidebar always shows workspaces; the rail filters their panes by kind.
+    // Filters combine; none shows every pane.
+    property var navigationKinds: []
+    readonly property string navigationSection: navigationKinds.length ? navigationKinds.join("+") : "workspaces"
+    // All panes, when already showing, hides a pinned column without unpinning it.
     property bool navigationHidden: false
     readonly property bool navigationDocked: navigationPinned && width >= 920 && !navigationHidden
     // The Agents icon appears once this window has seen an agent.
@@ -226,23 +229,32 @@ ApplicationWindow {
         if (navigationDocked) drawer.close()
         Qt.callLater(function() { if (!overview && selected >= 0) reveal() })
     }
-    function focusNavigation() { if (navigationSection === "workspaces") navigation.focusWorkspace(workspace); else if (navigationSection === "apps") navigation.focusApp(0); else if (navigationSection === "hosts") navigation.focusHost(0); else navigation.focusSearch() }
-    function openNavigation(section) {
-        navigationSection = section
+    // The agents filter alone starts in the filter field, as the agent list did.
+    function focusNavigation() { if (navigationKinds.length === 1 && navigationKinds[0] === "agents") navigation.focusSearch(); else navigation.focusFirstRow() }
+    function openNavigation(kinds) {
+        if (kinds !== undefined) navigationKinds = kinds
         navigationHidden = false
         // A rail click focuses its icon; switching sections returns focus to the panel.
         if (!navigationDocked && !drawer.visible) drawer.open()
         else Qt.callLater(focusNavigation)
     }
     function closeNavigation() { drawer.close() }
-    // Rail icons: one panel each; the active icon closes its panel.
-    function toggleSection(section) {
-        if ((drawer.visible || navigationDocked) && navigationSection === section) {
+    readonly property bool navigationShown: drawer.visible || navigationDocked
+    // A kind icon opens the sidebar on that kind alone, or adds or removes it.
+    function toggleKind(kind) {
+        if (!navigationShown) { openNavigation([kind]); return }
+        const kinds = navigationKinds.indexOf(kind) >= 0 ? navigationKinds.filter(k => k !== kind) : navigationKinds.concat([kind])
+        navigationKinds = ["shells", "apps", "hosts", "agents"].filter(k => kinds.indexOf(k) >= 0)
+    }
+    // All panes clears the filters; when nothing is filtered it closes the sidebar.
+    function showAllPanes() {
+        if (navigationShown && !navigationKinds.length) {
             if (navigationDocked) { navigationHidden = true; Qt.callLater(restoreAfterPopup) }
             else drawer.close()
             return
         }
-        openNavigation(section)
+        navigation.clearFilters()
+        openNavigation([])
     }
     function toggleNavigationPin() {
         navigationHidden = false
@@ -292,7 +304,7 @@ ApplicationWindow {
         cancelDrag(); agentsOnly = agents; needsOnly = needs; rebuildOverview(); deck.contentY = 0
     }
     onOverviewChanged: { Qt.callLater(rebuildOverview); scheduleViewSave() }
-    function openAgents() { openNavigation("agents") }
+    function openAgents() { openNavigation(["agents"]) }
     WorkbenchActions { id: commandRegistry; host: window; session: studySession }
     readonly property bool shortcutSettingsOpen: shortcutSettings.visible
     readonly property bool shortcutRecording: shortcutSettings.recordingActive
@@ -376,7 +388,7 @@ ApplicationWindow {
         case "new-workspace": newWorkspace(); break
         case "overview": toggleOverview(); break
         case "agents": openAgents(); break
-        case "apps": showApps(); break
+        case "apps": openCatalog(); break
         case "waiting-agents": showWaitingAgents(); break
         case "next-waiting": jumpWaiting(1); break
         case "previous-waiting": jumpWaiting(-1); break
@@ -624,7 +636,7 @@ ApplicationWindow {
         for (let i = 0; i < terminalModel.count; ++i) { const item = terminalModel.get(i); if (item.appId !== "" && !item.appId.startsWith("_") && !endedApps[item.terminalId]) result.push(i) }
         return result.sort((a, b) => (terminalModel.get(a).spaceIndex - terminalModel.get(b).spaceIndex) || (terminalModel.get(a).ordinal - terminalModel.get(b).ordinal))
     }
-    function showApps() { openNavigation("apps") }
+    function showApps() { openNavigation(["apps"]) }
     // SSH hosts from config.conf ([host.ID]); a host pane runs ssh as a command
     // terminal with the app ID "_host-ID" (then "_host-ID_2", …). See docs/hosts.md.
     // config.conf hosts with Band's saved hosts over them (marked "saved").
@@ -763,7 +775,13 @@ ApplicationWindow {
         let counted = counts.slice(); counted[space] = Math.max(0, (counted[space] || 1) - 1); counts = counted
         const rest = indices(space), next = rest.length ? rest[Math.max(0, Math.min(rest.length - 1, position))] : -1
         if (remembered[space] === i) { let values = remembered.slice(); values[space] = next; remembered = values }
-        if (selected === i) { if (next >= 0) focusPane(next); else { selected = -1; window.contentItem.forceActiveFocus() } }
+        // A dialog on top (the app catalog during a setup run, say) keeps the
+        // keyboard; the neighbour becomes selected and takes focus when it closes.
+        if (selected === i) {
+            if (next >= 0 && (appCatalog.visible || commands.visible || drawer.visible)) { selected = next; let values = remembered.slice(); values[space] = next; remembered = values }
+            else if (next >= 0) focusPane(next)
+            else { selected = -1; if (!appCatalog.visible && !commands.visible) window.contentItem.forceActiveFocus() }
+        }
         Qt.callLater(syncItems)
     }
     function newTerminal() { if (canCreateTerminal && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen) studySession.createTerminal(spaceIds[workspace]) }
@@ -1059,23 +1077,33 @@ ApplicationWindow {
     QuietButton { objectName: "applicationMenuButton"; visible: !window.systemMenus; x: 8 + window.titleInset; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
     Column {
         x: 8; y: 52; spacing: Design.spaceXl
-        QuietButton { objectName: "workspacesButton"; height: 28; iconName: "workspaces"; hint: "Workspaces"; selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "workspaces"; onClicked: window.toggleSection("workspaces") }
+        // All panes clears the filters below it (or closes the sidebar when
+        // nothing is filtered); each kind icon filters the workspaces' panes.
         QuietButton {
-            objectName: "appsButton"; height: 28; iconName: "apps"
-            hint: "Apps"; keys: studyShortcuts.labels["apps"] || ""
-            selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "apps"
-            onClicked: window.toggleSection("apps")
+            objectName: "workspacesButton"; height: 28; iconName: "filter-off"
+            hint: window.navigationKinds.length ? "All panes · clear filters" : window.navigationShown ? "Hide the sidebar" : "Show all panes"
+            selected: window.navigationShown && !window.navigationKinds.length; onClicked: window.showAllPanes()
+        }
+        Rectangle { x: 6; width: 16; height: Design.line; color: window.chrome.border }
+        QuietButton {
+            objectName: "shellsButton"; height: 28; iconName: "shell"; hint: "Shells"
+            selected: window.navigationShown && window.navigationKinds.indexOf("shells") >= 0
+            onClicked: window.toggleKind("shells")
         }
         QuietButton {
-            objectName: "hostsButton"; height: 28; iconName: "host"
-            hint: "Hosts"
-            selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "hosts"
-            onClicked: window.toggleSection("hosts")
+            objectName: "appsButton"; height: 28; iconName: "apps"; hint: "Apps"
+            selected: window.navigationShown && window.navigationKinds.indexOf("apps") >= 0
+            onClicked: window.toggleKind("apps")
         }
         QuietButton {
-            objectName: "agentsButton"; height: 28; iconName: "agents"; visible: window.agentsSeen || window.navigationSection === "agents"
+            objectName: "hostsButton"; height: 28; iconName: "host"; hint: "Hosts"
+            selected: window.navigationShown && window.navigationKinds.indexOf("hosts") >= 0
+            onClicked: window.toggleKind("hosts")
+        }
+        QuietButton {
+            objectName: "agentsButton"; height: 28; iconName: "agents"; visible: window.agentsSeen || window.navigationKinds.indexOf("agents") >= 0
             hint: window.waitingCount ? "Agents · " + window.waitingCount + " need input (last reports)" : "Agents"
-            selected: (drawer.visible || window.navigationDocked) && window.navigationSection === "agents"; onClicked: window.toggleSection("agents")
+            selected: window.navigationShown && window.navigationKinds.indexOf("agents") >= 0; onClicked: window.toggleKind("agents")
             Rectangle {
                 objectName: "agentsBadge"; x: 19; y: -7; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
                 Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: Design.textCaption }

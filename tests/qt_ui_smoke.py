@@ -500,11 +500,18 @@ while True:
         command_search('Show agents');key('Return');wait_until(lambda:data()['navigation_section']=='agents' and data()['agents_visible'])
         assert not data()['overview'] and not data()['navigation_agent_indices']
         capture('navigation-agents-empty.png')
-        # The active icon hides the pinned column without unpinning; another icon shows it again.
-        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['navigation_hidden'] and not data()['navigation_docked'] and data()['navigation_pinned'])
+        # Kind icons filter one workspace view and combine; All panes clears them.
+        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['navigation_section']=='workspaces' and data()['navigation_docked'])
+        click(*settled_point(lambda d:d['shells_button']));wait_until(lambda:data()['navigation_section']=='shells')
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_section']=='shells+apps')
+        wait_until(lambda:data()['navigation_workspace_rows'] and data()['navigation_panes'] and all(p['kind']=='shell' for p in data()['navigation_panes']))
+        capture('navigation-kind-filters.png')
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_section']=='workspaces' and data()['navigation_docked'])
+        # With nothing filtered, All panes hides the pinned column without unpinning; again shows it.
+        click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_hidden'] and not data()['navigation_docked'] and data()['navigation_pinned'])
         wait_until(lambda:all(p['geometry_ready'] for p in data()['panes']) and not data()['drawer_open'])
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_docked'] and data()['navigation_section']=='workspaces')
-        # Unpinned, the active icon closes the drawer it opened.
+        # Unpinned, All panes closes the drawer it opened.
         click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:not data()['navigation_pinned'] and data()['drawer_open'])
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:not data()['drawer_open'])
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
@@ -536,7 +543,7 @@ while True:
         assert all(p['header']==[p['facts']['process'],p['facts']['title']] for p in shells),[p['header'] for p in shells]
         assert pane_rows(0)[0]['selected'] and all(r['kind']=='shell' and r['hint'].split(' · ')[0]==p['facts']['process'] for r,p in zip(pane_rows(0),sorted(shells,key=lambda p:p['ordinal']))),pane_rows(0)
         capture('navigation-panes.png')
-        # The footer filter narrows workspaces to matching panes and opens them.
+        # The filter narrows workspaces to matching panes and opens them.
         all_rows=list(data()['navigation_workspace_rows'])
         click(*settled_point(lambda d:d['navigation_filter']));typed('/4')
         wait_until(lambda:len(pane_rows(1))==1 and not pane_rows(0) and len(data()['navigation_workspace_rows'])==1)
@@ -1639,6 +1646,7 @@ while True:
         while data()['workspace_count']:
             remaining=data()['workspace_count']
             click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+            key('Home');time.sleep(.2)  # the first workspace may be scrolled out of view
             click(*settled_point(lambda d:d['remove_workspace_0']));wait_until(lambda:data()['terminal_action_open'] and not data()['drawer_open'])
             # Popup visibility precedes its entered animation and final geometry.
             wait_until(lambda:data()['terminal_action_ready'])
@@ -1719,10 +1727,10 @@ while True:
         click(*settled_point(lambda d:d['welcome_browse']));wait_until(lambda:data()['catalog_open'] and not data()['welcome_open'])
         key('Escape');wait_until(lambda:not data()['catalog_open'])
         def app_pane(app_id):return next((p for p in data()['panes'] if p['app']==app_id),None)
-        # The Apps panel lists running apps; Add applications opens the catalog.
+        # The apps filter shows running apps in their workspaces; Super+Alt+A opens the catalog.
         def open_catalog():
-            key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps')
-            click(*settled_point(lambda d:d['add_applications']))
+            if data()['catalog_open']:key('Escape');wait_until(lambda:not data()['catalog_open'])
+            key('super+alt+a')
             wait_until(lambda:data()['catalog_open'] and not data()['apps_checking'] and data()['catalog_count']>0)
         def choose(text,app_id):
             open_catalog();typed(text);wait_until(lambda:data()['catalog_current']==app_id);key('Return')
@@ -1736,9 +1744,9 @@ while True:
         assert len(data()['panes'])==2 and not data()['drawer_open'] and not data()['catalog_open'] and data()['panes'][0]['identity']==survivor
         assert app_pane('echo')['visible'] and app_pane('echo')['left']>data()['panes'][0]['right'],'the app is the next pane in the strip'
         typed('app-input');key('Return');wait_until(lambda:re.sub(r'\s','',app_pane('echo')['text']).count('app-input')>=2)
-        # Super+Alt+A lists the running app; Return goes to its pane.
+        # The apps filter lists the running app; Return goes to its pane.
         key('super+alt+Left');wait_until(lambda:data()['panes'][0]['focus'])
-        key('super+alt+a');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_first_app'])
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_first_app'])
         capture('apps-panel.png')
         time.sleep(.2);key('Return');wait_until(lambda:app_pane('echo')['focus'] and not data()['drawer_open'])
         assert len(data()['panes'])==2 and app_pane('echo')['identity']==echo
@@ -1822,8 +1830,8 @@ while True:
         assert host_pane['theme']!=shell_pane['theme'] and host_pane['background']!=shell_pane['background'] and host_pane['background']!=data()['chrome_background'],(host_pane['background'],shell_pane['background'])
         assert host_pane['header']==['Lab','lab-box · ~/src/x y'] and data()['panes'].index(host_pane) not in data()['running_apps'],host_pane['header']
         time.sleep(.3);capture('host-pane.png')
-        # The Hosts panel lists saved hosts with their open panes; its Connect
-        # opens a second pane on the same host.
+        # The hosts filter shows host panes in their workspaces and the saved
+        # hosts below; Connect opens a second pane on the same host.
         click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
         wait_until(lambda:any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']) and len(data()['navigation_host_panes'])==1)
         wait_until(lambda:data()['host_reachability'].get('lab')=='reachable',timeout=10)

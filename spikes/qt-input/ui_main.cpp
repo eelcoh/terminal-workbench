@@ -210,6 +210,8 @@ int main(int argc,char **argv) {
                 const auto point=item->mapToScene(QPointF(item->width()/2,item->height()/2));return QJsonArray{point.x(),point.y()};};
             const auto box=[window](const char *name){const auto *item=window->findChild<QQuickItem *>(name);const auto rect=item->mapRectToScene(item->boundingRect());return QJsonArray{rect.left(),rect.top(),rect.right(),rect.bottom()};};
             QJsonArray folderChoices;QJsonArray folderAccept;QJsonArray folderList;QJsonArray navigationAgents;QJsonArray navigationPanes;QJsonArray keyChips;QJsonArray welcomeApps;QJsonArray navigationHosts;QJsonArray navigationHostPanes;QJsonArray navigationWorkspaces;bool folderMoving=false;
+            // Sidebar pane rows by kind (agents, apps, hosts), in order, and the first agent's details button.
+            QJsonArray navigationAgentPoints;QJsonArray navigationAppPoints;QJsonArray navigationAgentInfo;
             // Observe the installed fallback controls; no test actions enter production QML.
             QList<QQuickItem *> pending{window->contentItem()};
             while(!pending.isEmpty()) {
@@ -220,11 +222,16 @@ int main(int argc,char **argv) {
                 bool unclipped=true;
                 for(auto *parent=item->parentItem();parent;parent=parent->parentItem())
                     if(parent->clip() && !parent->mapRectToScene(parent->boundingRect()).contains(point)) {unclipped=false;break;}
-                if(unclipped && item->objectName().startsWith("navigationAgent") && item->objectName()!="navigationAgents")navigationAgents.append(item->property("hint").toString());
+                if(unclipped && navigationAgentInfo.isEmpty() && item->objectName().startsWith("navigationAgentInfo") && item->isVisible())navigationAgentInfo=QJsonArray{point.x(),point.y()};
                 if(unclipped && item->objectName()=="keyChips")keyChips.append(item->property("keys").toString());
                 if(unclipped && item->objectName().startsWith("navigationWorkspace") && item->objectName()!="navigationWorkspaces")navigationWorkspaces.append(item->property("text").toString());
-                if(unclipped && item->objectName().startsWith("navigationHost") && !item->objectName().startsWith("navigationHostPane"))navigationHosts.append(item->property("hint").toString());
-                if(unclipped && item->objectName().startsWith("navigationHostPane"))navigationHostPanes.append(item->property("hint").toString());
+                if(unclipped && item->objectName().startsWith("navigationHost"))navigationHosts.append(item->property("hint").toString());
+                if(unclipped && item->objectName().startsWith("navigationPane") && item->isVisible()) {
+                    const auto kind=item->property("kind").toString();const auto hint=item->property("hint").toString();
+                    if(kind=="agent"){navigationAgents.append(hint);navigationAgentPoints.append(QJsonArray{point.x(),point.y()});}
+                    else if(kind=="app")navigationAppPoints.append(QJsonArray{point.x(),point.y()});
+                    else if(kind=="host")navigationHostPanes.append(hint);
+                }
                 if(unclipped && item->objectName().startsWith("welcomeApp"))welcomeApps.append(item->property("hint").toString());
                 if(unclipped && item->objectName().startsWith("navigationPane"))navigationPanes.append(QJsonObject{{"name",item->objectName()},{"hint",item->property("hint").toString()},{"kind",item->property("kind").toString()},{"selected",item->property("selected").toBool()},{"focus",item->hasActiveFocus()},{"point",QJsonArray{point.x(),point.y()}}});
                 if(item->objectName()=="folderDialogListView") {folderList=QJsonArray{point.x(),point.y()};folderMoving=item->property("moving").toBool();}
@@ -242,7 +249,7 @@ int main(int argc,char **argv) {
                 {"runtime_info_menu",center("terminalInfoMenuItem")},{"agent_info_runtime",center("agentInfoRuntime")},
                 {"agent_info_open",window->property("agentInfoOpen").toBool()},{"agent_info_target",window->property("agentInfoTarget").toString()},
                 {"agent_info_details",window->findChild<QObject *>("agentInformation") ? QJsonObject::fromVariantMap(window->findChild<QObject *>("agentInformation")->property("information").toMap()):QJsonObject()},
-                {"agent_info_copy",center("agentInfoCopy")},{"agent_info_menu",center("agentInfoMenuItem")},{"navigation_agent_info",center("navigationAgentInfo0")},
+                {"agent_info_copy",center("agentInfoCopy")},{"agent_info_menu",center("agentInfoMenuItem")},{"navigation_agent_info",navigationAgentInfo},
                 {"agent_launcher_clipboard_matches",QStringList{"band-codex","band-claude","band-copilot","band-pi"}.contains(QGuiApplication::clipboard()->text())},
                 {"about_open",window->property("aboutOpen").toBool()},
                 {"about_menu",center("aboutMenuItem")},{"about_copy",center("aboutCopy")},{"about_details",center("aboutDetails")},{"about_close",center("aboutClose")},
@@ -294,14 +301,14 @@ int main(int argc,char **argv) {
                 {"agents_visible",window->findChild<QQuickItem *>("agentsButton") && window->findChild<QQuickItem *>("agentsButton")->isVisible()},
                 {"navigation_hidden",window->property("navigationHidden").toBool()},
                 {"app_entries",QJsonArray::fromVariantList(apps.entries())},{"apps_checking",apps.checking()},
-                {"apps_button",center("appsButton")},{"apps_visible",window->findChild<QQuickItem *>("appsButton") && window->findChild<QQuickItem *>("appsButton")->isVisible()},
+                {"apps_button",center("appsButton")},{"shells_button",center("shellsButton")},{"apps_visible",window->findChild<QQuickItem *>("appsButton") && window->findChild<QQuickItem *>("appsButton")->isVisible()},
                 {"catalog_open",window->property("appCatalogOpen").toBool()},{"catalog_current",window->property("appCatalogCurrent").toString()},{"catalog_count",window->property("appCatalogCount").toInt()},
                 {"catalog_action",center("appCatalogAction")},{"catalog_setup",center("appCatalogSetup")},{"catalog_action_text",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogAction");return item ? item->property("text").toString() : QString();}()},
                 {"catalog_detail",[&]{const auto *item=window->findChild<QQuickItem *>("appCatalogDetail");return item ? item->property("text").toString() : QString();}()},
                 {"add_applications",center("addApplicationsButton")},{"sources_button",center("appSourcesButton")},{"sources_open",window->property("appSourcesOpen").toBool()},{"homebrew_install",center("homebrewInstall")},
                 {"source_toggle_brew",center("appSourceToggle_brew")},{"source_toggle_dnf",center("appSourceToggle_dnf")},{"source_toggle_copr",center("appSourceToggle_copr")},{"source_choice_copr",center("appSourceChoice_copr")},{"source_choice_brew",center("appSourceChoice_brew")},
                 {"app_sources",QJsonArray::fromVariantList(apps.sources())},{"homebrew",QJsonObject::fromVariantMap(apps.homebrew())},
-                {"navigation_first_app",center("navigationApp0")},{"navigation_second_app",center("navigationApp1")},{"navigation_third_app",center("navigationApp2")},
+                {"navigation_first_app",navigationAppPoints.size()>0?navigationAppPoints.at(0):QJsonValue(QJsonArray())},{"navigation_second_app",navigationAppPoints.size()>1?navigationAppPoints.at(1):QJsonValue(QJsonArray())},{"navigation_third_app",navigationAppPoints.size()>2?navigationAppPoints.at(2):QJsonValue(QJsonArray())},
                 {"selected",window->property("selected").toInt()},{"overview",window->property("overview").toBool()},
                 {"drop_allowed",window->property("dropAllowed").toBool()},
                 {"drag_slot",window->property("dragSlot").toInt()},{"drop_space",window->property("dropSpace").toInt()},{"drop_position",window->property("dropPosition").toInt()},
@@ -339,11 +346,11 @@ int main(int argc,char **argv) {
                 {"navigation_pinned",window->property("navigationPinned").toBool()},{"navigation_docked",window->property("navigationDocked").toBool()},
                 {"navigation_agent_labels",navigationAgents},{"navigation_panes",navigationPanes},{"key_chips",keyChips},{"welcome_apps",welcomeApps},{"navigation_hosts",navigationHosts},{"navigation_host_panes",navigationHostPanes},{"hosts_button",center("hostsButton")},{"connect_host_0",center("connectHost0")},{"new_host_button",center("newHostButton")},{"remove_host_1",center("removeHost1")},
                 {"host_dialog_open",window->property("hostDialogOpen").toBool()},{"host_suggestion_0",center("hostSuggestion0")},{"save_host_button",center("saveHostButton")},{"saved_hosts",QJsonArray::fromVariantList(hosts.saved())},{"host_reachability",QJsonObject::fromVariantMap(hosts.reachability())},{"navigation_workspace_rows",navigationWorkspaces},{"navigation_filter",center("navigationFilter")},{"expand_workspace_0",center("expandWorkspace0")},{"expand_workspace_1",center("expandWorkspace1")},{"navigation_section",window->property("navigationSection").toString()},{"navigation_pin",center("navigationPin")},
-                {"navigation_search",center("navigationAgentSearch")},{"navigation_search_focus",window->property("navigationSearchFocused").toBool()},
+                {"navigation_search",center("navigationFilter")},{"navigation_search_focus",window->property("navigationSearchFocused").toBool()},
                 {"navigation_matches",QJsonArray::fromVariantList(listProperty(window,"navigationMatches"))},{"navigation_needs_only",window->property("navigationNeedsOnly").toBool()},
                 {"navigation_needs_filter",center("navigationNeedsFilter")},{"navigation_clear_filters",center("navigationClearFilters")},
                 {"navigation_agents",center("navigationAgents")},{"navigation_agent_indices",QJsonArray::fromVariantList(listProperty(window,"agentIndices"))},
-                {"navigation_first_agent",center("navigationAgent0")},{"navigation_workspace_1",center("navigationWorkspace1")},
+                {"navigation_first_agent",navigationAgentPoints.isEmpty()?QJsonValue(QJsonArray()):navigationAgentPoints.at(0)},{"navigation_workspace_1",center("navigationWorkspace1")},
                 {"drawer_open",window->property("drawerOpen").toBool()},{"name_focus",window->property("nameFocused").toBool()},
                 {"new_workspace_button",QJsonArray{createPoint.x(),createPoint.y()}},
                 {"terminal_search_match_case",center("terminalSearchMatchCase")},{"terminal_search_whole_word",center("terminalSearchWholeWord")},

@@ -3,7 +3,9 @@
 Status (2026-11-07): slices 1–3 built, plus Band's own host list.
 - `[host.ID]` in config.conf, and Connect to… in Commands.
 - Host panes with their own identity, outside the Apps list.
-- The Hosts panel (sidebar shape A): saved hosts with their open panes in any
+- The hosts filter in the sidebar (since 2026-11-09; before, a Hosts panel):
+  host panes in their workspaces, then the saved hosts. Before that, the Hosts
+  panel (sidebar shape A): saved hosts with their open panes in any
   workspace, Connect, and the footer filter.
 - New host…, which writes `ui/hosts.json` and suggests `~/.ssh/config`
   aliases. Hosts Band saved can be removed from the panel.

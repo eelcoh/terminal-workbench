@@ -20,12 +20,15 @@ saved binding. Commands displays the active binding beside each action.
 | Cycle focused terminal width | Super+Alt+R | Command+Option+R |
 | Toggle focused terminal full width | Super+Alt+F | Command+Option+F |
 | Find in terminal | Super+Alt+S | Command+Option+S |
-| Show apps | Super+Alt+A | Command+Option+A |
+| Add applications | Super+Alt+A | Command+Option+A |
+| New host | Super+Alt+L | Command+Option+L |
 | Show shortcuts | Super+Alt+/ | Command+Option+/ |
 | Copy selection | Ctrl+Shift+C | Command+C |
 | Paste clipboard | Ctrl+Shift+V | Command+V |
 
-Show apps opens the Apps panel ([apps](apps.md)). The plan named Command-P /
+Add applications opens the app catalog ([apps](apps.md)); New host saves an
+SSH destination ([hosts](hosts.md)). Command+Option+H is macOS's Hide Others,
+so New host takes L. The plan named Command-P /
 Super-P; Super+P switches displays on GNOME and other Linux desktops and
 Command+P is Print on the Mac, so it follows the other Super+Alt defaults.
 
@@ -343,6 +346,6 @@ Overview and Agents-panel filters. With one waiting agent they select that agent
 with none they leave focus unchanged. Dialogs and editable search controls retain
 their input. Selecting a terminal owned by another window leaves ownership there.
 
-Commands also offers **Show agents needing input**. It opens the Agents panel,
+Commands also offers **Show agents needing input**. It opens the sidebar on the agents filter with Needs input (before 2026-11-09, the Agents panel),
 clears its search and selects Needs input without changing Overview filters.
 See [attention indicators](toolkit-ui-study.md#waiting-agent-navigation).

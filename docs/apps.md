@@ -121,7 +121,9 @@ today.
 8. [x] **Running apps in the sidebar.** The Apps panel lists running apps from
    every workspace, like Agents, with their workspace and a Stopped mark for a
    failed one; choosing one goes to its pane. **Add applications…** sits at
-   the bottom. (Tried against apps on workspace rows, 2026-11-07.)
+   the bottom. (Tried against apps on workspace rows, 2026-11-07.) Since
+   2026-11-09 the Apps icon filters the one workspace view to app panes
+   instead, and Super+Alt+A opens Add applications directly.
 9. [x] **Sources.** Owner feedback from a Fedora 44 box: lazygit failed with
    dnf (Fedora has no lazygit package; the earlier check was wrong), and
    Homebrew-only apps had no way forward without Homebrew. Now:
