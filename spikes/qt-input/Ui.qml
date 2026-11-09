@@ -1545,8 +1545,10 @@ ApplicationWindow {
     Rectangle {
         visible: (studySession.error.length > 0 || studySession.catalogNotice.length > 0) && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen
         anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(window.width - 100, 680); height: 76; color: "#352b22"; radius: Design.radiusL; z: 4
-        Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error || studySession.catalogNotice; wrapMode: Text.Wrap; color: "#f0d6b8" }
+        // A notice in the window's tones, marked by the waiting color.
+        width: Math.min(window.width - 100, 680); height: 76; color: window.chrome.raised; radius: Design.radiusL; z: 4
+        border.width: Design.line; border.color: window.chrome.waiting
+        Label { x: 16; y: 12; width: parent.width - 120; text: studySession.error || studySession.catalogNotice; wrapMode: Text.Wrap; color: window.chrome.foreground }
         QuietButton { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: "Refresh"; enabled: !studySession.busy; onClicked: studySession.refresh() }
     }
     ThemePicker {

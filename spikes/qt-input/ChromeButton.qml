@@ -15,13 +15,12 @@ Button {
     property bool leftAligned: false
     property string trailingText: ""
     property int textSize: Design.textControl
-    property bool fixedPalette: false
     // The gallery shows a state without a pointer: "hover", "down" or "focus".
     property string preview: ""
     readonly property bool showHover: hovered || preview === "hover"
     readonly property bool showDown: down || preview === "down"
     readonly property bool showFocus: visualFocus || preview === "focus"
-    readonly property var colors: fixedPalette ? ({foreground: "#e0e6ef", muted: "#a5afbe", hover: "#323b4b", selected: "#2c3c51", accent: "#b4c9ec", raised: "#252d38", border: "#3a4657", background: "#101318"}) : tones
+    readonly property var colors: tones
     // Text on the accent: the theme's background or foreground, whichever contrasts more.
     readonly property color onAccent: {
         const light = c => { c = Qt.color(c); return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b }
