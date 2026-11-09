@@ -164,7 +164,7 @@ Each slice ships on its own and keeps both platforms green.
   want to add programs of their own. Today an `[app.ID]` section in
   config.conf already lists one first in Add applications, with its own
   `install` and `setup` recipes ([dotfiles](dotfiles.md#apps)). Not there yet:
-  - adding one from Add applications, saved in Band's own list as New host…
+  - adding one from Add applications, saved in Band's own list as Add host…
     does for hosts;
   - a description line;
   - building from a local checkout or a Git repository (over SSH, as

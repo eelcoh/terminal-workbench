@@ -51,7 +51,7 @@ static const CommandDefinition command_definitions[COMMAND_COUNT]={
     {"Next agent needing input","Focus the next terminal whose last report needs input"},
     {"Previous agent needing input","Focus the previous terminal whose last report needs input"},
     {"Add applications","Open the catalog of terminal apps for this workspace"},
-    {"New host","Save an SSH destination to connect to"}
+    {"New host pane","Connect to a saved SSH host, or add one"}
 };
 static const char *command_ids[COMMAND_COUNT]={
     "overview", "appearance", "workspace.new", "workspace.rename", "workspace.folder", "workspace.stop",

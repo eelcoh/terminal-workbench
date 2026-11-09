@@ -7,7 +7,7 @@ bool workbench_theme_default_source(const char *path,bool apple,char *source,siz
     if(snprintf(source,length,"%s",config.terminal_source)>=(int)length)return false;
     return true;
 }
-#define IMPORT_CAPACITY 512
+#define IMPORT_CAPACITY 2048   /* folder themes (up to 1024 files), imports, and edits across reloads */
 /* GUI-thread registration, immutable slots; no parsing or allocation during paint. */
 static WorkbenchTheme imports[IMPORT_CAPACITY];
 static char import_names[IMPORT_CAPACITY][128];

@@ -639,7 +639,19 @@ ApplicationWindow {
     // config.conf hosts with Band's saved hosts over them (marked "saved").
     readonly property var hostDefinitions: { const own = studyHosts.saved; return studyHosts.merge(studyConfiguration.hosts) }
     readonly property bool hostDialogOpen: hostDialog.visible
+    readonly property bool hostChooserOpen: hostChooser.visible
+    // Choosers that keep keyboard focus while panes open or close beneath them.
+    readonly property bool choosing: appCatalog.visible || commands.visible || hostChooser.visible || hostDialog.visible
+    // New host pane: choose a saved host, or add one when there are none.
     function newHost() {
+        if (hostChooser.visible || hostDialog.visible || createDialog.visible || terminalAction.visible) return
+        if (spaces.length === 0) return
+        if (!hostDefinitions.length) { addHost(); return }
+        if (drawer.visible) drawer.close()
+        hostChooser.open()
+    }
+    // A new destination for Band's host list; saving connects to it.
+    function addHost() {
         if (hostDialog.visible || createDialog.visible || terminalAction.visible) return
         if (drawer.visible) drawer.close()
         hostName.text = ""; hostDestination.text = ""; hostFolder.text = ""; hostDialog.theme = ""; hostDialog.suggestions = studyHosts.suggestions().filter(alias => !hostDefinitions.some(item => item.destination === alias))
@@ -775,7 +787,7 @@ ApplicationWindow {
         // A dialog on top (the app catalog during a setup run, say) keeps the
         // keyboard; the neighbour becomes selected and takes focus when it closes.
         if (selected === i) {
-            if (next >= 0 && (appCatalog.visible || commands.visible || drawer.visible)) { selected = next; let values = remembered.slice(); values[space] = next; remembered = values }
+            if (next >= 0 && (choosing || drawer.visible)) { selected = next; let values = remembered.slice(); values[space] = next; remembered = values }
             else if (next >= 0) focusPane(next)
             else { selected = -1; if (!appCatalog.visible && !commands.visible) window.contentItem.forceActiveFocus() }
         }
@@ -883,7 +895,7 @@ ApplicationWindow {
             pendingTerminalColors = false; Qt.callLater(showTerminalColors)
         } else if (pendingWorkspaceDialog) {
             pendingWorkspaceDialog = false; Qt.callLater(openWorkspaceForm)
-        } else if (!overview && selected >= 0 && !welcome.visible && !gallery.visible && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible && !appCatalog.visible) panel(selected).terminal.forceActiveFocus()
+        } else if (!overview && selected >= 0 && !welcome.visible && !gallery.visible && !drawer.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !appearance.visible && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalSearch.visible && !choosing) panel(selected).terminal.forceActiveFocus()
     }
     Connections {
         target: studySession
@@ -929,8 +941,8 @@ ApplicationWindow {
         if (i < 0 || i >= terminalModel.count) return
         selected = i; workspace = terminalModel.get(i).spaceIndex
         let values = remembered.slice(); values[workspace] = i; remembered = values
-        // A pane that opens under the app catalog or Commands waits for them to close.
-        if (!overview) { reveal(); if (!appCatalog.visible && !commands.visible) panel(i).terminal.forceActiveFocus() }
+        // A pane that opens under a chooser (catalog, Commands, hosts) waits for it to close.
+        if (!overview) { reveal(); if (!choosing) panel(i).terminal.forceActiveFocus() }
         else Qt.callLater(function() { revealOverview(i) })
     }
     function chooseWorkspace(i) {
@@ -1402,7 +1414,7 @@ ApplicationWindow {
             x: 0; y: deck.groupTop(window.dropSpace) - deck.contentY
             width: deck.width; height: deck.groupTop(window.dropSpace + 1) - deck.groupTop(window.dropSpace) - 8
             color: "transparent"; radius: Design.radiusL; border.width: Design.line
-            border.color: window.dropAllowed ? window.accent : "#e49b9b"
+            border.color: window.dropAllowed ? window.accent : window.chrome.waiting
         }
         Rectangle {
             visible: window.dragSlot >= 0 && window.dropSpace >= 0 && window.dropAllowed
@@ -1664,20 +1676,21 @@ ApplicationWindow {
         placeholderTextColor: window.chrome.muted; padding: Design.spaceL
         background: Rectangle { radius: Design.radiusM; color: window.chrome.background; border.color: parent.activeFocus ? window.accent : window.chrome.border }
     }
-    // New host: a name, an ssh destination (with ~/.ssh/config aliases to pick)
+    // Add host: a name, an ssh destination (with ~/.ssh/config aliases to pick)
     // and an optional remote folder, saved in Band's own host list.
     Dialog {
         id: hostDialog; objectName: "hostDialog"
         property var suggestions: []
         property string theme: ""
         implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: Design.space2xl
-        title: "New host"
+        title: "Add host"
         background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
         header: Label { text: hostDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         onOpened: hostDestination.forceActiveFocus()
         function save() {
             const id = studyHosts.freeId(hostName.text.trim() || hostDestination.text.trim(), window.hostDefinitions)
-            if (studyHosts.save({id: id, name: hostName.text.trim(), destination: hostDestination.text.trim(), directory: hostFolder.text.trim(), theme: hostDialog.theme})) hostDialog.close()
+            if (!studyHosts.save({id: id, name: hostName.text.trim(), destination: hostDestination.text.trim(), directory: hostFolder.text.trim(), theme: hostDialog.theme})) return
+            hostDialog.close(); window.connectHost(id)
         }
         contentItem: Column {
             spacing: Design.spaceL
@@ -1718,15 +1731,100 @@ ApplicationWindow {
             }
             Label {
                 width: parent.width; wrapMode: Text.Wrap; font.pixelSize: Design.textSmall; color: studyHosts.error ? window.chrome.waiting : window.chrome.muted
-                text: studyHosts.error || "Saved by Band beside its other settings. Keys, passwords and ssh options stay with ssh."
+                text: studyHosts.error || "Saved by Band beside its other settings, then opened in this workspace. Keys, passwords and ssh options stay with ssh."
             }
             Row {
                 x: parent.width - width; spacing: Design.spaceXs   // the decision sits on the right
                 QuietButton { text: "Cancel"; onClicked: hostDialog.close() }
-                QuietButton { objectName: "saveHostButton"; primary: true; text: "Save"; enabled: hostDestination.text.trim().length > 0; onClicked: hostDialog.save() }
+                QuietButton { objectName: "saveHostButton"; primary: true; text: "Connect"; enabled: hostDestination.text.trim().length > 0; onClicked: hostDialog.save() }
             }
         }
         onClosed: Qt.callLater(window.restoreAfterPopup)
+    }
+    // New host pane: the saved hosts, with reachability; Enter or a click
+    // connects in this workspace. Add host… defines a new destination.
+    Dialog {
+        id: hostChooser; objectName: "hostChooser"
+        implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: Design.spaceL
+        title: "New host pane"
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        header: Label { text: hostChooser.title; padding: Design.space2xl; bottomPadding: Design.spaceXs; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
+        function choose(id) { close(); window.connectHost(id) }
+        // Runs here, not in the row: removing rebuilds the rows.
+        function remove(id) { studyHosts.remove(id); if (!window.hostDefinitions.length) close() }
+        // The list keeps keyboard focus and marks the current host, so rows
+        // rebuilt after a removal cannot take focus with them.
+        onOpened: { studyHosts.check(window.hostDefinitions); hostChoices.currentIndex = 0; hostChoices.forceActiveFocus(Qt.TabFocusReason) }
+        onClosed: Qt.callLater(window.restoreAfterPopup)
+        // Reachability while the chooser is open: on opening, then every minute.
+        Timer { interval: 60000; repeat: true; running: hostChooser.visible; onTriggered: studyHosts.check(window.hostDefinitions) }
+        contentItem: Column {
+            spacing: Design.space2xs
+            Label {
+                width: parent.width; visible: !window.canCreateTerminal; padding: Design.spaceM; wrapMode: Text.Wrap
+                text: "Already at " + window.maxTerminals + " terminals; close one to connect."; color: window.chrome.waiting; font.pixelSize: Design.textSmall
+            }
+            ListView {
+                id: hostChoices; objectName: "hostChoices"
+                width: parent.width; height: Math.min(contentHeight, window.height * 0.5); clip: true; spacing: Design.space2xs
+                boundsBehavior: Flickable.StopAtBounds; keyNavigationWraps: false; highlightMoveDuration: 0
+                model: hostChooser.visible ? window.hostDefinitions : []
+                onCountChanged: if (count && currentIndex >= count) currentIndex = count - 1
+                Keys.onPressed: event => {
+                    if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && currentIndex >= 0) { hostChooser.choose(model[currentIndex].id); event.accepted = true }
+                    else event.accepted = false
+                }
+                delegate: Item {
+                    id: hostRow
+                    required property int index
+                    required property var modelData
+                    readonly property var panes: window.hostPanes(modelData.id)
+                    readonly property string reach: studyHosts.reachability[modelData.id] || ""
+                    readonly property bool current: ListView.isCurrentItem
+                    width: hostChoices.width; height: 44
+                    HoverHandler { id: hostHover }
+                    QuietButton {
+                        id: hostEntry; objectName: "hostChoice" + hostRow.index
+                        width: parent.width; height: 44; padding: Design.spaceM; focusPolicy: Qt.NoFocus
+                        selected: hostRow.current && hostChoices.activeFocus
+                        hint: hostRow.modelData.name + " · " + hostRow.modelData.destination + (hostRow.panes.length ? " · " + hostRow.panes.length + " open" : "")
+                            + (hostRow.reach === "reachable" ? " · reachable" : hostRow.reach === "unreachable" ? " · not reachable" : hostRow.reach === "unknown" ? " · reachability unknown" : "")
+                        contentItem: Item {
+                            ChromeIcon { id: hostIcon; x: 0; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; name: "host"; color: window.chrome.muted }
+                            // Reachable: a ready dot; not reachable: a waiting dot; unknown: none.
+                            Rectangle {
+                                objectName: "hostReach" + hostRow.index; x: hostIcon.x + 12; y: hostIcon.y + 11; width: 8; height: 8; radius: 4
+                                visible: hostRow.reach === "reachable" || hostRow.reach === "unreachable"; border.width: 1.5; border.color: window.chrome.raised
+                                color: hostRow.reach === "reachable" ? window.chrome.ready : window.chrome.waiting
+                            }
+                            Column {
+                                anchors.left: hostIcon.right; anchors.leftMargin: Design.spaceL; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 34 : 0; anchors.verticalCenter: parent.verticalCenter; spacing: 1
+                                Text { width: parent.width; text: hostRow.modelData.name + (hostRow.panes.length ? "  ·  " + hostRow.panes.length + " open" : ""); textFormat: Text.PlainText; elide: Text.ElideRight; color: window.chrome.foreground; font.pixelSize: Design.textBody; font.weight: Font.DemiBold }
+                                Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: window.chrome.muted; font.pixelSize: Design.textCaption }
+                            }
+                        }
+                        onClicked: hostChooser.choose(hostRow.modelData.id)
+                    }
+                    // Hosts Band saved can be removed here; config.conf hosts stay as written.
+                    QuietButton {
+                        objectName: "removeHost" + hostRow.index; z: 2; visible: !!hostRow.modelData.saved
+                        opacity: hostHover.hovered || (hostRow.current && hostChoices.activeFocus) ? 1 : 0
+                        anchors.right: hostEntry.right; anchors.rightMargin: Design.spaceXs; anchors.verticalCenter: hostEntry.verticalCenter
+                        iconName: "close"; height: 28; focusPolicy: Qt.NoFocus
+                        hint: "Remove " + hostRow.modelData.name + " from Band's hosts"
+                        onClicked: hostChooser.remove(hostRow.modelData.id)
+                    }
+                }
+            }
+        }
+        footer: Item {
+            implicitHeight: 56
+            QuietButton {
+                objectName: "addHostButton"; x: Design.space2xl; anchors.verticalCenter: parent.verticalCenter; text: "Add host…"; focusPolicy: Qt.NoFocus
+                onClicked: { hostChooser.close(); Qt.callLater(window.addHost) }
+            }
+            QuietButton { anchors.right: parent.right; anchors.rightMargin: Design.space2xl; anchors.verticalCenter: parent.verticalCenter; text: "Cancel"; focusPolicy: Qt.NoFocus; onClicked: hostChooser.close() }
+        }
     }
     Dialog {
         id: createDialog; objectName: "createWorkspaceDialog"
@@ -1882,7 +1980,7 @@ ApplicationWindow {
         }
         onClosed: if (!window.overview && window.selected >= 0) window.panel(window.selected).terminal.forceActiveFocus()
     }
-    readonly property bool globalKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible
+    readonly property bool globalKeyContext: !overviewSearch.activeFocus && !navigation.searchFocused && dragSlot < 0 && !terminalSearch.visible && !shortcutSettings.visible && !fontSettings.visible && !commands.visible && !terminalAction.visible && !createDialog.visible && !window.appearanceOpen && !terminalInformation.visible && !agentInformation.visible && !about.visible && !configurationDialog.visible && !help.visible && !drawer.visible && !appMenu.visible && !paneMenu.visible && !hostChooser.visible && !hostDialog.visible
     function activateShortcut(id) {
         // Boundary navigation still reveals/focuses the selected pane after scrolling.
         if (id === "previous-terminal") navigate(-1)

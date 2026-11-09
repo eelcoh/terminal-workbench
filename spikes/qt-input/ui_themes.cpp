@@ -56,7 +56,7 @@ void UiThemes::reloadDirectory() {
     catalog_=retained;int loaded=0,skipped=0,examined=0;QString firstProblem;QSet<QString> seen;
     const auto files=folder.entryInfoList(QDir::Files|QDir::NoDotAndDotDot,QDir::Name|QDir::IgnoreCase);
     for(const auto &info:files) {
-        if(++examined>256){firstProblem="Only the first 256 files are scanned.";break;}
+        if(++examined>1024){firstProblem="Only the first 1024 files are scanned.";break;}
         // Content determines validity: .default, .theme, .conf and extensionless files all work.
         QFile file(info.absoluteFilePath());QString problem;WorkbenchTheme colors;int ignored=0;
         if(!info.isFile() || info.size()>ThemeStore::maxBytes || !file.open(QIODevice::ReadOnly))problem="Cannot read file (maximum 64 KiB).";

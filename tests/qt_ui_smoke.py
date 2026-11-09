@@ -1830,23 +1830,35 @@ while True:
         assert host_pane['theme']!=shell_pane['theme'] and host_pane['background']!=shell_pane['background'] and host_pane['background']!=data()['chrome_background'],(host_pane['background'],shell_pane['background'])
         assert host_pane['header']==['Lab','lab-box · ~/src/x y'] and data()['panes'].index(host_pane) not in data()['running_apps'],host_pane['header']
         time.sleep(.3);capture('host-pane.png')
-        # The hosts filter shows host panes in their workspaces and the saved
-        # hosts below; Connect opens a second pane on the same host.
+        # The hosts filter shows host panes in their workspaces and nothing else;
+        # New host pane… lists the saved hosts, and choosing one opens another pane.
         click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
-        wait_until(lambda:any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']) and len(data()['navigation_host_panes'])==1)
-        wait_until(lambda:data()['host_reachability'].get('lab')=='reachable',timeout=10)
-        click(*settled_point(lambda d:d['connect_host_0']));wait_until(lambda:app_pane('_host-lab_2') is not None,timeout=10)
+        wait_until(lambda:len(data()['navigation_host_panes'])==1 and not data()['navigation_hosts'] and len(data()['new_host_button'])==2)
+        click(*settled_point(lambda d:d['new_host_button']));wait_until(lambda:data()['host_chooser_open'] and any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']))
+        wait_until(lambda:data()['host_reachability'].get('lab')=='reachable',timeout=10);time.sleep(.3);capture('host-chooser.png')
+        key('Return');wait_until(lambda:not data()['host_chooser_open'] and app_pane('_host-lab_2') is not None,timeout=10)
         click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
-        time.sleep(.3);capture('hosts-panel.png')
-        # New host… saves to Band's own list with an alias from ~/.ssh/config;
-        # a saved host can be removed again, config.conf hosts cannot.
-        click(*settled_point(lambda d:d['new_host_button']));wait_until(lambda:data()['host_dialog_open'] and len(data()['host_suggestion_0'])==2)
+        time.sleep(.3);capture('hosts-panel.png');key('Escape');wait_until(lambda:not data()['drawer_open'])
+        # Add host… saves to Band's own list with an alias from ~/.ssh/config and
+        # connects; a saved host can be removed in the chooser, config.conf hosts cannot.
+        key('super+alt+l')
+        try:wait_until(lambda:data()['host_chooser_open'] and 'ListView:hostChoices' in data()['focus_chain'],timeout=5)
+        except AssertionError:raise AssertionError('chooser focus: '+repr(data()['focus_chain']))
+        key('Escape')
+        try:wait_until(lambda:not data()['host_chooser_open'],timeout=3)
+        except AssertionError:raise AssertionError('Escape on a fresh chooser; focus: '+repr(data()['focus_chain']))
+        key('super+alt+l');wait_until(lambda:data()['host_chooser_open'] and len(data()['add_host_button'])==2)
+        click(*settled_point(lambda d:d['add_host_button']));wait_until(lambda:data()['host_dialog_open'] and not data()['host_chooser_open'] and len(data()['host_suggestion_0'])==2)
         click(*settled_point(lambda d:d['host_suggestion_0']));time.sleep(.2);capture('host-dialog.png');click(*settled_point(lambda d:d['save_host_button']))
-        wait_until(lambda:not data()['host_dialog_open'] and [h['id'] for h in data()['saved_hosts']]==['alpha'] and (root/'ui'/'hosts.json').exists())
-        click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and any(h.startswith('alpha · alpha') for h in data()['navigation_hosts']) and len(data()['remove_host_1'])==2)
+        wait_until(lambda:not data()['host_dialog_open'] and [h['id'] for h in data()['saved_hosts']]==['alpha'] and (root/'ui'/'hosts.json').exists() and app_pane('_host-alpha') is not None,timeout=10)
+        key('super+alt+l');wait_until(lambda:data()['host_chooser_open'] and any(h.startswith('alpha · alpha') for h in data()['navigation_hosts']) and len(data()['remove_host_1'])==2)
         wait_until(lambda:data()['host_reachability'].get('alpha')=='unreachable',timeout=10);capture('hosts-reachability.png')
         click(*settled_point(lambda d:d['remove_host_1']));wait_until(lambda:not data()['saved_hosts'] and not any(h.startswith('alpha') for h in data()['navigation_hosts']))
-        key('Escape');wait_until(lambda:not data()['drawer_open'])
+        # Focus stays in the chooser's list.
+        try:wait_until(lambda:'ListView:hostChoices' in data()['focus_chain'],timeout=3)
+        except AssertionError:raise AssertionError('focus after removing a host: '+repr(data()['focus_chain']))
+        key('Escape');wait_until(lambda:not data()['host_chooser_open'])
+        request(root,Path(runtime),root,'terminal.close',app_pane('_host-alpha')['identity']);wait_until(lambda:app_pane('_host-alpha') is None)
         for host_app in ('_host-lab_2','_host-lab'):
             request(root,Path(runtime),root,'terminal.close',app_pane(host_app)['identity']);wait_until(lambda:app_pane(host_app) is None)
         # New workspace from a worktree: a folder in a repository offers its

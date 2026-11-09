@@ -21,14 +21,14 @@ saved binding. Commands displays the active binding beside each action.
 | Toggle focused terminal full width | Super+Alt+F | Command+Option+F |
 | Find in terminal | Super+Alt+S | Command+Option+S |
 | Add applications | Super+Alt+A | Command+Option+A |
-| New host | Super+Alt+L | Command+Option+L |
+| New host pane | Super+Alt+L | Command+Option+L |
 | Show shortcuts | Super+Alt+/ | Command+Option+/ |
 | Copy selection | Ctrl+Shift+C | Command+C |
 | Paste clipboard | Ctrl+Shift+V | Command+V |
 
-Add applications opens the app catalog ([apps](apps.md)); New host saves an
-SSH destination ([hosts](hosts.md)). Command+Option+H is macOS's Hide Others,
-so New host takes L. The plan named Command-P /
+Add applications opens the app catalog ([apps](apps.md)); New host pane
+connects to a saved SSH host or adds one ([hosts](hosts.md)). Command+Option+H
+is macOS's Hide Others, so New host pane takes L. The plan named Command-P /
 Super-P; Super+P switches displays on GNOME and other Linux desktops and
 Command+P is Print on the Mac, so it follows the other Super+Alt defaults.
 

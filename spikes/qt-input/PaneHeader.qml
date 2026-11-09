@@ -82,22 +82,23 @@ Item {
         color: header.needsInput ? header.tones.waiting : header.agentState === "Ready" ? header.tones.ready : header.tones.muted
     }
     // The focused pane's own actions, shown on hover; their room stays reserved
-    // so the title does not move. They leave keyboard focus in the terminal.
+    // so the title does not move. Buttons are centered in the header, clear of
+    // the pane's frame, so a hover never covers its line. They leave keyboard focus in the terminal.
     Row {
-        id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 0; spacing: Design.space2xs; visible: header.focused
+        id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 4; spacing: Design.space2xs; visible: header.focused
         opacity: header.actionsShown ? 1 : 0
-        ChromeButton { objectName: "paneWidthButton"; tones: header.tones; height: 28; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: header.widthClicked() }
+        ChromeButton { objectName: "paneWidthButton"; tones: header.tones; height: 24; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: header.widthClicked() }
         ChromeButton {
-            objectName: "paneFullButton"; tones: header.tones; height: 28; focusPolicy: Qt.NoFocus; iconName: "full"; selected: header.fullWidth
+            objectName: "paneFullButton"; tones: header.tones; height: 24; focusPolicy: Qt.NoFocus; iconName: "full"; selected: header.fullWidth
             hint: header.fullWidth ? "Restore width" : "Full width"; keys: studyShortcuts.labels["full-width"] || ""; onClicked: header.fullClicked()
         }
         ChromeButton {
-            objectName: "paneCloseButton"; tones: header.tones; height: 28; focusPolicy: Qt.NoFocus; iconName: "close"; enabled: !header.busy
+            objectName: "paneCloseButton"; tones: header.tones; height: 24; focusPolicy: Qt.NoFocus; iconName: "close"; enabled: !header.busy
             hint: header.exited ? "Close pane" : "Close terminal…"; keys: studyShortcuts.labels["close-terminal"] || ""; onClicked: header.closeClicked()
         }
     }
     ChromeButton {
-        objectName: "paneLayoutButton"; tones: header.tones; anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; y: 0
-        iconName: "more"; height: 28; hint: "Terminal layout"; enabled: header.menuEnabled; onClicked: header.menuClicked(this)
+        objectName: "paneLayoutButton"; tones: header.tones; anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; y: 4
+        iconName: "more"; height: 24; hint: "Terminal layout"; enabled: header.menuEnabled; onClicked: header.menuClicked(this)
     }
 }

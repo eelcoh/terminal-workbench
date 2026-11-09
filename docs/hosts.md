@@ -3,20 +3,23 @@
 Status (2026-11-07): slices 1–3 built, plus Band's own host list.
 - `[host.ID]` in config.conf, and Connect to… in Commands.
 - Host panes with their own identity, outside the Apps list.
-- The hosts filter in the sidebar (since 2026-11-09; before, a Hosts panel):
-  host panes in their workspaces, then the saved hosts. Before that, the Hosts
-  panel (sidebar shape A): saved hosts with their open panes in any
-  workspace, Connect, and the footer filter.
-- New host…, which writes `ui/hosts.json` and suggests `~/.ssh/config`
-  aliases. Hosts Band saved can be removed from the panel.
+- The hosts filter in the sidebar (since 2026-11-09): host panes in their
+  workspaces, nothing else. Before that, the Hosts panel (sidebar shape A):
+  saved hosts with their open panes in any workspace, Connect, and the footer
+  filter.
+- New host pane… (Super+Alt+L, since 2026-11-09): a chooser of the saved
+  hosts, with reachability and the number of open panes; Enter or a click
+  connects in the current workspace. Hosts Band saved can be removed there.
+  Add host… (or New host pane… with no hosts yet) writes `ui/hosts.json`,
+  suggests `~/.ssh/config` aliases, and connects to the new host.
 
-- Reachability in the Hosts panel: `ssh -G`, then a two-second TCP
-  connection, on opening and every minute while the panel is open. A ready
+- Reachability in the host chooser: `ssh -G`, then a two-second TCP
+  connection, on opening and every minute while it is open. A ready
   dot means reachable, a waiting dot means not reachable, and no dot means
   unknown (proxied, or the lookup failed).
 
 - A theme per host: a host pane's terminal takes the host's theme, by name
-  from the theme list, unless it has its own colors. New host… offers
+  from the theme list, unless it has its own colors. Add host… offers
   Workspace colors or a theme.
 
 All five slices are built. A remote runtime, and with it the host level in
@@ -134,9 +137,9 @@ by-hand runs against a real host on both platforms.
 
 1. **Where hosts live:** both. `[host.ID]` in config.conf, which Band reads
    and never writes, and a host list Band saves itself (beside the font,
-   shortcut and theme files) that New host… writes. Band's list wins for the
+   shortcut and theme files) that Add host… writes. Band's list wins for the
    same ID, as with the default theme.
-2. **`~/.ssh/config`:** New host… suggests its `Host` aliases (no wildcards),
+2. **`~/.ssh/config`:** Add host… suggests its `Host` aliases (no wildcards),
    read only.
 3. **Sidebar shape:** it depends on what Band restores.
    - **Plain ssh panes (v0.3):** a host pane belongs to its workspace, like

@@ -26,10 +26,14 @@ Dialog {
             ChromeButton { objectName: "fontPlus"; tones: popup.tones; text: "+"; hint: "Increase terminal text size"; enabled: popup.preferences.current.size < 32; onClicked: popup.preferences.step(1) }
         }
         Label { width: parent.width; text: "Preview across this window. Apply saves the font and size for future launches on this platform."; wrapMode: Text.Wrap; color: popup.tones.muted; font.pixelSize: Design.textSmall }
-        Label { width: parent.width; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: Design.textSmall }
+        Label { width: parent.width; visible: text.length > 0; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: Design.textSmall }
+    }
+    // The reset on the left; the decision on the right, Apply highlighted.
+    footer: Item {
+        implicitHeight: 56
+        ChromeButton { objectName: "fontDefaults"; x: Design.space2xl; anchors.verticalCenter: parent.verticalCenter; tones: popup.tones; text: "Use dotfile defaults"; onClicked: popup.preferences.useDefaults() }
         Row {
-            width: parent.width; spacing: Design.spaceM
-            ChromeButton { objectName: "fontDefaults"; tones: popup.tones; text: "Use dotfile defaults"; onClicked: popup.preferences.useDefaults() }
+            anchors.right: parent.right; anchors.rightMargin: Design.space2xl; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceM
             ChromeButton { id: cancelButton; tones: popup.tones; text: "Cancel"; onClicked: popup.close() }
             ChromeButton { objectName: "fontApply"; tones: popup.tones; primary: true; text: "Apply"; onClicked: if (popup.preferences.apply()) popup.close() }
         }

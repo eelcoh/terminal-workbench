@@ -55,7 +55,7 @@ QtObject {
         row("help", "Keyboard shortcuts", "Show the navigation and layout bindings", true, ""),
         row("configuration", "Configuration", "Show managed files and preference locations", true, ""),
         row("configuration-reload", "Reload configuration", "Read font and shortcut files without restarting terminals", !studyConfiguration.editing, "Close settings editors first"),
-        row("new-host", "New host…", "Save an SSH destination to connect to from Hosts or Commands", true, ""),
+        row("new-host", "New host pane…", "Connect to a saved SSH host in this workspace, or add one", host.spaces.length > 0, ""),
         row("gallery", "Design gallery", "Every component in each state under three themes, for design work", true, ""),
         row("welcome", "Welcome to Band", "Sidebar and motion, apps to open, and the keys worth knowing", true, ""),
         row("about", "About Band", "Show this client build and copy installation diagnostics", true, "")

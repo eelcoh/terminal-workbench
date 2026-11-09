@@ -24,22 +24,9 @@ Item {
     // The filter at the top narrows workspaces and panes by name, program, folder or agent.
     readonly property string filter: sidebarFilter.text.trim().toLocaleLowerCase()
     readonly property bool filtering: kinds.length > 0 || filter.length > 0 || needsOnly
-    // Reachability while saved hosts show: on showing, then every minute.
-    Timer {
-        interval: 60000; repeat: true; triggeredOnStart: true; running: navigation.hosts && navigation.visible && host.hostDefinitions.length > 0
-        onTriggered: studyHosts.check(host.hostDefinitions)
-    }
-    readonly property var shownHosts: host.hostDefinitions.filter(saved => !navigation.filter || (saved.name + " " + saved.destination).toLocaleLowerCase().indexOf(navigation.filter) >= 0)
     function scrollTo(top, height) {
         if (top < list.contentY) list.contentY = top
         else if (top + height > list.contentY + list.height) list.contentY = Math.max(0, top + height - list.height)
-    }
-    function focusHost(index) {
-        const count = hostRows.count
-        if (!count) { sidebarFilter.forceActiveFocus(Qt.TabFocusReason); return }
-        const row = hostRows.itemAt(Math.max(0, Math.min(count - 1, index)))
-        scrollTo(savedHosts.y + row.y, row.height)
-        row.button.forceActiveFocus(Qt.TabFocusReason)
     }
     // The rail's name for a pane's kind.
     function kindOf(i) {
@@ -65,7 +52,6 @@ Item {
             if (row && row.visible && row.expanded && row.panes.length) { row.focusPane(0); return }
         }
         for (let i = 0; i < host.spaces.length; ++i) { const row = workspaceRows.itemAt(i); if (row && row.visible) { focusWorkspace(i); return } }
-        if (hosts) focusHost(0)
     }
     function setExpanded(identity, open) { let values = Object.assign({}, expandedSpaces); values[identity] = open; expandedSpaces = values }
     // The agents the filters leave, for the agent commands and diagnostics.
@@ -272,77 +258,9 @@ Item {
                 }
             }
             Label {
-                objectName: "navigationNoMatches"; width: body.width; padding: Design.spaceM; color: host.chrome.muted; font.pixelSize: Design.textBody
+                objectName: "navigationNoMatches"; width: body.width; padding: Design.spaceM; color: host.chrome.muted; font.pixelSize: Design.textBody; wrapMode: Text.Wrap
                 visible: navigation.filtering && !host.spaces.some((name, i) => host.indices(i).some(j => navigation.paneMatches(j)) || navigation.filter && name.toLocaleLowerCase().indexOf(navigation.filter) >= 0)
-                text: navigation.needsOnly ? "No agents need input" : navigation.kinds.length === 1 && navigation.agents && !host.agentIndices.length ? "No agents detected" : "No matching panes"
-            }
-            // With the hosts filter, saved hosts follow, to connect or remove.
-            Column {
-                id: savedHosts; width: body.width; spacing: Design.space2xs; visible: navigation.hosts
-                Text { leftPadding: Design.spaceM; height: 28; verticalAlignment: Text.AlignVCenter; text: "Saved hosts"; color: host.chrome.muted; font.pixelSize: Design.textSmall; font.weight: Font.Bold }
-                Repeater {
-                    // Saved hosts; their open panes are in their workspaces above.
-                    id: hostRows; model: navigation.hosts ? navigation.shownHosts : []
-                    Item {
-                        id: hostRow
-                        required property int index
-                        required property var modelData
-                        property alias button: hostEntry
-                        readonly property var panes: host.hostPanes(modelData.id)
-                        readonly property string reach: studyHosts.reachability[modelData.id] || ""
-                        width: savedHosts.width; height: 40
-                        // Remove and connect show while the pointer is over the host or it has focus.
-                        HoverHandler { id: hostHover }
-                        readonly property bool actionsShown: hostHover.hovered || hostEntry.activeFocus
-                        ChromeButton {
-                            id: hostEntry; objectName: "navigationHost" + hostRow.index
-                            tones: host.chrome; width: parent.width; height: 40; padding: Design.spaceM
-                            hint: hostRow.modelData.name + " · " + hostRow.modelData.destination + (hostRow.panes.length ? " · " + hostRow.panes.length + " open" : "")
-                                + (hostRow.reach === "reachable" ? " · reachable" : hostRow.reach === "unreachable" ? " · not reachable" : hostRow.reach === "unknown" ? " · reachability unknown" : "")
-                            Keys.onDownPressed: navigation.focusHost(hostRow.index + 1)
-                            Keys.onUpPressed: { if (hostRow.index === 0) navigation.focusWorkspace(host.spaces.length - 1, -1); else navigation.focusHost(hostRow.index - 1) }
-                            Keys.onPressed: event => {
-                                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { host.connectHost(hostRow.modelData.id); event.accepted = true }
-                                else event.accepted = false
-                            }
-                            contentItem: Item {
-                                ChromeIcon { id: hostIcon; x: 0; anchors.verticalCenter: parent.verticalCenter; width: 18; height: 18; name: "host"; color: host.chrome.muted }
-                                // Reachable: a ready dot; not reachable: a waiting dot; unknown: none.
-                                Rectangle {
-                                    objectName: "hostReach" + hostRow.index; x: hostIcon.x + 12; y: hostIcon.y + 11; width: 8; height: 8; radius: 4
-                                    visible: hostRow.reach === "reachable" || hostRow.reach === "unreachable"; border.width: 1.5; border.color: host.chrome.surface
-                                    color: hostRow.reach === "reachable" ? host.chrome.ready : host.chrome.waiting
-                                }
-                                Column {
-                                    anchors.left: hostIcon.right; anchors.leftMargin: Design.spaceL; anchors.right: parent.right; anchors.rightMargin: hostRow.modelData.saved ? 64 : 34; anchors.verticalCenter: parent.verticalCenter; spacing: 1
-                                    Text { width: parent.width; text: hostRow.modelData.name; textFormat: Text.PlainText; elide: Text.ElideRight; color: host.chrome.foreground; font.pixelSize: Design.textBody; font.weight: Font.DemiBold }
-                                    Text { width: parent.width; text: hostRow.modelData.destination + (hostRow.modelData.directory ? " · " + hostRow.modelData.directory : ""); textFormat: Text.PlainText; elide: Text.ElideMiddle; color: host.chrome.muted; font.pixelSize: Design.textCaption }
-                                }
-                            }
-                            onClicked: host.connectHost(hostRow.modelData.id)
-                        }
-                        // Hosts Band saved can be removed here; config.conf hosts stay as written.
-                        ChromeButton {
-                            objectName: "removeHost" + hostRow.index; z: 2; visible: !!hostRow.modelData.saved; opacity: hostRow.actionsShown ? 1 : 0
-                            anchors.right: connectButton.left; anchors.verticalCenter: hostEntry.verticalCenter
-                            tones: host.chrome; iconName: "close"; focusPolicy: Qt.NoFocus
-                            hint: "Remove " + hostRow.modelData.name + " from Band's hosts"
-                            onClicked: studyHosts.remove(hostRow.modelData.id)
-                        }
-                        ChromeButton {
-                            id: connectButton; objectName: "connectHost" + hostRow.index; z: 2; opacity: hostRow.actionsShown ? 1 : 0
-                            anchors.right: hostEntry.right; anchors.rightMargin: Design.spaceXs; anchors.verticalCenter: hostEntry.verticalCenter
-                            tones: host.chrome; iconName: "plus"; focusPolicy: Qt.NoFocus; enabled: host.canCreateTerminal
-                            hint: "Connect to " + hostRow.modelData.name + " in this workspace"
-                            onClicked: host.connectHost(hostRow.modelData.id)
-                        }
-                    }
-                }
-                Label {
-                    width: savedHosts.width; visible: hostRows.count === 0
-                    padding: Design.spaceM; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: Design.textBody
-                    text: host.hostDefinitions.length && navigation.filter ? "No matching hosts" : "No hosts yet\nNew host… saves an SSH destination; [host.ID] sections in config.conf work too."
-                }
+                text: navigation.needsOnly ? "No agents need input" : navigation.kinds.length === 1 && navigation.agents && !host.agentIndices.length ? "No agents detected" : navigation.kinds.length === 1 && navigation.hosts && !navigation.filter ? "No host panes\nNew host pane… connects to a saved host or adds one." : "No matching panes"
             }
             Label {
                 width: body.width; visible: !session.savedSession
@@ -362,7 +280,7 @@ Item {
             onActivated: host.openCatalog()
         }
         FooterAction {
-            objectName: "newHostButton"; label: "New host…"; chord: studyShortcuts.labels["new-host"] || ""
+            objectName: "newHostButton"; label: "New host pane…"; chord: studyShortcuts.labels["new-host"] || ""
             hint: "Save an SSH destination; [host.ID] in config.conf works too"
             onActivated: host.newHost()
         }

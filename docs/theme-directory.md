@@ -36,7 +36,7 @@ the original file is removed; reselect a changed file to adopt its new colors.
 Only supported color fields are applied. Shell commands and other non-color
 settings are ignored. Invalid or unreadable files are skipped with a status in
 Appearance; other themes remain usable. Each file is limited to 64 KiB, with up
-to 256 directory entries scanned per opening. Identical file contents are shown
+to 1024 directory entries scanned per opening. Identical file contents are shown
 once. The existing offline presets remain available.
 
 `just toolkit-theme-import-test` covers discovery, suffixes, refresh, source-file

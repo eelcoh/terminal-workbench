@@ -46,7 +46,7 @@ Dialog {
             ChromeButton { objectName: "shortcutClear"; tones: popup.tones; text: "Clear"; enabled: !popup.recordingActive; onClicked: popup.preferences.clear(popup.selectedAction) }
             ChromeButton { objectName: "shortcutReset"; tones: popup.tones; text: "Use dotfile"; enabled: !popup.recordingActive; onClicked: popup.preferences.reset(popup.selectedAction) }
         }
-        Label { width: parent.width; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: Design.textSmall }
+        Label { width: parent.width; visible: text.length > 0; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: Design.textSmall }
     }
     footer: Item {
         implicitHeight: 56
@@ -76,7 +76,7 @@ Dialog {
             spacing: Design.spaceL
             Label { width: parent.width; wrapMode: Text.Wrap; text: "Press the new shortcut"; color: popup.tones.foreground; font.pixelSize: Design.textHeading }
             Label { width: parent.width; wrapMode: Text.Wrap; text: "Escape cancels recording. Shell control keys and copy/paste are reserved."; color: popup.tones.muted; font.pixelSize: Design.textSmall }
-            Label { width: parent.width; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: Design.textSmall }
+            Label { width: parent.width; visible: text.length > 0; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: Design.textSmall }
             ChromeButton { tones: popup.tones; text: "Cancel recording"; onClicked: popup.recording = "" }
         }
 
