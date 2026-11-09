@@ -88,6 +88,8 @@ test opens it from Commands and saves `design-gallery.png`.
 - Commands is a search field over a list, high in the window: no title, key
   legend or Done button (Escape or a click outside closes it), the context in
   the field's placeholder, and tighter rows.
+- Add applications follows: the search heads it, with the app count and
+  Sources beside it; no subtitle, key legend or Done.
 - Only the focused pane has a frame, in the accent; the others stand on their
   surface color.
 

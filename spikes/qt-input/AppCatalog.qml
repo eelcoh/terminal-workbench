@@ -80,39 +80,46 @@ Dialog {
     }
     TextEdit { id: clipboard; visible: false }
     function copy(text) { clipboard.text = text; clipboard.selectAll(); clipboard.copy(); clipboard.text = "" }
+    // The search heads the dialog, as in Commands; no title, legend or Done
+    // (Escape or a click outside closes it). Sources has its own title.
     header: Item {
-        implicitHeight: 70
-        Label { x: 20; y: 14; text: catalog.showSources ? "Sources" : "Add applications"; color: catalog.tones.foreground; font.pixelSize: Design.textTitle }
+        implicitHeight: 64
+        ContextSearch {
+            id: search; objectName: "appCatalogSearch"; x: Design.spaceXl; y: Design.spaceXl; height: 40; tones: catalog.tones
+            width: parent.width - 2 * Design.spaceXl - sourcesButton.width - appCount.width - 2 * Design.spaceL; visible: !catalog.showSources
+            placeholderText: "Find apps for " + (host.spaces[host.workspace] || "this workspace") + "…"
+            Accessible.name: "Find apps"; Accessible.description: "Up and Down choose, Enter opens, Escape closes"
+            KeyNavigation.tab: results
+            onStepRequested: direction => catalog.step(direction)
+            onAccepted: if (!inputMethodComposing) catalog.activate()
+            onEscapePressed: { if (text.length) clear(); else catalog.close() }
+        }
         Label {
-            x: 20; y: 45; width: parent.width - 40 - sourcesButton.width; elide: Text.ElideRight; color: catalog.tones.muted; font.pixelSize: Design.textSmall; textFormat: Text.PlainText
-            text: catalog.showSources ? "Where Band installs apps from. Every install runs in a pane you can watch."
-                : "Apps open as panes in " + (host.spaces[host.workspace] || "this workspace") + ". The list comes from awesome-tuis."
+            x: Design.spaceXl; anchors.verticalCenter: sourcesButton.verticalCenter; visible: catalog.showSources
+            text: "Sources"; color: catalog.tones.foreground; font.pixelSize: Design.textTitle - 2
+        }
+        Text {
+            id: appCount; anchors.right: sourcesButton.left; anchors.rightMargin: Design.spaceL; anchors.verticalCenter: sourcesButton.verticalCenter
+            visible: !catalog.showSources; text: catalog.matchCount + (catalog.matchCount === 1 ? " app" : " apps")
+            font.pixelSize: Design.textSmall; color: catalog.tones.muted
         }
         ChromeButton {
-            id: sourcesButton; objectName: "appSourcesButton"; anchors.right: parent.right; anchors.rightMargin: Design.spaceXl; y: 14
+            id: sourcesButton; objectName: "appSourcesButton"; anchors.right: parent.right; anchors.rightMargin: Design.spaceXl; y: Design.spaceXl + 6
             tones: catalog.tones; text: catalog.showSources ? "Back to apps" : "Sources"; selected: catalog.showSources
-            hint: catalog.showSources ? "Back to the app list" : "Package managers and repositories"
+            hint: catalog.showSources ? "Back to the app list" : "Package managers and repositories; the list comes from awesome-tuis"
             onClicked: catalog.showSources = !catalog.showSources
         }
     }
     contentItem: Item {
         Item {
             anchors.fill: parent; visible: !catalog.showSources
-            ContextSearch {
-                id: search; objectName: "appCatalogSearch"; width: parent.width; height: 40; tones: catalog.tones
-                placeholderText: "Find apps by name, purpose or category…"; Accessible.name: "Find apps"
-                KeyNavigation.tab: results
-                onStepRequested: direction => catalog.step(direction)
-                onAccepted: if (!inputMethodComposing) catalog.activate()
-                onEscapePressed: { if (text.length) clear(); else catalog.close() }
-            }
             ListView {
                 id: results; objectName: "appCatalogResults"; activeFocusOnTab: true; keyNavigationEnabled: false
-                y: search.height + 10; width: parent.width; height: detail.y - y - 10
+                y: 0; width: parent.width; height: detail.y - y - 10
                 clip: true; model: catalog.rows; spacing: Design.space2xs; currentIndex: -1; boundsBehavior: Flickable.StopAtBounds
                 Accessible.name: "Apps"
                 ScrollBar.vertical: ScrollBar {}
-                KeyNavigation.tab: actionButton.enabled ? actionButton : doneButton; KeyNavigation.backtab: search
+                KeyNavigation.tab: actionButton.enabled ? actionButton : search; KeyNavigation.backtab: search
                 Keys.onUpPressed: catalog.step(-1)
                 Keys.onDownPressed: catalog.step(1)
                 Keys.onReturnPressed: catalog.activate()
@@ -203,7 +210,7 @@ Dialog {
                     tones: catalog.tones; primary: true
                     enabled: catalog.current !== null && (!detail.missing || !!detail.picked || !!detail.entry.needsHomebrew) && host.canCreateTerminal
                     text: catalog.running(detail.entry) ? "Go to" : !detail.missing ? "Open" : detail.picked ? (sourceRow.visible ? "Install" : "Install with " + detail.picked.via) : detail.entry.needsHomebrew ? "Set up Homebrew…" : "Not available"
-                    KeyNavigation.tab: doneButton; KeyNavigation.backtab: results
+                    KeyNavigation.tab: search; KeyNavigation.backtab: results
                     Keys.onReturnPressed: clicked()
                     Keys.onEnterPressed: clicked()
                     onClicked: catalog.act()
@@ -278,22 +285,11 @@ Dialog {
         }
     }
     footer: Item {
-        implicitHeight: 48
+        implicitHeight: catalog.showSources ? 44 : Design.spaceS
         Label {
-            x: 20; anchors.verticalCenter: parent.verticalCenter; font.pixelSize: Design.textSmall; color: catalog.tones.muted
-            visible: catalog.showSources; text: "Choices are saved for this computer."
+            x: Design.spaceXl; anchors.verticalCenter: parent.verticalCenter; font.pixelSize: Design.textSmall; color: catalog.tones.muted
+            visible: catalog.showSources; text: "Where Band installs apps from; every install runs in a pane you can watch. Choices are saved for this computer."
+            width: parent.width - 2 * Design.spaceXl; elide: Text.ElideRight
         }
-        Row {
-            x: 20; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceS; visible: !catalog.showSources
-            Accessible.role: Accessible.StaticText; Accessible.name: "Up and Down choose, Enter opens, Escape closes. " + appCount.text
-            KeyChips { keys: "Up"; tones: catalog.tones } KeyChips { keys: "Down"; tones: catalog.tones }
-            Text { text: "choose"; font.pixelSize: Design.textSmall; color: catalog.tones.muted; rightPadding: Design.spaceM }
-            KeyChips { keys: "Enter"; tones: catalog.tones }
-            Text { text: "open"; font.pixelSize: Design.textSmall; color: catalog.tones.muted; rightPadding: Design.spaceM }
-            KeyChips { keys: "Esc"; tones: catalog.tones }
-            Text { text: "close"; font.pixelSize: Design.textSmall; color: catalog.tones.muted; rightPadding: Design.spaceM }
-            Text { id: appCount; text: catalog.matchCount + (catalog.matchCount === 1 ? " app" : " apps"); font.pixelSize: Design.textSmall; color: catalog.tones.muted }
-        }
-        ChromeButton { id: doneButton; Keys.onReturnPressed: catalog.close(); Keys.onEnterPressed: catalog.close(); KeyNavigation.tab: search; anchors.right: parent.right; anchors.rightMargin: Design.spaceXl; anchors.verticalCenter: parent.verticalCenter; text: "Done"; tones: catalog.tones; onClicked: catalog.close() }
     }
 }

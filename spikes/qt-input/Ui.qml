@@ -929,7 +929,8 @@ ApplicationWindow {
         if (i < 0 || i >= terminalModel.count) return
         selected = i; workspace = terminalModel.get(i).spaceIndex
         let values = remembered.slice(); values[workspace] = i; remembered = values
-        if (!overview) { reveal(); panel(i).terminal.forceActiveFocus() }
+        // A pane that opens under the app catalog or Commands waits for them to close.
+        if (!overview) { reveal(); if (!appCatalog.visible && !commands.visible) panel(i).terminal.forceActiveFocus() }
         else Qt.callLater(function() { revealOverview(i) })
     }
     function chooseWorkspace(i) {
