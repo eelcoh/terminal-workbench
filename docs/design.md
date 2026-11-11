@@ -99,6 +99,9 @@ test opens it from Commands and saves `design-gallery.png`.
 
 ## Still to do in stage 1
 
-- The inventory: the UI test already captures most screens
-  (`.local/artifacts/qt-ui/<platform>/*.png`). They need to be put next to Rex
-  screenshots of the same tasks, on Linux and the Mac.
+- The inventory: `just design-inventory` writes
+  `.local/artifacts/inventory/index.html`, Band's UI test screenshots per task
+  (first run, sidebar, filter, hosts, title bar, pane chrome, commands,
+  settings, confirmations, Overview, gallery) beside two empty columns. Still
+  needed: Rex screenshots (`rex/<task>.png`) and Band on the Mac
+  (`macos/<task>.png`) dropped into that folder by hand.

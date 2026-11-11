@@ -248,6 +248,10 @@ toolkit-saved-session-test: runtime-build
 toolkit-ui-test: runtime-build
     python3 scripts/toolkit-probe.py ui-test
 
+# Design step: Band's UI test screenshots beside Rex and Band on macOS, by task.
+design-inventory:
+    python3 scripts/design_inventory.py
+
 # Mac/Linux: offline theme store and deterministic TerminalColors download behavior.
 toolkit-theme-import-test: runtime-build
     python3 scripts/toolkit-probe.py theme-import-test
