@@ -3,6 +3,6 @@
 // Managed client presentation defaults. Saved window choices remain independent.
 struct ViewDefaults {
     QString error;
-    bool navigationPinned=false,reducedMotion=false,integratedTitleBar=false;
+    bool navigationPinned=false,reducedMotion=false,integratedTitleBar=false,dimUnfocused=true;
     static ViewDefaults read(const QString &path,bool apple);
 };

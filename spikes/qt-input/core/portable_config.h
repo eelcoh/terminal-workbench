@@ -14,12 +14,13 @@ typedef struct {
     char workspace_directory[1024];double terminal_width;bool has_directory,has_width;
     bool navigation_pinned,reduced_motion,has_navigation_pinned,has_reduced_motion;
     bool integrated_title_bar,has_integrated_title_bar;
+    bool dim_unfocused,has_dim_unfocused;
 } PortableLayer;
 typedef struct {
     Theme application,terminal;
     char terminal_source[1024],workspace_directory[1024];
     double terminal_width;
-    bool navigation_pinned,reduced_motion,integrated_title_bar;
+    bool navigation_pinned,reduced_motion,integrated_title_bar,dim_unfocused;
     FontPreferences font;
     bool has_application,has_terminal,has_follow,follow;
     ShortcutState shortcuts;
@@ -103,7 +104,7 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
 {
     if (apps) apps->count=0;
     if (hosts) hosts->count=0;
-    PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default(),.terminal_width=0.5,.integrated_title_bar=true};
+    PortableConfig next={.shortcuts=shortcut_defaults(apple),.font=font_preferences_default(),.terminal_width=0.5,.integrated_title_bar=true,.dim_unfocused=true};
     if (!path) { *out=next;return true; }
     FILE *file=fopen(path,"r");
     if (!file) { if (errno==ENOENT) { *out=next;return true; } snprintf(error,capacity,"Cannot read dotfiles: %s",strerror(errno));return false; }
@@ -190,6 +191,7 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
             if (!strcmp(key,"navigation-pinned")) {seen=&layer->has_navigation_pinned;setting=&layer->navigation_pinned;}
             else if (!strcmp(key,"reduced-motion")) {seen=&layer->has_reduced_motion;setting=&layer->reduced_motion;}
             else if (!strcmp(key,"integrated-title-bar")) {seen=&layer->has_integrated_title_bar;setting=&layer->integrated_title_bar;}
+            else if (!strcmp(key,"dim-unfocused-panes")) {seen=&layer->has_dim_unfocused;setting=&layer->dim_unfocused;}
             if (!seen) PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
             if (*seen) PORTABLE_FAIL("%s is set twice in %s",key,section_name)
             if (strcmp(value,"true") && strcmp(value,"false")) PORTABLE_FAIL("%s must be true or false%s",key,comment)
@@ -325,6 +327,8 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
     next.reduced_motion=platform->has_reduced_motion ? platform->reduced_motion : layers[0].reduced_motion;
     // The title bar folds into Band's top bar unless the config turns it off.
     next.integrated_title_bar=platform->has_integrated_title_bar ? platform->integrated_title_bar : layers[0].has_integrated_title_bar ? layers[0].integrated_title_bar : true;
+    // Unfocused panes are dimmed unless the config turns it off.
+    next.dim_unfocused=platform->has_dim_unfocused ? platform->dim_unfocused : layers[0].has_dim_unfocused ? layers[0].dim_unfocused : true;
     snprintf(next.workspace_directory,sizeof(next.workspace_directory),"%s",platform->has_directory ? platform->workspace_directory : layers[0].workspace_directory);
     if (layers[0].has_width) next.terminal_width=layers[0].terminal_width;
     if (platform->has_width) next.terminal_width=platform->terminal_width;

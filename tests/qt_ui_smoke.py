@@ -1891,6 +1891,10 @@ while True:
         time.sleep(.3);capture('integrated-title-bar.png')
         managed.write_bytes(before_title)
         wait_until(lambda:not data()['title_integrated'] and not data()['window_frameless'] and not data()['window_buttons'],timeout=10)
+        # dim-unfocused-panes = false leaves every pane undimmed, live.
+        managed.write_bytes(before_title+b'\n[linux.view]\ndim-unfocused-panes = false\n')
+        wait_until(lambda:not data()['managed_dim_unfocused'] and not any(p['dimmed'] for p in data()['panes']),timeout=10)
+        managed.write_bytes(before_title);wait_until(lambda:data()['managed_dim_unfocused'],timeout=10)
         managed.write_bytes(managed_bytes);wait_until(lambda:data()['creation_width']==0.5)
         if wayland:run('niri','msg','action','close-window','--id',window)
         else:close_window(window,env)

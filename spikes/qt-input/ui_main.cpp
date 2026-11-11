@@ -317,7 +317,7 @@ int main(int argc,char **argv) {
                 {"content_y",window->findChild<QQuickItem *>("deck")->property("contentY").toDouble()},
                 {"content_x",window->findChild<QQuickItem *>("deck")->property("contentX").toDouble()},
                 {"navigation_default",window->property("navigationOverride").isNull()},{"motion_default",window->property("motionOverride").isNull()},
-                {"managed_navigation_pinned",settings.navigationPinned()},{"managed_reduced_motion",settings.reducedMotion()},
+                {"managed_navigation_pinned",settings.navigationPinned()},{"managed_reduced_motion",settings.reducedMotion()},{"managed_dim_unfocused",settings.dimUnfocused()},
                 {"configuration_view_defaults",center("configurationViewDefaults")},
                 {"catalog_notice",session.catalogNotice()},{"busy",session.busy()},{"error",session.error()},
                 {"workspace_count",listProperty(window,"spaces").size()},

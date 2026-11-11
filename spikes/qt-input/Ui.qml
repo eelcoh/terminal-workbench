@@ -1307,10 +1307,11 @@ ApplicationWindow {
                 }
                 // Unfocused panes recede a little: a veil of the terminal's own
                 // background, so its background is unchanged and text loses some contrast.
+                // dim-unfocused-panes = false in config.conf turns it off.
                 Rectangle {
                     objectName: "paneDim"; anchors.fill: terminal; visible: opacity > 0
                     color: studyThemes.theme(terminal.themeIndex).background
-                    opacity: !window.overview && window.selected >= 0 && window.selected !== pane.index ? 0.18 : 0
+                    opacity: studyConfiguration.dimUnfocused && !window.overview && window.selected >= 0 && window.selected !== pane.index ? 0.18 : 0
                 }
                 readonly property var lifecycle: studySession.lifecycle[terminalId] || ({state: "unavailable", message: "Checking terminal status…", busy: false})
                 onLifecycleChanged: if (app && lifecycle.state === "stopped" && !lifecycle.busy) window.appEnded(index)

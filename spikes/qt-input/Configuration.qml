@@ -45,6 +45,11 @@ Dialog {
                 Label { width: parent.width * 0.4; text: "Motion"; font.pixelSize: Design.textBody; color: popup.tones.foreground }
                 Label { x: parent.width * 0.4; width: parent.width * 0.6; text: (popup.reducedMotion ? "Reduced" : "Animated") + (popup.motionInherited ? "" : " · this window's choice"); textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; font.pixelSize: Design.textBody; color: popup.tones.muted }
             }
+            Item {
+                width: fields.width; height: Math.max(implicitHeight, childrenRect.height)
+                Label { width: parent.width * 0.4; text: "Unfocused panes"; font.pixelSize: Design.textBody; color: popup.tones.foreground }
+                Label { x: parent.width * 0.4; width: parent.width * 0.6; text: popup.settings.dimUnfocused ? "Dimmed" : "Not dimmed"; textFormat: Text.PlainText; wrapMode: Text.WrapAnywhere; font.pixelSize: Design.textBody; color: popup.tones.muted }
+            }
             Label { text: "New panes"; width: fields.width; topPadding: Design.spaceS; font.pixelSize: Design.textSmall; font.weight: Font.Bold; color: popup.tones.muted }
             Item {
                 width: fields.width; height: Math.max(implicitHeight, childrenRect.height)

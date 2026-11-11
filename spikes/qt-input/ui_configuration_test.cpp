@@ -121,6 +121,11 @@ int main(int argc,char **argv){
     // View defaults join the atomic reload, but contain no saved-window state.
     write(creationPath,"band-config-v1\n[view]\nnavigation-pinned = true\nreduced-motion = true\n[macos.view]\nreduced-motion = false\n");
     require(creationSettings.reload() && creationSettings.navigationPinned() && creationSettings.reducedMotion(),"managed view defaults join live reload");
+    require(creationSettings.dimUnfocused(),"unfocused panes are dimmed by default");
+    write(creationPath,"band-config-v1\n[view]\ndim-unfocused-panes = false\n");
+    require(creationSettings.reload() && !creationSettings.dimUnfocused(),"dim-unfocused-panes = false joins live reload");
+    write(creationPath,"band-config-v1\n[view]\nnavigation-pinned = true\nreduced-motion = true\n[macos.view]\nreduced-motion = false\n");
+    require(creationSettings.reload(),"view defaults restored");
     const auto appleView=ViewDefaults::read(creationPath,true);
     require(appleView.error.isEmpty() && appleView.navigationPinned && !appleView.reducedMotion,"platform view fields inherit independently");
     bool atomicView=true;QObject::connect(&creationFonts,&UiFonts::changed,&app,[&]{if(size(creationFonts)==20)atomicView=!creationSettings.navigationPinned() && creationSettings.reducedMotion();});

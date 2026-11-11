@@ -514,8 +514,11 @@ text is hidden and dragging empty top-bar space moves the window (Qt 6.9 or
 later; being tried on a Mac). It applies live and is on by default;
 `integrated-title-bar = false` brings back the system title bar.
 
+`dim-unfocused-panes = false` stops dimming the panes that don't have focus
+(on by default; it applies live).
+
 These fields accept only `true` or `false`; built-in defaults are false, except
-`integrated-title-bar`. Platform
+`integrated-title-bar` and `dim-unfocused-panes`. Platform
 fields override shared fields independently, regardless of section order. They
 join the existing live configuration transaction: malformed values keep all
 previous valid settings, and open settings editors defer updates.
