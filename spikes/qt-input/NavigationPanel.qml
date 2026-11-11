@@ -81,7 +81,7 @@ Item {
         property string label
         property string chord
         signal activated()
-        width: createFooter.width; height: 30; tones: host.chrome; text: label
+        width: createFooter.width; height: 30; tones: host.chrome; text: label; quiet: true
         contentItem: Item {
             opacity: action.enabled ? 1 : 0.38
             ChromeIcon { x: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; width: 16; height: 16; name: "plus"; color: host.chrome.accent }

@@ -198,7 +198,10 @@ the SSH session that started them. Two host settings can still end them:
 - **The sidebar.** This is where the host level (shape B in
   [SSH hosts](hosts.md)) returns: This computer, then each connected host, each
   with its workspaces and panes, a reachability mark and a connection state.
-  The Hosts panel stays the place to add hosts and open plain host panes.
+  The machine header is Band's session identifier (owner, 2026-11-11): small
+  and muted, and only once a second machine is connected; with one machine
+  the sidebar stays as it is. New host pane… stays the place to open plain
+  host panes.
 - **Restore.** After a client restart, Band remembers which hosts were
   connected and which remote workspaces were open, and reconnects to them
   automatically with backoff (decided). Reconnecting only attaches; unlike

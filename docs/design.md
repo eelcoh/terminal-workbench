@@ -77,8 +77,8 @@ test opens it from Commands and saves `design-gallery.png`.
   all open until closed (the current one in full color, the others muted, the
   count and activity dots only while closed, the dots right after the name);
   the caret and remove button only on hover or keyboard focus, with the hover
-  background across the whole header; and each terminal on two lines with its
-  folder and branch in caption size under the name.
+  background across the whole header; and each terminal on one line, the
+  folder and branch muted after the name (two lines until 2026-11-11).
 - One sidebar view: workspaces with their panes. The rail filters it by kind
   (Shells, Apps, Hosts, Agents; one at a time; the shown one again clears it) under All panes, which clears
   them. Saved hosts (connect and remove on hover) follow with the hosts
@@ -94,8 +94,38 @@ test opens it from Commands and saves `design-gallery.png`.
   window's tones (they had a fixed dark palette), and every dialog puts its
   decision on the right with the main action last and highlighted; focus
   still starts on Cancel in confirmations.
-- Only the focused pane has a frame, in the accent; the others stand on their
-  surface color.
+- Panes are one panel in the workspace's terminal background with a hairline
+  border and the header blended in; no frame marks focus (an accent frame
+  until 2026-11-11). The focused pane's name is in full color, the others
+  muted; the cursor, the dim and the sidebar show the rest.
+
+### First round from the inventory (2026-11-11)
+
+The owner's Rex and Mac screenshots in the inventory led to four changes that
+leave the layout alone:
+- Text buttons are pills: a soft wash of the foreground at rest, deeper on
+  hover, the accent for the main action. The top bar's Overview and the
+  sidebar's "new" actions stay bare text (`quiet`).
+- The current row (and any selected choice) is a soft pill with a thin
+  outline instead of an accent fill.
+- Sidebar panes take one line.
+- Panes lose the accent frame and the separate header strip (above).
+
+Still to decide, as they change the layout: the top bar folded into the
+sidebar's top (Rex has none), the rail (Rex has none), the sidebar's foot as
+small icons, one-line command rows with plain key glyphs, settings in cards.
+
+Rex's sidebar is a level shallower than Band's (owner, 2026-11-11): its rows
+are sessions (about a Band workspace; a stacked icon when one holds several
+panes), under group headers ("Base", "Onboarding"), and panes are not listed.
+Band lists each pane under its workspace, and keeps that (owner,
+2026-11-11): Rex's local sessions are what Band's workspaces already are, and
+Band runs one session per machine. The identifier Band needs is the machine,
+not the session: a small muted machine header ("This Mac", a host with its
+reachability mark) above that machine's workspaces, shown only once more than
+one machine is involved, which arrives with the remote runtime
+([evaluation](remote-runtime.md)). Plain host panes stay in the local
+workspaces.
 
 ## Still to do in stage 1
 

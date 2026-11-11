@@ -43,8 +43,8 @@ Item {
     Text {
         id: paneName; objectName: "paneName"; x: 33; y: 10; visible: text.length > 0
         width: Math.min(implicitWidth, Math.max(0, (header.room - x) * 0.5)); elide: Text.ElideRight
-        text: header.name; textFormat: Text.PlainText; font.pixelSize: Design.textSmall; font.weight: Font.DemiBold
-        color: header.tones.foreground
+        text: header.name; textFormat: Text.PlainText; font.pixelSize: Design.textSmall
+        color: header.focused ? header.tones.foreground : header.tones.muted
     }
     Text {
         id: paneTitle; objectName: "paneTitle"; x: paneName.visible ? paneName.x + paneName.width + 7 : 33; y: 10

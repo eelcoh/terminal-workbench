@@ -13,6 +13,9 @@ Button {
     // The one main action of its view: filled with the theme's accent.
     property bool primary: false
     property bool leftAligned: false
+    // A text button stands on a soft pill; quiet ones (the top bar, the
+    // sidebar's footer) stay bare text until hovered.
+    property bool quiet: false
     property string trailingText: ""
     property int textSize: Design.textControl
     // The gallery shows a state without a pointer: "hover", "down" or "focus".
@@ -28,6 +31,9 @@ Button {
         return Math.abs(accent - light(colors.background)) >= Math.abs(accent - light(colors.foreground)) ? colors.background : colors.foreground
     }
     readonly property bool iconOnly: iconName.length > 0 && text.length === 0
+    readonly property bool filled: !quiet && !leftAligned && !iconOnly && text.length > 0
+    // A wash of the foreground, so the pill works on any surface and theme.
+    function wash(alpha) { const c = Qt.color(colors.foreground); return Qt.rgba(c.r, c.g, c.b, alpha) }
     implicitWidth: iconOnly ? 28 : Math.max(32, contentItem.implicitWidth + 20)
     implicitHeight: 32; padding: 0
     hoverEnabled: true; focusPolicy: Qt.StrongFocus
@@ -40,12 +46,16 @@ Button {
         Text { id: trailing; anchors.right: parent.right; anchors.rightMargin: Design.spaceL; anchors.verticalCenter: parent.verticalCenter; text: control.trailingText; color: control.colors.muted; font.pixelSize: Design.textSmall }
         ChromeIcon { anchors.centerIn: parent; width: 20; height: 20; visible: control.iconOnly; name: control.iconName; color: control.colors.foreground }
     }
-    // Hover is a neutral tint, selection an accent tint, keyboard focus an accent ring.
+    // Text buttons are pills: the main action filled with the accent, the
+    // others a soft wash. Hover deepens the wash; the current row is a soft
+    // pill with a thin outline (after Rex); keyboard focus is an accent ring.
     background: Rectangle {
-        radius: Design.radiusM
+        radius: control.filled || control.primary || control.selected ? height / 2 : Design.radiusM
         color: control.primary ? (control.showDown ? Qt.darker(control.colors.accent, 1.15) : control.showHover ? Qt.lighter(control.colors.accent, 1.08) : control.colors.accent)
-            : control.showDown || control.showHover ? control.colors.hover : control.selected ? control.colors.selected : control.showFocus ? control.colors.hover : "transparent"
-        border.width: control.showFocus ? (control.primary ? Design.lineStrong : Design.line) : 0; border.color: control.primary ? control.colors.foreground : control.colors.accent
+            : control.showDown ? control.wash(0.16) : control.showHover ? control.wash(control.selected ? 0.18 : control.filled ? 0.12 : 0.07)
+            : control.selected ? control.wash(0.14) : control.filled ? control.wash(0.07) : control.showFocus ? control.wash(0.07) : "transparent"
+        border.width: control.showFocus ? (control.primary ? Design.lineStrong : Design.line) : control.selected ? Design.line : 0
+        border.color: control.showFocus ? (control.primary ? control.colors.foreground : control.colors.accent) : control.wash(0.3)
     }
     // A per-control tooltip stays themed and updates as its source text changes.
     ToolTip {

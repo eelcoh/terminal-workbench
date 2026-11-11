@@ -14,6 +14,7 @@ from pathlib import Path
 
 # The tasks Rex's screenshots showed (docs/polish.md), with Band's screens for each.
 TASKS = [
+    ('full-screen', 'The whole window', ['working', 'apps-on-workspaces']),
     ('first-run', 'First run', ['welcome-look', 'welcome-theme', 'welcome-apps', 'welcome-keys']),
     ('sidebar', 'Sidebar: workspaces and panes', ['chrome-workspaces', 'navigation-panes', 'navigation-pinned']),
     ('filter', 'Sidebar filter and kinds', ['navigation-filter', 'navigation-kind-filters', 'navigation-agent-needs']),
@@ -29,7 +30,10 @@ TASKS = [
 
 
 def shots(folder, task):
-    return sorted(p for p in folder.glob(task + '*.png') if p.stem == task or p.stem.startswith(task + '-'))
+    found = [p for p in folder.glob(task + '*.png') if p.stem == task or p.stem.startswith(task + '-')]
+    # task.png first, then task-1, task-2 … in number order (task-10 after task-9).
+    suffix = lambda p: p.stem[len(task) + 1:]
+    return sorted(found, key=lambda p: (p.stem != task, int(suffix(p)) if suffix(p).isdigit() else 0, p.stem))
 
 
 def figure(path, out, caption):

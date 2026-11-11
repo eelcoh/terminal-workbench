@@ -71,5 +71,5 @@ Item {
         x: topbar.overview ? overviewButton.x - width - 12 : focusedCount.x + focusedCount.width + 12
         onClicked: topbar.newTerminalClicked()
     }
-    ChromeButton { id: overviewButton; objectName: "overviewButton"; tones: topbar.tones; anchors.right: parent.right; text: topbar.overview ? "Done" : "Overview"; keys: studyShortcuts.labels["overview"] || ""; onClicked: topbar.overviewClicked() }
+    ChromeButton { id: overviewButton; objectName: "overviewButton"; tones: topbar.tones; quiet: true; anchors.right: parent.right; text: topbar.overview ? "Done" : "Overview"; keys: studyShortcuts.labels["overview"] || ""; onClicked: topbar.overviewClicked() }
 }

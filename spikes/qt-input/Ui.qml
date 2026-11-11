@@ -1254,9 +1254,12 @@ ApplicationWindow {
                 scale: window.overview ? previewScale : 1
                 transformOrigin: Item.TopLeft
                 visible: !ended && (window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace)
-                color: studyThemes.theme(window.themeIndexFor(spaceIndex)).surface; radius: Design.radiusM
-                // Only the focused pane is framed; the others stand on their surface.
-                border.width: window.overview ? 0 : Design.line; border.color: window.selected === index ? studyThemes.theme(window.themeIndexFor(spaceIndex)).accent : "transparent"
+                // One panel in the workspace's terminal background with a hairline
+                // (after Rex): the header blends into it and no frame marks focus;
+                // the header's name, the cursor and the sidebar show which pane has
+                // it. A terminal with its own colors shows them inside the panel.
+                color: studyThemes.theme(window.themeIndexFor(spaceIndex)).background; radius: Design.radiusL
+                border.width: window.overview ? 0 : Design.line; border.color: studyThemes.theme(window.themeIndexFor(spaceIndex)).border
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
