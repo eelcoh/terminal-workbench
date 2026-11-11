@@ -207,7 +207,7 @@ workspace-centric: workspaces with their panes. The rail icons stop opening
 separate panels and instead filter that one view by kind — apps, hosts, shells
 (and agents) — so the Apps, Hosts and Agents panels fold into the Workspaces
 view. This revises the v0.2 "one panel per rail icon" decision. *Done
-(2026-11-09):* filters combine; the rail is All panes (clears the filters, or
+(2026-11-09):* filters combined at first, then one at a time (owner, 2026-11-09; the shown kind again clears it); the rail is All panes (clears the filters, or
 hides the sidebar when nothing is filtered), then Shells, Apps, Hosts and
 Agents (always shown now, not only once an agent was seen). New workspace…, Add applications… (Super+Alt+A) and New host pane…
 (Super+Alt+L) sit at the foot of the sidebar. A kind filter keeps the
@@ -234,9 +234,9 @@ host… adds one.
   `[font] family` takes any installed monospaced font, Terminal text settings
   lists them under the bundled JetBrains Mono and Fira Code, and a missing or
   proportional family falls back to JetBrains Mono with a notice instead of
-  rejecting the config. The family is stored as an index of the two bundled
-  faces today, so the change touches the config reader, the font settings and
-  the renderer.
+  rejecting the config. *Done (2026-11-09):* the config keeps any other family
+  by name, the client checks it is installed and monospaced, and Terminal text
+  has a search over installed monospaced fonts, each shown in its own face.
 - Plugins with versioned capabilities and crash isolation
   ([notes](status-log.md#plugins-long-horizon)).
 - Signing, notarization and updates.

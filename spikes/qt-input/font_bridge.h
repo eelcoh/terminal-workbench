@@ -4,7 +4,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-bool workbench_font_defaults(const char *,bool,int *,int *,char *,size_t);
+/* The default family by name (bundled or installed) and size. */
+bool workbench_font_defaults(const char *,bool,char *,size_t,int *,char *,size_t);
 #ifdef __cplusplus
 }
 #endif

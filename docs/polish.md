@@ -63,8 +63,9 @@ its own.
    row in lists uses the accent-tinted selection the sidebar already used, hover
    stays neutral, keyboard focus is an accent ring; the catalog footer uses key
    chips. Confirmations of destructive actions keep a quiet confirm button.
-   Still open: icons for pane actions (with item 4), and the Appearance and
-   theme-import dialogs, which still use fixed colors.
+   Still open: icons for pane actions (with item 4). Appearance follows the
+   window's tones since 2026-11-09; the unused theme-import dialog was removed
+   then (drop files in the themes folder instead).
 4. **Pane actions on the focused pane.** Width, zoom (full width) and close as
    small header buttons on the focused pane, beside the existing menu; dim
    unfocused panes a little (respecting reduced motion and contrast). *Done:* width, full width

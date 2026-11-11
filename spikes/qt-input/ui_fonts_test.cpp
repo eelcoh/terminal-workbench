@@ -61,5 +61,18 @@ int main(int argc,char **argv){
     write(layer,"{\"version\":1,\"size\":19}");UiFonts sparseSaved(link,false,nullptr,layer);require(sparseSaved.current()["family"]=="Fira Code" && sparseSaved.current()["size"]==19,"omitted family inherits managed default");
     UiFonts macSaved(link,true,nullptr,dir.filePath("ui/macos/terminal-font.json"));require(macSaved.current()["size"]==20,"Mac separate platform layer");
     require(check.open(QIODevice::ReadOnly) && check.readAll()==managed && QFileInfo(link).isSymLink(),"persistent apply preserves managed symlink");check.close();
+    // Installed fonts: a configured or saved family must be installed and monospaced, else JetBrains Mono with a notice.
+    const UiFonts::Installed installed=[]{return QStringList{"Test Mono","Fira Code","Other Mono"};};
+    write(target,"band-config-v1\n[font]\nfamily = Test Mono\nsize = 15\n");
+    UiFonts withInstalled(link,false,nullptr,{},installed),withoutInstalled(link,false);
+    require(withInstalled.error().isEmpty() && withInstalled.current()["family"]=="Test Mono","configured installed font");
+    require(withInstalled.installedFamilies()==QStringList({"Other Mono","Test Mono"}),"installed list sorted, bundled left out");
+    require(withoutInstalled.error().contains("not installed") && withoutInstalled.current()["family"]=="JetBrains Mono" && withoutInstalled.current()["size"]==15,"missing installed font falls back, size kept");
+    const auto installedLayer=dir.filePath("ui/linux/installed.json");
+    UiFonts choosing(link,false,nullptr,installedLayer,installed);choosing.begin();
+    require(!choosing.preview("Absent Mono",16) && choosing.preview("Other Mono",16) && choosing.apply(),"preview and save an installed font");
+    UiFonts reopened(link,false,nullptr,installedLayer,installed);require(reopened.current()["family"]=="Other Mono","installed font survives reopening");
+    UiFonts reopenedWithout(link,false,nullptr,installedLayer);require(!reopenedWithout.error().isEmpty() && reopenedWithout.current()["family"]=="JetBrains Mono","saved font no longer installed");
+    write(target,managed);
     std::puts("PASS: font defaults, preview/apply/cancel, sparse durable settings, restart, inherited defaults, managed symlinks, invalid stores, locks and failed/stale saves");
 }

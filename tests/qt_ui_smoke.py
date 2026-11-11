@@ -504,12 +504,14 @@ while True:
         command_search('Show agents');key('Return');wait_until(lambda:data()['navigation_section']=='agents' and data()['agents_visible'])
         assert not data()['overview'] and not data()['navigation_agent_indices']
         capture('navigation-agents-empty.png')
-        # Kind icons filter one workspace view and combine; All panes clears them.
+        # Kind icons filter one workspace view, one kind at a time; the shown kind again, or All panes, clears it.
         click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['navigation_section']=='workspaces' and data()['navigation_docked'])
+        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_section']=='apps')
         click(*settled_point(lambda d:d['shells_button']));wait_until(lambda:data()['navigation_section']=='shells')
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_section']=='shells+apps')
         wait_until(lambda:data()['navigation_workspace_rows'] and data()['navigation_panes'] and all(p['kind']=='shell' for p in data()['navigation_panes']))
         capture('navigation-kind-filters.png')
+        click(*settled_point(lambda d:d['shells_button']));wait_until(lambda:data()['navigation_section']=='workspaces')
+        click(*settled_point(lambda d:d['shells_button']));wait_until(lambda:data()['navigation_section']=='shells')
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_section']=='workspaces' and data()['navigation_docked'])
         # With nothing filtered, All panes hides the pinned column without unpinning; again shows it.
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_hidden'] and not data()['navigation_docked'] and data()['navigation_pinned'])
@@ -816,6 +818,11 @@ while True:
         click(*settled_point(lambda d:d['font_plus']));wait_until(lambda:settled_font('Fira Code',17))
         assert sizes()!=font_grid,'text size did not change the real PTY grid'
         click(*settled_point(lambda d:d['font_jetbrains']));wait_until(lambda:settled_font('JetBrains Mono',17));capture('font-preview.png')
+        # An installed monospaced font previews like the bundled ones (when the machine has one).
+        if data()['font_installed']:
+            installed_font=data()['font_installed'][0]
+            click(*settled_point(lambda d:d['font_installed_search']));typed(installed_font);key('Down')
+            wait_until(lambda:settled_font(installed_font,17));time.sleep(.2);capture('font-installed.png')
         key('Escape');wait_until(lambda:not data()['font_settings_open'] and settled_font('Fira Code',16) and sizes()==font_grid and data()['panes'][0]['focus'])
         assert not (root/'ui/linux/terminal-font.json').exists(),'cancel persisted font preview'
         command_search('bundled font');key('Return');wait_until(lambda:data()['font_settings_open'] and not data()['commands_open'])

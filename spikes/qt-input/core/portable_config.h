@@ -217,7 +217,9 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
             } else if (!strcmp(key,"family")) {
                 int family=font_preferences_family(value);
                 if (layer->has_family) PORTABLE_FAIL("family is set twice in %s",section_name)
-                if (family<0) PORTABLE_FAIL("unknown font family '%.60s'; use JetBrains Mono or Fira Code%s",value,comment)
+                if (family<0 && (*comment || !font_preferences_installed_name(value)))
+                    PORTABLE_FAIL("unknown font family '%.60s'; use JetBrains Mono, Fira Code or an installed monospaced font%s",value,comment)
+                if (family<0) {family=TERMINAL_FONT_INSTALLED;snprintf(layer->font.installed,sizeof(layer->font.installed),"%s",value);}
                 layer->font.family=family;layer->has_family=true;
             } else PORTABLE_FAIL("unknown setting %s in %s",key,section_name)
         } else if (kind==1 && !strcmp(key,"modifiers")) {
@@ -333,9 +335,9 @@ static bool portable_read_full(const char *path,bool apple,bool load_theme_files
     if ((next.has_application && !portable_theme(path,application,&next.application,error,capacity))
         || (next.has_terminal && !portable_theme(path,terminal,&next.terminal,error,capacity))) return false;
     if (layers[0].has_size) next.font.size=layers[0].font.size;
-    if (layers[0].has_family) next.font.family=layers[0].font.family;
+    if (layers[0].has_family) {next.font.family=layers[0].font.family;memcpy(next.font.installed,layers[0].font.installed,sizeof(next.font.installed));}
     if (platform->has_size) next.font.size=platform->font.size;
-    if (platform->has_family) next.font.family=platform->font.family;
+    if (platform->has_family) {next.font.family=platform->font.family;memcpy(next.font.installed,platform->font.installed,sizeof(next.font.installed));}
     next.has_follow=platform->has_follow || layers[0].has_follow;
     next.follow=platform->has_follow ? platform->follow : layers[0].follow;
     /* Band's Super+Alt defaults take the chosen modifiers; explicit bindings below still win. */

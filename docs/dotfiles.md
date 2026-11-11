@@ -2,7 +2,7 @@
 
 Workbench can load shared appearance, terminal-font and shortcut settings outside the source
 checkout. It reads your managed file and writes UI edits to separate files.
-Shell dotfile installation and arbitrary installed fonts are follow-up work.
+Shell dotfile installation is follow-up work.
 Qt live configuration and creation defaults are described below.
 
 ## Getting started
@@ -169,11 +169,17 @@ stay as written. See [SSH hosts](hosts.md).
 
 ## Terminal fonts
 
-`[font]` accepts `family = JetBrains Mono` or `family = Fira Code` and integer
+`[font]` accepts `family = JetBrains Mono`, `family = Fira Code` (both bundled,
+with symbol fallback, on Linux and Mac) or the name of any installed monospaced
+font, such as `family = Iosevka Term` or `family = SF Mono`, and integer
 `size = 10` through `32` in logical points. Defaults are JetBrains Mono, 16 pt.
-Both faces and symbol fallback are bundled on Linux/Mac. `[linux.font]` and
-`[macos.font]` override either field independently, regardless of section order.
-Unknown families and invalid sizes reject the configuration transactionally.
+`[linux.font]` and `[macos.font]` override either field independently,
+regardless of section order, which suits fonts installed on one platform only.
+An installed family that is missing or proportional on this machine falls back
+to JetBrains Mono with a notice; the rest of the file still applies. Names
+containing `#` or control characters, and invalid sizes, reject the
+configuration transactionally. Terminal text settings lists the installed
+monospaced fonts under the bundled two, with a search.
 
 Terminal text settings preview font/size for the current window; Apply saves
 differences from managed defaults in its local window view file. Cancel restores

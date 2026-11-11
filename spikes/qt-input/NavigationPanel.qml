@@ -6,7 +6,7 @@ import Band.Design
 // One panel is reparented between the temporary drawer and the reserved column.
 // Existing runtime observers supply facts; navigation never attaches or recovers.
 // It always shows workspaces with their panes; the rail's kind icons filter the
-// panes (shells, apps, hosts, agents), and filters combine.
+// panes (shells, apps, hosts, agents), one kind at a time.
 Item {
     id: navigation
     required property var host

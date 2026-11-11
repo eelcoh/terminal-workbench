@@ -41,6 +41,12 @@ int main(void)
     PortableConfig fonts;
     assert(portable_read(path,true,&fonts,error,sizeof(error)) && fonts.font.size==20 && fonts.font.family==1);
     assert(portable_read(path,false,&fonts,error,sizeof(error)) && fonts.font.size==18 && fonts.font.family==0);
+    /* Any other family is an installed font by name; the platform section still wins. */
+    write_text(path,"band-config-v1\n[font]\nfamily = Iosevka Term\n[macos.font]\nfamily = SF Mono\n");
+    assert(portable_read(path,false,&fonts,error,sizeof(error)) && fonts.font.family==TERMINAL_FONT_INSTALLED && !strcmp(fonts.font.installed,"Iosevka Term"));
+    assert(portable_read(path,true,&fonts,error,sizeof(error)) && fonts.font.family==TERMINAL_FONT_INSTALLED && !strcmp(font_preferences_label(&fonts.font),"SF Mono"));
+    write_text(path,"band-config-v1\n[font]\nfamily = Iosevka Term\n[linux.font]\nfamily = Fira Code\n");
+    assert(portable_read(path,false,&fonts,error,sizeof(error)) && fonts.font.family==1 && !strcmp(font_preferences_label(&fonts.font),"Fira Code"));
     // Dotfiles written before the rename to Band keep working.
     write_text(path,"workbench-config-v1\n[font]\nsize = 19\n");
     assert(portable_read(path,false,&fonts,error,sizeof(error)) && fonts.font.size==19);
@@ -121,7 +127,7 @@ int main(void)
         "band-config-v1\n[workspace]\ncommand = unexpected\n","workbench-config-v9\n","band-config-v1\n[font]\nsize = 99\n",
         "band-config-v1\n[font]\nsize = 9\n",
         "band-config-v1\n[font]\nsize = 18pt\n",
-        "band-config-v1\n[font]\nfamily = absent\n",
+        "band-config-v1\n[font]\nfamily = XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n",
         "band-config-v1\n[font]\nfamily = Fira Code\nfamily = JetBrains Mono\n",
         "band-config-v1\n[font]\nsize = 18\nsize = 20\n",
         "band-config-v1\n[shortcuts]\nforward = F8\nforward = F9\n",

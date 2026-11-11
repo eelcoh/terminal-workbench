@@ -197,20 +197,23 @@ void TerminalItem::applyTheme()
 void TerminalItem::setTextFont(const QVariantMap &style)
 {
     const auto family=style.value("family").toString();const auto size=style.value("size");
-    if((family!="Fira Code" && family!="JetBrains Mono") || size.toDouble()!=size.toInt() || size.toInt()<10 || size.toInt()>32)return;
-    if(font_.family()==family && fontPoints_==size.toInt())return;
-    // Only explicitly bundled faces; never silently select an installed fallback.
+    const bool bundledFamily=family=="Fira Code" || family=="JetBrains Mono";
+    if(family.isEmpty() || size.toDouble()!=size.toInt() || size.toInt()<10 || size.toInt()>32)return;
+    // Bundled faces, or an installed monospaced family chosen by name; never a silent fallback.
+    if(!bundledFamily && (!QFontDatabase::families().contains(family) || !QFontDatabase::isFixedPitch(family)))return;
     static QHash<QString,QString> loaded;
-    if(!loaded.contains(family)) {
+    if(bundledFamily && !loaded.contains(family)) {
         const auto resource=family=="Fira Code" ? ":/fonts/fira-code/FiraCode-Regular.ttf" : ":/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf";
         const auto names=QFontDatabase::applicationFontFamilies(QFontDatabase::addApplicationFont(resource));
         if(names.isEmpty()){qWarning("Bundled terminal font unavailable");return;}loaded.insert(family,names.first());
     }
+    const auto resolved=bundledFamily ? loaded.value(family) : family;
+    if(font_.family()==resolved && fontPoints_==size.toInt())return;
     // Clear old composition before changing its metrics; never commit preedit.
     if(composition_.active() && hasActiveFocus())QGuiApplication::inputMethod()->reset();
     composition_.set(QInputMethodEvent(),font_);
     wheel_.reset();wheelTime_.invalidate();
-    font_=QFont(loaded.value(family));fontPoints_=size.toInt();font_.setPointSizeF(fontPoints_);
+    font_=QFont(resolved);font_.setStyleHint(QFont::Monospace);fontPoints_=size.toInt();font_.setPointSizeF(fontPoints_);
     QFontMetricsF metrics(font_);cellWidth_=std::ceil(metrics.horizontalAdvance('M'));cellHeight_=std::ceil(metrics.height());ascent_=metrics.ascent();
     resetGesture();cursorGlyph_=QImage();cursorRowKey_=0;
     resizeTerminal();if(ready_ && !refreshTimer_.isActive())refreshTimer_.start();

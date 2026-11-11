@@ -80,7 +80,7 @@ test opens it from Commands and saves `design-gallery.png`.
   background across the whole header; and each terminal on two lines with its
   folder and branch in caption size under the name.
 - One sidebar view: workspaces with their panes. The rail filters it by kind
-  (Shells, Apps, Hosts, Agents; filters combine) under All panes, which clears
+  (Shells, Apps, Hosts, Agents; one at a time; the shown one again clears it) under All panes, which clears
   them. Saved hosts (connect and remove on hover) follow with the hosts
   filter; an agent row's details button shows on hover. The "new" actions sit
   at the foot, their chords on hover.

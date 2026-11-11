@@ -1,6 +1,7 @@
 #include "ui_fonts.h"
 #include "font_bridge.h"
 #include <QFile>
+#include <cstdio>
 #include <algorithm>
 #include <QDir>
 #include <QFileInfo>
@@ -10,13 +11,28 @@
 #include <QSaveFile>
 namespace {
 QByteArray bytes(const QString &path,qint64 limit=4097){QFile file(path);return file.open(QIODevice::ReadOnly)?file.read(limit):QByteArray();}
-bool valid(const QString &family,int size){return (family=="Fira Code" || family=="JetBrains Mono") && size>=10 && size<=32;}
+bool bundled(const QString &family){return family=="Fira Code" || family=="JetBrains Mono";}
 }
-UiFonts::UiFonts(const QString &path,bool apple,QObject *parent,const QString &overrides):QObject(parent),path_(path),overrides_(overrides),apple_(apple)
+QStringList UiFonts::installedFamilies() const
 {
-    int family=0,size=16;char error[256]={0};const auto encoded=QFile::encodeName(path);
-    if(!workbench_font_defaults(path.isEmpty()?nullptr:encoded.constData(),apple,&family,&size,error,sizeof(error)))error_="Using built-in fonts. "+QString::fromUtf8(error);
-    defaults_={{"family",family==1?"Fira Code":"JetBrains Mono"},{"size",size}};
+    if(!installedRead_){installedRead_=true;if(installed_)installedCache_=installed_();installedCache_.removeIf(bundled);installedCache_.sort(Qt::CaseInsensitive);}
+    return installedCache_;
+}
+bool UiFonts::valid(const QString &family,int size) const
+{return size>=10 && size<=32 && (bundled(family) || (!family.isEmpty() && installedFamilies().contains(family)));}
+UiFonts::UiFonts(const QString &path,bool apple,QObject *parent,const QString &overrides,Installed installed)
+    :QObject(parent),path_(path),overrides_(overrides),apple_(apple),installed_(std::move(installed))
+{
+    char family[128]="JetBrains Mono";int size=16;char error[256]={0};const auto encoded=QFile::encodeName(path);
+    if(!workbench_font_defaults(path.isEmpty()?nullptr:encoded.constData(),apple,family,sizeof(family),&size,error,sizeof(error))){
+        error_="Using built-in fonts. "+QString::fromUtf8(error);snprintf(family,sizeof(family),"JetBrains Mono");size=16;
+    }
+    defaults_={{"family",QString::fromUtf8(family)},{"size",size}};
+    // A configured font that is not installed (or not monospaced) falls back, with a notice.
+    if(!valid(defaults_["family"].toString(),size)){
+        error_+=(error_.isEmpty()?QString():QStringLiteral(" "))+QStringLiteral("The font '%1' is not installed as a monospaced font; using JetBrains Mono.").arg(defaults_["family"].toString());
+        defaults_["family"]=QStringLiteral("JetBrains Mono");
+    }
     current_=defaults_;managedBytes_=bytes(path_,1048577);overrideBytes_=bytes(overrides_);
     if(!overrides_.isEmpty() && (QFileInfo::exists(overrides_) || QFileInfo(overrides_).isSymLink())){
         QFile file(overrides_);QJsonParseError parse;
@@ -64,7 +80,7 @@ bool UiFonts::apply()
 
 std::unique_ptr<UiFonts> UiFonts::reloadCandidate() const
 {
-    return std::make_unique<UiFonts>(path_,apple_,nullptr,overrides_);
+    return std::make_unique<UiFonts>(path_,apple_,nullptr,overrides_,installed_);
 }
 void UiFonts::adoptReload(const UiFonts &candidate)
 {

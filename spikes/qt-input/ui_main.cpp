@@ -92,7 +92,9 @@ int main(int argc,char **argv) {
 #else
     constexpr bool apple=false;
 #endif
-    UiFonts fonts(configuration["preferences"].toString(),apple,nullptr,configuration["font_overrides"].toString());
+    // Installed monospaced families, offered beside the bundled fonts; listed only when needed.
+    const auto installedFonts=[]{QStringList result;for(const auto &family:QFontDatabase::families())if(!QFontDatabase::isPrivateFamily(family) && QFontDatabase::isFixedPitch(family))result.append(family);return result;};
+    UiFonts fonts(configuration["preferences"].toString(),apple,nullptr,configuration["font_overrides"].toString(),installedFonts);
     UiShortcuts shortcuts(configuration["preferences"].toString(),apple,nullptr,configuration["shortcut_overrides"].toString());
     if(!shortcuts.error().isEmpty())std::fprintf(stderr,"Qt UI shortcut settings: %s\n",qPrintable(shortcuts.error()));
     if(!fonts.error().isEmpty())std::fprintf(stderr,"Qt UI font settings: %s\n",qPrintable(fonts.error()));
@@ -268,7 +270,7 @@ int main(int argc,char **argv) {
                 {"font_edit_error",fonts.editError()},{"font_preferences",QJsonObject::fromVariantMap(fonts.current())},
                 {"font_defaults",QJsonObject::fromVariantMap(fonts.defaults())},
                 {"font_menu_item",center("fontSettingsMenuItem")},{"font_plus",center("fontPlus")},{"font_minus",center("fontMinus")},
-                {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},
+                {"font_fira",center("fontFira")},{"font_jetbrains",center("fontJetBrains")},{"font_installed",QJsonArray::fromStringList(fonts.installedFamilies())},{"font_installed_search",center("fontInstalledSearch")},{"font_apply",center("fontApply")},{"font_defaults_button",center("fontDefaults")},
                 {"commands_open",window->property("commandsOpen").toBool()},
                 {"welcome_open",window->property("welcomeOpen").toBool()},{"gallery_open",[window]{const auto *item=window->findChild<QQuickItem *>("gallery");return item && item->isVisible();}()},{"gallery_close",center("galleryClose")},{"help_open",window->property("helpOpen").toBool()},{"running_apps",QJsonArray::fromVariantList(listProperty(window,"runningApps"))},
                 {"worktree_repository",worktrees.repository()},{"worktree_busy",worktrees.busy()},{"worktree_error",worktrees.error()},{"workspace_branch_input",center("workspaceBranchInput")},

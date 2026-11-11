@@ -236,11 +236,11 @@ ApplicationWindow {
     }
     function closeNavigation() { drawer.close() }
     readonly property bool navigationShown: drawer.visible || navigationDocked
-    // A kind icon opens the sidebar on that kind alone, or adds or removes it.
+    // One kind at a time (owner, 2026-11-09): an icon shows that kind alone;
+    // clicking the shown kind again shows all panes.
     function toggleKind(kind) {
         if (!navigationShown) { openNavigation([kind]); return }
-        const kinds = navigationKinds.indexOf(kind) >= 0 ? navigationKinds.filter(k => k !== kind) : navigationKinds.concat([kind])
-        navigationKinds = ["shells", "apps", "hosts", "agents"].filter(k => kinds.indexOf(k) >= 0)
+        navigationKinds = navigationKinds.length === 1 && navigationKinds[0] === kind ? [] : [kind]
     }
     // All panes clears the filters; when nothing is filtered it closes the sidebar.
     function showAllPanes() {

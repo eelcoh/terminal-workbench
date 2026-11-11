@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Workbench.Probe
 import Band.Design
 // Appearance and Terminal colors: search, All/Dark/Light, theme cards with a
 // live preview, and the default/Cancel/Apply row. It follows the window's
@@ -48,7 +49,7 @@ Dialog {
     function revealTheme(index) {
         search.text = ""; mode = 0
         list.currentIndex = matches.findIndex(theme => theme.index === index)
-        if (list.currentIndex >= 0) list.positionViewAtIndex(list.currentIndex,ListView.Contain)
+        if (list.currentIndex >= 0) list.positionViewAtIndex(list.currentIndex,GridView.Contain)
         list.forceActiveFocus()
     }
     component ActionButton: ChromeButton { tones: picker.tones }
@@ -79,41 +80,37 @@ Dialog {
             }
         }
         Label { id: folderStatus; width: parent.width; visible: picker.directoryStatus.length > 0; text: picker.directoryStatus; textFormat: Text.PlainText; elide: Text.ElideRight; color: picker.tones.muted; font.pixelSize: Design.textCaption }
-        ListView {
+        // Themes as cards, as in Welcome: the theme's own background, its name in its
+        // foreground, six swatches; the previewed theme carries the accent and a check.
+        GridView {
             id: list; objectName: "themeList"; width: parent.width; height: Math.max(80, parent.height - search.height - modes.height - previewLabel.implicitHeight - sourceLabel.implicitHeight - (folderStatus.visible ? folderStatus.implicitHeight + parent.spacing : 0) - (saveErrorLabel.visible ? saveErrorLabel.implicitHeight + parent.spacing : 0) - (noteLabel.visible ? noteLabel.implicitHeight + parent.spacing : 0) - parent.spacing * 4)
-            clip: true; spacing: Design.spaceM; model: picker.matches; currentIndex: -1
+            clip: true; model: picker.matches; currentIndex: -1; keyNavigationWraps: false
+            readonly property int columns: Math.max(1, Math.floor(width / 150))
+            cellWidth: Math.floor(width / columns); cellHeight: 84
             ScrollBar.vertical: ScrollBar {}
             onCurrentIndexChanged: if (picker.visible && !picker.preparing && activeFocus && currentIndex >= 0 && currentIndex < count) picker.previewSelected(picker.matches[currentIndex].index)
             Keys.onReturnPressed: picker.applySelected()
-            delegate: ItemDelegate {
+            Keys.onUpPressed: event => { if (currentIndex < columns) search.forceActiveFocus(); else event.accepted = false }
+            delegate: Item {
                 id: option; required property var modelData; required property int index
-                width: list.width; height: 138
-                Accessible.name: modelData.name + (modelData.light ? ", light" : ", dark")
-                background: Rectangle { radius: Design.radiusM; color: option.hovered ? picker.tones.hover : "transparent"; border.width: Design.line; border.color: picker.themeIndex === option.modelData.index || option.activeFocus ? picker.tones.accent : picker.tones.border }
-                contentItem: Column {
-                    spacing: Design.spaceM
-                    Label { text: option.modelData.name; textFormat: Text.PlainText; color: picker.tones.foreground; font.pixelSize: Design.textBody }
-                    Rectangle {
-                        width: parent.width; height: 92; radius: Design.radiusS; color: option.modelData.background
-                        Column {
-                            anchors.fill: parent; anchors.margins: Design.spaceM; spacing: Design.spaceS
-                            Text {
-                                width: parent.width; textFormat: Text.PlainText; elide: Text.ElideRight
-                                text: "~/project  $ git status"; color: option.modelData.foreground
-                                font.family: "JetBrains Mono"; font.pixelSize: Design.textControl; renderType: Text.NativeRendering
-                            }
-                            Grid {
-                                width: parent.width; columns: 8; spacing: Design.spaceXs
-                                Repeater {
-                                    model: option.modelData.swatches
-                                    Rectangle { required property string modelData; width: (parent.width - 21) / 8; height: 22; radius: Design.radiusS; color: modelData }
-                                }
-                            }
-                        }
+                readonly property bool previewed: picker.themeIndex === modelData.index
+                readonly property bool keyed: list.activeFocus && list.currentIndex === index
+                width: list.cellWidth; height: list.cellHeight
+                Accessible.role: Accessible.Button; Accessible.name: modelData.name + (modelData.light ? ", light" : ", dark")
+                Rectangle {
+                    id: card; x: Design.space2xs; y: Design.space2xs; width: parent.width - 2 * Design.space2xs - Design.spaceXs; height: parent.height - Design.spaceS
+                    radius: Design.radiusL; color: option.modelData.background
+                    border.width: option.previewed || option.keyed ? Design.lineStrong : Design.line
+                    border.color: option.previewed || option.keyed ? picker.tones.accent : cardHover.hovered ? picker.tones.muted : picker.tones.border
+                    HoverHandler { id: cardHover; cursorShape: Qt.PointingHandCursor }
+                    Text { x: 10; y: 10; width: parent.width - 34; elide: Text.ElideRight; text: option.modelData.name; textFormat: Text.PlainText; color: option.modelData.foreground; font.pixelSize: Design.textSmall; font.weight: Font.DemiBold }
+                    ChromeIcon { anchors.right: parent.right; anchors.rightMargin: Design.spaceM; y: 8; width: 16; height: 16; name: "check"; color: option.modelData.accent; visible: option.previewed }
+                    Row {
+                        x: 10; y: parent.height - 24; spacing: Design.spaceXs
+                        Repeater { model: option.modelData.swatches.slice(1, 7); Rectangle { required property string modelData; width: 14; height: 14; radius: Design.radiusS; color: modelData } }
                     }
+                    TapHandler { onTapped: { list.currentIndex = option.index; picker.previewSelected(option.modelData.index) } }
                 }
-                onClicked: { list.currentIndex = index; picker.previewSelected(modelData.index) }
-                Keys.onReturnPressed: picker.applySelected()
             }
             Label { anchors.centerIn: parent; visible: list.count === 0; text: "No matching themes"; color: picker.tones.muted }
         }
