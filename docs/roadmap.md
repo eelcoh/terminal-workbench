@@ -218,6 +218,15 @@ host… adds one.
 
 ## Later
 
+- After a reboot or quit, Rex vs Band (owner, 2026-11-11): Rex starts its
+  previous shells again by itself, but its app, SSH and agent panes are gone.
+  Band keeps every pane in its place (shells, apps, host panes, agents) and
+  starts nothing by itself: shells show as stopped with the reason, Commands →
+  Start all stopped shells restarts them in one step, apps offer Start again
+  and host panes Connect again. Worth weighing: starting stopped plain shells
+  automatically when the session service comes back after a reboot (new
+  processes in the same folders; nothing resumes), while apps, host panes and
+  agents still wait to be started, as they may cost money, prompt or connect.
 - Agent oversight, if it still earns its place: generic signals for agents
   without hooks (bell, OSC 9/777, title changes, idleness) behind a small adapter
   interface, desktop notifications, time in each state, "new agent in a new
