@@ -113,8 +113,14 @@ leave the layout alone:
 - Sidebar panes take one line.
 - Panes lose the accent frame and the separate header strip (above).
 
-Still to decide, as they change the layout: the top bar folded into the
-sidebar's top (Rex has none), the rail (Rex has none), the sidebar's foot as
+The top bar folds into the sidebar's top (owner, 2026-11-12): with the
+sidebar pinned, its top row holds the traffic lights or the menu, the pane
+markers and position, and New terminal and Overview as icons (Linux adds its
+window buttons there), and the terminals start at the top of the window. The
+workspace name goes, since the sidebar shows it. Unpinned, a slim top bar
+stays for the window controls and the markers.
+
+Still to decide, as they change the layout: the rail (Rex has none), the sidebar's foot as
 small icons, one-line command rows with plain key glyphs, settings in cards.
 
 Rex's sidebar is a level shallower than Band's (owner, 2026-11-11): its rows

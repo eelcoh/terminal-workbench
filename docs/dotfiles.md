@@ -507,8 +507,9 @@ reduced-motion = true
 ```
 
 `integrated-title-bar = true` folds the window's title bar into Band's top bar.
+With navigation pinned, that top bar is itself the sidebar's top row.
 On Linux the window is frameless: Band draws minimize, maximize and close at the
-top right, empty top-bar space moves the window (double click maximizes) and the
+top right (at the sidebar's top right while navigation is pinned), empty top-bar space moves the window (double click maximizes) and the
 edges resize it. On macOS the traffic lights sit in the top bar, the title
 text is hidden and dragging empty top-bar space moves the window (Qt 6.9 or
 later; being tried on a Mac). It applies live and is on by default;

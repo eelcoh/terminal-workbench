@@ -496,6 +496,10 @@ while True:
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*settled_point(lambda d:d['navigation_pin']));wait_until(lambda:data()['navigation_docked'] and not data()['drawer_open'] and all(p['geometry_ready'] for p in data()['panes']))
         capture('navigation-pinned.png')
+        # Pinned, the top bar is the sidebar's top row and the strip starts at the top.
+        boxes=data()['chrome_boxes'];assert data()['top_folded'] and boxes['overview'][2]<=288 and boxes['indicators'][2]<boxes['count'][0]
+        assert boxes['count'][2]<=boxes['add'][0] and boxes['add'][2]<boxes['overview'][0],'sidebar top-row controls overlap'
+        assert min(p['top'] for p in data()['panes'] if p['workspace']==data()['workspace'])<80,'pinned strip still starts below a top bar'
         click(*settled_point(lambda d:d['navigation_workspace_1']));wait_until(lambda:data()['workspace']==1 and data()['panes'][3]['focus'])
         assert data()['navigation_docked'] and not data()['drawer_open']
         key('super+alt+Up');wait_until(lambda:data()['workspace']==0 and data()['panes'][0]['focus'])
