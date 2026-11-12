@@ -41,4 +41,10 @@ QtObject {
     // Motion, in milliseconds; zero under reduced motion is decided by the caller.
     readonly property int motionQuick: 120  // fades
     readonly property int motionMove: 220   // the strip, the overview
+
+    // The focused pane: its hairline a little brighter, tinted toward the
+    // accent, and a faint glow just inside it.
+    function withAlpha(color, alpha) { const c = Qt.color(color); return Qt.rgba(c.r, c.g, c.b, alpha) }
+    function focusBorder(tones) { return Qt.tint(tones.border, withAlpha(tones.accent, 0.4)) }
+    function focusGlow(tones) { return withAlpha(tones.accent, 0.12) }
 }

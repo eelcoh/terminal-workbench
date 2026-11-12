@@ -1255,11 +1255,21 @@ ApplicationWindow {
                 transformOrigin: Item.TopLeft
                 visible: !ended && (window.overview ? overviewOrdinal >= 0 : spaceIndex === window.workspace)
                 // One panel in the workspace's terminal background with a hairline
-                // (after Rex): the header blends into it and no frame marks focus;
-                // the header's name, the cursor and the sidebar show which pane has
-                // it. A terminal with its own colors shows them inside the panel.
-                color: studyThemes.theme(window.themeIndexFor(spaceIndex)).background; radius: Design.radiusL
-                border.width: window.overview ? 0 : Design.line; border.color: studyThemes.theme(window.themeIndexFor(spaceIndex)).border
+                // (after Rex): the header blends into it. The focused pane's hairline
+                // is a little brighter, tinted toward the accent, with a faint glow
+                // just inside it, where the strip's clip leaves it (owner, 2026-11-12); the header's name, the cursor and
+                // the sidebar show the rest. A terminal with its own colors shows
+                // them inside the panel.
+                readonly property bool focusMarked: window.selected === index && !window.overview
+                readonly property var paneTones: studyThemes.theme(window.themeIndexFor(spaceIndex))
+                color: paneTones.background; radius: Design.radiusL
+                border.width: window.overview ? 0 : Design.line
+                border.color: focusMarked ? Design.focusBorder(paneTones) : paneTones.border
+                Rectangle {
+                    objectName: "paneFocusGlow"; z: 2; visible: pane.focusMarked
+                    anchors.fill: parent; anchors.margins: Design.line; radius: Design.radiusL - Design.line
+                    color: "transparent"; border.width: 2; border.color: Design.focusGlow(pane.paneTones)
+                }
                 Behavior on x { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on y { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }
                 Behavior on scale { NumberAnimation { duration: window.motion; easing.type: Easing.OutCubic } }

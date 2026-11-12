@@ -206,7 +206,11 @@ Rectangle {
                             Rectangle {
                                 required property var modelData
                                 width: parent.paneWidth; height: parent.paneHeight
-                                color: scene.t.background; radius: Design.radiusL; border.width: Design.line; border.color: scene.t.border
+                                color: scene.t.background; radius: Design.radiusL; border.width: Design.line; border.color: modelData.focused ? Design.focusBorder(scene.t) : scene.t.border
+                                Rectangle {
+                                    z: 2; visible: parent.modelData.focused; anchors.fill: parent; anchors.margins: Design.line; radius: Design.radiusL - Design.line
+                                    color: "transparent"; border.width: 2; border.color: Design.focusGlow(scene.t)
+                                }
                                 PaneHeader {
                                     width: parent.width; tones: scene.t; icon: parent.modelData.icon; name: parent.modelData.name; place: parent.modelData.place
                                     agentState: parent.modelData.agentState; needsInput: parent.modelData.waiting; focused: parent.modelData.focused; dirty: parent.modelData.dirty

@@ -955,7 +955,7 @@ while True:
         # The focused pane alone shows width, full width and close; the others are dimmed.
         assert data()['panes'][1]['header_actions'] and not data()['panes'][0]['header_actions'] and not data()['panes'][2]['header_actions']
         assert data()['panes'][0]['dimmed'] and not data()['panes'][1]['dimmed']
-        assert data()['panes'][1]['focus_line'] and not data()['panes'][0]['focus_line'] and not data()['panes'][2]['focus_line']
+        assert data()['panes'][1]['focus_glow'] and not data()['panes'][0]['focus_glow'] and not data()['panes'][2]['focus_glow']
         time.sleep(.4)  # let the strip finish its width animation
         click(*settled_point(lambda d:d['panes'][1]['full_action']));wait_until(lambda:sizes()[1][0]>wide[1][0])
         time.sleep(.5);capture('pane-actions.png')

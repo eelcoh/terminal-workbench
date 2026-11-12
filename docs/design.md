@@ -97,9 +97,10 @@ test opens it from Commands and saves `design-gallery.png`.
 - Panes are one panel in the workspace's terminal background with a hairline
   border and the header blended in; no frame marks focus (an accent frame
   until 2026-11-11). The focused pane's name is in full color, the others
-  muted, and a thin accent line runs along the top of its header (owner,
-  2026-11-11, after a first try without); the cursor, the dim and the sidebar
-  show the rest.
+  muted, and its hairline is a little brighter, tinted toward the accent, with
+  a faint glow just inside (owner, 2026-11-12; a thin accent line along the
+  top of the header before that); the cursor, the dim and the sidebar show
+  the rest.
 
 ### First round from the inventory (2026-11-11)
 

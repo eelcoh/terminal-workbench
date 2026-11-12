@@ -36,13 +36,6 @@ Item {
 
     // Room for the identity left of the state, colors swatch and menu.
     readonly property real room: width - 51 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0) - (dirtyMark.visible ? 14 : 0)
-    // The focused pane's mark: a thin accent line along the top of its header,
-    // clear of the panel's rounded corners.
-    Rectangle {
-        objectName: "paneFocusLine"; visible: header.focused
-        x: Design.radiusL; width: parent.width - 2 * Design.radiusL; height: Design.lineStrong; radius: height / 2
-        color: header.tones.accent
-    }
     ChromeIcon {
         x: 12; y: 9; width: 15; height: 15; name: header.icon
         color: header.stopped ? header.tones.waiting : header.tones.muted
