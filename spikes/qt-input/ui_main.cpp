@@ -291,7 +291,7 @@ int main(int argc,char **argv) {
                 {"confirm_terminal_action_enabled",window->findChild<QQuickItem *>("confirmTerminalAction")->isEnabled()},{"session_stop_item",center("sessionStopMenuItem")},{"session_stop_ids",QJsonArray::fromVariantList(listProperty(window,"stopTargets"))},{"session_stop_valid",window->property("stopTargetsValid").toBool()},
                 {"terminal_close_item",center("terminalCloseMenuItem")},{"confirm_terminal_action",center("confirmTerminalAction")},{"cancel_terminal_action",center("cancelTerminalAction")},
                 {"view_enabled",view.enabled()},{"view_error",view.error()},{"window_width",window->width()},{"interface_font",app.font().family()},
-                {"chrome_boxes",QJsonObject{{"workspace",box("workspaceButton")},{"indicators",box("indicatorRow")},{"count",box("focusedCount")},{"add",box("newTerminalButton")},{"overview",box("overviewButton")}}},
+                {"chrome_boxes",QJsonObject{{"workspace",box("workspaceButton")},{"indicators",box("indicatorRow")},{"count",box("focusedCount")},{"add",box("newTerminalButton")},{"overview",box("overviewButton")},{"window",box("windowButtons")}}},
                 {"workspaces_button",center("workspacesButton")},
                 {"workspace",window->property("workspace").toInt()},
                 {"move_notice",window->property("moveNotice").toString()},
