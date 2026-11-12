@@ -31,7 +31,10 @@ def main():
             subprocess.run(['git','-C',str(source),'checkout','--detach',REVISION],check=True)
         subprocess.run(['git','-C',str(source),'remote','set-url','origin',REPOSITORY],check=True)
         destination=ROOT/'.local/runtime-vt'
-        subprocess.run([str(compiler),'build','-Demit-lib-vt','-Doptimize=ReleaseFast','--prefix',str(destination)],cwd=source,env=environment,check=True)
+        # Band links the plain library. Ghostty also builds an xcframework on macOS
+        # when xcodebuild is on PATH, and the Command Line Tools stub of it fails
+        # without full Xcode, so leave the xcframework out.
+        subprocess.run([str(compiler),'build','-Demit-lib-vt','-Demit-xcframework=false','-Doptimize=ReleaseFast','--prefix',str(destination)],cwd=source,env=environment,check=True)
         print(f'Runtime libghostty-vt {REVISION} prepared at {destination}',flush=True)
     except (OSError,RuntimeError,subprocess.CalledProcessError) as error:
         print(f'Runtime VT build failed: {error}',file=sys.stderr); return 1

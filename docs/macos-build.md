@@ -12,6 +12,10 @@ installer before building:
 xcode-select --install
 ```
 
+Full Xcode is not needed. The runtime build asks Ghostty for the plain VT
+library only; its xcframework needs `xcodebuild` from full Xcode, and the
+Command Line Tools stub of it fails.
+
 With [Homebrew](https://docs.brew.sh/Installation) available:
 
 ```sh
