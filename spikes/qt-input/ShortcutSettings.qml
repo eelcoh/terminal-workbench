@@ -20,15 +20,25 @@ Dialog {
         spacing: Design.spaceL
         Label { width: parent.width; text: "Record a shortcut, clear it, or restore its dotfile default. Apply saves for this platform."; wrapMode: Text.Wrap; color: popup.tones.muted; font.pixelSize: Design.textSmall }
         // On the Mac, Band's shortcuts can use Command alone: terminal programs never receive it.
+        // Settings in cards (owner, 2026-11-12, after Rex).
+        SettingsCard {
+            tones: popup.tones; visible: Qt.platform.os === "osx"
+            SettingsRow {
+                tones: popup.tones; title: "Band's shortcuts use"
         Row {
-            visible: Qt.platform.os === "osx"; spacing: Design.spaceXs
-            Label { height: 32; verticalAlignment: Text.AlignVCenter; rightPadding: Design.spaceS; text: "Band's shortcuts use"; color: popup.tones.foreground; font.pixelSize: Design.textBody }
+            anchors.right: parent.right; spacing: Design.spaceXs
             ChromeButton { objectName: "shortcutModifiersBoth"; tones: popup.tones; text: "Command+Option"; enabled: !popup.recordingActive; selected: popup.preferences.draftModifiers === "command-option"; onClicked: popup.preferences.useModifiers(false) }
             ChromeButton { objectName: "shortcutModifiersAlone"; tones: popup.tones; text: "Command"; enabled: !popup.recordingActive; selected: popup.preferences.draftModifiers === "command"; onClicked: popup.preferences.useModifiers(true) }
         }
+            }
+        }
+        SettingsCard {
+            tones: popup.tones
+            Item {
+                width: parent.width; height: Math.max(90, popup.availableHeight - (Qt.platform.os === "osx" ? 186 : 130))
         ListView {
             id: list; objectName: "shortcutSettingsList"
-            width: parent.width; height: Math.max(90, parent.height - (Qt.platform.os === "osx" ? 172 : 130)); clip: true; spacing: Design.spaceXs
+            x: Design.spaceXs; y: Design.spaceXs; width: parent.width - 2 * Design.spaceXs; height: parent.height - 2 * Design.spaceXs; clip: true; spacing: Design.space2xs
             model: popup.actions.filter(entry => popup.preferences.editable(entry.id))
             ScrollBar.vertical: ScrollBar {}
             delegate: ItemDelegate {
@@ -45,6 +55,8 @@ Dialog {
                 onClicked: popup.selectedAction = modelData.id
                 onDoubleClicked: popup.startRecording(modelData.id)
                 Keys.onReturnPressed: popup.startRecording(modelData.id)
+            }
+        }
             }
         }
         Row {

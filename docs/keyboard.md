@@ -66,7 +66,7 @@ desktop input layer and full native platform acceptance remain future work.
 
 ## Workspace layout prototype
 
-Navigation is mouse-first while shortcut design remains open. The Workspaces rail opens a drawer to select
+Navigation is mouse-first while shortcut design remains open. The sidebar toggle in the top bar opens a drawer to select
 a workspace; a pane's title or terminal area focuses it. Copy/Paste always applies
 to the selected pane. Selection drags and scrollbar drags retain pointer ownership
 until release; divider gestures are handled by the client and never forwarded
@@ -201,7 +201,7 @@ part of platform acceptance.
 
 ## Minimal chrome input
 
-The rail opens Workspaces or Agents. Temporary drawers own keyboard/pointer input
+The sidebar toggle opens the sidebar; its kind icons filter it (the rail did until 2026-11-12). Temporary drawers own keyboard/pointer input
 until selection, Escape or outside-click dismissal; they do not resize PTYs.
 Pin keeps the panel visible and changes terminal estate. Tab/Shift+Tab and arrows
 navigate drawer controls. Menu items support arrows, Tab/Shift+Tab, Enter/Space,

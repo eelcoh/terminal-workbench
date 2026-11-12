@@ -15,9 +15,15 @@ Dialog {
     title: "Terminal text"
     background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border }
     header: Label { text: popup.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: popup.tones.foreground; font.pixelSize: Design.textTitle }
+    // Settings in cards (owner, 2026-11-12, after Rex).
     contentItem: Column {
-        spacing: Design.spaceXl
-        Label { text: "Font"; color: popup.tones.muted; font.pixelSize: Design.textSmall }
+        spacing: Design.spaceL
+        SettingsCard {
+            tones: popup.tones; title: "Font"
+            Item {
+                width: parent.width; height: fontChoices.height + 2 * Design.spaceL
+                Column {
+                    id: fontChoices; x: Design.spaceL; y: Design.spaceL; width: parent.width - 2 * Design.spaceL; spacing: Design.spaceM
         Row {
             width: parent.width; spacing: Design.spaceM
             ChromeButton { objectName: "fontJetBrains"; width: (parent.width - 8)/2; tones: popup.tones; text: "JetBrains Mono"; selected: popup.preferences.current.family === text; onClicked: popup.preferences.preview(text, popup.preferences.current.size) }
@@ -52,14 +58,22 @@ Dialog {
             }
             Label { anchors.centerIn: parent; visible: installedList.count === 0; text: "No matching fonts"; color: popup.tones.muted; font.pixelSize: Design.textSmall }
         }
-        Label { text: "Size"; color: popup.tones.muted; font.pixelSize: Design.textSmall }
+                }
+            }
+        }
+        SettingsCard {
+            tones: popup.tones
+            SettingsRow {
+                tones: popup.tones; title: "Size"
         Row {
-            spacing: Design.spaceXl
+            anchors.right: parent.right; spacing: Design.spaceXl
             ChromeButton { objectName: "fontMinus"; tones: popup.tones; text: "−"; hint: "Decrease terminal text size"; enabled: popup.preferences.current.size > 10; onClicked: popup.preferences.step(-1) }
             Label { width: 60; height: 32; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; text: popup.preferences.current.size + " pt"; color: popup.tones.foreground }
             ChromeButton { objectName: "fontPlus"; tones: popup.tones; text: "+"; hint: "Increase terminal text size"; enabled: popup.preferences.current.size < 32; onClicked: popup.preferences.step(1) }
         }
-        Label { width: parent.width; text: "Preview across this window. Apply saves the font and size for future launches on this platform; config.conf can name an installed font too."; wrapMode: Text.Wrap; color: popup.tones.muted; font.pixelSize: Design.textSmall }
+            }
+        }
+        Label { width: parent.width; leftPadding: Design.spaceXs; text: "Preview across this window. Apply saves the font and size for future launches on this platform; config.conf can name an installed font too."; wrapMode: Text.Wrap; color: popup.tones.muted; font.pixelSize: Design.textSmall }
         Label { width: parent.width; visible: text.length > 0; text: popup.preferences.editError; textFormat: Text.PlainText; wrapMode: Text.Wrap; color: popup.tones.waiting; font.pixelSize: Design.textSmall }
     }
     // The reset on the left; the decision on the right, Apply highlighted.

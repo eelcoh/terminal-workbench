@@ -19,7 +19,7 @@ terminal backgrounds to the same outline. The native client now implements this 
 | Surface | Purpose | Visible controls |
 | --- | --- | --- |
 | Top bar | Location within the current workspace | Workspace name, pane indicators, focused pane/count, new terminal, Overview, application menu |
-| Left rail | Choose a navigation task | Workspaces, Apps, Agents with Needs input count, shortcut help |
+| Sidebar toggle | Show the sidebar, or clear its filters | At the top bar's left, with the Needs input count (the left rail until 2026-11-12) |
 | Left panel | Find a destination | Workspace names/counts, app definitions, or agent names/status with workspace and terminal context |
 | Pane header | Identify the terminal and its activity | Name, agent identity/state, overflow menu |
 
@@ -39,7 +39,15 @@ panel, and clicking the active icon closes it, or hides a pinned panel without
 unpinning it. The panel is titled, with no mode switch. The Agents icon appears
 once the window has seen an agent and carries the waiting badge. While open, the
 panel dims the rest of the window and a press there only closes it; the rail
-stays usable. The Apps icon appears when `config.conf` defines apps
+stays usable.
+
+Update (owner, 2026-11-12): there is no rail any more ([design](design.md)).
+The sidebar toggle at the top bar's left shows and hides the panel and clears
+its filters; the kind icons (Shells, Apps, Hosts, Agents) head the panel and
+filter one view; the pin sits at the panel's foot. The paragraphs below
+describe the rail as it was.
+
+The Apps icon appears when `config.conf` defines apps
 ([apps](apps.md)); its panel opens one as a pane in the current workspace. The agent directory shows
 agents across workspaces with enough context to jump to the right terminal,
 and offers an explicit Needs input filter. Unknown remains an honest state.

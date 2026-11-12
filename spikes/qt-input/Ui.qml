@@ -212,14 +212,16 @@ ApplicationWindow {
     property var agentIndices: []
     property var navigationOverride: null
     readonly property bool navigationPinned: navigationOverride === null ? studyConfiguration.navigationPinned : navigationOverride
-    // The sidebar always shows workspaces; the rail filters their panes by kind.
+    // The sidebar always shows workspaces; its kind icons filter their panes.
     // Filters combine; none shows every pane.
     property var navigationKinds: []
     readonly property string navigationSection: navigationKinds.length ? navigationKinds.join("+") : "workspaces"
     // All panes, when already showing, hides a pinned column without unpinning it.
     property bool navigationHidden: false
     readonly property bool navigationDocked: navigationPinned && width >= 920 && !navigationHidden
-    readonly property int navigationEdge: navigationDocked ? 288 : 44
+    // No rail (owner, 2026-11-12, after Rex): the sidebar toggle sits in the top
+    // bar, the kind filters at the panel's top and the pin at its foot.
+    readonly property int navigationEdge: navigationDocked ? 244 : 0
     onNavigationPinnedChanged: scheduleViewSave()
     onNavigationDockedChanged: {
         if (navigationDocked) drawer.close()
@@ -230,7 +232,7 @@ ApplicationWindow {
     function openNavigation(kinds) {
         if (kinds !== undefined) navigationKinds = kinds
         navigationHidden = false
-        // A rail click focuses its icon; switching sections returns focus to the panel.
+        // A toggle click focuses the toggle; opening returns focus to the panel.
         if (!navigationDocked && !drawer.visible) drawer.open()
         else Qt.callLater(focusNavigation)
     }
@@ -241,6 +243,7 @@ ApplicationWindow {
     function toggleKind(kind) {
         if (!navigationShown) { openNavigation([kind]); return }
         navigationKinds = navigationKinds.length === 1 && navigationKinds[0] === kind ? [] : [kind]
+        Qt.callLater(focusNavigation)
     }
     // All panes clears the filters; when nothing is filtered it closes the sidebar.
     function showAllPanes() {
@@ -1056,7 +1059,6 @@ ApplicationWindow {
         contentItem: Rectangle { implicitWidth: 248; implicitHeight: 1; color: window.chrome.border }
     }
     Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.sidebar }
-    Rectangle { x: 0; y: 40; width: 44; height: parent.height - 40; color: window.chrome.sidebar }
     // With an integrated title bar, empty top bar space moves the window and a
     // double click maximizes it; controls above it keep their own input.
     Item {
@@ -1082,52 +1084,21 @@ ApplicationWindow {
         QuietButton { objectName: "windowClose"; height: 28; iconName: "close"; hint: "Close window"; focusPolicy: Qt.NoFocus; onClicked: window.close() }
     }
     QuietButton { objectName: "applicationMenuButton"; visible: !window.systemMenus; x: 8 + window.titleInset; y: 6; height: 28; iconName: "menu"; hint: "Application menu"; selected: appMenu.visible; onClicked: appMenu.open() }
-    Column {
-        x: 8; y: 52; spacing: Design.spaceXl
-        // All panes clears the filters below it (or closes the sidebar when
-        // nothing is filtered); each kind icon filters the workspaces' panes.
-        QuietButton {
-            objectName: "workspacesButton"; height: 28; iconName: window.navigationKinds.length ? "filter-off" : "workspaces"
-            hint: window.navigationKinds.length ? "All panes · clear filters" : window.navigationShown ? "Hide the sidebar" : "Show all panes"
-            selected: window.navigationShown && !window.navigationKinds.length; onClicked: window.showAllPanes()
-        }
-        Rectangle { x: 6; width: 16; height: Design.line; color: window.chrome.border }
-        QuietButton {
-            objectName: "shellsButton"; height: 28; iconName: "shell"; hint: "Shells"
-            selected: window.navigationShown && window.navigationKinds.indexOf("shells") >= 0
-            onClicked: window.toggleKind("shells")
-        }
-        QuietButton {
-            objectName: "appsButton"; height: 28; iconName: "apps"; hint: "Apps"
-            selected: window.navigationShown && window.navigationKinds.indexOf("apps") >= 0
-            onClicked: window.toggleKind("apps")
-        }
-        QuietButton {
-            objectName: "hostsButton"; height: 28; iconName: "host"; hint: "Hosts"
-            selected: window.navigationShown && window.navigationKinds.indexOf("hosts") >= 0
-            onClicked: window.toggleKind("hosts")
-        }
-        QuietButton {
-            objectName: "agentsButton"; height: 28; iconName: "agents"
-            hint: window.waitingCount ? "Agents · " + window.waitingCount + " need input (last reports)" : "Agents"
-            selected: window.navigationShown && window.navigationKinds.indexOf("agents") >= 0; onClicked: window.toggleKind("agents")
-            Rectangle {
-                objectName: "agentsBadge"; x: 19; y: -7; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
-                Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: Design.textCaption }
-            }
-        }
-    }
-    // The pin sits at the foot of the rail; Keyboard shortcuts stay in the menu,
-    // the command menu and their own chord.
+    // The sidebar toggle: All panes. It clears the kind filters, or shows and
+    // hides the sidebar when nothing is filtered; the badge counts agents that
+    // need input.
     QuietButton {
-        objectName: "navigationPin"; x: 8; height: 28; anchors.bottom: parent.bottom; anchors.bottomMargin: Design.spaceL
-        iconName: "pin"; selected: window.navigationPinned
-        enabled: window.width >= 920 || window.navigationPinned
-        hint: window.navigationPinned ? "Unpin navigation" : window.width < 920 ? "Widen the window to pin navigation" : "Pin navigation"
-        onClicked: window.toggleNavigationPin()
+        id: sidebarToggle; objectName: "workspacesButton"; x: (window.systemMenus ? 8 : 40) + window.titleInset; y: 6; height: 28
+        iconName: window.navigationKinds.length ? "filter-off" : "sidebar"
+        hint: window.navigationKinds.length ? "All panes · clear filters" : window.navigationShown ? "Hide the sidebar" : "Show the sidebar"
+        selected: window.navigationShown && !window.navigationKinds.length; onClicked: window.showAllPanes()
+        Rectangle {
+            objectName: "agentsBadge"; x: 19; y: -4; width: 16; height: 16; radius: 8; visible: window.waitingCount > 0; color: window.chrome.waiting
+            Text { anchors.centerIn: parent; text: window.waitingCount; color: window.chrome.background; font.pixelSize: Design.textCaption }
+        }
     }
     TopBar {
-        id: topbar; x: Math.max(window.navigationEdge, window.titleInset + 44); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0)
+        id: topbar; x: Math.max(window.navigationEdge, sidebarToggle.x + sidebarToggle.width + Design.spaceS); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0)
         tones: window.chrome; accent: window.accent; overview: window.overview; canCreate: window.canCreateTerminal
         workspaceName: window.overview ? "Overview" : (window.spaces[window.workspace] || "No workspaces")
         readonly property var paneIndices: window.indices(window.workspace)
@@ -1453,7 +1424,7 @@ ApplicationWindow {
         }
     }
     Rectangle {
-        id: pinnedNavigation; x: 44; y: 40; width: 244; height: window.height - 40
+        id: pinnedNavigation; x: 0; y: 40; width: 244; height: window.height - 40
         visible: window.navigationDocked; color: window.chrome.sidebar
         Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: window.chrome.border }
     }
@@ -1475,19 +1446,19 @@ ApplicationWindow {
         anchors.fill: parent
         host: window; session: studySession
     }
-    // The unpinned panel opens beside the rail rather than over it (a Drawer
-    // always starts at the window edge), so rail icons stay usable while it
-    // is open. Like the modal drawer it replaces, a press elsewhere only closes it.
+    // The unpinned panel opens under the top bar (a Drawer would cover it), so
+    // the sidebar toggle stays usable while it is open. Like the modal drawer
+    // it replaces, a press elsewhere only closes it.
     MouseArea {
         id: navigationShade; objectName: "navigationShade"; anchors.fill: parent; z: 50; visible: drawer.visible
         acceptedButtons: Qt.AllButtons
-        onPressed: mouse => { if (mouse.x < 44 && mouse.y >= 40) mouse.accepted = false; else drawer.close() }
+        // A press on the sidebar toggle reaches it, so it closes the drawer itself.
+        onPressed: mouse => { if (sidebarToggle.contains(mapToItem(sidebarToggle, mouse.x, mouse.y))) mouse.accepted = false; else drawer.close() }
         onWheel: wheel => wheel.accepted = true
-        Rectangle { width: parent.width; height: 40; color: "#000000"; opacity: 0.5 * drawer.opacity }
-        Rectangle { x: 44; y: 40; width: parent.width - 44; height: parent.height - 40; color: "#000000"; opacity: 0.5 * drawer.opacity }
+        Rectangle { anchors.fill: parent; color: "#000000"; opacity: 0.5 * drawer.opacity }
     }
     FocusScope {
-        id: drawer; objectName: "navigationDrawer"; x: 44; y: 40; z: 51; width: 244; height: window.height - 40; visible: false; opacity: 0
+        id: drawer; objectName: "navigationDrawer"; x: 0; y: 40; z: 51; width: 244; height: window.height - 40; visible: false; opacity: 0
         property alias contentItem: drawerContent
         signal opened()
         signal closed()

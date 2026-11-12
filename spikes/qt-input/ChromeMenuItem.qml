@@ -15,7 +15,7 @@ MenuItem {
         implicitWidth: label.implicitWidth + shortcut.implicitWidth + 36
         opacity: control.enabled ? 1 : 0.38
         Text { id: label; anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; width: parent.width - shortcut.width - (shortcut.width > 0 ? 12 : 0); text: control.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: control.tones.foreground; font.pixelSize: Design.textControl }
-        KeyChips { id: shortcut; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; keys: control.checkable ? "" : control.keyHint; tones: control.tones }
+        KeyChips { id: shortcut; anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; keys: control.checkable ? "" : control.keyHint; tones: control.tones; plain: true }
     }
     indicator: ChromeIcon { x: control.width - width - 12; y: (control.height-height)/2; width: 16; height: 16; name: "check"; color: control.tones.accent; visible: control.checkable && control.checked }
     background: Rectangle { radius: Design.radiusM; color: control.highlighted || control.preview === "hover" ? control.tones.hover : "transparent"; border.width: control.activeFocus || control.preview === "focus" ? Design.line : 0; border.color: control.tones.accent }

@@ -88,7 +88,7 @@ if(BAND_TERMINAL_PROBE)
     if(APPLE)
         target_link_libraries(band-ui PRIVATE "-framework AppKit")
     endif()
-    qt_add_resources(band-ui "ui" PREFIX "/" FILES Ui.qml Design.qml Gallery.qml AppleMenus.qml PaneHeader.qml SidebarWorkspace.qml SidebarPane.qml TopBar.qml TerminalInformation.qml ContextSearch.qml AgentInformation.qml Configuration.qml About.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml KeyChips.qml Welcome.qml TerminalSearch.qml AppCatalog.qml apps-catalog.json)
+    qt_add_resources(band-ui "ui" PREFIX "/" FILES Ui.qml Design.qml Gallery.qml AppleMenus.qml PaneHeader.qml SidebarWorkspace.qml SidebarPane.qml TopBar.qml TerminalInformation.qml ContextSearch.qml AgentInformation.qml Configuration.qml About.qml NavigationPanel.qml ShortcutSettings.qml FontSettings.qml CommandPalette.qml WorkbenchActions.qml ThemePicker.qml ChromeButton.qml ChromeMenu.qml ChromeMenuItem.qml KeyChips.qml SettingsCard.qml SettingsRow.qml Welcome.qml TerminalSearch.qml AppCatalog.qml apps-catalog.json)
     qt_add_resources(band-ui "ui_font" PREFIX "/"
         BASE "${CMAKE_CURRENT_SOURCE_DIR}/../.."
         FILES "../../fonts/jetbrains-mono/JetBrainsMono-Regular.ttf" "../../fonts/jetbrains-mono/OFL.txt" "../../fonts/adwaita-sans/AdwaitaSans-Regular.ttf" "../../fonts/adwaita-sans/OFL.txt" "../../fonts/fira-code/FiraCode-Regular.ttf" "../../fonts/fira-code/OFL.txt")

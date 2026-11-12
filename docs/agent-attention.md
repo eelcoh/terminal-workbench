@@ -59,7 +59,7 @@ global event clock. Metadata survives viewer detach/reconnect; it is not persist
 as organization or appended to terminal history.
 
 The terminal header and each Overview entry show that terminal's state. The
-Agents rail view also lists observed agents across workspaces with terminal
+sidebar's Agents filter also lists observed agents across workspaces with terminal
 context, All agents/Needs input filters, and a count of agents needing input.
 Spatial cards show it at the bottom, for example `Copilot / Ready`; list rows show
 it at the right. The Overview button switches between **All states** and

@@ -56,15 +56,26 @@ Dialog {
                 required property var modelData
                 required property int index
                 objectName: "commandRow" + index; focusPolicy: Qt.NoFocus
-                width: results.width; height: 46; highlighted: results.currentIndex === index
+                width: results.width; height: 32; highlighted: results.currentIndex === index
                 // Unavailable results stay selectable so their explanation is readable.
                 Accessible.name: modelData.title + (modelData.available ? "" : ". " + modelData.reason)
                 Accessible.description: modelData.key
                 onClicked: { results.currentIndex = index; commandPopup.runCurrent() }
+                // One line (owner, 2026-11-12): the title, then muted after it the
+                // reason a command is unavailable, or the highlighted row's detail;
+                // the shortcut as plain glyphs on the right.
                 contentItem: Item {
-                    Text { x: 4; y: 2; width: parent.width - shortcut.width - 24; elide: Text.ElideRight; text: modelData.title; textFormat: Text.PlainText; font.pixelSize: Design.textBody; color: commandPopup.tones.foreground; opacity: modelData.available ? 1 : 0.5 }
-                    Text { x: 4; y: 21; width: parent.width - 8; elide: Text.ElideRight; text: modelData.available ? modelData.detail : modelData.reason; textFormat: Text.PlainText; font.pixelSize: Design.textCaption; color: commandPopup.tones.muted }
-                    KeyChips { id: shortcut; anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; y: 2; keys: modelData.key; tones: commandPopup.tones }
+                    Text {
+                        id: commandTitle; x: 4; anchors.verticalCenter: parent.verticalCenter; width: Math.min(implicitWidth, parent.width - shortcut.width - 24)
+                        elide: Text.ElideRight; text: modelData.title; textFormat: Text.PlainText; font.pixelSize: Design.textBody; color: commandPopup.tones.foreground; opacity: modelData.available ? 1 : 0.5
+                    }
+                    Text {
+                        anchors.left: commandTitle.right; anchors.leftMargin: Design.spaceM; anchors.baseline: commandTitle.baseline
+                        width: Math.max(0, parent.width - commandTitle.width - shortcut.width - 4 - 2 * Design.spaceM - Design.spaceXs)
+                        elide: Text.ElideRight; text: !modelData.available ? modelData.reason : parent.parent.highlighted ? modelData.detail : ""
+                        textFormat: Text.PlainText; font.pixelSize: Design.textCaption; color: commandPopup.tones.muted
+                    }
+                    KeyChips { id: shortcut; anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; anchors.verticalCenter: parent.verticalCenter; keys: modelData.key; tones: commandPopup.tones; plain: true }
                 }
                 background: Rectangle { radius: Design.radiusM; color: parent.highlighted ? commandPopup.tones.selected : parent.hovered ? commandPopup.tones.hover : "transparent"; border.width: parent.visualFocus ? Design.line : 0; border.color: commandPopup.tones.accent }
             }

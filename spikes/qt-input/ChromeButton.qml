@@ -64,7 +64,7 @@ Button {
         contentItem: Row {
             spacing: Design.spaceM
             Text { anchors.verticalCenter: parent.verticalCenter; text: control.hint; textFormat: Text.PlainText; color: control.colors.foreground; font.pixelSize: Design.textSmall }
-            KeyChips { anchors.verticalCenter: parent.verticalCenter; keys: control.keys; tones: control.colors }
+            KeyChips { anchors.verticalCenter: parent.verticalCenter; keys: control.keys; tones: control.colors; plain: true }
         }
         background: Rectangle { color: control.colors.raised; radius: Design.radiusM; border.color: control.colors.border }
     }

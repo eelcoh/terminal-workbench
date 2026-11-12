@@ -2,12 +2,14 @@ import QtQuick
 import Band.Design
 
 // A shortcut from the live keymap as key chips: "Ctrl+Shift+P" or "⌘⇧P" shows
-// one chip per key. Its owner keeps the label text for accessibility.
+// one chip per key. Plain, it is muted text without chips: "⌘⇧P" on macOS,
+// "Super+Alt+→" elsewhere. Its owner keeps the label text for accessibility.
 Row {
     id: chips
     objectName: "keyChips"
     property string keys: ""
     property var tones
+    property bool plain: false
     spacing: Design.spaceXs
     visible: keys.length > 0
     readonly property var names: ({Left: "←", Right: "→", Up: "↑", Down: "↓"})
@@ -18,8 +20,12 @@ Row {
         if (rest.length) result.push(names[rest] || rest)
         return result
     }
+    Text {
+        visible: chips.plain; text: chips.parts(chips.keys).join(chips.keys.indexOf("+") >= 0 ? "+" : "")
+        textFormat: Text.PlainText; font.pixelSize: Design.textSmall; color: chips.tones.muted
+    }
     Repeater {
-        model: chips.parts(chips.keys)
+        model: chips.plain ? [] : chips.parts(chips.keys)
         Rectangle {
             required property string modelData
             width: Math.max(height, key.implicitWidth + 10); height: 18; radius: Design.radiusS

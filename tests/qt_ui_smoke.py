@@ -214,9 +214,10 @@ while True:
                 deadline=time.monotonic()+8
                 while not 115 < data()['overview_groups'][workspace]+25 < 690:
                     assert time.monotonic()<deadline,'edge scroll did not reach workspace'
-                    move(160,735 if data()['overview_groups'][workspace]+25>=690 else 106)
+                    move(116,735 if data()['overview_groups'][workspace]+25>=690 else 106)
                     time.sleep(.08)
-                move(160,data()['overview_groups'][workspace]+25)
+                # 100 px into the strip: before the first card's middle, so a drop lands first.
+                move(116,data()['overview_groups'][workspace]+25)
                 wait_until(lambda:data()['drop_space']==workspace and data()['drop_allowed']==allowed)
                 if cancel:capture('drag-eight-terminal-workspace.png');key('Escape');wait_until(lambda:data()['drag_slot']==-1)
             finally:button('mouseup')
@@ -487,6 +488,11 @@ while True:
             assert 'Qt UI: qrc:' not in (artifacts/'run.log').read_text(),'QML warning in search regression'
             print(('wayland' if wayland else 'xcb')+' PASS: native search, offscreen reveal, input isolation, wrap, keyboard/mouse match controls, output refresh and viewport restoration')
             sys.exit(0)
+        # The kind filters sit at the sidebar's top (no rail): show the sidebar first.
+        def kind_button(kind):
+            if not (data()['drawer_open'] or data()['navigation_docked']):
+                click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+            click(*settled_point(lambda d:d[kind+'_button']))
         # Pinning reserves layout space; navigation stays usable without modal focus.
         nav_sizes=sizes();nav_instances=[p['instance'] for p in data()['panes']]
         # The workspace name in the title opens every workspace, unfiltered, with its panes.
@@ -505,13 +511,13 @@ while True:
         assert not data()['overview'] and not data()['navigation_agent_indices']
         capture('navigation-agents-empty.png')
         # Kind icons filter one workspace view, one kind at a time; the shown kind again, or All panes, clears it.
-        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['navigation_section']=='workspaces' and data()['navigation_docked'])
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['navigation_section']=='apps')
-        click(*settled_point(lambda d:d['shells_button']));wait_until(lambda:data()['navigation_section']=='shells')
+        kind_button('agents');wait_until(lambda:data()['navigation_section']=='workspaces' and data()['navigation_docked'])
+        kind_button('apps');wait_until(lambda:data()['navigation_section']=='apps')
+        kind_button('shells');wait_until(lambda:data()['navigation_section']=='shells')
         wait_until(lambda:data()['navigation_workspace_rows'] and data()['navigation_panes'] and all(p['kind']=='shell' for p in data()['navigation_panes']))
         capture('navigation-kind-filters.png')
-        click(*settled_point(lambda d:d['shells_button']));wait_until(lambda:data()['navigation_section']=='workspaces')
-        click(*settled_point(lambda d:d['shells_button']));wait_until(lambda:data()['navigation_section']=='shells')
+        kind_button('shells');wait_until(lambda:data()['navigation_section']=='workspaces')
+        kind_button('shells');wait_until(lambda:data()['navigation_section']=='shells')
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_section']=='workspaces' and data()['navigation_docked'])
         # With nothing filtered, All panes hides the pinned column without unpinning; again shows it.
         click(*settled_point(lambda d:d['workspaces_button']));wait_until(lambda:data()['navigation_hidden'] and not data()['navigation_docked'] and data()['navigation_pinned'])
@@ -1423,7 +1429,7 @@ while True:
         assert workspace_catalog.load(root)==attention_base and sizes()==metadata_sizes and [p['instance'] for p in data()['panes']]==attention_objects
         assert [received(i) for i in range(6)]==attention_input,'attention navigation typed input into a shell'
         # The left agent list is separate from the spatial Overview.
-        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_agent_indices']==[8]);time.sleep(.3)
+        kind_button('agents');wait_until(lambda:data()['drawer_open'] and data()['navigation_agent_indices']==[8]);time.sleep(.3)
         assert not data()['overview']
         wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
         capture('navigation-agent-working.png')
@@ -1436,8 +1442,9 @@ while True:
         key('Escape');wait_until(lambda:data()['navigation_matches']==[8])
         typed('CoDeX');wait_until(lambda:data()['navigation_matches']==[8])
         key('Down');key('End');key('Home');key('Return');wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
-        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_search_focus']);time.sleep(.3)
-        key('Escape');wait_until(lambda:data()['navigation_matches']==[8])
+        # Opening from the toggle clears the search, so the agents filter starts empty.
+        kind_button('agents');wait_until(lambda:data()['drawer_open'] and data()['navigation_search_focus']);time.sleep(.3)
+        wait_until(lambda:data()['navigation_matches']==[8])
         assert not data()['agents_only'] and not data()['needs_only'] and not data()['overview']
         assert workspace_catalog.load(root)==nav_catalog and [p['instance'] for p in data()['panes']]==nav_objects
         assert [received(i) for i in range(6)]==nav_input,'agent search or result navigation typed into terminals'
@@ -1458,21 +1465,21 @@ while True:
         assert workspace_catalog.load(root)==info_catalog and sizes()==info_sizes and [p['instance'] for p in data()['panes']]==info_instances
         assert [received(i) for i in range(6)]==info_inputs,'agent details or copying typed into a terminal'
         hook('UserPromptSubmit','Working')
-        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        kind_button('agents');wait_until(lambda:data()['drawer_open']);time.sleep(.3)
 
         hook('PermissionRequest','Needs input');wait_until(lambda:any('Codex · Needs input' in label for label in data()['navigation_agent_labels']))
         capture('navigation-agent-needs.png')
         hook('UserPromptSubmit','Working');wait_until(lambda:any('Codex · Working' in label for label in data()['navigation_agent_labels']))
         click(*settled_point(lambda d:d['navigation_first_agent']));wait_until(lambda:not data()['drawer_open'] and data()['panes'][8]['focus'])
         key('super+alt+Up');wait_until(lambda:data()['workspace']==1)
-        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        kind_button('agents');wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         background_selected=data()['selected'];background_workspace=data()['workspace']
         click(*settled_point(lambda d:d['navigation_agent_info']));wait_until(lambda:data()['agent_info_open'] and not data()['drawer_open'])
         assert data()['selected']==background_selected and data()['workspace']==background_workspace,'inspecting a background agent navigated to it'
         click(*settled_point(lambda d:d['agent_info_runtime']));wait_until(lambda:data()['runtime_info_open'] and not data()['agent_info_open'])
         assert data()['runtime_info_target']==data()['panes'][8]['identity'] and data()['selected']==background_selected and data()['workspace']==background_workspace
         key('Escape');wait_until(lambda:not data()['runtime_info_open'] and data()['panes'][background_selected]['focus'])
-        click(*settled_point(lambda d:d['agents_button']));wait_until(lambda:data()['drawer_open']);time.sleep(.3)
+        kind_button('agents');wait_until(lambda:data()['drawer_open']);time.sleep(.3)
         click(*settled_point(lambda d:d['navigation_first_agent']));wait_until(lambda:not data()['drawer_open'] and data()['workspace']==2 and data()['selected']==8 and data()['panes'][8]['focus'])
         key('super+alt+o');wait_until(lambda:data()['overview'])
         search_input=[received(i) for i in range(6)];search_catalog=workspace_catalog.load(root);search_objects=[p['instance'] for p in data()['panes']]
@@ -1741,7 +1748,7 @@ while True:
             wait_until(lambda:data()['catalog_open'] and not data()['apps_checking'] and data()['catalog_count']>0)
         def choose(text,app_id):
             open_catalog();typed(text);wait_until(lambda:data()['catalog_current']==app_id);key('Return')
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['add_applications'] and not data()['navigation_first_app'])
+        kind_button('apps');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['add_applications'] and not data()['navigation_first_app'])
         capture('apps-panel-empty.png')
         click(*settled_point(lambda d:d['add_applications']));wait_until(lambda:data()['catalog_open'] and not data()['apps_checking'] and data()['catalog_count']>100)
         capture('app-catalog.png')
@@ -1753,7 +1760,7 @@ while True:
         typed('app-input');key('Return');wait_until(lambda:re.sub(r'\s','',app_pane('echo')['text']).count('app-input')>=2)
         # The apps filter lists the running app; Return goes to its pane.
         key('super+alt+Left');wait_until(lambda:data()['panes'][0]['focus'])
-        click(*settled_point(lambda d:d['apps_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_first_app'])
+        kind_button('apps');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='apps' and data()['navigation_first_app'])
         capture('apps-panel.png')
         time.sleep(.2);key('Return');wait_until(lambda:app_pane('echo')['focus'] and not data()['drawer_open'])
         assert len(data()['panes'])==2 and app_pane('echo')['identity']==echo
@@ -1839,12 +1846,12 @@ while True:
         time.sleep(.3);capture('host-pane.png')
         # The hosts filter shows host panes in their workspaces and nothing else;
         # New host pane… lists the saved hosts, and choosing one opens another pane.
-        click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
+        kind_button('hosts');wait_until(lambda:data()['drawer_open'] and data()['navigation_section']=='hosts')
         wait_until(lambda:len(data()['navigation_host_panes'])==1 and not data()['navigation_hosts'] and len(data()['new_host_button'])==2)
         click(*settled_point(lambda d:d['new_host_button']));wait_until(lambda:data()['host_chooser_open'] and any(h.startswith('Lab · lab-box') for h in data()['navigation_hosts']))
         wait_until(lambda:data()['host_reachability'].get('lab')=='reachable',timeout=10);time.sleep(.3);capture('host-chooser.png')
         key('Return');wait_until(lambda:not data()['host_chooser_open'] and app_pane('_host-lab_2') is not None,timeout=10)
-        click(*settled_point(lambda d:d['hosts_button']));wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
+        kind_button('hosts');wait_until(lambda:data()['drawer_open'] and len(data()['navigation_host_panes'])==2)
         time.sleep(.3);capture('hosts-panel.png');key('Escape');wait_until(lambda:not data()['drawer_open'])
         # Add host… saves to Band's own list with an alias from ~/.ssh/config and
         # connects; a saved host can be removed in the chooser, config.conf hosts cannot.

@@ -110,6 +110,8 @@ Rectangle {
                             width: parent.width; spacing: Design.spaceL
                             KeyChips { tones: column.t; keys: "Ctrl+Shift+P" }
                             KeyChips { tones: column.t; keys: "⌘⇧P" }
+                            KeyChips { tones: column.t; keys: "Super+Alt+Right"; plain: true }
+                            KeyChips { tones: column.t; keys: "⌘⇧P"; plain: true }
                             Repeater {
                                 model: ["accent", "ready", "waiting"]
                                 Row {
@@ -121,11 +123,11 @@ Rectangle {
                             }
                         }
 
-                        // Every chrome icon, at the size the rail draws them.
+                        // Every chrome icon, at the size the chrome draws them.
                         Flow {
                             width: parent.width; spacing: Design.spaceM
                             Repeater {
-                                model: ["menu", "workspaces", "filter-off", "shell", "apps", "host", "agents", "pin", "plus", "close", "more", "chevron", "width", "full", "check", "info", "help", "minimize", "maximize", "restore"]
+                                model: ["menu", "sidebar", "workspaces", "filter-off", "shell", "apps", "host", "agents", "pin", "plus", "workspaces-add", "apps-add", "host-add", "close", "more", "chevron", "width", "full", "check", "info", "help", "minimize", "maximize", "restore"]
                                 ChromeIcon { required property string modelData; width: 18; height: 18; name: modelData; color: column.t.muted; ToolTip.text: modelData }
                             }
                         }

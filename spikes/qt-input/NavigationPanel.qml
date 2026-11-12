@@ -5,8 +5,8 @@ import Band.Design
 
 // One panel is reparented between the temporary drawer and the reserved column.
 // Existing runtime observers supply facts; navigation never attaches or recovers.
-// It always shows workspaces with their panes; the rail's kind icons filter the
-// panes (shells, apps, hosts, agents), one kind at a time.
+// It always shows workspaces with their panes; the kind icons at its top filter
+// the panes (shells, apps, hosts, agents), one kind at a time.
 Item {
     id: navigation
     required property var host
@@ -25,7 +25,7 @@ Item {
         if (top < list.contentY) list.contentY = top
         else if (top + height > list.contentY + list.height) list.contentY = Math.max(0, top + height - list.height)
     }
-    // The rail's name for a pane's kind.
+    // The kind filter's name for a pane's kind.
     function kindOf(i) {
         const kind = host.paneIdentity(host.panel(i)).kind
         return kind === "agent" ? "agents" : kind === "app" ? "apps" : kind === "host" ? "hosts" : "shells"
@@ -75,7 +75,7 @@ Item {
         scrollTo(row.y, row.height)
         row.button.forceActiveFocus(Qt.TabFocusReason)
     }
-    // A "new" action at the foot of the sidebar: a small icon (the rail's glyph
+    // A "new" action at the foot of the sidebar: a small icon (the kind filter's glyph
     // with a plus), its name and chord in the tooltip (owner, 2026-11-12).
     component FooterAction: ChromeButton {
         id: action
@@ -89,9 +89,27 @@ Item {
         }
         onClicked: action.activated()
     }
-    // The rail names the filters and holds the pin, so the panel has no title
-    // and the list starts at the top.
-    Item { id: header; x: 14; y: 14; width: 0; height: 0 }
+    // No rail (owner, 2026-11-12): the kind filters head the panel, one kind at
+    // a time; the shown kind again shows every pane.
+    component KindButton: ChromeButton {
+        required property string kind
+        tones: host.chrome; height: 28; selected: navigation.kindOn(kind); onClicked: host.toggleKind(kind)
+    }
+    Row {
+        id: kindRow; x: 14; y: 12; spacing: Design.spaceXs
+        KindButton { objectName: "shellsButton"; kind: "shells"; iconName: "shell"; hint: "Shells" }
+        KindButton { objectName: "appsButton"; kind: "apps"; iconName: "apps"; hint: "Apps" }
+        KindButton { objectName: "hostsButton"; kind: "hosts"; iconName: "host"; hint: "Hosts" }
+        KindButton {
+            objectName: "agentsButton"; kind: "agents"; iconName: "agents"
+            hint: host.waitingCount ? "Agents · " + host.waitingCount + " need input (last reports)" : "Agents"
+            Rectangle {
+                x: 19; y: -4; width: 16; height: 16; radius: 8; visible: host.waitingCount > 0; color: host.chrome.waiting
+                Text { anchors.centerIn: parent; text: host.waitingCount; color: host.chrome.background; font.pixelSize: Design.textCaption }
+            }
+        }
+    }
+    Item { id: header; x: 14; y: kindRow.y + kindRow.height + Design.spaceM; width: 0; height: 0 }
     ContextSearch {
         id: sidebarFilter; objectName: "navigationFilter"; x: 14; y: header.y; width: parent.width - 28; tones: host.chrome
         placeholderText: "Filter workspaces and panes…"
@@ -248,6 +266,14 @@ Item {
                 padding: Design.spaceM; topPadding: Design.space2xl; text: "Disposable UI study\nClosing stops all study shells."; wrapMode: Text.Wrap; color: host.chrome.muted; font.pixelSize: Design.textSmall
             }
         }
+    }
+    // The pin at the foot's right: pinned, the sidebar keeps its column.
+    ChromeButton {
+        objectName: "navigationPin"; anchors.right: parent.right; anchors.rightMargin: 14; y: createFooter.y; height: 28
+        tones: host.chrome; iconName: "pin"; selected: host.navigationPinned
+        enabled: host.width >= 920 || host.navigationPinned
+        hint: host.navigationPinned ? "Unpin navigation" : host.width < 920 ? "Widen the window to pin navigation" : "Pin navigation"
+        onClicked: host.toggleNavigationPin()
     }
     // The "new" actions, each with its chord.
     Row {

@@ -71,31 +71,40 @@ test opens it from Commands and saves `design-gallery.png`.
   its name, before the remove button, so the names line up with the left edge.
 - One bar at the top: the system title bar folds into Band's top bar by default
   (`integrated-title-bar`), which keeps the pane strip.
-- Fewer layers in the sidebar: no panel title (the rail names the section; the
-  pin sits at the foot of the rail, and Keyboard shortcuts live in the menus,
-  the command menu and their chord); workspaces as small bold section headers,
+- Fewer layers in the sidebar: no panel title (Keyboard shortcuts live in the
+  menus, the command menu and their chord); workspaces as small bold section headers,
   all open until closed (the current one in full color, the others muted, the
   count and activity dots only while closed, the dots right after the name);
   the caret and remove button only on hover or keyboard focus, with the hover
   background across the whole header; and each terminal on one line, the
   folder and branch muted after the name (two lines until 2026-11-11).
-- One sidebar view: workspaces with their panes. The rail filters it by kind
-  (Shells, Apps, Hosts, Agents; one at a time; the shown one again clears it) under All panes, which clears
-  them. Saved hosts (connect and remove on hover) follow with the hosts
+- One sidebar view: workspaces with their panes. No rail (owner, 2026-11-12;
+  a 44 px icon column on the left before that): kind icons at the panel's top
+  filter it (Shells, Apps, Hosts, Agents; one at a time; the shown one again
+  clears it), and the sidebar toggle at the top bar's left is All panes: it
+  clears the filters, or shows and hides the sidebar, and carries the count
+  of agents that need input. The pin sits at the panel's foot, on the right. Saved hosts (connect and remove on hover) follow with the hosts
   filter; an agent row's details button shows on hover. The "new" actions sit
-  at the foot as a row of small icons, each the rail's glyph with a plus,
+  at the foot as a row of small icons, each the kind's glyph with a plus,
   their names and chords in the tooltip (owner, 2026-11-12; a column of text
   actions before that).
 - On macOS every type step is a pixel smaller.
 - Commands is a search field over a list, high in the window: no title, key
   legend or Done button (Escape or a click outside closes it), the context in
-  the field's placeholder, and tighter rows.
+  the field's placeholder, and one-line rows (owner, 2026-11-12): the title,
+  then muted after it the reason a command is unavailable or the highlighted
+  row's detail, and the shortcut as plain glyphs ("⌘⇧P", "Super+Alt+→").
+  Menus and tooltips show shortcuts the same way; Welcome's keys page and
+  Keyboard shortcuts keep the key chips.
 - Add applications follows: the search heads it, with the app count and
   Sources beside it; no subtitle, key legend or Done.
 - Appearance, New workspace, Rename, the folder and host dialogs follow the
   window's tones (they had a fixed dark palette), and every dialog puts its
   decision on the right with the main action last and highlighted; focus
   still starts on Cancel in confirmations.
+- Settings in cards (owner, 2026-11-12): Configuration, Terminal text and
+  Shortcut settings group their rows on soft rounded panels with hairlines
+  between them, under a heading (`SettingsCard`, `SettingsRow`).
 - Panes are one panel in the workspace's terminal background with a hairline
   border and the header blended in; no frame marks focus (an accent frame
   until 2026-11-11). The focused pane's name is in full color, the others
@@ -120,11 +129,10 @@ The top bar stays (owner, 2026-11-12). Folding it into the pinned sidebar's
 top row, as Rex does, was tried and reverted: the owner prefers the top bar
 with the pane markers in the middle. Not everything of Rex is better.
 
-The sidebar's foot is a row of small icons (owner, 2026-11-12), to be judged
-in use like the rest.
-
-Still to decide, as they change the layout: the rail (Rex has none), one-line
-command rows with plain key glyphs, settings in cards.
+The sidebar's foot as small icons, one-line command rows with plain key
+glyphs, settings in cards and no rail followed (owner, 2026-11-12), to be
+judged in use like the rest; any of them can be reverted, as the top-bar fold
+was. That leaves no layout item from the first round open.
 
 Rex's sidebar is a level shallower than Band's (owner, 2026-11-11): its rows
 are sessions (about a Band workspace; a stacked icon when one holds several

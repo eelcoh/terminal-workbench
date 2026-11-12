@@ -128,7 +128,7 @@ void UiThemes::append(int index,const StoredTheme *record,int ignored) {
         {"background",bg.name()},{"foreground",fg.name()},{"accent",color(value.cursor).name()},
         {"surface",mix(bg,fg,value.light?.035:.045).name()},{"hover",mix(bg,fg,value.light?.11:.14).name()},{"border",mix(bg,fg,value.light?.18:.19).name()},
         {"raised",mix(bg,fg,value.light?.06:.085).name()},
-        // Top bar, rail and sidebar: on dark themes a step darker than the window, on light ones the surface.
+        // Top bar and sidebar: on dark themes a step darker than the window, on light ones the surface.
         {"sidebar",(value.light?mix(bg,fg,.035):mix(bg,QColor(0,0,0),.3)).name()},
         {"selected",mix(bg,color(value.cursor),value.light?.13:.2).name()},
         {"waiting",value.light?"#835612":"#e6c689"},{"ready",value.light?"#2b704d":"#a5d2b1"},
