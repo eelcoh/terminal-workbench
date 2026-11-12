@@ -220,11 +220,6 @@ ApplicationWindow {
     property bool navigationHidden: false
     readonly property bool navigationDocked: navigationPinned && width >= 920 && !navigationHidden
     readonly property int navigationEdge: navigationDocked ? 288 : 44
-    // With the sidebar pinned, the top bar folds into the sidebar's top row
-    // and the terminals start at the top of the window (owner, 2026-11-12);
-    // unpinned, a slim top bar stays for the window controls and the markers.
-    readonly property bool topFolded: navigationDocked
-    readonly property int contentTop: topFolded ? 12 : 60
     onNavigationPinnedChanged: scheduleViewSave()
     onNavigationDockedChanged: {
         if (navigationDocked) drawer.close()
@@ -870,7 +865,7 @@ ApplicationWindow {
             const right = pane ? deck.x + pane.x - deck.contentX + pane.width - 8 : window.width - 12
             return Math.max(window.navigationEdge + 12, Math.min(window.width - width - 12, right - width))
         }
-        y: window.topFolded ? deck.y + 36 : 48
+        y: 48
         onFinished: Qt.callLater(window.restoreAfterPopup)
     }
     property bool pendingForward: false
@@ -1060,12 +1055,12 @@ ApplicationWindow {
         topPadding: Design.spaceXs; bottomPadding: Design.spaceXs; leftPadding: Design.spaceM; rightPadding: Design.spaceM
         contentItem: Rectangle { implicitWidth: 248; implicitHeight: 1; color: window.chrome.border }
     }
-    Rectangle { x: 0; y: 0; width: window.topFolded ? window.navigationEdge : parent.width; height: 40; color: window.chrome.sidebar }
+    Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.sidebar }
     Rectangle { x: 0; y: 40; width: 44; height: parent.height - 40; color: window.chrome.sidebar }
     // With an integrated title bar, empty top bar space moves the window and a
     // double click maximizes it; controls above it keep their own input.
     Item {
-        objectName: "titleDragArea"; x: 0; y: 0; width: window.topFolded ? window.navigationEdge : parent.width; height: 40; enabled: window.titleIntegrated
+        objectName: "titleDragArea"; x: 0; y: 0; width: parent.width; height: 40; enabled: window.titleIntegrated
         // Linux: the compositor moves the window.
         DragHandler { target: null; enabled: window.ownTitle; onActiveChanged: if (active) window.startSystemMove() }
         TapHandler { enabled: window.ownTitle; onDoubleTapped: window.toggleMaximized() }
@@ -1081,7 +1076,7 @@ ApplicationWindow {
     }
     Row {
         id: windowButtons; objectName: "windowButtons"; visible: window.ownTitle
-        x: (window.topFolded ? window.navigationEdge : parent.width) - width - Design.spaceS; y: 6; spacing: window.topFolded ? 0 : Design.space2xs
+        anchors.right: parent.right; anchors.rightMargin: Design.spaceS; y: 6; spacing: Design.space2xs
         QuietButton { objectName: "windowMinimize"; height: 28; iconName: "minimize"; hint: "Minimize"; focusPolicy: Qt.NoFocus; onClicked: window.showMinimized() }
         QuietButton { objectName: "windowMaximize"; height: 28; iconName: window.maximized ? "restore" : "maximize"; hint: window.maximized ? "Restore" : "Maximize"; focusPolicy: Qt.NoFocus; onClicked: window.toggleMaximized() }
         QuietButton { objectName: "windowClose"; height: 28; iconName: "close"; hint: "Close window"; focusPolicy: Qt.NoFocus; onClicked: window.close() }
@@ -1132,10 +1127,8 @@ ApplicationWindow {
         onClicked: window.toggleNavigationPin()
     }
     TopBar {
-        id: topbar; y: 4
-        x: window.topFolded ? (window.systemMenus ? 12 : 40) + window.titleInset : Math.max(window.navigationEdge, window.titleInset + 44)
-        width: (window.topFolded ? window.navigationEdge - Design.spaceM : parent.width - 12) - x - (windowButtons.visible ? windowButtons.width + (window.topFolded ? Design.spaceXs : 12) : 0)
-        compact: window.topFolded; tones: window.chrome; accent: window.accent; overview: window.overview; canCreate: window.canCreateTerminal
+        id: topbar; x: Math.max(window.navigationEdge, window.titleInset + 44); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0)
+        tones: window.chrome; accent: window.accent; overview: window.overview; canCreate: window.canCreateTerminal
         workspaceName: window.overview ? "Overview" : (window.spaces[window.workspace] || "No workspaces")
         readonly property var paneIndices: window.indices(window.workspace)
         focusPosition: paneIndices.indexOf(window.selected)
@@ -1150,7 +1143,7 @@ ApplicationWindow {
         onOverviewClicked: window.toggleOverview()
     }
     Flow {
-        id: overviewFilters; x: window.navigationEdge + 16; y: window.topFolded ? 12 : 54; width: window.width - x - 12; spacing: Design.spaceM; visible: window.overview
+        id: overviewFilters; x: window.navigationEdge + 16; y: 54; width: window.width - x - 12; spacing: Design.spaceM; visible: window.overview
         ContextSearch {
             id: overviewSearch; objectName: "overviewSearch"; tones: window.chrome
             width: Math.min(240, overviewFilters.width); placeholderText: "Find terminals…"; Accessible.name: "Find terminals by workspace, folder, Git or agent"
@@ -1173,7 +1166,7 @@ ApplicationWindow {
         onContentYChanged: window.scheduleViewSave()
         property real scrollTarget: 0
         property bool directPanning: false
-        x: window.navigationEdge + 16; y: window.overview ? overviewFilters.y + overviewFilters.implicitHeight + 16 : window.contentTop; width: parent.width - x - 12; height: parent.height - y - 12
+        x: window.navigationEdge + 16; y: window.overview ? overviewFilters.y + overviewFilters.implicitHeight + 16 : 60; width: parent.width - x - 12; height: parent.height - y - 12
         clip: true; boundsBehavior: Flickable.StopAtBounds
         interactive: window.overview && window.dragSlot < 0
         contentWidth: window.overview ? width : window.stripWidth()
@@ -1255,7 +1248,7 @@ ApplicationWindow {
                 readonly property int overviewOrdinal: window.overviewOrdinals[index] ?? -1
                 readonly property real previewScale: Math.min(deck.cardWidth / width, deck.previewHeight / height)
                 objectName: "pane" + index
-                width: window.paneWidth(index); height: window.height - window.contentTop - 12
+                width: window.paneWidth(index); height: window.height - 72
                 x: window.overview ? 3 + (overviewOrdinal % deck.columns) * deck.cellWidth : window.left(index)
                 y: window.overview ? deck.groupTop(spaceIndex) + Math.floor(overviewOrdinal / deck.columns) * deck.rowStride + deck.previewTop : 0
                 scale: window.overview ? previewScale : 1
@@ -1437,7 +1430,7 @@ ApplicationWindow {
     Rectangle {
         visible: window.dragSlot >= 0
         x: Math.min(window.width - width - 12, deck.x + window.dragPoint.x + 16)
-        y: Math.max(deck.y, Math.min(window.height - height - 12, deck.y + window.dragPoint.y + 16))
+        y: Math.max(60, Math.min(window.height - height - 12, deck.y + window.dragPoint.y + 16))
         width: dragLabel.implicitWidth + 24; height: 38; radius: Design.radiusL; color: window.chrome.surface; border.color: window.accent; z: 5
         Label { id: dragLabel; anchors.centerIn: parent; text: (window.dropSpace < 0 ? "Move terminal" : window.spaces[window.dropSpace] + " · position " + (window.dropPosition + 1)) + " · Esc cancels"; color: window.chrome.foreground }
     }
@@ -1452,7 +1445,7 @@ ApplicationWindow {
     Rectangle {
         id: pinnedNavigation; x: 44; y: 40; width: 244; height: window.height - 40
         visible: window.navigationDocked; color: window.chrome.sidebar
-        Rectangle { anchors.right: parent.right; y: -40; width: 1; height: parent.height + 40; color: window.chrome.border }
+        Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: window.chrome.border }
     }
     Welcome {
         id: welcome; objectName: "welcome"; visible: false; z: 40
