@@ -75,19 +75,14 @@ Item {
         scrollTo(row.y, row.height)
         row.button.forceActiveFocus(Qt.TabFocusReason)
     }
-    // A "new" action at the foot of the sidebar; its chord shows on hover.
+    // A "new" action at the foot of the sidebar: a small icon (the rail's glyph
+    // with a plus), its name and chord in the tooltip (owner, 2026-11-12).
     component FooterAction: ChromeButton {
         id: action
         property string label
         property string chord
         signal activated()
-        width: createFooter.width; height: 30; tones: host.chrome; text: label; quiet: true
-        contentItem: Item {
-            opacity: action.enabled ? 1 : 0.38
-            ChromeIcon { x: Design.spaceM; anchors.verticalCenter: parent.verticalCenter; width: 16; height: 16; name: "plus"; color: host.chrome.accent }
-            Text { x: Design.spaceM + 26; anchors.verticalCenter: parent.verticalCenter; text: action.label; color: host.chrome.accent; font.pixelSize: Design.textBody }
-            KeyChips { anchors.right: parent.right; anchors.rightMargin: Design.spaceS; anchors.verticalCenter: parent.verticalCenter; keys: action.chord; tones: host.chrome; opacity: action.hovered || action.visualFocus ? 1 : 0 }
-        }
+        tones: host.chrome; hint: label; keys: chord; height: 28
         Keys.onPressed: event => {
             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) { action.activated(); event.accepted = true }
             else event.accepted = false
@@ -255,19 +250,18 @@ Item {
         }
     }
     // The "new" actions, each with its chord.
-    Column {
-        id: createFooter; x: 14; y: parent.height - height - 14; width: parent.width - 28; spacing: 0
+    Row {
+        id: createFooter; x: 14; y: parent.height - height - 14; spacing: Design.spaceXs
         FooterAction {
-            objectName: "newWorkspaceButton"; label: "New workspace…"; chord: studyShortcuts.labels["new-workspace"] || ""; enabled: host.canCreateWorkspace
+            objectName: "newWorkspaceButton"; iconName: "workspaces-add"; label: "New workspace…"; chord: studyShortcuts.labels["new-workspace"] || ""; enabled: host.canCreateWorkspace
             onActivated: host.newWorkspace()
         }
         FooterAction {
-            id: addApplications; objectName: "addApplicationsButton"; label: "Add applications…"; chord: studyShortcuts.labels["apps"] || ""; enabled: host.spaces.length > 0
+            id: addApplications; objectName: "addApplicationsButton"; iconName: "apps-add"; label: "Add applications…"; chord: studyShortcuts.labels["apps"] || ""; enabled: host.spaces.length > 0
             onActivated: host.openCatalog()
         }
         FooterAction {
-            objectName: "newHostButton"; label: "New host pane…"; chord: studyShortcuts.labels["new-host"] || ""
-            hint: "Save an SSH destination; [host.ID] in config.conf works too"
+            objectName: "newHostButton"; iconName: "host-add"; label: "New host pane…"; chord: studyShortcuts.labels["new-host"] || ""
             onActivated: host.newHost()
         }
     }

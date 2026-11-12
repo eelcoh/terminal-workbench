@@ -83,7 +83,9 @@ test opens it from Commands and saves `design-gallery.png`.
   (Shells, Apps, Hosts, Agents; one at a time; the shown one again clears it) under All panes, which clears
   them. Saved hosts (connect and remove on hover) follow with the hosts
   filter; an agent row's details button shows on hover. The "new" actions sit
-  at the foot, their chords on hover.
+  at the foot as a row of small icons, each the rail's glyph with a plus,
+  their names and chords in the tooltip (owner, 2026-11-12; a column of text
+  actions before that).
 - On macOS every type step is a pixel smaller.
 - Commands is a search field over a list, high in the window: no title, key
   legend or Done button (Escape or a click outside closes it), the context in
@@ -107,8 +109,8 @@ test opens it from Commands and saves `design-gallery.png`.
 The owner's Rex and Mac screenshots in the inventory led to four changes that
 leave the layout alone:
 - Text buttons are pills: a soft wash of the foreground at rest, deeper on
-  hover, the accent for the main action. The top bar's Overview and the
-  sidebar's "new" actions stay bare text (`quiet`).
+  hover, the accent for the main action. The top bar's Overview stays bare
+  text (`quiet`).
 - The current row (and any selected choice) is a soft pill with a thin
   outline instead of an accent fill.
 - Sidebar panes take one line.
@@ -118,9 +120,11 @@ The top bar stays (owner, 2026-11-12). Folding it into the pinned sidebar's
 top row, as Rex does, was tried and reverted: the owner prefers the top bar
 with the pane markers in the middle. Not everything of Rex is better.
 
-Still to decide, as they change the layout: the rail (Rex has none), the
-sidebar's foot as small icons, one-line command rows with plain key glyphs,
-settings in cards.
+The sidebar's foot is a row of small icons (owner, 2026-11-12), to be judged
+in use like the rest.
+
+Still to decide, as they change the layout: the rail (Rex has none), one-line
+command rows with plain key glyphs, settings in cards.
 
 Rex's sidebar is a level shallower than Band's (owner, 2026-11-11): its rows
 are sessions (about a Band workspace; a stacked icon when one holds several

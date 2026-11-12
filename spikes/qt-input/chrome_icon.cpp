@@ -1,10 +1,8 @@
 #include "chrome_icon.h"
 #include <QPainter>
 #include <QPainterPath>
-void ChromeIcon::paint(QPainter *p) {
-    // Original geometric icons, independent of font fallback and terminal glyphs.
-    p->setRenderHint(QPainter::Antialiasing);p->scale(width()/24,height()/24);
-    p->setPen(QPen(color_,1.5,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p->setBrush(Qt::NoBrush);
+// One glyph on a 24-unit grid.
+static void glyph(QPainter *p,const QString &name_,const QColor &color_) {
     if(name_=="menu") {for(int y:{5,12,19})p->drawLine(QPointF(4,y),QPointF(20,y));}
     else if(name_=="workspaces") {for(int y:{4,14})p->drawRoundedRect(QRectF(4,y,16,6),1,1);}
     else if(name_=="agents") {QPainterPath path;path.moveTo(2,12);path.lineTo(6,12);path.lineTo(9,5);path.lineTo(14,19);path.lineTo(18,12);path.lineTo(22,12);p->drawPath(path);}
@@ -26,4 +24,16 @@ void ChromeIcon::paint(QPainter *p) {
     else if(name_=="check") {p->drawLine(QPointF(5,12),QPointF(10,17));p->drawLine(QPointF(10,17),QPointF(20,6));}
     else if(name_=="info") {p->drawEllipse(QPointF(12,12),9,9);p->drawPoint(QPointF(12,7));p->drawLine(QPointF(12,11),QPointF(12,17));}
     else if(name_=="help") {QPainterPath path;path.moveTo(8,8);path.cubicTo(8,3,17,3,17,8);path.cubicTo(17,12,12,11,12,15);p->drawPath(path);p->drawPoint(QPointF(12,20));}
+}
+void ChromeIcon::paint(QPainter *p) {
+    // Original geometric icons, independent of font fallback and terminal glyphs.
+    p->setRenderHint(QPainter::Antialiasing);p->scale(width()/24,height()/24);
+    p->setPen(QPen(color_,1.5,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p->setBrush(Qt::NoBrush);
+    // "<name>-add": the glyph a little smaller at the top left, a small plus at the bottom right.
+    if(name_.endsWith(QStringLiteral("-add"))) {
+        p->save();p->scale(0.78,0.78);glyph(p,name_.chopped(4),color_);p->restore();
+        p->drawLine(QPointF(19,15),QPointF(19,23));p->drawLine(QPointF(15,19),QPointF(23,19));
+        return;
+    }
+    glyph(p,name_,color_);
 }
