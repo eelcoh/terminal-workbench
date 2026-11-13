@@ -24,8 +24,13 @@ brew install cmake ninja just python gh qt
 
 Use Qt 6.8 or newer; set `CMAKE_PREFIX_PATH` to its prefix if CMake cannot find
 it. Python 3.11 or newer is needed for development scripts and tests, not by
-opening an installed preview. Install Rust through rustup if it is missing. One
-Homebrew option is:
+opening an installed preview. The Python that macOS ships is 3.9 and fails
+`tests/attention_smoke.py`. Instead of Homebrew's Python,
+[mise](https://mise.jdx.dev) can supply it: the repository's `mise.toml` names
+the version, `mise install` fetches it, and from a shell without mise
+activation `mise exec -- just check` runs the checks with it.
+
+Install Rust through rustup if it is missing. One Homebrew option is:
 
 ```sh
 brew install rustup
