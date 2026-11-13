@@ -189,6 +189,27 @@ Seen on the Mac afterwards (owner: it works). Unpinning the sidebar made it
 blink away and back, the drawer fading in where the pinned panel had been;
 it now opens in place and only the scrim fades in.
 
+### Native chrome on macOS: the system material (2026-11-13)
+
+The owner doubts a Qt client can reach the best Mac experience and asked
+about a separate native client. Before that, native chrome inside the Qt
+client: the first piece is the system's sidebar material
+(`NSVisualEffectView`, behind-window blending) under the top bar and the
+pinned sidebar, added by the macOS adapter (`bandSetWindowMaterial` in
+`native/macos/window_title.mm`). The window is transparent on macOS, Band
+paints the main area opaque (`windowFill`), and the top bar and sidebar are
+their theme color at 50% (`Design.materialTint`; 72% at first, hardly visible) over the material, which
+follows the terminal theme's light or dark. AppKit makes it opaque under
+Reduce Transparency. Linux is unchanged: its adapter reports no material and
+the window keeps its opaque color.
+
+Built and packaged on the Mac (the bundle check loads the client); not yet
+seen in a running window. Open points: there is no setting to turn it off,
+the unpinned sidebar drawer stays opaque, and the cost of behind-window
+blending while terminals repaint is unmeasured. It reaches into AppKit's
+frame view to place the material under Qt's view, which AppKit does not
+promise to keep working.
+
 ## Still to do in stage 1
 
 - The inventory: `just design-inventory` writes

@@ -7,7 +7,23 @@ import Band.Design
 ApplicationWindow {
     id: window
     width: 1240; height: 760; minimumWidth: 680; minimumHeight: 440
-    visible: true; title: studySession.savedSession ? "Band" : "Band · disposable sessions"; color: chrome.background
+    visible: true; title: studySession.savedSession ? "Band" : "Band · disposable sessions"
+    // On macOS the window is transparent from the start (Qt fixes that when
+    // the native window is made), so the system's material can show behind the
+    // top bar and the sidebar; windowFill below paints everything else.
+    color: Design.apple ? "transparent" : chrome.background
+    // Whether the system material is behind the window (macOS, once shown).
+    property bool material: false
+    function syncMaterial() { if (Design.apple && visible) material = titleChrome.setMaterial(window, !chrome.light) }
+    onVisibleChanged: Qt.callLater(syncMaterial)
+    readonly property bool chromeLight: !!chrome.light
+    onChromeLightChanged: Qt.callLater(syncMaterial)
+    // The top bar's and sidebar's color: over the material a tint of it.
+    readonly property color barColor: material ? Design.withAlpha(chrome.sidebar, Design.materialTint) : chrome.sidebar
+    Rectangle {
+        id: windowFill; objectName: "windowFill"; z: -1; visible: Design.apple; color: window.chrome.background
+        x: window.material ? window.navigationEdge : 0; y: window.material ? 40 : 0; width: parent.width - x; height: parent.height - y
+    }
     // integrated-title-bar in config.conf folds the title bar into Band's top
     // bar: on Linux a frameless window with Band's own window buttons and
     // resize edges, on macOS the traffic lights inside the top bar (Qt 6.9+).
@@ -31,6 +47,7 @@ ApplicationWindow {
     // folded-in title bar is the title bar itself; Band's top bar fills it.
     function syncTitleText() {
         titleChrome.setHidden(window, appleTitle)
+        syncMaterial()      // a recreated native window has lost it
         if ("topPadding" in window) { window.topPadding = 0; window.leftPadding = 0; window.rightPadding = 0 }
     }
     onAppleTitleChanged: Qt.callLater(syncTitleText)
@@ -1061,7 +1078,7 @@ ApplicationWindow {
         topPadding: Design.spaceXs; bottomPadding: Design.spaceXs; leftPadding: Design.spaceM; rightPadding: Design.spaceM
         contentItem: Rectangle { implicitWidth: 248; implicitHeight: 1; color: window.chrome.border }
     }
-    Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.chrome.sidebar }
+    Rectangle { x: 0; y: 0; width: parent.width; height: 40; color: window.barColor }
     // With an integrated title bar, empty top bar space moves the window and a
     // double click maximizes it; controls above it keep their own input.
     Item {
@@ -1434,7 +1451,7 @@ ApplicationWindow {
     }
     Rectangle {
         id: pinnedNavigation; x: 0; y: 40; width: 244; height: window.height - 40
-        visible: window.navigationDocked; color: window.chrome.sidebar
+        visible: window.navigationDocked; color: window.barColor
         Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: window.chrome.border }
     }
     Welcome {

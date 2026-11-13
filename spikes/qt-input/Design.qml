@@ -46,6 +46,10 @@ QtObject {
     property bool reducedMotion: false
     readonly property int fade: reducedMotion ? 0 : motionQuick
 
+    // How much of the top bar's and sidebar's own color lies over the system
+    // material on macOS; the rest is the material showing through.
+    readonly property real materialTint: 0.5
+
     // The focused pane: its hairline a little brighter (a quarter of the way to
     // the accent; 0.4 until 2026-11-13, the hardest line in the window), tinted toward the
     // accent, and a faint glow just inside it.
