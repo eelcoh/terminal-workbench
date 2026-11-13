@@ -44,7 +44,11 @@ fn exchange(
     };
     let mut payload = message.to_string().into_bytes();
     payload.push(b'\n');
+    // Both timeouts are set before the request is sent: macOS refuses socket
+    // options with EINVAL once the peer has closed, and the service closes
+    // right after its reply.
     connection.set_write_timeout(Some(timeout)).map_err(os)?;
+    connection.set_read_timeout(Some(timeout)).map_err(os)?;
     connection.write_all(&payload).map_err(os)?;
     let mut data = Vec::new();
     let mut chunk = [0; 4096];
@@ -53,7 +57,9 @@ fn exchange(
         if remaining.is_zero() {
             return Err(Failure::TimedOut);
         }
-        connection.set_read_timeout(Some(remaining)).map_err(os)?;
+        // Shortening may fail for the same reason; the reply or the close is
+        // then already there to read, and the deadline above still holds.
+        let _ = connection.set_read_timeout(Some(remaining));
         match connection.read(&mut chunk) {
             Ok(0) => {
                 return Err(Failure::Other(
