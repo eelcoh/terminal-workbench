@@ -47,14 +47,16 @@ Button {
         ChromeIcon { anchors.centerIn: parent; width: 20; height: 20; visible: control.iconOnly; name: control.iconName; color: control.colors.foreground }
     }
     // Text buttons are pills: the main action filled with the accent, the
-    // others a soft wash. Hover deepens the wash; the current row is a soft
-    // pill with a thin outline (after Rex); keyboard focus is an accent ring.
+    // others a soft wash, a selected choice among them with a thin outline.
+    // Rows and icon buttons are rounded rectangles like fields; the current
+    // one is a wash without an outline. Hover deepens the wash; keyboard
+    // focus is an accent ring.
     background: Rectangle {
-        radius: control.filled || control.primary || control.selected ? height / 2 : Design.radiusM
+        radius: control.filled || control.primary ? height / 2 : Design.radiusM
         color: control.primary ? (control.showDown ? Qt.darker(control.colors.accent, 1.15) : control.showHover ? Qt.lighter(control.colors.accent, 1.08) : control.colors.accent)
             : control.showDown ? control.wash(0.16) : control.showHover ? control.wash(control.selected ? 0.18 : control.filled ? 0.12 : 0.07)
             : control.selected ? control.wash(0.14) : control.filled ? control.wash(0.07) : control.showFocus ? control.wash(0.07) : "transparent"
-        border.width: control.showFocus ? (control.primary ? Design.lineStrong : Design.line) : control.selected ? Design.line : 0
+        border.width: control.showFocus ? (control.primary ? Design.lineStrong : Design.line) : control.selected && control.filled ? Design.line : 0
         border.color: control.showFocus ? (control.primary ? control.colors.foreground : control.colors.accent) : control.wash(0.3)
     }
     // A per-control tooltip stays themed and updates as its source text changes.

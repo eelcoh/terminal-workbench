@@ -27,12 +27,24 @@ ChromeButton {
             id: dirtyMark; visible: entry.dirty; anchors.left: paneName.right; anchors.leftMargin: Design.spaceS; anchors.verticalCenter: paneName.verticalCenter
             width: 6; height: 6; radius: 3; color: entry.tones.accent
         }
+        // The detail gives way a whole part at a time ("folder · branch" drops
+        // the branch first); only its first part is cut short.
+        FontMetrics { id: detailMetrics; font: paneDetail.font }
         Text {
+            id: paneDetail; objectName: "paneDetail"
             visible: entry.detail.length > 0
             anchors.left: entry.dirty ? dirtyMark.right : paneName.right; anchors.leftMargin: Design.spaceS
             anchors.right: parent.right; anchors.rightMargin: Design.spaceL; anchors.baseline: paneName.baseline
-            text: entry.detail; textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textBody
-            color: entry.tones.muted
+            text: {
+                const parts = entry.detail.split(" · ")
+                for (let n = parts.length; n > 1; --n) {
+                    const shown = parts.slice(0, n).join(" · ")
+                    if (detailMetrics.advanceWidth(shown) <= width) return shown
+                }
+                return parts[0]
+            }
+            textFormat: Text.PlainText; elide: Text.ElideRight; font.pixelSize: Design.textBody
+            color: entry.tones.faint
         }
     }
 }

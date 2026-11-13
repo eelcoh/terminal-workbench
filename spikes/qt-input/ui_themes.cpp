@@ -132,7 +132,7 @@ void UiThemes::append(int index,const StoredTheme *record,int ignored) {
         {"sidebar",(value.light?mix(bg,fg,.035):mix(bg,QColor(0,0,0),.3)).name()},
         {"selected",mix(bg,color(value.cursor),value.light?.13:.2).name()},
         {"waiting",value.light?"#835612":"#e6c689"},{"ready",value.light?"#2b704d":"#a5d2b1"},
-        {"muted",mix(bg,fg,.65).name()},{"swatches",swatches},{"imported",record!=nullptr},{"ignored",ignored},
+        {"muted",mix(bg,fg,.65).name()},{"faint",mix(bg,fg,.5).name()},{"swatches",swatches},{"imported",record!=nullptr},{"ignored",ignored},
         {"source",record?record->source:QString()},{"attribution",record?record->attribution:QString()}};
     catalog_.append(entry);lookup_.insert(index,entry);
 }

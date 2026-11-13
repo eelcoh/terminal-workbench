@@ -25,7 +25,7 @@ ChromeButton {
             Text { id: workspaceName; width: Math.min(implicitWidth, parent.width - (workspaceBranch.visible ? Math.min(workspaceBranch.implicitWidth, parent.width * 0.45) + 6 : 0)); text: entry.text; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.current ? entry.tones.foreground : entry.tones.muted; font.pixelSize: Design.textSmall; font.weight: Font.Bold }
             Text {
                 id: workspaceBranch; objectName: "workspaceBranch" + entry.row; visible: entry.branch.length > 0; anchors.baseline: workspaceName.baseline
-                width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: entry.branch; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.tones.muted; font.pixelSize: Design.textCaption
+                width: Math.min(implicitWidth, parent.width - workspaceName.width - 6); text: entry.branch; textFormat: Text.PlainText; elide: Text.ElideRight; color: entry.tones.faint; font.pixelSize: Design.textCaption
             }
             // Activity right beside the name while collapsed; open, the terminal
             // rows carry it.

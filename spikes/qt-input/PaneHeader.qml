@@ -35,22 +35,23 @@ Item {
     property bool actionsShown: headerHover.hovered   // the gallery pins it on
 
     // Room for the identity left of the state, colors swatch and menu.
-    readonly property real room: width - 51 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0) - (dirtyMark.visible ? 14 : 0)
+    readonly property real room: width - 59 - (paneActions.visible ? paneActions.width + 4 : 0) - headerState.width - (headerState.width > 0 ? 12 : 0) - (ownColors.visible ? 22 : 0) - (dirtyMark.visible ? 14 : 0)
     ChromeIcon {
-        x: 12; y: 9; width: 15; height: 15; name: header.icon
+        x: 16; y: 9; width: 15; height: 15; name: header.icon
         color: header.stopped ? header.tones.waiting : header.tones.muted
     }
     Text {
-        id: paneName; objectName: "paneName"; x: 33; y: 10; visible: text.length > 0
+        id: paneName; objectName: "paneName"; x: 37; y: 10; visible: text.length > 0
         width: Math.min(implicitWidth, Math.max(0, (header.room - x) * 0.5)); elide: Text.ElideRight
-        text: header.name; textFormat: Text.PlainText; font.pixelSize: Design.textSmall
+        text: header.name; textFormat: Text.PlainText; font.pixelSize: Design.textSmall; font.weight: Font.Medium
         color: header.focused ? header.tones.foreground : header.tones.muted
     }
     Text {
-        id: paneTitle; objectName: "paneTitle"; x: paneName.visible ? paneName.x + paneName.width + 7 : 33; y: 10
+        id: paneTitle; objectName: "paneTitle"; x: paneName.visible ? paneName.x + paneName.width + 7 : 37; y: 10
         width: Math.min(implicitWidth, Math.max(0, header.room - x)); elide: Text.ElideMiddle
         text: header.place; textFormat: Text.PlainText; font.pixelSize: Design.textSmall
-        color: paneName.visible ? header.tones.muted : header.tones.foreground
+        // Beside a name the place is the third tone: name, state, then place.
+        color: !paneName.visible ? header.tones.foreground : header.focused ? header.tones.muted : header.tones.faint
     }
     // Uncommitted changes in this pane's Git worktree.
     Rectangle {
@@ -77,7 +78,7 @@ Item {
         ToolTip.text: "Own colors: " + (visible ? studyThemes.theme(header.ownTheme).name : "") + " · click to change"
     }
     Text {
-        id: headerState; x: (paneActions.visible ? paneActions.x - 8 : parent.width - 36) - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
+        id: headerState; x: (paneActions.visible ? paneActions.x - 8 : parent.width - 40) - width; y: 10; width: Math.min(implicitWidth, parent.width * 0.45)
         text: header.agentState; textFormat: Text.PlainText; elide: Text.ElideMiddle; font.pixelSize: Design.textSmall
         color: header.needsInput ? header.tones.waiting : header.agentState === "Ready" ? header.tones.ready : header.tones.muted
     }
@@ -85,7 +86,7 @@ Item {
     // so the title does not move. Buttons are centered in the header, clear of
     // the pane's frame, so a hover never covers its line. They leave keyboard focus in the terminal.
     Row {
-        id: paneActions; objectName: "paneActions"; x: parent.width - 33 - width; y: 4; spacing: Design.space2xs; visible: header.focused
+        id: paneActions; objectName: "paneActions"; x: parent.width - 37 - width; y: 4; spacing: Design.space2xs; visible: header.focused
         opacity: header.actionsShown ? 1 : 0
         ChromeButton { objectName: "paneWidthButton"; tones: header.tones; height: 24; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: header.widthClicked() }
         ChromeButton {
@@ -98,7 +99,7 @@ Item {
         }
     }
     ChromeButton {
-        objectName: "paneLayoutButton"; tones: header.tones; anchors.right: parent.right; anchors.rightMargin: Design.spaceXs; y: 4
+        objectName: "paneLayoutButton"; tones: header.tones; anchors.right: parent.right; anchors.rightMargin: Design.spaceM; y: 4
         iconName: "more"; height: 24; hint: "Terminal layout"; enabled: header.menuEnabled; onClicked: header.menuClicked(this)
     }
 }

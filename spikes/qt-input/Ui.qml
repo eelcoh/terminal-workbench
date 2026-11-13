@@ -1098,7 +1098,7 @@ ApplicationWindow {
         }
     }
     TopBar {
-        id: topbar; x: Math.max(window.navigationEdge, sidebarToggle.x + sidebarToggle.width + Design.spaceS); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0)
+        id: topbar; x: Math.max(window.navigationEdge + Design.spaceM, sidebarToggle.x + sidebarToggle.width + Design.spaceS); y: 4; width: parent.width - x - 12 - (windowButtons.visible ? windowButtons.width + 12 : 0)
         tones: window.chrome; accent: window.accent; overview: window.overview; canCreate: window.canCreateTerminal
         workspaceName: window.overview ? "Overview" : (window.spaces[window.workspace] || "No workspaces")
         readonly property var paneIndices: window.indices(window.workspace)
@@ -1272,7 +1272,9 @@ ApplicationWindow {
                     property int orderInWorkspace: pane.ordinal
                     property string stableIdentity: pane.terminalId
                     property var runtimeFacts: pane.facts
-                    x: 4; y: 36; width: parent.width - 8; height: parent.height - 40
+                    // With the terminal's own 8 px padding, text starts 16 px inside the pane,
+                    // on the header's left edge, and keeps at least 8 px below the last line.
+                    x: 8; y: 36; width: parent.width - 16; height: parent.height - 44
                     enabled: !window.overview
                     textFont: studyFonts.current
                     themeIndex: window.terminalThemeIndex(pane.terminalId, pane.spaceIndex)

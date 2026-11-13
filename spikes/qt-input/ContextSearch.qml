@@ -11,7 +11,11 @@ TextField {
     color: tones.foreground; placeholderTextColor: tones.muted
     selectionColor: tones.accent; selectedTextColor: tones.background
     leftPadding: Design.spaceL; rightPadding: 32; font.pixelSize: Design.textBody
-    background: Rectangle { color: field.tones.background; radius: Design.radiusM; border.color: field.activeFocus ? field.tones.accent : field.tones.border }
+    // A soft wash like the buttons', no border at rest; the accent line marks focus.
+    background: Rectangle {
+        color: Design.withAlpha(field.tones.foreground, field.activeFocus ? 0.04 : field.hovered ? 0.09 : 0.06); radius: Design.radiusM
+        border.width: field.activeFocus ? Design.line : 0; border.color: field.tones.accent
+    }
     ChromeButton {
         objectName: field.objectName + "Clear"
         anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter

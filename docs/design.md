@@ -146,6 +146,25 @@ one machine is involved, which arrives with the remote runtime
 ([evaluation](remote-runtime.md)). Plain host panes stay in the local
 workspaces.
 
+### Second round from a Mac screenshot (2026-11-12)
+
+Five changes from the owner's screenshot of Band on the Mac, built there but
+not yet looked at in the running app or the gallery, and not run through the
+UI test (Linux only):
+- Terminal text starts 16 px inside the pane (12 before) and keeps at least
+  8 px below the last line; the header's icon and the top bar's workspace
+  name sit on the same left edges as the text and the pane.
+- A sidebar row's detail gives way a whole part at a time: "folder · branch"
+  drops the branch before the folder is cut short.
+- Rows and icon buttons are rounded rectangles like fields, and the current
+  one is a wash without an outline (a pill with an outline before). Text
+  buttons stay pills; a selected choice among them keeps its outline.
+- Search and filter fields (`ContextSearch`) are a soft wash without a border;
+  the accent line appears with keyboard focus.
+- A third text tone, `faint` (half way between background and foreground),
+  for sidebar details, a workspace's branch and the place in an unfocused
+  pane's header; the pane's name is medium weight.
+
 ## Still to do in stage 1
 
 - The inventory: `just design-inventory` writes
