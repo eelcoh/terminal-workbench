@@ -45,6 +45,7 @@ Item {
         width: Math.min(implicitWidth, Math.max(0, (header.room - x) * 0.5)); elide: Text.ElideRight
         text: header.name; textFormat: Text.PlainText; font.pixelSize: Design.textSmall; font.weight: Font.Medium
         color: header.focused ? header.tones.foreground : header.tones.muted
+        Behavior on color { ColorAnimation { duration: Design.fade } }
     }
     Text {
         id: paneTitle; objectName: "paneTitle"; x: paneName.visible ? paneName.x + paneName.width + 7 : 37; y: 10
@@ -88,6 +89,7 @@ Item {
     Row {
         id: paneActions; objectName: "paneActions"; x: parent.width - 37 - width; y: 4; spacing: Design.space2xs; visible: header.focused
         opacity: header.actionsShown ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Design.fade } }
         ChromeButton { objectName: "paneWidthButton"; tones: header.tones; height: 24; focusPolicy: Qt.NoFocus; iconName: "width"; hint: "Cycle width"; keys: studyShortcuts.labels["cycle-width"] || ""; onClicked: header.widthClicked() }
         ChromeButton {
             objectName: "paneFullButton"; tones: header.tones; height: 24; focusPolicy: Qt.NoFocus; iconName: "full"; selected: header.fullWidth

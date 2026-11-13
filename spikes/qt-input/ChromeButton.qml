@@ -58,6 +58,7 @@ Button {
             : control.selected ? control.wash(0.14) : control.filled ? control.wash(0.07) : control.showFocus ? control.wash(0.07) : "transparent"
         border.width: control.showFocus ? (control.primary ? Design.lineStrong : Design.line) : control.selected && control.filled ? Design.line : 0
         border.color: control.showFocus ? (control.primary ? control.colors.foreground : control.colors.accent) : control.wash(0.3)
+        Behavior on color { ColorAnimation { duration: Design.fade } }
     }
     // A per-control tooltip stays themed and updates as its source text changes.
     ToolTip {
@@ -68,6 +69,6 @@ Button {
             Text { anchors.verticalCenter: parent.verticalCenter; text: control.hint; textFormat: Text.PlainText; color: control.colors.foreground; font.pixelSize: Design.textSmall }
             KeyChips { anchors.verticalCenter: parent.verticalCenter; keys: control.keys; tones: control.colors; plain: true }
         }
-        background: Rectangle { color: control.colors.raised; radius: Design.radiusM; border.color: control.colors.border }
+        background: Rectangle { color: control.colors.raised; radius: Design.radiusM; border.color: control.colors.border; SurfaceShadow { spread: 10; strength: 0.26 } }
     }
 }

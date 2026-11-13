@@ -50,6 +50,8 @@ Item {
                 Rectangle {
                     anchors.centerIn: parent; width: parent.marker.selected ? 24 : 14; height: 8; radius: 4
                     color: parent.marker.selected ? topbar.accent : topbar.inView(parent.position) ? topbar.tones.muted : topbar.tones.border
+                    Behavior on width { NumberAnimation { duration: Design.fade; easing.type: Easing.OutCubic } }
+                    Behavior on color { ColorAnimation { duration: Design.fade } }
                 }
                 Rectangle {
                     x: parent.width - 5; y: 1; width: 4; height: 4; radius: 2; color: topbar.tones.waiting

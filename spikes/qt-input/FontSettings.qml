@@ -13,7 +13,7 @@ Dialog {
     width: Math.min(480, parent.width - 64); padding: Design.space2xl; modal: true
     closePolicy: Popup.CloseOnEscape
     title: "Terminal text"
-    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border }
+    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border; SurfaceShadow {} }
     header: Label { text: popup.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: popup.tones.foreground; font.pixelSize: Design.textTitle }
     // Settings in cards (owner, 2026-11-12, after Rex).
     contentItem: Column {

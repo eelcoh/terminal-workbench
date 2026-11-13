@@ -13,7 +13,7 @@ Dialog {
     width: Math.min(600, parent.width - 64); height: Math.min(570, parent.height - 64)
     padding: Design.space2xl; modal: true
     closePolicy: recordingActive ? Popup.NoAutoClose : Popup.CloseOnEscape
-    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border }
+    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border; SurfaceShadow {} }
     header: Label { text: popup.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: popup.tones.foreground; font.pixelSize: Design.textTitle }
     function startRecording(id) { selectedAction = id; recording = id; recorder.contentItem.forceActiveFocus() }
     contentItem: Column {
@@ -80,7 +80,7 @@ Dialog {
         width: Math.min(360,parent.width); padding: Design.space2xl; modal: true; focus: true
         closePolicy: Popup.NoAutoClose
         visible: popup.recordingActive
-        background: Rectangle { color: popup.tones.raised; radius: Design.radiusL; border.color: popup.tones.accent }
+        background: Rectangle { color: popup.tones.raised; radius: Design.radiusL; border.color: popup.tones.accent; SurfaceShadow {} }
         contentItem: Column {
             focus: true
             Keys.onShortcutOverride: event => event.accepted = true

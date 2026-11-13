@@ -41,7 +41,7 @@ Dialog {
     modal: true; width: Math.min(implicitWidth, parent.width - 64); height: Math.min(implicitHeight, parent.height - 64)
     padding: Design.space2xl; closePolicy: Popup.CloseOnEscape
     Overlay.modal: Rectangle { color: "transparent" }
-    background: Rectangle { color: picker.tones.raised; radius: Design.radiusXl; border.width: Design.line; border.color: picker.tones.border }
+    background: Rectangle { color: picker.tones.raised; radius: Design.radiusXl; border.width: Design.line; border.color: picker.tones.border; SurfaceShadow {} }
     header: Label { width: picker.width; text: picker.title; textFormat: Text.PlainText; padding: Design.space2xl; bottomPadding: Design.spaceM; color: picker.tones.foreground; font.pixelSize: Design.textTitle - 2; elide: Text.ElideRight }
     onClosed: themeHelp.close()
     onAboutToShow: preparing = true
@@ -130,7 +130,7 @@ Dialog {
         modal: true; focus: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         Overlay.modal: Rectangle { color: "transparent" }
-        background: Rectangle { color: picker.tones.raised; radius: Design.radiusL; border.width: Design.line; border.color: picker.tones.border }
+        background: Rectangle { color: picker.tones.raised; radius: Design.radiusL; border.width: Design.line; border.color: picker.tones.border; SurfaceShadow {} }
         contentItem: Column {
             spacing: Design.spaceL
             Label { text: "Add your own themes"; color: picker.tones.foreground; font.pixelSize: Design.textControl }

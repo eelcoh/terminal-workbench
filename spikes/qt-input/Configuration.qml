@@ -14,7 +14,7 @@ Dialog {
     width: Math.min(620,parent.width-64); height: Math.min(640,parent.height-64)
     padding: Design.space2xl; modal: true; focus: true; closePolicy: Popup.CloseOnEscape
     title: "Configuration"
-    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border }
+    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border; SurfaceShadow {} }
     header: Label { text: popup.title; padding: Design.space2xl; bottomPadding: Design.spaceM; font.pixelSize: Design.textTitle; color: popup.tones.foreground }
     contentItem: Flickable {
         contentWidth: width; contentHeight: fields.height; clip: true

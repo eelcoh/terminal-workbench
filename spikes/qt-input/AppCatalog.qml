@@ -39,7 +39,7 @@ Dialog {
     width: Math.min(960, parent.width - 64); height: parent.height - 64
     padding: Design.spaceXl; modal: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    background: Rectangle { color: catalog.tones.raised; radius: Design.radiusXl; border.color: catalog.tones.border }
+    background: Rectangle { color: catalog.tones.raised; radius: Design.radiusXl; border.color: catalog.tones.border; SurfaceShadow {} }
     onOpened: { search.clear(); currentId = ""; showSources = false; Qt.callLater(selectFirst); search.forceActiveFocus() }
     onShowSourcesChanged: Qt.callLater(function() { if (showSources) sourcesList.forceActiveFocus(Qt.TabFocusReason); else search.forceActiveFocus() })
     onRowsChanged: {

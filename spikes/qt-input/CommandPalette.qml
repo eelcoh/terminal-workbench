@@ -20,7 +20,7 @@ Dialog {
     implicitWidth: 600; width: Math.min(implicitWidth, parent.width - 64)
     height: Math.min(420, parent.height - 64); padding: 0; modal: true
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-    background: Rectangle { color: commandPopup.tones.raised; radius: Design.radiusXl; border.width: Design.line; border.color: commandPopup.tones.border }
+    background: Rectangle { color: commandPopup.tones.raised; radius: Design.radiusXl; border.width: Design.line; border.color: commandPopup.tones.border; SurfaceShadow {} }
     onOpened: { search.clear(); results.currentIndex = 0; search.forceActiveFocus() }
     onMatchesChanged: results.currentIndex = 0
     function step(delta) { if (matches.length) { results.currentIndex = (results.currentIndex + delta + matches.length) % matches.length; results.positionViewAtIndex(results.currentIndex, ListView.Contain) } }

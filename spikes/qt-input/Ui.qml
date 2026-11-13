@@ -259,7 +259,7 @@ ApplicationWindow {
         navigationHidden = false
         navigationOverride = !navigationPinned
         if (navigationDocked) drawer.close()
-        else drawer.open()
+        else drawer.open(true)      // the panel stays where it was; only the scrim arrives
     }
     function jumpWaiting(direction) {
         rebuildOverview()
@@ -913,6 +913,7 @@ ApplicationWindow {
     }
     readonly property color accent: chrome.accent
     readonly property int motion: reducedMotion ? 0 : Design.motionMove
+    Binding { target: Design; property: "reducedMotion"; value: window.reducedMotion }
     function panel(i) { return panels.itemAt(i) }
     // What a pane runs and where, shared by pane headers and sidebar rows: its
     // kind, the app, agent or foreground program, and its folder or repository.
@@ -921,9 +922,11 @@ ApplicationWindow {
         const f = pane.facts
         const host = pane.app ? hostOf(pane.appId) : null
         const kind = host ? "host" : pane.app ? "app" : f.agent ? "agent" : "shell"
+        const name = kind === "host" || kind === "app" ? pane.appName : kind === "agent" ? f.agent : (f.process || "")
+        const place = host ? host.destination + (host.directory ? " · " + host.directory : "") : f.title || "Terminal"
+        // A place that only repeats the name ("syros syros") is left out.
         return {kind: kind, icon: kind === "host" ? "host" : kind === "app" ? "apps" : kind === "agent" ? "agents" : "shell",
-            name: kind === "host" || kind === "app" ? pane.appName : kind === "agent" ? f.agent : (f.process || ""),
-            place: host ? host.destination + (host.directory ? " · " + host.directory : "") : f.title || "Terminal", dirty: !!f.dirty}
+            name: name, place: name && place === name ? "" : place, dirty: !!f.dirty}
     }
     function paneWidth(i) { return Math.max(240, (deck.width + 12) * (fullWidths[i] ? 1 : widths[i]) - 12) }
     function left(i) { if (i < 0 || i >= terminalModel.count) return 0; let x = 0; const items = indices(terminalModel.get(i).spaceIndex); for (let j of items) { if (j === i) break; x += paneWidth(j) + 12 } return x }
@@ -1236,6 +1239,7 @@ ApplicationWindow {
                 color: paneTones.background; radius: Design.radiusL
                 border.width: window.overview ? 0 : Design.line
                 border.color: focusMarked ? Design.focusBorder(paneTones) : paneTones.border
+                Behavior on border.color { ColorAnimation { duration: Design.fade } }
                 Rectangle {
                     objectName: "paneFocusGlow"; z: 2; visible: pane.focusMarked
                     anchors.fill: parent; anchors.margins: Design.line; radius: Design.radiusL - Design.line
@@ -1295,9 +1299,12 @@ ApplicationWindow {
                 // background, so its background is unchanged and text loses some contrast.
                 // dim-unfocused-panes = false in config.conf turns it off.
                 Rectangle {
-                    objectName: "paneDim"; anchors.fill: terminal; visible: opacity > 0
+                    id: paneDim; objectName: "paneDim"; anchors.fill: terminal
+                    // The pane left behind fades back; the one taking focus clears at once.
+                    readonly property bool on: studyConfiguration.dimUnfocused && !window.overview && window.selected >= 0 && window.selected !== pane.index
                     color: studyThemes.theme(terminal.themeIndex).background
-                    opacity: studyConfiguration.dimUnfocused && !window.overview && window.selected >= 0 && window.selected !== pane.index ? 0.18 : 0
+                    visible: on; opacity: on ? 0.18 : 0
+                    Behavior on opacity { enabled: paneDim.on; NumberAnimation { duration: Design.fade } }
                 }
                 readonly property var lifecycle: studySession.lifecycle[terminalId] || ({state: "unavailable", message: "Checking terminal status…", busy: false})
                 onLifecycleChanged: if (app && lifecycle.state === "stopped" && !lifecycle.busy) window.appEnded(index)
@@ -1457,22 +1464,31 @@ ApplicationWindow {
         // A press on the sidebar toggle reaches it, so it closes the drawer itself.
         onPressed: mouse => { if (sidebarToggle.contains(mapToItem(sidebarToggle, mouse.x, mouse.y))) mouse.accepted = false; else drawer.close() }
         onWheel: wheel => wheel.accepted = true
-        Rectangle { anchors.fill: parent; color: "#000000"; opacity: 0.5 * drawer.opacity }
+        // The scrim fades in on its own, also when the panel opens in place.
+        Rectangle {
+            anchors.fill: parent; color: "#000000"; opacity: drawer.visible ? 0.5 : 0
+            Behavior on opacity { NumberAnimation { duration: Design.fade } }
+        }
     }
     FocusScope {
         id: drawer; objectName: "navigationDrawer"; x: 0; y: 40; z: 51; width: 244; height: window.height - 40; visible: false; opacity: 0
         property alias contentItem: drawerContent
         signal opened()
         signal closed()
-        function open() {
+        // Unpinning opens it in place of the pinned sidebar: without the fade
+        // the panel does not blink away and back.
+        property bool instant: false
+        function open(inPlace) {
             if (visible) return
+            instant = !!inPlace
             visible = true; opacity = 1; forceActiveFocus(Qt.OtherFocusReason); opened()
+            instant = false
         }
         function close() {
             if (!visible) return
             visible = false; opacity = 0; closed()
         }
-        Behavior on opacity { enabled: !window.reducedMotion && drawer.visible; NumberAnimation { duration: Design.motionQuick } }
+        Behavior on opacity { enabled: !window.reducedMotion && drawer.visible && !drawer.instant; NumberAnimation { duration: Design.motionQuick } }
         Keys.onEscapePressed: close()
         Rectangle { anchors.fill: parent; color: window.chrome.sidebar; border.color: window.chrome.border }
         Item { id: drawerContent; anchors.fill: parent }
@@ -1638,7 +1654,7 @@ ApplicationWindow {
         width: Math.min(440, window.width - 64); padding: Design.space2xl
         closePolicy: studySession.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
         title: window.actionKind === "session-stop" ? "Stop all terminals?" : window.actionKind === "workspace-close" ? "Remove workspace?" : window.actionKind === "close" ? "Close terminal?" : "Move terminal here?"
-        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border; SurfaceShadow {} }
         header: Label { text: terminalAction.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         contentItem: Column {
             spacing: Design.spaceXl
@@ -1668,7 +1684,7 @@ ApplicationWindow {
         property string theme: ""
         implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: Design.space2xl
         title: "Add host"
-        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border; SurfaceShadow {} }
         header: Label { text: hostDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         onOpened: hostDestination.forceActiveFocus()
         function save() {
@@ -1731,7 +1747,7 @@ ApplicationWindow {
         id: hostChooser; objectName: "hostChooser"
         implicitWidth: 460; width: Math.min(460, window.width - 80); anchors.centerIn: parent; modal: true; padding: Design.spaceL
         title: "New host pane"
-        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border; SurfaceShadow {} }
         header: Label { text: hostChooser.title; padding: Design.space2xl; bottomPadding: Design.spaceXs; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         function choose(id) { close(); window.connectHost(id) }
         // Runs here, not in the row: removing rebuilds the rows.
@@ -1819,7 +1835,7 @@ ApplicationWindow {
         implicitWidth: 460
         title: window.workspaceFormMode === "rename" ? "Rename workspace" : window.workspaceFormMode === "folder" ? "Workspace folder" : "New workspace"; anchors.centerIn: parent; modal: true; width: Math.min(460, window.width - 80)
         padding: Design.space2xl
-        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border; SurfaceShadow {} }
         header: Label { text: createDialog.title; padding: Design.space2xl; bottomPadding: Design.spaceS; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         closePolicy: studySession.busy || window.folderBrowserOpen ? Popup.NoAutoClose : Popup.CloseOnEscape
         contentItem: Column {
@@ -1943,7 +1959,7 @@ ApplicationWindow {
     Dialog {
         id: help; implicitWidth: 560; implicitHeight: 460; width: Math.min(implicitWidth, window.width - 64); height: Math.min(implicitHeight, window.height - 64); title: "Keyboard shortcuts"; anchors.centerIn: parent; modal: true; standardButtons: Dialog.Close
         padding: Design.spaceXl
-        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border }
+        background: Rectangle { color: window.chrome.raised; radius: Design.radiusXl; border.color: window.chrome.border; SurfaceShadow {} }
         header: Label { text: help.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: window.chrome.foreground; font.pixelSize: Design.textTitle }
         footer: Item {
             implicitHeight: 56

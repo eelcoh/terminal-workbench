@@ -12,7 +12,7 @@ Popup {
     modal: true; dim: false; focus: true; padding: Design.spaceL
     closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     height: 124
-    background: Rectangle {color: popup.tones.raised;radius: Design.radiusXl;border.color: popup.tones.border}
+    background: Rectangle {color: popup.tones.raised;radius: Design.radiusXl;border.color: popup.tones.border; SurfaceShadow {} }
     onOpened: {query.text = "";query.forceActiveFocus(Qt.TabFocusReason)}
     onClosed: {if(controller)controller.close();controller = null;finished()}
     onResultChanged: if(visible && !result.active) close()

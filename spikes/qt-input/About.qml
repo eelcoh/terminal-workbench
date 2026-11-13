@@ -15,7 +15,7 @@ Dialog {
     padding: Design.space2xl; modal: true; focus: true
     closePolicy: Popup.CloseOnEscape
     title: "Band"
-    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border }
+    background: Rectangle { color: popup.tones.raised; radius: Design.radiusXl; border.color: popup.tones.border; SurfaceShadow {} }
     header: Label { text: popup.title; padding: Design.space2xl; bottomPadding: Design.spaceM; color: popup.tones.foreground; font.pixelSize: Design.textTitle }
     contentItem: Item {
         Label { id: revision; width: parent.width; text: popup.build.summary; textFormat: Text.PlainText; color: popup.tones.muted; font.pixelSize: Design.textBody; elide: Text.ElideMiddle }

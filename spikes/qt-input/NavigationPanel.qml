@@ -96,7 +96,7 @@ Item {
         tones: host.chrome; height: 28; selected: navigation.kindOn(kind); onClicked: host.toggleKind(kind)
     }
     Row {
-        id: kindRow; x: 14; y: 12; spacing: Design.spaceXs
+        id: kindRow; x: 18; y: 12; spacing: Design.spaceXs
         KindButton { objectName: "shellsButton"; kind: "shells"; iconName: "shell"; hint: "Shells" }
         KindButton { objectName: "appsButton"; kind: "apps"; iconName: "apps"; hint: "Apps" }
         KindButton { objectName: "hostsButton"; kind: "hosts"; iconName: "host"; hint: "Hosts" }
@@ -269,7 +269,7 @@ Item {
     }
     // The pin at the foot's right: pinned, the sidebar keeps its column.
     ChromeButton {
-        objectName: "navigationPin"; anchors.right: parent.right; anchors.rightMargin: 14; y: createFooter.y; height: 28
+        objectName: "navigationPin"; anchors.right: parent.right; anchors.rightMargin: 18; y: createFooter.y; height: 28
         tones: host.chrome; iconName: "pin"; selected: host.navigationPinned
         enabled: host.width >= 920 || host.navigationPinned
         hint: host.navigationPinned ? "Unpin navigation" : host.width < 920 ? "Widen the window to pin navigation" : "Pin navigation"
@@ -277,7 +277,7 @@ Item {
     }
     // The "new" actions, each with its chord.
     Row {
-        id: createFooter; x: 14; y: parent.height - height - 14; spacing: Design.spaceXs
+        id: createFooter; x: 18; y: parent.height - height - 14; spacing: Design.spaceXs
         FooterAction {
             objectName: "newWorkspaceButton"; iconName: "workspaces-add"; label: "New workspace…"; chord: studyShortcuts.labels["new-workspace"] || ""; enabled: host.canCreateWorkspace
             onActivated: host.newWorkspace()

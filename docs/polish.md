@@ -72,8 +72,8 @@ its own.
    (selected while full) and close as icon buttons on the focused pane's
    header, with key chips in their tooltips; they never take keyboard focus.
    Unfocused panes get a veil of the terminal's own background (18%), which
-   lowers text contrast and leaves the background itself unchanged; it switches
-   instantly, so reduced motion needs nothing extra. `dim-unfocused-panes =
+   lowers text contrast and leaves the background itself unchanged; it fades in
+   over 120 ms since 2026-11-13, instantly under reduced motion. `dim-unfocused-panes =
    false` in `[view]` turns the dim off (2026-11-11).
 5. **First run in a pane.** Appearance (Auto/Light/Dark, theme cards with live
    previews, sidebar pinned or not), agent launchers, *pick your apps* from the

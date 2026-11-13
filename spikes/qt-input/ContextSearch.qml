@@ -15,6 +15,7 @@ TextField {
     background: Rectangle {
         color: Design.withAlpha(field.tones.foreground, field.activeFocus ? 0.04 : field.hovered ? 0.09 : 0.06); radius: Design.radiusM
         border.width: field.activeFocus ? Design.line : 0; border.color: field.tones.accent
+        Behavior on color { ColorAnimation { duration: Design.fade } }
     }
     ChromeButton {
         objectName: field.objectName + "Clear"

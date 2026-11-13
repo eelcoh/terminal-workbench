@@ -165,6 +165,30 @@ UI test (Linux only):
   for sidebar details, a workspace's branch and the place in an unfocused
   pane's header; the pane's name is medium weight.
 
+### Third round (2026-11-13)
+
+The owner installed the second round on the Mac and kept it. Five more, built
+and packaged there (the bundle check loads the client); not yet looked at in
+the running app, and not run through the UI test (Linux only):
+- A host pane whose place only repeats its name ("syros syros") shows the
+  name alone, in the header and the sidebar.
+- The focused pane's hairline is a quarter of the way to the accent (0.4
+  before): with the rest softer it had become the hardest line in the window.
+- The sidebar's kind filters, "new" icons and pin sit 18 px in (14 before),
+  their glyphs on the rows' left edge.
+- Small state changes fade over 120 ms (`Design.fade`, zero under reduced
+  motion): a button's hover, press and selection, a search field's wash, the
+  focused pane's hairline and name, the pane actions, and the top bar's
+  markers. The dim fades in on the pane left behind and clears at once on the
+  pane taking focus.
+- Floating surfaces (menus, dialogs, the command menu, tooltips) cast a soft
+  shadow (`SurfaceShadow`: stacked translucent rounded rectangles, no effects
+  module).
+
+Seen on the Mac afterwards (owner: it works). Unpinning the sidebar made it
+blink away and back, the drawer fading in where the pinned panel had been;
+it now opens in place and only the scrim fades in.
+
 ## Still to do in stage 1
 
 - The inventory: `just design-inventory` writes
