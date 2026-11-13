@@ -12,7 +12,7 @@ import tempfile
 import threading
 import time
 import uuid
-from session_smoke import attach, send, expect, wait_until
+from session_smoke import attach, send, expect, wait_until, named_sleep
 from agent_smoke import snapshot
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -30,7 +30,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='wb-watch-real-') as temporary:
         root = Path(temporary);path=root/'live.sock';catalog(root,['live','missing'])
         before=(root/'workspaces.json').read_bytes()
-        fixture=root/'codex';shutil.copyfile(shutil.which('sleep'),fixture);fixture.chmod(0o700)
+        fixture=root/'codex';named_sleep(fixture)
         server=subprocess.Popen([runtime,str(path),'/bin/sh'],cwd=root,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         viewer=watcher=None
         try:

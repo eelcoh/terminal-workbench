@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from session_smoke import attach, send, read_frame, wait_until, expect
+from session_smoke import attach, send, read_frame, wait_until, expect, named_sleep
 
 binary = str(Path(sys.argv[1]).resolve())
 with tempfile.TemporaryDirectory(prefix='wb-context-test-') as directory:
@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory(prefix='wb-context-test-') as directory:
         until(cwd=str(root),repository='',branch='')
         until(cwd=str(tree),detached=True)
         # Remote clients must not advertise their local directory as remote context.
-        shutil.copy('/bin/sleep',fake/'ssh')
+        named_sleep(fake/'ssh')
         send(connection,16,(shlex.quote(str(fake/'ssh'))+' 4\n').encode())
         until(available=False,source='remote-unavailable',cwd='')
         until(cwd=str(tree),detached=True)

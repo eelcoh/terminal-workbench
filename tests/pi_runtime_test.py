@@ -1,11 +1,11 @@
 """Pi wire/ownership contracts with a named native fixture, not live CLI evidence."""
 import json,os,shlex,shutil,socket,struct,subprocess,sys,tempfile,uuid
 from pathlib import Path
-from session_smoke import attach,send,read_frame,wait_until,expect
+from session_smoke import attach,send,read_frame,wait_until,expect,named_sleep
 from agent_smoke import snapshot
 runtime=str(Path(sys.argv[1]).resolve())
 with tempfile.TemporaryDirectory(prefix='band-pi-wire-') as temporary:
-    root=Path(temporary);path=root/'pi.sock';fixture=root/'pi';shutil.copyfile(shutil.which('sleep'),fixture);fixture.chmod(0o700)
+    root=Path(temporary);path=root/'pi.sock';fixture=root/'pi';named_sleep(fixture)
     with (root/'runtime.log').open('w') as log:
         server=subprocess.Popen([runtime,str(path),'/bin/sh'],cwd=root,stdout=log,stderr=log)
         viewer=None;watchers=[]

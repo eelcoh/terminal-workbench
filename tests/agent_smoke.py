@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from session_smoke import attach, send, read_frame, wait_until, expect
+from session_smoke import attach, send, read_frame, wait_until, expect, named_sleep
 
 def snapshot(runtime, path):
     result = subprocess.run([runtime, "inspect", str(path)], check=True, capture_output=True, text=True, timeout=5)
@@ -22,8 +22,7 @@ def main():
         root = Path(directory)
         path = root / "session.sock"
         fixture = root / "codex"
-        shutil.copyfile(shutil.which("sleep"), fixture)
-        fixture.chmod(0o700)
+        named_sleep(fixture)
         with (root / "runtime.log").open("w+") as log:
             process = subprocess.Popen([runtime, str(path), "/bin/sh"], cwd=root, stdout=log, stderr=log)
             viewer = watcher = None

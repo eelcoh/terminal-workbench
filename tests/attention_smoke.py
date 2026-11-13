@@ -11,7 +11,7 @@ import sys
 import tempfile
 import uuid
 from agent_smoke import snapshot
-from session_smoke import attach, send, read_frame, wait_until
+from session_smoke import attach, send, read_frame, wait_until, named_sleep
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -22,8 +22,7 @@ def main():
             root = Path(directory)
             path = root / 'session.sock'
             fixture = root / agent
-            shutil.copyfile(shutil.which('sleep'), fixture)
-            fixture.chmod(0o700)
+            named_sleep(fixture)
             process = subprocess.Popen([runtime, str(path), '/bin/sh'], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             viewer = legacy = watch = None
             try:

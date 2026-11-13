@@ -20,6 +20,22 @@ def wait_until(predicate, timeout=5):
         time.sleep(0.02)
     raise AssertionError("timed out waiting for test condition")
 
+def named_sleep(target):
+    """Put `sleep` at `target`, so the runtime sees a process with that name.
+
+    macOS kills a copy of a system binary (its signature is bound to the
+    platform path) and names a process by the path it was started with, so a
+    link stands in there. Linux resolves links, so it needs the copy.
+    """
+    import shutil
+    source = shutil.which("sleep")
+    if sys.platform == "darwin":
+        os.symlink(source, target)
+    else:
+        shutil.copyfile(source, target)
+        os.chmod(target, 0o700)
+    return target
+
 def send(connection, kind, payload):
     connection.sendall(struct.pack("!BI", kind, len(payload)) + payload)
 
