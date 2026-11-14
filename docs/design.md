@@ -238,6 +238,22 @@ running window:
   looked right there; in the running window they are unseen. Linux has no
   symbol set and draws as before.
 
+### The accent means focus and selection only (2026-11-14)
+
+The accent also marked uncommitted changes (the dot in a pane header, a
+sidebar pane row and a collapsed workspace row) and a working agent's sidebar
+icon, so one color carried three meanings. Now:
+
+- accent: the focused pane, the selected row or marker, keyboard focus, the
+  main action, text selection and drop targets;
+- `waiting` (amber): something needs you; `ready` (green): an agent is done;
+- `changed` (a new tone, the muted text color): uncommitted changes;
+- a working agent's icon is the plain foreground, a step brighter than a
+  shell's muted icon.
+
+The gallery shows the fourth tone. Built and packaged on the Mac; unseen in a
+running window and on Linux.
+
 ## Still to do in stage 1
 
 - The inventory: `just design-inventory` writes

@@ -113,7 +113,7 @@ Rectangle {
                             KeyChips { tones: column.t; keys: "Super+Alt+Right"; plain: true }
                             KeyChips { tones: column.t; keys: "⌘⇧P"; plain: true }
                             Repeater {
-                                model: ["accent", "ready", "waiting"]
+                                model: ["accent", "ready", "waiting", "changed"]
                                 Row {
                                     required property string modelData
                                     height: 18; spacing: Design.spaceXs

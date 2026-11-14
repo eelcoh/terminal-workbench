@@ -229,7 +229,8 @@ Item {
                                 // without a program name the folder leads.
                                 kindIcon: identity.icon; title: identity.name || identity.place; dirty: identity.dirty
                                 detail: identity.name ? identity.place : ""      // the place already names repository and branch
-                                iconTone: kind === "agent" ? (facts.needs_input ? "waiting" : facts.state === "Ready" ? "ready" : "accent")
+                                // A working agent is the plain foreground: the accent marks only focus and selection.
+                                iconTone: kind === "agent" ? (facts.needs_input ? "waiting" : facts.state === "Ready" ? "ready" : "foreground")
                                     : kind === "app" ? (pane && pane.appStopped ? "waiting" : "ready") : "muted"
                                 onClicked: host.choosePane(modelData)
                                 ChromeButton {

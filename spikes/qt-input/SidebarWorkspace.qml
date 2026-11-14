@@ -34,7 +34,7 @@ ChromeButton {
                 Rectangle { width: 5; height: 5; radius: 3; anchors.verticalCenter: parent.verticalCenter; color: entry.tones.waiting }
                 Text { text: String(entry.waiting); color: entry.tones.waiting; font.pixelSize: Design.textCaption; anchors.verticalCenter: parent.verticalCenter }
             }
-            Rectangle { objectName: "workspaceDirty" + entry.row; visible: !entry.expanded && entry.dirty; width: 6; height: 6; radius: 3; anchors.verticalCenter: workspaceName.verticalCenter; color: entry.tones.accent }
+            Rectangle { objectName: "workspaceDirty" + entry.row; visible: !entry.expanded && entry.dirty; width: 6; height: 6; radius: 3; anchors.verticalCenter: workspaceName.verticalCenter; color: entry.tones.changed }
         }
         Row {
             id: totals; anchors.right: parent.right; anchors.rightMargin: Design.spaceL + entry.trailingRoom; anchors.verticalCenter: parent.verticalCenter; spacing: Design.spaceM

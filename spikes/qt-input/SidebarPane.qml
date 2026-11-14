@@ -8,7 +8,7 @@ import Band.Design
 ChromeButton {
     id: entry
     property string kindIcon: "shell"
-    property string iconTone: "muted"   // a tones key: muted, accent, ready, waiting
+    property string iconTone: "muted"   // a tones key: muted, foreground, ready, waiting
     property string title
     property string detail
     property bool dirty: false
@@ -25,7 +25,7 @@ ChromeButton {
         }
         Rectangle {
             id: dirtyMark; visible: entry.dirty; anchors.left: paneName.right; anchors.leftMargin: Design.spaceS; anchors.verticalCenter: paneName.verticalCenter
-            width: 6; height: 6; radius: 3; color: entry.tones.accent
+            width: 6; height: 6; radius: 3; color: entry.tones.changed
         }
         // The detail gives way a whole part at a time ("folder · branch" drops
         // the branch first); only its first part is cut short.

@@ -58,7 +58,7 @@ Item {
     Rectangle {
         id: dirtyMark; objectName: "paneDirty"; visible: header.dirty
         x: paneTitle.x + paneTitle.width + 7; y: 15; width: 6; height: 6; radius: 3
-        color: header.tones.accent
+        color: header.tones.changed
         Accessible.role: Accessible.StaticText; Accessible.name: "Uncommitted changes"
         MouseArea { id: dirtyArea; anchors.fill: parent; anchors.margins: -5; hoverEnabled: true; acceptedButtons: Qt.NoButton }
         ToolTip.visible: dirtyArea.containsMouse; ToolTip.delay: 400; ToolTip.text: "Uncommitted changes"
