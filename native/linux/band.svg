@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 112 112">
+  <title>Band</title>
+  <clipPath id="tile"><rect width="112" height="112" rx="25"/></clipPath>
+  <g clip-path="url(#tile)">
+    <rect width="112" height="112" fill="#17171d"/>
+    <rect x="-14" y="31" width="30" height="50" rx="6" fill="#3a3a46"/>
+    <rect x="24" y="31" width="46" height="50" rx="6" fill="#e9b66a"/>
+    <rect x="78" y="31" width="24" height="50" rx="6" fill="#3a3a46"/>
+    <rect x="110" y="31" width="30" height="50" rx="6" fill="#3a3a46"/>
+    <path d="M34 47L42 56L34 65M48 65L60 65" fill="none" stroke="#17171d" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

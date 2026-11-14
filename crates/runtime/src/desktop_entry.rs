@@ -41,6 +41,16 @@ fn entry(launcher: &Path, container: Option<&str>) -> Result<String> {
         Some(_) => "distrobox".to_owned(),
         None => launcher.replace('\\', "\\\\"),
     };
+    // The release's own icon, two folders up from bin/band; a build without
+    // it falls back to the desktop's terminal icon. An absolute path is a
+    // valid Icon value, so nothing is installed outside the release.
+    let icon = Path::new(launcher.as_ref())
+        .parent()
+        .and_then(Path::parent)
+        .map(|root| root.join("share/icons/band.svg"))
+        .filter(|path| path.is_file())
+        .map(|path| path.to_string_lossy().replace('\\', "\\\\"))
+        .unwrap_or_else(|| "utilities-terminal".to_owned());
     Ok([
         "[Desktop Entry]",
         "Type=Application",
@@ -49,7 +59,7 @@ fn entry(launcher: &Path, container: Option<&str>) -> Result<String> {
         "Comment=Terminal with scrolling workspaces",
         &format!("Exec={exec}"),
         &format!("TryExec={try_exec}"),
-        "Icon=utilities-terminal",
+        &format!("Icon={icon}"),
         "Terminal=false",
         "Categories=System;TerminalEmulator;",
         &format!("StartupWMClass={APP_ID}"),
@@ -185,6 +195,20 @@ mod tests {
             .contains(r#"Exec="distrobox" "enter" "build-machine" "--" "/home/me/band/bin/band""#));
         assert!(boxed.contains("TryExec=distrobox"));
         assert!(entry(Path::new("/bad\npath"), None).is_err());
+        assert!(text.contains("Icon=utilities-terminal\n"));
+    }
+
+    #[test]
+    fn the_entry_names_the_release_icon_when_it_is_there() {
+        let root = std::env::temp_dir().join(format!("wb-desktop-icon-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("bin")).unwrap();
+        fs::create_dir_all(root.join("share/icons")).unwrap();
+        let icon = root.join("share/icons/band.svg");
+        fs::write(&icon, "<svg/>").unwrap();
+        let text = entry(&root.join("bin/band"), Some("box")).unwrap();
+        assert!(text.contains(&format!("Icon={}\n", icon.display())));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

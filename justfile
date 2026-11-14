@@ -37,6 +37,7 @@ check: runtime-build
     python3 tests/agent_watch_test.py target/debug/band-session
     python3 tests/copilot_observer_test.py target/debug/band-session
     python3 scripts/prepare-theme-catalog.py --check
+    python3 scripts/make-icon.py --check
     python3 tests/core_headers_test.py
     python3 tests/terminal_search_vt_test.py
     python3 tests/config_path_test.py target/debug/band-session

@@ -90,6 +90,9 @@ def assemble_linux(parent, runtime, viewer):
     (root / 'bin/band').write_text(LAUNCHER)
     (root / 'bin/band').chmod(0o755)
     shutil.copy2(ROOT / 'docs/packaging.md', root / 'README.md')
+    # The app-menu entry names this file as its icon.
+    (root / 'share/icons').mkdir(parents=True)
+    shutil.copy2(ROOT / 'native/linux/band.svg', root / 'share/icons/band.svg')
     return root
 
 
@@ -102,11 +105,13 @@ def assemble_macos(parent, runtime, viewer, launcher, *, deploy=None, sign=True)
     payload = bundle / 'Contents/Resources/band'
     payload_files(payload, runtime, qt_bundled=deploy is not None)
     shutil.copy2(launcher, bundle / 'Contents/MacOS/Band')
+    shutil.copy2(ROOT / 'native/macos/Band.icns', bundle / 'Contents/Resources/Band.icns')
     info = bundle / 'Contents/Info.plist'
     values = plistlib.loads(info.read_bytes()) if info.exists() else {}
     values.update(CFBundleExecutable='Band', CFBundleIdentifier=APP_ID, CFBundleName='Band',
                   CFBundleDisplayName='Band', CFBundlePackageType='APPL', CFBundleVersion=version(),
-                  CFBundleShortVersionString=version(), NSHighResolutionCapable=True)
+                  CFBundleShortVersionString=version(), NSHighResolutionCapable=True,
+                  CFBundleIconFile='Band')
     # CMake may generate a read-only plist; publish a new file instead.
     info.unlink(missing_ok=True)
     info.write_bytes(plistlib.dumps(values))

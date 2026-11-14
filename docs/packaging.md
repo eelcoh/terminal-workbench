@@ -109,7 +109,25 @@ more is removed when a window opens. The Qt client still runs from the install.
 Shells started by a build from before 2026-11-03 run from the install itself;
 keep that install until they exit. See [install updates](install-updates.md).
 
+## The app icon
+
+The icon is the strip: panes side by side that run on past both edges, the
+focused one in Band's amber with a prompt in it. `scripts/make-icon.py` draws
+it from one list of shapes with the standard library only and writes
+`native/linux/band.svg` and, on macOS, `native/macos/Band.icns` (through
+`iconutil`); both files are checked in, and `just check` fails when the SVG
+no longer matches the script. After changing the shapes, run the script on a
+Mac so the `.icns` follows.
+
+- macOS: the package copies `Band.icns` into the bundle and names it in
+  `Info.plist`.
+- Linux: the archive carries `share/icons/band.svg`, and the app-menu entry
+  names that file by its absolute path, so nothing is installed outside the
+  release. An entry written before this keeps the desktop's terminal icon
+  until `--install-desktop-entry` runs again. Not yet seen on a Linux
+  desktop.
+
 ## Not yet
 
-Notarization and signing, an updater, an app icon, Flatpak or AppImage, and
+Notarization and signing, an updater, Flatpak or AppImage, and
 bundling Qt on Linux.

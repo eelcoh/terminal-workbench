@@ -173,6 +173,7 @@ def check_linux(root):
         entry = data / 'applications/io.github.eelcoh.Band.desktop'
         text = entry.read_text()
         assert 'Name=Band' in text and 'X-Band-Managed=true' in text and str(entry) in installed.stdout
+        assert (band / 'share/icons/band.svg').is_file() and 'Icon=' + str(band / 'share/icons/band.svg') + '\n' in text, text
         assert 'Exec="/bin/sh" "' + str(band / 'bin/band').replace('$', '\\\\$') + '"' in text, text
         launch('--install-desktop-entry', '--container', 'build-machine', XDG_DATA_HOME=str(data))
         assert '"distrobox" "enter" "build-machine" "--"' in entry.read_text()

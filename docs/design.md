@@ -267,6 +267,18 @@ small amber dot when it needs input, since its own color is the accent.
 The gallery's top bar shows the four widths and three states. Built and
 packaged on the Mac; unseen in a running window and on Linux.
 
+### The app icon (2026-11-14)
+
+Band had no icon of its own. The owner chose "the strip" from four sketches
+(the strip, a prompt on a band, stacked bands, a letter B): panes side by
+side that run past both edges of a near-black tile, the focused one amber
+with a prompt, the same picture as the top bar's markers. Amber is the
+brand color for now; inside the app the accent still comes from the terminal
+theme, and amber there means "needs input", which the owner has not yet
+weighed. See [packaging](packaging.md#the-app-icon) for how it is made and
+shipped. The icon is not yet shown inside the app (About, the first-run
+page).
+
 ## Still to do in stage 1
 
 - The inventory: `just design-inventory` writes
