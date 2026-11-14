@@ -77,6 +77,10 @@ int main(void)
     assert(portable_read(path,false,&view,error,sizeof(error)) && !view.dim_unfocused);
     assert(portable_read(path,true,&view,error,sizeof(error)) && view.dim_unfocused);
     assert(portable_read(NULL,false,&view,error,sizeof(error)) && view.dim_unfocused);
+    write_text(path,"band-config-v1\n[view]\nwindow-material = true\n[macos.view]\nwindow-material = false\n");
+    assert(portable_read(path,false,&view,error,sizeof(error)) && view.window_material);
+    assert(portable_read(path,true,&view,error,sizeof(error)) && !view.window_material);
+    assert(portable_read(NULL,true,&view,error,sizeof(error)) && view.window_material);
     write_text(path,"band-config-v1\n[view]\nintegrated-title-bar = yes\n");
     assert(!portable_read(path,false,&view,error,sizeof(error)));
     /* Apps: platform sections override [app.ID] fields or define a platform-only app. */

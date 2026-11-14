@@ -41,6 +41,7 @@ Dialog {
                 SettingsRow { tones: popup.tones; title: "Sidebar"; value: (popup.navigationPinned ? "Pinned" : "Drawer") + (popup.navigationInherited ? "" : " · this window's choice") }
                 SettingsRow { tones: popup.tones; title: "Motion"; value: (popup.reducedMotion ? "Reduced" : "Animated") + (popup.motionInherited ? "" : " · this window's choice") }
                 SettingsRow { tones: popup.tones; title: "Unfocused panes"; value: popup.settings.dimUnfocused ? "Dimmed" : "Not dimmed" }
+                SettingsRow { tones: popup.tones; visible: Design.apple; title: "Top bar and sidebar"; value: popup.settings.windowMaterial ? "System material" : "Opaque" }
             }
             SettingsCard {
                 tones: popup.tones; title: "New panes"

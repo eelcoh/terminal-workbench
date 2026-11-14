@@ -124,6 +124,9 @@ int main(int argc,char **argv){
     require(creationSettings.dimUnfocused(),"unfocused panes are dimmed by default");
     write(creationPath,"band-config-v1\n[view]\ndim-unfocused-panes = false\n");
     require(creationSettings.reload() && !creationSettings.dimUnfocused(),"dim-unfocused-panes = false joins live reload");
+    require(creationSettings.windowMaterial(),"the window material is on by default");
+    write(creationPath,"band-config-v1\n[view]\nwindow-material = false\n");
+    require(creationSettings.reload() && !creationSettings.windowMaterial(),"window-material = false joins live reload");
     write(creationPath,"band-config-v1\n[view]\nnavigation-pinned = true\nreduced-motion = true\n[macos.view]\nreduced-motion = false\n");
     require(creationSettings.reload(),"view defaults restored");
     const auto appleView=ViewDefaults::read(creationPath,true);

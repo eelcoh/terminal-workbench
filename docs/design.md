@@ -203,12 +203,26 @@ follows the terminal theme's light or dark. AppKit makes it opaque under
 Reduce Transparency. Linux is unchanged: its adapter reports no material and
 the window keeps its opaque color.
 
-Built and packaged on the Mac (the bundle check loads the client); not yet
-seen in a running window. Open points: there is no setting to turn it off,
-the unpinned sidebar drawer stays opaque, and the cost of behind-window
-blending while terminals repaint is unmeasured. It reaches into AppKit's
-frame view to place the material under Qt's view, which AppKit does not
-promise to keep working.
+The owner saw it in the running window on 2026-11-13 and kept it at 50%.
+Open points: the cost of behind-window blending while terminals repaint is
+unmeasured. It reaches into AppKit's frame view to place the material under
+Qt's view, which AppKit does not promise to keep working.
+
+Added on 2026-11-14, built and packaged on the Mac but not yet seen in a
+running window:
+
+- The unpinned sidebar drawer shows the material too. The material lies under
+  the whole Qt view, so the main area and the scrim must not paint where the
+  drawer is: `WindowCutout` (`spikes/qt-input/window_cutout.cpp`) clears that
+  rectangle, a transparent rectangle drawn without blending. A separate small
+  window confirmed on the Mac (Metal) that it removes opaque, translucent and
+  clipped items below it and leaves the ones above. It relies on the scene
+  graph's depth buffer, the default renderer's behavior rather than a
+  documented promise. It is only shown while the material is on, so Linux
+  never draws it.
+- `window-material = false` in `[view]` or `[macos.view]` paints the top bar
+  and sidebar opaque again, live: the adapter hides its material view and
+  Band fills the whole window. Settings shows the state on macOS.
 
 ## Still to do in stage 1
 

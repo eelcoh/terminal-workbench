@@ -14,7 +14,10 @@ ApplicationWindow {
     color: Design.apple ? "transparent" : chrome.background
     // Whether the system material is behind the window (macOS, once shown).
     property bool material: false
-    function syncMaterial() { if (Design.apple && visible) material = titleChrome.setMaterial(window, !chrome.light) }
+    // window-material = false in config.conf turns it off.
+    readonly property bool wantsMaterial: studyConfiguration.windowMaterial
+    onWantsMaterialChanged: Qt.callLater(syncMaterial)
+    function syncMaterial() { if (Design.apple && visible) material = titleChrome.setMaterial(window, !chrome.light, wantsMaterial) }
     onVisibleChanged: Qt.callLater(syncMaterial)
     readonly property bool chromeLight: !!chrome.light
     onChromeLightChanged: Qt.callLater(syncMaterial)
@@ -1487,6 +1490,10 @@ ApplicationWindow {
             Behavior on opacity { NumberAnimation { duration: Design.fade } }
         }
     }
+    // Over the system material the open panel shows it like the pinned sidebar:
+    // the cutout clears what the main area and the scrim painted there. It sits
+    // outside the panel, whose fade would make it blend instead of clear.
+    WindowCutout { objectName: "drawerCutout"; x: drawer.x; y: drawer.y; z: 50.5; width: drawer.width; height: drawer.height; visible: drawer.visible && window.material }
     FocusScope {
         id: drawer; objectName: "navigationDrawer"; x: 0; y: 40; z: 51; width: 244; height: window.height - 40; visible: false; opacity: 0
         property alias contentItem: drawerContent
@@ -1507,7 +1514,8 @@ ApplicationWindow {
         }
         Behavior on opacity { enabled: !window.reducedMotion && drawer.visible && !drawer.instant; NumberAnimation { duration: Design.motionQuick } }
         Keys.onEscapePressed: close()
-        Rectangle { anchors.fill: parent; color: window.chrome.sidebar; border.color: window.chrome.border }
+        Rectangle { anchors.fill: parent; color: window.barColor }
+        Rectangle { anchors.right: parent.right; width: 1; height: parent.height; color: window.chrome.border }
         Item { id: drawerContent; anchors.fill: parent }
         onOpened: window.focusNavigation()
         onClosed: window.restoreAfterPopup()

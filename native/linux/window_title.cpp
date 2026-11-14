@@ -5,4 +5,4 @@
 void bandSetWindowTitleHidden(QWindow *, bool) {}
 
 // No system material on Linux: the window stays opaque.
-bool bandSetWindowMaterial(QWindow *, bool) { return false; }
+bool bandSetWindowMaterial(QWindow *, bool, bool) { return false; }

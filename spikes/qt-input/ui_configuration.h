@@ -19,6 +19,7 @@ class UiConfiguration final : public QObject {
     Q_PROPERTY(bool reducedMotion READ reducedMotion NOTIFY changed)
     Q_PROPERTY(bool integratedTitleBar READ integratedTitleBar NOTIFY changed)
     Q_PROPERTY(bool dimUnfocused READ dimUnfocused NOTIFY changed)
+    Q_PROPERTY(bool windowMaterial READ windowMaterial NOTIFY changed)
     Q_PROPERTY(int themeIndex READ themeIndex NOTIFY changed)
     Q_PROPERTY(QVariantList apps READ apps NOTIFY changed)
     Q_PROPERTY(QVariantList hosts READ hosts NOTIFY changed)
@@ -36,6 +37,7 @@ public:
     bool reducedMotion() const {return view_.reducedMotion;}
     bool integratedTitleBar() const {return view_.integratedTitleBar;}
     bool dimUnfocused() const {return view_.dimUnfocused;}
+    bool windowMaterial() const {return view_.windowMaterial;}
     QVariantList apps() const {return apps_.apps;}
     QVariantList hosts() const {return apps_.hosts;}
     int themeIndex() const {return appearance_?appearance_->themeIndex():0;}

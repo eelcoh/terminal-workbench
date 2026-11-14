@@ -516,8 +516,12 @@ later; being tried on a Mac). It applies live and is on by default;
 `dim-unfocused-panes = false` stops dimming the panes that don't have focus
 (on by default; it applies live).
 
+`window-material = false` paints the top bar and the sidebar opaque instead of
+showing the system's sidebar material behind them (macOS only, where it is on
+by default; it applies live and does nothing on Linux).
+
 These fields accept only `true` or `false`; built-in defaults are false, except
-`integrated-title-bar` and `dim-unfocused-panes`. Platform
+`integrated-title-bar`, `dim-unfocused-panes` and `window-material`. Platform
 fields override shared fields independently, regardless of section order. They
 join the existing live configuration transaction: malformed values keep all
 previous valid settings, and open settings editors defer updates.

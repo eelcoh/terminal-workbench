@@ -19,7 +19,7 @@ void bandSetWindowTitleHidden(QWindow *window, bool hidden)
 // the window itself must be transparent (Ui.qml sets its color). The material
 // follows the terminal theme's light or dark, not the system's, and AppKit
 // makes it opaque under Reduce Transparency.
-bool bandSetWindowMaterial(QWindow *window, bool dark)
+bool bandSetWindowMaterial(QWindow *window, bool dark, bool on)
 {
     NSView *view = reinterpret_cast<NSView *>(window->winId());
     if (!view || !view.window || !view.superview) return false;
@@ -27,6 +27,8 @@ bool bandSetWindowMaterial(QWindow *window, bool dark)
     NSVisualEffectView *material = nil;
     for (NSView *sibling in frame.subviews)
         if ([sibling.identifier isEqualToString:@"band-material"]) material = static_cast<NSVisualEffectView *>(sibling);
+    // Off: the view stays in place, hidden; the client then paints the whole window.
+    if (!on) { material.hidden = YES; return false; }
     if (!material) {
         material = [[NSVisualEffectView alloc] initWithFrame:frame.bounds];
         material.identifier = @"band-material";
@@ -36,6 +38,7 @@ bool bandSetWindowMaterial(QWindow *window, bool dark)
         material.state = NSVisualEffectStateFollowsWindowActiveState;
         [frame addSubview:material positioned:NSWindowBelow relativeTo:view];
     }
+    material.hidden = NO;
     material.appearance = [NSAppearance appearanceNamed:dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
     view.window.opaque = NO;
     view.window.backgroundColor = NSColor.clearColor;
