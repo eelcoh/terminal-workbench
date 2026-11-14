@@ -223,6 +223,20 @@ running window:
 - `window-material = false` in `[view]` or `[macos.view]` paints the top bar
   and sidebar opaque again, live: the adapter hides its material view and
   Band fills the whole window. Settings shows the state on macOS.
+- Menus are the system's on macOS: `ChromeMenu` asks Qt for a native popup
+  (`Popup.Native`, an `NSMenu`), so the pane menu has the system's shape,
+  animation and keyboard handling. A native item shows its text, check mark
+  and enabled state only: the key hints and Band's tones are gone there, as
+  in the menu bar. Linux keeps the drawn menu. Unverified: that closing a
+  native menu still returns focus to the terminal (`onClosed`).
+- Icons are SF Symbols on macOS: `bandSystemSymbol`
+  (`native/macos/system_symbol.mm`) maps Band's icon names to system symbols
+  and draws them in the icon's color; `ChromeIcon` uses that image when there
+  is one. Names without a symbol keep Band's drawing ("filter-off" and the
+  Linux window buttons), and the "-add" icons keep Band's small plus beside
+  the system symbol. All icons were rendered to one image on the Mac and
+  looked right there; in the running window they are unseen. Linux has no
+  symbol set and draws as before.
 
 ## Still to do in stage 1
 

@@ -27,14 +27,21 @@ static void glyph(QPainter *p,const QString &name_,const QColor &color_) {
     else if(name_=="help") {QPainterPath path;path.moveTo(8,8);path.cubicTo(8,3,17,3,17,8);path.cubicTo(17,12,12,11,12,15);p->drawPath(path);p->drawPoint(QPointF(12,20));}
 }
 void ChromeIcon::paint(QPainter *p) {
-    // Original geometric icons, independent of font fallback and terminal glyphs.
-    p->setRenderHint(QPainter::Antialiasing);p->scale(width()/24,height()/24);
+    p->setRenderHint(QPainter::Antialiasing);p->setRenderHint(QPainter::SmoothPixmapTransform);
+    // The platform's symbol where it has one (SF Symbols on macOS); "<name>-add"
+    // keeps the smaller glyph with Band's plus.
+    const bool add=name_.endsWith(QStringLiteral("-add"));
+    const qreal part=add?0.78:1,ratio=p->device()->devicePixelRatioF();
+    const auto symbol=bandSystemSymbol(add?name_.chopped(4):name_,color_,QSize(qRound(width()*part*ratio),qRound(height()*part*ratio)));
+    if(!symbol.isNull())p->drawImage(QRectF(0,0,width()*part,height()*part),symbol);
+    // Otherwise original geometric icons, independent of font fallback and terminal glyphs.
+    p->scale(width()/24,height()/24);
     p->setPen(QPen(color_,1.5,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p->setBrush(Qt::NoBrush);
     // "<name>-add": the glyph a little smaller at the top left, a small plus at the bottom right.
     if(name_.endsWith(QStringLiteral("-add"))) {
-        p->save();p->scale(0.78,0.78);glyph(p,name_.chopped(4),color_);p->restore();
+        if(symbol.isNull()){p->save();p->scale(0.78,0.78);glyph(p,name_.chopped(4),color_);p->restore();}
         p->drawLine(QPointF(19,15),QPointF(19,23));p->drawLine(QPointF(15,19),QPointF(23,19));
         return;
     }
-    glyph(p,name_,color_);
+    if(symbol.isNull())glyph(p,name_,color_);
 }
