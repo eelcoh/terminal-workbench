@@ -1128,7 +1128,8 @@ ApplicationWindow {
         focusPosition: paneIndices.indexOf(window.selected)
         markers: paneIndices.map(i => {
             const item = window.panel(i)
-            return {title: item ? item.facts.title : "Terminal", selected: window.selected === i, waiting: item !== null && !!item.facts.needs_input}
+            return {title: item ? item.facts.title : "Terminal", selected: window.selected === i, waiting: item !== null && !!item.facts.needs_input,
+                ready: item !== null && !!item.facts.agent && item.facts.state === "Ready", share: window.fullWidths[i] ? 1 : window.widths[i]}
         })
         inView: position => { const i = paneIndices[position]; return i !== undefined && window.left(i) + window.paneWidth(i) > deck.contentX && window.left(i) < deck.contentX + deck.width }
         onWorkspaceClicked: window.openNavigation([])   // every workspace, no kind filter

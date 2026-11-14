@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import Band.Design
 
-// The top bar: the workspace name, one marker per terminal in the strip, the
-// focused terminal's position, New terminal and Overview. Presentation only;
+// The top bar: the workspace name, one marker per terminal in the strip (a
+// small map of it: each marker as wide as its pane's share of the window, in
+// its state's color), the focused terminal's position, New terminal and Overview. Presentation only;
 // the window passes the markers in and handles the signals.
 Item {
     id: topbar
@@ -12,7 +13,8 @@ Item {
     property string workspaceName
     property bool overview: false
     property bool canCreate: true
-    // One entry per terminal in the workspace: {title, selected, waiting}.
+    // One entry per terminal in the workspace: {title, selected, waiting, ready,
+    // share}; share is the pane's width as a part of the window, 0 to 1.
     property var markers: []
     // Whether the terminal at a position is on screen; read per marker, so
     // scrolling the strip does not rebuild the list.
@@ -46,16 +48,24 @@ Item {
                 required property int index
                 readonly property int position: topbar.markerStart + index
                 readonly property var marker: topbar.markers[position] || ({title: "Terminal", selected: false, waiting: false})
+                readonly property real share: Math.max(0, Math.min(1, marker.share === undefined ? 0.5 : marker.share))
                 tones: topbar.tones; implicitWidth: 28; implicitHeight: 28; text: ""; hint: marker.title || "Terminal"
                 Rectangle {
-                    anchors.centerIn: parent; width: parent.marker.selected ? 24 : 14; height: 8; radius: 4
-                    color: parent.marker.selected ? topbar.accent : topbar.inView(parent.position) ? topbar.tones.muted : topbar.tones.border
+                    // Width is the pane's share (a third 13, a half 16, full 24); the
+                    // focused one is the accent and a little taller. A pane that needs
+                    // input or whose agent is ready shows that color, on screen or not;
+                    // the rest are muted on screen and fainter off it.
+                    anchors.centerIn: parent; width: Math.round(8 + 16 * parent.share); height: parent.marker.selected ? 8 : 6; radius: height / 2
+                    color: parent.marker.selected ? topbar.accent : parent.marker.waiting ? topbar.tones.waiting : parent.marker.ready ? topbar.tones.ready
+                        : topbar.inView(parent.position) ? topbar.tones.muted : topbar.tones.border
                     Behavior on width { NumberAnimation { duration: Design.fade; easing.type: Easing.OutCubic } }
+                    Behavior on height { NumberAnimation { duration: Design.fade; easing.type: Easing.OutCubic } }
                     Behavior on color { ColorAnimation { duration: Design.fade } }
                 }
                 Rectangle {
                     x: parent.width - 5; y: 1; width: 4; height: 4; radius: 2; color: topbar.tones.waiting
-                    visible: !!parent.marker.waiting
+                    // The focused marker is the accent, so its need for input is a dot.
+                    visible: !!parent.marker.waiting && !!parent.marker.selected
                 }
                 onClicked: topbar.markerClicked(position)
             }

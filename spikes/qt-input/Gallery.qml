@@ -174,7 +174,7 @@ Rectangle {
                     TopBar {
                         x: 248; y: 4; width: parent.width - x - Design.spaceL
                         tones: scene.t; workspaceName: "Band"; focusPosition: 1
-                        markers: [{title: "claude", selected: false, waiting: true}, {title: "zsh", selected: true, waiting: false}, {title: "htop", selected: false, waiting: false}]
+                        markers: [{title: "claude", selected: false, waiting: true, share: 0.5}, {title: "zsh", selected: true, waiting: false, share: 1 / 3}, {title: "codex", selected: false, ready: true, share: 2 / 3}, {title: "htop", selected: false, waiting: false, share: 1}]
                         inView: position => position < 2
                     }
                     Column {

@@ -254,6 +254,19 @@ icon, so one color carried three meanings. Now:
 The gallery shows the fourth tone. Built and packaged on the Mac; unseen in a
 running window and on Linux.
 
+### The top bar's markers are a small map of the strip (2026-11-14)
+
+The markers were equal pills, the focused one wider. Now a marker's width is
+its pane's share of the window (a third 13 px, a half 16, two thirds 19, full
+24, in the same 28 px slot), so the row reads as the strip in small. The
+focused marker is the accent and a little taller. A pane that needs input is
+amber and one whose agent is ready is green, on screen or not; the others are
+muted on screen and fainter off it, as before. The focused marker keeps the
+small amber dot when it needs input, since its own color is the accent.
+
+The gallery's top bar shows the four widths and three states. Built and
+packaged on the Mac; unseen in a running window and on Linux.
+
 ## Still to do in stage 1
 
 - The inventory: `just design-inventory` writes
